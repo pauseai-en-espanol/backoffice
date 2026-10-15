@@ -1,0 +1,50 @@
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('next/headers', () => ({ headers: vi.fn() }));
+vi.mock('next/navigation', () => ({ notFound: vi.fn(), redirect: vi.fn() }));
+
+const { parseInvitations, parseTeam } = await import('./data');
+
+const member = {
+  userId: 'u1',
+  displayName: 'Persona Ejemplo',
+  active: true,
+  roles: ['admin', 'onboarding'],
+  invitedBy: null,
+  createdAt: '2026-10-15T20:00:00.000Z',
+  deactivatedAt: null,
+};
+
+const invitation = {
+  id: 'i1',
+  email: 'nueva@ejemplo.test',
+  roles: ['outreach'],
+  state: 'pending',
+  createdAt: '2026-10-15T20:00:00.000Z',
+  expiresAt: '2026-10-22T20:00:00.000Z',
+  createdBy: { userId: 'u1', displayName: 'Persona Ejemplo' },
+};
+
+describe('parseTeam', () => {
+  it('takes the team as the API sends it', () => {
+    expect(parseTeam({ me: 'u1', staff: [member] })).toEqual({ me: 'u1', staff: [member] });
+  });
+
+  it('refuses a body it does not understand, rather than render half of it', () => {
+    expect(parseTeam({ staff: [member] })).toBeUndefined();
+    expect(parseTeam({ me: 'u1', staff: [{ ...member, roles: ['root'] }] })).toBeUndefined();
+    expect(parseTeam({ me: 'u1', staff: [{ ...member, active: 'yes' }] })).toBeUndefined();
+    expect(parseTeam(undefined)).toBeUndefined();
+  });
+});
+
+describe('parseInvitations', () => {
+  it('takes the invitations as the API sends them', () => {
+    expect(parseInvitations({ invitations: [invitation] })).toEqual([invitation]);
+  });
+
+  it('refuses an unknown state or a missing maker', () => {
+    expect(parseInvitations({ invitations: [{ ...invitation, state: 'lost' }] })).toBeUndefined();
+    expect(parseInvitations({ invitations: [{ ...invitation, createdBy: null }] })).toBeUndefined();
+  });
+});
