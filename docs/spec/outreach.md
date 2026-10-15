@@ -50,6 +50,24 @@ A one-off importer reads `campaigns/<slug>/` (`campaign.yaml`, `contacts/contact
 `anchors.yaml`, `tracking.csv`) into a campaign, its contacts and targets. After that the repo becomes the archive
 for that campaign, and new campaigns start in the app.
 
+An admin picks the files in the staff app (Campañas, "Importar del repositorio"); the page sends their text, and a
+dry run shows the counts and problems before anything is written. How the files map:
+
+- **`campaign.yaml`:** `slug`, `name`, `language`, `fromName`, `fromEmail`, `signature`. A slug already in use stops
+  the import: a campaign is imported once.
+- **Organisations:** one per distinct `org`, reused across campaigns by name; their kind starts as `other`, for staff
+  to set.
+- **Contacts:** every field carries over (`web` becomes the website, `source` the first source). The reason they
+  matter is the campaign's list itself ("Del listado de la campaña «…»"), since the repo recorded none; a contact
+  without a `source` is imported with `needs_review` set, as is one the repo marked `needsReview`. A phone or website
+  that doesn't parse is dropped, with a problem listed. The contact's `id` is kept as its external reference.
+- **Targets:** every contact not on hold, with its `priority` and `anchor`, in the status `tracking.csv` gives it
+  (`pending` if it has no row), with its dates and notes. A held contact is imported but not made a target. The
+  furthest status moves the relationship: `sent` or `bounced` to `contacted`, `replied` or `meeting` to `engaged`,
+  `declined` to `declined`. The `owner` column is kept in the target's notes, since repo names aren't accounts.
+- **Templates and anchors:** `tier-a.md` and `tier-b.md` (front matter: `subject`, `maxWords`, `sources`, `notes`),
+  and `anchors.yaml`. A template field that isn't a merge field, or an anchor without a source, is a problem.
+
 ## 5. Views
 
 Campañas (list and per-campaign board by target status), Contactos (directory with filters by tier, territory,
