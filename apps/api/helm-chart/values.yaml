@@ -123,8 +123,10 @@ airtableSync:
       cpu: 500m
       memory: 256Mi
 
-# The daily digest (M1, onboarding spec, notifications): a CronJob at 09:00 Madrid time, as pauseai_backoffice_app with
-# the system actor, by Telegram (or mail, for staff without it). Needs appDatabaseUrlSecret, and telegram or mail.
+# The daily digest (M1, onboarding spec, notifications): a CronJob at 09:00 Madrid time, by Telegram (or mail, for staff
+# without it). It reads who gets one as pauseai_backoffice_auth, and each digest as its staff member through the bot's
+# narrow functions (apps/api/src/jobs/digest.ts). Needs appDatabaseUrlSecret, auth.databaseUrlSecret, and telegram or
+# mail.
 digest:
   enabled: false
   schedule: '0 9 * * *'
@@ -137,8 +139,8 @@ digest:
       cpu: 200m
       memory: 256Mi
 
-# The bot's conversations in progress expire after an hour (M1, ADR-0004): an hourly CronJob deletes them, as
-# pauseai_backoffice_app with the system actor.
+# The bot's conversations in progress expire after an hour (M1, ADR-0004): an hourly CronJob deletes them, and processed
+# updates' ids after a week, as pauseai_backoffice_app on the bot's private tables alone.
 dialogCleanup:
   enabled: false
   schedule: '25 * * * *'

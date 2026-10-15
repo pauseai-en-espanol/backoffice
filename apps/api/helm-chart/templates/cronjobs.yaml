@@ -33,7 +33,12 @@ API's env or envFrom. The script paths are apps/api's build output (dist/jobs/*.
 {{- if not (or .Values.telegram.enabled .Values.mail.smtpUrlSecret.name) }}
 {{- fail "digest.enabled needs the bot (telegram.enabled) or mail" }}
 {{- end }}
-{{- $env := include "backoffice-api.secretEnv" (dict "name" "APP_DATABASE_URL" "secret" .Values.appDatabaseUrlSecret) }}
+{{- if not .Values.auth.databaseUrlSecret.name }}
+{{- fail "digest.enabled needs auth.databaseUrlSecret: who gets a digest, and how, are Better Auth's role's to read" }}
+{{- end }}
+{{- $env := printf "%s\n%s"
+      (include "backoffice-api.secretEnv" (dict "name" "APP_DATABASE_URL" "secret" .Values.appDatabaseUrlSecret))
+      (include "backoffice-api.secretEnv" (dict "name" "AUTH_DATABASE_URL" "secret" .Values.auth.databaseUrlSecret)) }}
 {{- if .Values.telegram.enabled }}
 {{- $env = printf "%s\n%s" $env (include "backoffice-api.telegramSendEnv" .) }}
 {{- end }}
