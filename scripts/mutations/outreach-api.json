@@ -1,0 +1,68 @@
+[
+  {
+    "name": "outreach staff import a campaign",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "                if (request.body.dryRun || result.problems.length > 0) {\n                  throw ROLLBACK;\n                }\n              },\n              ADMIN,",
+    "new": "                if (request.body.dryRun || result.problems.length > 0) {\n                  throw ROLLBACK;\n                }\n              },\n              OUTREACH,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a dry run writes the campaign",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "if (request.body.dryRun || result.problems.length > 0) {",
+    "new": "if (result.problems.length > 0) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an import with problems writes what it can",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "if (request.body.dryRun || result.problems.length > 0) {",
+    "new": "if (request.body.dryRun) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api",
+    "equivalent": "importCampaign finds every problem before it writes anything and returns without writing; the route's check is defence in depth"
+  },
+  {
+    "name": "outreach staff erase contacts in the API",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "            (trx) => eraseContact(trx, request.params.id),\n            ADMIN,",
+    "new": "            (trx) => eraseContact(trx, request.params.id),\n            OUTREACH,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api",
+    "equivalent": "private.anonymise_contact checks staff_can('admin') itself and refuses with 42501, answered 403 the same; the API's check only refuses it first"
+  },
+  {
+    "name": "a contact's email isn't checked",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "    if (out.email === undefined) {\n      throw new Refusal(400, 'invalid', { field: 'email' });\n    }",
+    "new": "    if (out.email === undefined) {\n      out.email = input.email;\n    }",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a letter with problems gets a mailto link",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "letter.ok && to.length > 0",
+    "new": "to.length > 0",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Siguiente offers a blocked target",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "rows.filter((row) => !row.blocked).map(toTarget)",
+    "new": "rows.map(toTarget)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the Bandeja shows a census answer's contact details",
+    "file": "apps/api/src/people/intake.ts",
+    "old": "? { ...row.conflicts, census: censusAnswer(row.conflicts['census']) }",
+    "new": "? { ...row.conflicts }",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  }
+]
