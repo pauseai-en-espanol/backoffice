@@ -161,3 +161,27 @@ test('the board shows every stage in words', async ({ page }) => {
     await expect(page.getByRole('heading', { name: new RegExp(label, 'u') }).first()).toBeVisible();
   }
 });
+
+test('the Panel: people by stage, arrivals by week, the first contact, and who waits with nobody', async ({
+  page,
+}) => {
+  await signedInStaff(page, ['onboarding']);
+  const response = await page.request.post('/api/intake', {
+    headers: { origin: new URL(page.url()).origin },
+    data: { name: uniqueName(), phone: phone(), decision: 'new' },
+  });
+  expect(response.status()).toBe(201);
+  await page.goto('/panel?semanas=4');
+  await expect(page.getByRole('heading', { level: 1, name: 'Panel' })).toBeVisible();
+  await expect(page.getByLabel('Periodo')).toHaveValue('4');
+  const arrivals = page.getByRole('table', { name: 'Llegadas por semana' });
+  // This week first, with the person just added among its arrivals.
+  const thisWeek = arrivals.getByRole('row').nth(1);
+  await expect(thisWeek.getByRole('cell').last()).not.toHaveText('0');
+  await expect(arrivals.getByRole('row')).toHaveCount(5);
+  await expect(
+    page.getByRole('table', { name: 'Por etapa' }).getByRole('row', { name: /Nuevo/u }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Más de 48 horas sin nadie/u })).toBeVisible();
+  await expectAccessible(page);
+});

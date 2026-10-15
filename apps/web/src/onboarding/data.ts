@@ -5,6 +5,7 @@ import { readFromApi, UNAVAILABLE, type Unavailable } from '@/data';
 import { forwardedRequest, PAGE_OF } from '@/session';
 
 import { apiQuery, type PeopleFilters } from './filters';
+import { parsePanel } from './panel/types';
 import {
   parseBandeja,
   parseBoard,
@@ -29,6 +30,9 @@ export const getPeople = (filters: PeopleFilters, cursor?: string) =>
 /** Embudo: the people by stage, for the filters (without the search text). */
 export const getBoard = (filters: PeopleFilters) =>
   readFromApi(`/api/board${apiQuery({ ...filters, q: '' })}`, parseBoard);
+
+/** The Panel (M4): the funnel's numbers over the last `weeks` weeks. */
+export const getPanel = (weeks: number) => readFromApi(`/api/panel?weeks=${weeks}`, parsePanel);
 
 export const getBandeja = () => readFromApi('/api/bandeja', parseBandeja);
 

@@ -51,7 +51,8 @@
       "imports": "Importar",
       "settings": "Ajustes",
       "menu": "Menú",
-      "census": "Censo"
+      "census": "Censo",
+      "panel": "Panel"
     },
     "home": {
       "title": "Hoy",
@@ -1061,5 +1062,31 @@
       "anchorUnknown": "{id} usa el anchor «{anchor}», que no está en anchors.yaml: su carta fallará hasta que se añada.",
       "noSource": "{id} no tiene fuente: se importa por revisar."
     }
+  },
+  "panel": {
+    "title": "Panel",
+    "intro": "Cómo va la acogida: cuántas personas hay en cada etapa, cuántas llegan cada semana y por dónde, cuánto esperan a que alguien les escriba, y quién lleva más de dos días sin nadie.",
+    "weeks": "Periodo",
+    "weeksOption": "{count, plural, one {La última semana} other {Las últimas # semanas}}",
+    "show": "Ver",
+    "byStage": "Por etapa",
+    "stage": "Etapa",
+    "people": "Personas",
+    "total": "Total",
+    "arrivals": "Llegadas por semana",
+    "arrivalsIntro": "Cada persona cuenta una vez, por la vía por la que llegó primero, en la semana en que entró en el backoffice (las importadas, la de su importación). Semanas de lunes a domingo.",
+    "week": "Semana",
+    "weekOf": "Del {date}",
+    "firstContact": "Primer contacto",
+    "firstContactText": "De las {arrived} personas llegadas en este periodo, {contacted} han recibido ya un primer intento de contacto.",
+    "firstContactNone": "Nadie de quienes llegaron en este periodo ha recibido todavía un intento de contacto.",
+    "median": "La mitad lo recibió en menos de {wait}.",
+    "p90": "Nueve de cada diez, en menos de {wait}.",
+    "hours": "{count, plural, one {# hora} other {# horas}}",
+    "days": "{count, plural, one {# día} other {# días}}",
+    "unassigned": "Más de 48 horas sin nadie ({count})",
+    "unassignedIntro": "Personas nuevas que nadie se ha quedado todavía, de la que más espera a la que menos. Ábrelas para quedártelas.",
+    "unassignedNone": "Nadie nuevo lleva más de 48 horas sin alguien que se ocupe.",
+    "arrivedOn": "Llegó el {date}"
   }
 }

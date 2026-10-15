@@ -52,6 +52,9 @@ export const AppShell = ({
                 <NavLink href="/embudo" label={t('web.nav.board')} />
               </li>
               <li>
+                <NavLink href="/panel" label={t('web.nav.panel')} />
+              </li>
+              <li>
                 <NavLink href="/anadir" label={t('web.nav.add')} />
               </li>
               <li>

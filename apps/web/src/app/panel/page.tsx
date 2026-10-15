@@ -1,0 +1,206 @@
+import type { Metadata } from 'next';
+
+import { SOURCES, STAGES } from '@backoffice/domain/stages';
+import { getTranslator } from '@backoffice/i18n/messages';
+import Link from 'next/link';
+
+import { isUnavailable } from '@/data';
+import { getPanel } from '@/onboarding/data';
+import { formatDay, formatInstantDay } from '@/onboarding/format';
+import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
+import { PANEL_WEEKS, sourcesIn, waitIn, weeksFrom, weekTotal } from '@/onboarding/panel/types';
+import * as onboarding from '@/onboarding/styles';
+import { canOnboard } from '@/onboarding/text';
+import { requireStaff } from '@/session';
+import { AppShell } from '@/shell/AppShell';
+import * as styles from '@/ui/styles';
+
+const t = getTranslator();
+
+export const metadata: Metadata = { title: t('panel.title') };
+
+/** A source's name in words, or as the API gave it if this app doesn't know it yet. */
+const sourceName = (source: string): string =>
+  (SOURCES as readonly string[]).includes(source)
+    ? t(`sources.${source as (typeof SOURCES)[number]}`)
+    : source;
+
+const wait = (value: number): string => {
+  const { unit, amount } = waitIn(value);
+  return unit === 'hours'
+    ? t('panel.hours', { count: amount })
+    : t('panel.days', { count: amount });
+};
+
+/**
+ * Panel (onboarding spec, views; M4): how onboarding is going, in numbers. Tables, not charts, so every figure is
+ * read the same by everyone, a screen reader included; the unassigned are named, to be taken.
+ */
+const PanelPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) => {
+  const me = await requireStaff();
+  if (!canOnboard(me)) {
+    return (
+      <AppShell me={me}>
+        <OnboardingOnly />
+      </AppShell>
+    );
+  }
+  const weeks = weeksFrom((await searchParams).semanas);
+  const panel = await getPanel(weeks);
+  if (isUnavailable(panel)) {
+    return (
+      <AppShell me={me}>
+        <h1 className={styles.h1}>{t('panel.title')}</h1>
+        <p className={styles.notice}>{t('web.unavailable.body')}</p>
+      </AppShell>
+    );
+  }
+  const sources = sourcesIn(panel.arrivals, SOURCES);
+  const totalPeople = STAGES.reduce((sum, stage) => sum + (panel.stages[stage] ?? 0), 0);
+  const { arrived, contacted, medianHours, p90Hours } = panel.firstContact;
+
+  return (
+    <AppShell me={me}>
+      <h1 className={styles.h1}>{t('panel.title')}</h1>
+      <p className={styles.text}>{t('panel.intro')}</p>
+      <form className={styles.rowActions} action="/panel" method="get">
+        <label className={styles.label} htmlFor="panel-semanas">
+          {t('panel.weeks')}
+        </label>
+        <select
+          id="panel-semanas"
+          name="semanas"
+          defaultValue={String(weeks)}
+          className={styles.input}
+        >
+          {PANEL_WEEKS.map((option) => (
+            <option key={option} value={option}>
+              {t('panel.weeksOption', { count: option })}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className={styles.secondaryButton}>
+          {t('panel.show')}
+        </button>
+      </form>
+
+      <section className={onboarding.section} aria-labelledby="por-etapa">
+        <h2 id="por-etapa" className={styles.h2}>
+          {t('panel.byStage')}
+        </h2>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <caption className={styles.srOnly}>{t('panel.byStage')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('panel.stage')}</th>
+                <th scope="col">{t('panel.people')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {STAGES.map((stage) => (
+                <tr key={stage}>
+                  <th scope="row">{t(`stages.${stage}`)}</th>
+                  <td>{panel.stages[stage] ?? 0}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">{t('panel.total')}</th>
+                <td>{totalPeople}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </section>
+
+      <section className={onboarding.section} aria-labelledby="llegadas">
+        <h2 id="llegadas" className={styles.h2}>
+          {t('panel.arrivals')}
+        </h2>
+        <p className={styles.hint}>{t('panel.arrivalsIntro')}</p>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <caption className={styles.srOnly}>{t('panel.arrivals')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('panel.week')}</th>
+                {sources.map((source) => (
+                  <th key={source} scope="col">
+                    {sourceName(source)}
+                  </th>
+                ))}
+                <th scope="col">{t('panel.total')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...panel.arrivals].reverse().map((week) => (
+                <tr key={week.week}>
+                  <th scope="row">{t('panel.weekOf', { date: formatDay(week.week, 'medium') })}</th>
+                  {sources.map((source) => (
+                    <td key={source}>{week.counts[source] ?? 0}</td>
+                  ))}
+                  <td>{weekTotal(week)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className={onboarding.section} aria-labelledby="primer-contacto">
+        <h2 id="primer-contacto" className={styles.h2}>
+          {t('panel.firstContact')}
+        </h2>
+        {contacted === 0 ? (
+          <p className={styles.text}>{t('panel.firstContactNone')}</p>
+        ) : (
+          <>
+            <p className={styles.text}>{t('panel.firstContactText', { arrived, contacted })}</p>
+            {medianHours === null ? null : (
+              <p className={styles.text}>{t('panel.median', { wait: wait(medianHours) })}</p>
+            )}
+            {p90Hours === null ? null : (
+              <p className={styles.text}>{t('panel.p90', { wait: wait(p90Hours) })}</p>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className={onboarding.section} aria-labelledby="sin-nadie">
+        <h2 id="sin-nadie" className={styles.h2}>
+          {t('panel.unassigned', { count: panel.unassigned.count })}
+        </h2>
+        {panel.unassigned.people.length === 0 ? (
+          <p className={styles.text}>{t('panel.unassignedNone')}</p>
+        ) : (
+          <>
+            <p className={styles.hint}>{t('panel.unassignedIntro')}</p>
+            <ul className={onboarding.personList}>
+              {panel.unassigned.people.map((person) => (
+                <li key={person.id}>
+                  <Link
+                    className={onboarding.personName}
+                    href={`/personas/${encodeURIComponent(person.id)}`}
+                  >
+                    {person.name}
+                  </Link>{' '}
+                  <span className={styles.hint}>
+                    {t('panel.arrivedOn', { date: formatInstantDay(person.createdAt) })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+    </AppShell>
+  );
+};
+
+export default PanelPage;
