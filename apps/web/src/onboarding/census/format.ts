@@ -196,14 +196,14 @@ export const sortOptions = (options: readonly CensusOption[]): CensusOption[] =>
   );
 
 /**
- * Moving an option up or down its list: the list numbered afresh 1…n with the two swapped, and the changes that takes
- * (only the options whose position differs). Nothing for the first moving up or the last moving down.
+ * A list with one option moved up or down: every option's id of that list, in the new order, for the API to number
+ * afresh in one go. Empty when it can't move.
  */
 export const reorder = (
   options: readonly CensusOption[],
   id: string,
   direction: 'up' | 'down',
-): { id: string; position: number }[] => {
+): string[] => {
   const list = sortOptions(options);
   const at = list.findIndex((option) => option.id === id);
   const to = direction === 'up' ? at - 1 : at + 1;
@@ -216,8 +216,5 @@ export const reorder = (
     return [];
   }
   moved.splice(to, 0, item);
-  return moved
-    .map((option, index) => ({ id: option.id, position: index + 1, was: option.position }))
-    .filter((option) => option.position !== option.was)
-    .map(({ id: changed, position }) => ({ id: changed, position }));
+  return moved.map((option) => option.id);
 };

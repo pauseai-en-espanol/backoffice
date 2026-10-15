@@ -26,6 +26,7 @@ import {
   listOptions,
   makeCensusToken,
   markLinkSent,
+  orderOptions,
 } from './census.js';
 
 class Refusal extends Error {
@@ -232,6 +233,31 @@ export const censusRoutes =
             });
           });
           return done ? reply.code(204).send() : reply.code(404).send({ error: 'notFound' });
+        }),
+    );
+
+    scope.put<{ Body: { kind: 'skill' | 'interest'; ids: string[] } }>(
+      '/census/options/order',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['kind', 'ids'],
+            additionalProperties: false,
+            properties: {
+              kind: { type: 'string', enum: ['skill', 'interest'] },
+              ids: { type: 'array', maxItems: 500, uniqueItems: true, items: UUID },
+            },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const done = await withActor(db, actor, async (trx) => {
+            await require(trx, ADMIN);
+            return orderOptions(trx, request.body.kind, request.body.ids);
+          });
+          return done ? reply.code(204).send() : reply.code(409).send({ error: 'stale' });
         }),
     );
 

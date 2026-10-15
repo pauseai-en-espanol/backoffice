@@ -6,12 +6,11 @@ import { fill } from '@/fill';
 import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
-import { type WriteAnswer } from '@/write';
 
 import type { CensusOption, OptionKind } from './types';
 
 import * as styles from '../styles';
-import { addCensusOption, updateCensusOption } from './actions';
+import { addCensusOption, orderCensusOptions, updateCensusOption } from './actions';
 import { reorder, sortOptions } from './format';
 
 export interface OptionsEditorText {
@@ -153,19 +152,11 @@ export const OptionsEditor = ({
   };
 
   const move = (id: string, direction: 'up' | 'down') => {
-    const changes = reorder(list, id, direction);
-    if (changes.length === 0 || write.pending) {
+    const ids = reorder(list, id, direction);
+    if (ids.length === 0 || write.pending) {
       return;
     }
-    void write.run(
-      async (): Promise<WriteAnswer> => {
-        const answers = await Promise.all(
-          changes.map((change) => updateCensusOption(change.id, { position: change.position })),
-        );
-        return answers.find((answer) => !answer.ok) ?? { ok: true, status: 204, body: {} };
-      },
-      { done: text.moved },
-    );
+    void write.run(() => orderCensusOptions(kind, ids), { done: text.moved });
   };
 
   const toggle = (option: CensusOption) =>

@@ -182,6 +182,29 @@ export const changeOption = async (
   return rows.length === 1;
 };
 
+/**
+ * A list's new order, all at once: the ids of every option of that kind, first to last. False when they aren't
+ * exactly that list's (someone changed it meanwhile).
+ */
+export const orderOptions = async (
+  trx: Transaction<DB>,
+  kind: 'skill' | 'interest',
+  ids: readonly string[],
+): Promise<boolean> => {
+  const current = (
+    await sql<{ id: string }>`
+      SELECT id FROM app.census_options WHERE kind = ${kind} ORDER BY id FOR UPDATE`.execute(trx)
+  ).rows.map((row) => row.id);
+  if (current.length !== ids.length || !ids.every((id) => current.includes(id))) {
+    return false;
+  }
+  await sql`
+    UPDATE app.census_options o SET position = t.n
+      FROM unnest(${ids}::uuid[]) WITH ORDINALITY AS t (id, n)
+     WHERE o.id = t.id AND o.position IS DISTINCT FROM t.n`.execute(trx);
+  return true;
+};
+
 export interface ConsentState {
   granted: boolean;
   at: string;

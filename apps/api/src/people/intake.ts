@@ -109,9 +109,41 @@ export interface BandejaItem {
   conflicts: Record<string, { current: unknown; proposed: unknown }> | Record<string, unknown>;
 }
 
+/** A census answer's fields as the Bandeja shows them, camelCased, and never its contact details. */
+const CENSUS_ANSWER_FIELDS = {
+  name: 'name',
+  preferred_name: 'preferredName',
+  province: 'province',
+  town: 'town',
+  languages: 'languages',
+  options: 'options',
+  skills_other: 'skillsOther',
+  interests_other: 'interestsOther',
+  availability: 'availability',
+  how_heard: 'howHeard',
+  pronouns: 'pronouns',
+  consent_email: 'consentEmail',
+  consent_whatsapp: 'consentWhatsapp',
+  consent_privacy: 'consentPrivacy',
+  wording_version: 'wordingVersion',
+} as const;
+
+const censusAnswer = (answer: unknown): Record<string, unknown> => {
+  const shown: Record<string, unknown> = {};
+  if (typeof answer === 'object' && answer !== null) {
+    for (const [column, field] of Object.entries(CENSUS_ANSWER_FIELDS)) {
+      if (Object.hasOwn(answer, column)) {
+        shown[field] = (answer as Record<string, unknown>)[column];
+      }
+    }
+  }
+  return shown;
+};
+
 /**
  * Records waiting for a person's decision: possible duplicates and conflicting values, oldest first. Only what the
- * decision needs of the payload (name, province, town), never its contact details.
+ * decision needs of the payload (name, province, town), never its contact details: a census answer comes without its
+ * email and phone.
  */
 export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> => {
   const { rows } = await sql<{
@@ -149,7 +181,9 @@ export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> 
     createdAt: row.created_at,
     candidates: row.candidates,
     personId: row.person_id,
-    conflicts: row.conflicts,
+    conflicts: Object.hasOwn(row.conflicts, 'census')
+      ? { ...row.conflicts, census: censusAnswer(row.conflicts['census']) }
+      : row.conflicts,
   }));
 };
 

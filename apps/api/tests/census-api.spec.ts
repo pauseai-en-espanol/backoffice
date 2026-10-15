@@ -326,6 +326,47 @@ describe('the census’s staff side (M2)', () => {
     });
   });
 
+  it('shows a generic answer that matched someone in the Bandeja, without its contact details', async () => {
+    const email = `censo.${crypto.randomUUID().slice(0, 8)}@ejemplo.test`;
+    const phone = `61${Math.floor(Math.random() * 1e7)
+      .toString()
+      .padStart(7, '0')}`;
+    const added = (
+      await onboarder.who.send('POST', '/api/intake', {
+        name: uniqueName(),
+        email,
+        decision: 'new',
+      })
+    ).json<{ personId: string }>();
+    people.push(added.personId);
+    clock = Date.now();
+    const submitted = await forms(
+      '/submit',
+      {
+        startedAt: clock - 30_000,
+        answer: answer({ email, phone: `+34 ${phone}`, preferredName: 'Otro nombre' }),
+      },
+      '203.0.113.40',
+    );
+    expect(submitted.json()).toEqual({ outcome: 'review' });
+    const bandeja = await onboarder.who.send('GET', '/api/bandeja');
+    const item = bandeja
+      .json<{
+        items: { person: { id: string } | null; conflicts: { census?: Record<string, unknown> } }[];
+      }>()
+      .items.find((entry) => entry.person?.id === added.personId && entry.conflicts.census);
+    expect(item?.conflicts.census).toMatchObject({
+      preferredName: 'Otro nombre',
+      availability: 'over_5h',
+      consentPrivacy: true,
+    });
+    expect(Object.keys(item?.conflicts.census ?? {})).not.toEqual(
+      expect.arrayContaining(['email']),
+    );
+    expect(bandeja.body).not.toContain(email);
+    expect(bandeja.body).not.toContain(phone);
+  });
+
   it('lets admins edit the lists, export a person and erase them; others may not', async () => {
     const created = await admin.who.send('POST', '/api/census/options', {
       kind: 'skill',
@@ -336,6 +377,37 @@ describe('the census’s staff side (M2)', () => {
     expect(
       (await admin.who.send('PATCH', `/api/census/options/${id}`, { active: false })).statusCode,
     ).toBe(204);
+    // A new order, all at once, and only for the whole list as it stands.
+    const skills = (await admin.who.send('GET', '/api/census/options'))
+      .json<{ options: { id: string; kind: string; position: number }[] }>()
+      .options.filter((option) => option.kind === 'skill');
+    const reversed = skills.map((option) => option.id).reverse();
+    expect(
+      (await admin.who.send('PUT', '/api/census/options/order', { kind: 'skill', ids: reversed }))
+        .statusCode,
+    ).toBe(204);
+    const reordered = (await admin.who.send('GET', '/api/census/options'))
+      .json<{ options: { id: string; kind: string; position: number }[] }>()
+      .options.filter((option) => option.kind === 'skill')
+      .sort((a, b) => a.position - b.position)
+      .map((option) => option.id);
+    expect(reordered).toEqual(reversed);
+    expect(
+      (
+        await admin.who.send('PUT', '/api/census/options/order', {
+          kind: 'skill',
+          ids: reversed.slice(1),
+        })
+      ).statusCode,
+    ).toBe(409);
+    expect(
+      (
+        await onboarder.who.send('PUT', '/api/census/options/order', {
+          kind: 'skill',
+          ids: reversed,
+        })
+      ).statusCode,
+    ).toBe(403);
     expect(
       (await onboarder.who.send('POST', '/api/census/options', { kind: 'skill', label: 'Otra' }))
         .statusCode,
@@ -368,8 +440,9 @@ describe('the census’s staff side (M2)', () => {
       409,
     );
     const erased = (await admin.who.send('GET', `/api/people/${added.personId}`)).json<{
-      person: { fullName: string; identities: unknown[] };
+      person: { fullName: string; identities: unknown[]; anonymisedAt: string | null };
     }>();
     expect(erased.person).toMatchObject({ fullName: 'Persona anonimizada', identities: [] });
+    expect(erased.person.anonymisedAt).not.toBeNull();
   });
 });

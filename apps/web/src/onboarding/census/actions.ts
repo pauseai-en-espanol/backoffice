@@ -27,5 +27,9 @@ export const updateCensusOption = (
   change: { label?: string; active?: boolean; position?: number },
 ) => send('PATCH', `/api/census/options/${encodeURIComponent(id)}`, change);
 
+/** A list's new order, all at once: every option of that kind, first to last. */
+export const orderCensusOptions = (kind: OptionKind, ids: readonly string[]) =>
+  send('PUT', '/api/census/options/order', { kind, ids });
+
 /** Admins: the person's data erased for good, the record kept anonymised for the counts. */
 export const erasePerson = (personId: string) => send('POST', `${person(personId)}/erase`);

@@ -194,27 +194,22 @@ describe('a census answer in the Bandeja', () => {
 });
 
 describe('reordering an options list', () => {
-  it('swaps two neighbours and numbers the list afresh, changing only what moved', () => {
+  it('moves one option past its neighbour, giving the whole list in its new order', () => {
     expect(
       reorder(
         OPTIONS.filter((o) => o.kind === 'skill'),
         's2',
         'up',
       ),
-    ).toEqual([
-      { id: 's2', position: 1 },
-      { id: 's1', position: 2 },
-    ]);
+    ).toEqual(['s2', 's1']);
     const tied = [
       option('a', 'skill', 'A', 0),
       option('b', 'skill', 'B', 0),
       option('c', 'skill', 'C', 0),
     ];
-    expect(reorder(tied, 'a', 'down')).toEqual([
-      { id: 'b', position: 1 },
-      { id: 'a', position: 2 },
-      { id: 'c', position: 3 },
-    ]);
+    expect(reorder(tied, 'a', 'down')).toEqual(['b', 'a', 'c']);
+    expect(reorder(tied, 'a', 'up')).toEqual([]);
+    expect(reorder(tied, 'z', 'down')).toEqual([]);
   });
 
   it('does nothing past either end', () => {

@@ -271,9 +271,11 @@ export const getPerson = async (trx: Transaction<DB>, id: string) => {
       availability: string | null;
       how_heard: string | null;
       profile_completed_at: string | null;
+      anonymised_at: string | null;
     }>`
       SELECT town, languages, pronouns, availability::text AS availability, how_heard,
-             to_json(profile_completed_at)#>>'{}' AS profile_completed_at
+             to_json(profile_completed_at)#>>'{}' AS profile_completed_at,
+             to_json(anonymised_at)#>>'{}' AS anonymised_at
         FROM app.people WHERE id = ${survivor}`.execute(trx)
   ).rows[0];
   const identities = (
@@ -341,6 +343,7 @@ export const getPerson = async (trx: Transaction<DB>, id: string) => {
       availability: profile?.availability ?? null,
       howHeard: profile?.how_heard ?? null,
       profileCompletedAt: profile?.profile_completed_at ?? null,
+      anonymisedAt: profile?.anonymised_at ?? null,
       mergedInto: survivor === asked.id ? null : survivor,
       identities,
       presence: presence.map((row) => ({
