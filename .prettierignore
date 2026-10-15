@@ -8,3 +8,5 @@ db/schema.sql
 **/helm-chart/templates/**
 helm-charts/*/templates/**
 helm-charts/*/charts/**
+# Claude Code's worktrees and local state.
+.claude/

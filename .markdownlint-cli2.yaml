@@ -12,6 +12,7 @@ globs:
   - '**/*.md'
 ignores:
   - '**/node_modules/**'
+  - '.claude/**'
   - '**/CHANGELOG.md'
   - '.changeset/*.md'
   - 'LICENSE*'

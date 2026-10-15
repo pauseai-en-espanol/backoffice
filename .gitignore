@@ -83,3 +83,6 @@ styled-system-studio
 !**/fixtures/**/*.csv
 *.jsonl
 *.xlsx
+
+# Claude Code worktrees and local state
+.claude/

@@ -3,5 +3,5 @@ import { defineConfig } from 'oxlint';
 
 export default defineConfig({
   extends: [preset],
-  ignorePatterns: ['apps/**', 'packages/**'],
+  ignorePatterns: ['apps/**', 'packages/**', '.claude/**'],
 });
