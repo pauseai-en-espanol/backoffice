@@ -245,16 +245,11 @@ export const censusOfPerson = async (trx: Transaction<DB>, person: string) => {
 };
 
 /**
- * Everything the backoffice holds about a person (personal data spec, rights: access and portability), recorded in
- * the exports. Admins only (the export's insert policy); never the links' token hashes.
+ * A person and every duplicate merged into them, at any depth, the survivor first: what each holds is theirs too.
+ * From any of them. Empty if RLS shows no such person.
  */
-export const exportPerson = async (
-  trx: Transaction<DB>,
-  person: string,
-): Promise<Record<string, unknown> | undefined> => {
-  const one = async (query: ReturnType<typeof sql>) => (await query.execute(trx)).rows;
-  // The person and every duplicate merged into them, at any depth: what they hold is theirs too.
-  const chain = (
+export const mergedChain = async (trx: Transaction<DB>, person: string): Promise<string[]> =>
+  (
     await sql<{ id: string }>`
       WITH RECURSIVE up (id, merged_into) AS (
         SELECT p.id, p.merged_into FROM app.people p WHERE p.id = ${person}
@@ -266,6 +261,17 @@ export const exportPerson = async (
         SELECT p.id, m.depth + 1 FROM app.people p JOIN merged m ON p.merged_into = m.id)
       SELECT id FROM merged ORDER BY depth, id`.execute(trx)
   ).rows.map((row) => row.id);
+
+/**
+ * Everything the backoffice holds about a person (personal data spec, rights: access and portability), recorded in
+ * the exports. Admins only (the export's insert policy); never the links' token hashes.
+ */
+export const exportPerson = async (
+  trx: Transaction<DB>,
+  person: string,
+): Promise<Record<string, unknown> | undefined> => {
+  const one = async (query: ReturnType<typeof sql>) => (await query.execute(trx)).rows;
+  const chain = await mergedChain(trx, person);
   const [survivor, ...merged] = chain;
   const profileOf = (id: string) => sql`
     SELECT id, full_name, preferred_name, province, town, languages, pronouns, availability, how_heard, skills_other,
@@ -306,10 +312,20 @@ export const exportPerson = async (
   return data;
 };
 
-/** Erasure: the database's anonymisation (admins only). Whether it did (false: already anonymised, or no such one). */
-export const erasePerson = async (trx: Transaction<DB>, person: string): Promise<boolean> =>
-  (await sql<{ done: boolean }>`SELECT private.anonymise_person(${person}) AS done`.execute(trx))
-    .rows[0]?.done === true;
+/**
+ * Erasure: the database's anonymisation (admins only). The people it erased (the person and their merged duplicates),
+ * or undefined if it did nothing (already anonymised, or no such one).
+ */
+export const erasePerson = async (
+  trx: Transaction<DB>,
+  person: string,
+): Promise<string[] | undefined> => {
+  const chain = await mergedChain(trx, person);
+  const { rows } = await sql<{
+    done: boolean;
+  }>`SELECT private.anonymise_person(${person}) AS done`.execute(trx);
+  return rows[0]?.done === true ? chain : undefined;
+};
 
 // The forms app's side: the public role, without an actor ---------------------------------------------------------
 

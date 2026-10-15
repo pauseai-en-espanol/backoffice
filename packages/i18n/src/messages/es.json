@@ -447,7 +447,8 @@
       "province": "Provincia: {province}",
       "claimedBy": "Se encarga: {owner}",
       "claim": "Me lo quedo",
-      "open": "Abrir"
+      "open": "Abrir",
+      "erased": "Persona anonimizada: sus datos se han borrado."
     },
     "digest": {
       "subject": "Tu resumen de acogida",

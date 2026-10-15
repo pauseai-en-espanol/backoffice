@@ -123,6 +123,7 @@ const fakeStore = (candidates: Candidate[] = []) => {
     reservePost: async () => true,
     recordPost: async () => undefined,
     releasePost: async () => undefined,
+    forgetPosts: async () => undefined,
     posts: async () => [],
   };
   return { store, dialogs, submitted, claimed, left };
@@ -135,6 +136,7 @@ const setup = (candidates: Candidate[] = []) => {
   const notifier: Notifier = {
     arrival: async (id) => void told.arrivals.push(id),
     claimed: async (id) => void told.claims.push(id),
+    erased: async () => undefined,
   };
   const errors: unknown[] = [];
   const deps: BotDeps = {

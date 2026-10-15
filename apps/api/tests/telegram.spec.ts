@@ -209,6 +209,7 @@ beforeAll(async () => {
       app: appDb,
       telegram: bot.linking,
       endSessions: (userId) => endSessions(authPool, userId),
+      onErase: (personIds) => bot.team?.erased(personIds) ?? Promise.resolve(),
     },
     telegram: bot.webhook,
   });
@@ -221,7 +222,9 @@ beforeEach(() => {
 });
 
 /** The phones the bot is told about here: fictional, and these tests' alone. */
-const PHONES = ['+34699100200', '+34699300400'];
+const PHONES = ['+34699100200', '+34699300400', '+34699500600'];
+/** People these tests erase: their phones go with them, so they're cleaned up by id. */
+const erasedIds: string[] = [];
 
 /**
  * What these tests reported through the bot, as superuser past the append-only rules, before and after: a run never
@@ -253,6 +256,13 @@ const cleanUp = async () => {
     [made, PHONES],
   );
   await superuser.query('DELETE FROM app.people WHERE id = ANY($1::uuid[])', [made]);
+  for (const table of ['app.person_events', 'app.person_sources', 'app.community_presence']) {
+    await superuser.query(`DELETE FROM ${table} WHERE person_id = ANY($1::uuid[])`, [erasedIds]);
+  }
+  await superuser.query('DELETE FROM app.intake_records WHERE person_id = ANY($1::uuid[])', [
+    erasedIds,
+  ]);
+  await superuser.query('DELETE FROM app.people WHERE id = ANY($1::uuid[])', [erasedIds]);
   await superuser.query("SET session_replication_role = 'origin'");
 };
 
@@ -413,6 +423,50 @@ describe('reporting through the bot', () => {
       [personId],
     );
     expect(rows).toEqual([{ left: true }]);
+  });
+});
+
+describe('erasure and the team group', () => {
+  it('deletes the team post about someone erased, and forgets it', async () => {
+    await message(telegramIds.onboarder, '/alta Persona Telegram Dos 699 500 600');
+    await press(telegramIds.onboarder, 'alta:new', undefined, 43);
+    const post = calls.find(
+      (call) =>
+        call.method === 'sendMessage' &&
+        call.body.chat_id === TEAM_CHAT &&
+        String(call.body.text).includes('Persona Telegram Dos'),
+    );
+    expect(post).toBeDefined();
+    const { rows } = await superuser.query<{ person_id: string; message_id: string }>(
+      `SELECT t.person_id, t.message_id::text FROM private.telegram_posts t
+         JOIN app.identities i ON i.person_id = t.person_id WHERE i.value = '+34699500600'`,
+    );
+    const [posted] = rows;
+    expect(posted).toBeDefined();
+    erasedIds.push(posted?.person_id ?? '');
+    const admin = await staffMember(['admin']);
+    expect(
+      (await admin.who.send('POST', `/api/people/${posted?.person_id}/erase`)).statusCode,
+    ).toBe(204);
+    await expect
+      .poll(() =>
+        calls.some((call) => call.method === 'deleteMessage' && call.body.chat_id === TEAM_CHAT),
+      )
+      .toBe(true);
+    const deleted = calls.find(
+      (call) => call.method === 'deleteMessage' && call.body.chat_id === TEAM_CHAT,
+    );
+    expect(String(deleted?.body.message_id)).toBe(posted?.message_id);
+    await expect
+      .poll(
+        async () =>
+          (
+            await superuser.query('SELECT 1 FROM private.telegram_posts WHERE person_id = $1', [
+              posted?.person_id,
+            ])
+          ).rows.length,
+      )
+      .toBe(0);
   });
 });
 

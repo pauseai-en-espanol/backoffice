@@ -1,7 +1,7 @@
 import type { TelegramClient } from './client.js';
 import type { BotStore } from './store.js';
 
-import { teamPost } from './replies.js';
+import { teamPost, teamPostErased } from './replies.js';
 
 /**
  * The team group (D11; ADR-0004, notifications): each arrival is posted there with its name, sources and province,
@@ -12,12 +12,15 @@ export interface Notifier {
   arrival(personId: string): Promise<void>;
   /** Someone was taken: show who on their posts. */
   claimed(personId: string): Promise<void>;
+  /** Someone was erased (and their merged duplicates): their posts go, or, too old to delete, are blanked. */
+  erased(personIds: readonly string[]): Promise<void>;
 }
 
 /** Without a team group, nobody is told: the bot works for one person (D11). */
 export const noopNotifier: Notifier = {
   arrival: async () => undefined,
   claimed: async () => undefined,
+  erased: async () => undefined,
 };
 
 export interface TeamNotifier extends Notifier {
@@ -76,6 +79,17 @@ export const createTeamNotifier = ({
       for (const posted of await store.posts(personId)) {
         await client.editMessageText(posted.chatId, posted.messageId, text, { keyboard });
       }
+    },
+    erased: async (personIds) => {
+      for (const personId of personIds) {
+        for (const posted of await store.posts(personId)) {
+          // Telegram lets a bot delete its messages for 48 hours; after that, the post is blanked instead.
+          if (!(await client.deleteMessage(posted.chatId, posted.messageId))) {
+            await client.editMessageText(posted.chatId, posted.messageId, teamPostErased());
+          }
+        }
+      }
+      await store.forgetPosts(personIds);
     },
     sweep: async () => {
       let posted = 0;

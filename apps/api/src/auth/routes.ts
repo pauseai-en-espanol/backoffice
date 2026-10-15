@@ -113,6 +113,8 @@ export interface StaffApiOptions {
   onArrival?: ((personId: string) => Promise<void>) | undefined;
   /** Told when someone is claimed from the staff app, so the team group's post says who. */
   onClaim?: ((personId: string) => Promise<void>) | undefined;
+  /** Told who was erased, so the team group's posts about them go. */
+  onErase?: ((personIds: readonly string[]) => Promise<void>) | undefined;
   /** The census (M2): where personal links point; without it, no personal link can be made. */
   census?: CensusConfig | undefined;
   /** Linking Telegram accounts (ADR-0004); without the bot, the link routes say it isn't configured. */
@@ -134,6 +136,7 @@ export const staffApiRoutes =
     syncAirtable,
     onArrival,
     onClaim,
+    onErase,
     census,
     telegram,
   }: StaffApiOptions) =>
@@ -256,6 +259,7 @@ export const staffApiRoutes =
         app,
         staffOrigin,
         census,
+        onErase,
         actorFor: async (request) => actorOf(await findSession(request)),
       }),
     );

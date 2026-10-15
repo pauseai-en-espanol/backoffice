@@ -43,6 +43,8 @@ export interface CensusRoutesOptions {
   staffOrigin: string;
   census: CensusConfig | undefined;
   actorFor: (request: FastifyRequest) => Promise<Actor | undefined>;
+  /** Told who was erased, so the team group's posts about them go (ADR-0004); never awaited for long. */
+  onErase?: ((personIds: readonly string[]) => Promise<void>) | undefined;
 }
 
 const UUID = { type: 'string', format: 'uuid' } as const;
@@ -61,7 +63,7 @@ const require = async (trx: Transaction<DB>, check: typeof ONBOARDING): Promise<
 
 /** The census's staff routes (staff API spec, M2): Censo, personal links, the option lists, export and erasure. */
 export const censusRoutes =
-  ({ app, staffOrigin, census, actorFor }: CensusRoutesOptions) =>
+  ({ app, staffOrigin, census, actorFor, onErase }: CensusRoutesOptions) =>
   async (scope: FastifyInstance): Promise<void> => {
     scope.setErrorHandler(async (error, _request, reply) => {
       const refusal = schemaRefusal(error);
@@ -288,11 +290,15 @@ export const censusRoutes =
       { schema: { params: ID_PARAMS } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const done = await withActor(db, actor, async (trx) => {
+          const erased = await withActor(db, actor, async (trx) => {
             await require(trx, ADMIN);
             return erasePerson(trx, request.params.id);
           });
-          return done ? reply.code(204).send() : reply.code(409).send({ error: 'stale' });
+          if (!erased) {
+            return reply.code(409).send({ error: 'stale' });
+          }
+          onErase?.(erased).catch((error: unknown) => captureException(error));
+          return reply.code(204).send();
         }),
     );
   };

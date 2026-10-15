@@ -20,11 +20,12 @@ const card: TeamCard = {
   ownerName: null,
 };
 
-const setup = ({ failSend = false } = {}) => {
+const setup = ({ failSend = false, tooOld = false } = {}) => {
   const posts = new Map<string, number | null>();
   let current = card;
   const sent: { text: string; keyboard?: Keyboard | undefined }[] = [];
   const edited: { messageId: number; text: string; keyboard?: Keyboard | undefined }[] = [];
+  const deleted: number[] = [];
   const store = {
     teamCard: async () => current,
     teamUnposted: async () => [PERSON, '0190f8c4-0000-7000-8000-0000000003a2'],
@@ -42,6 +43,11 @@ const setup = ({ failSend = false } = {}) => {
       const messageId = posts.get(personId);
       return messageId ? [{ chatId: CHAT, messageId }] : [];
     },
+    forgetPosts: async (personIds: readonly string[]) => {
+      for (const personId of personIds) {
+        posts.delete(personId);
+      }
+    },
   } as unknown as BotStore;
   const client = {
     sendMessage: async (_chat: number, text: string, options: { keyboard?: Keyboard } = {}) => {
@@ -57,6 +63,13 @@ const setup = ({ failSend = false } = {}) => {
       text: string,
       options: { keyboard?: Keyboard } = {},
     ) => void edited.push({ messageId, text, keyboard: options.keyboard }),
+    deleteMessage: async (_chat: number, messageId: number) => {
+      if (tooOld) {
+        return false;
+      }
+      deleted.push(messageId);
+      return true;
+    },
   } as unknown as TelegramClient;
   const errors: unknown[] = [];
   const notifier = createTeamNotifier({
@@ -70,6 +83,7 @@ const setup = ({ failSend = false } = {}) => {
     notifier,
     sent,
     edited,
+    deleted,
     posts,
     errors,
     claim: (owner: string) => {
@@ -109,6 +123,25 @@ describe('the team group', () => {
         keyboard: [[{ text: 'Abrir', url: `${ORIGIN}/personas/${PERSON}` }]],
       },
     ]);
+  });
+
+  it('deletes the posts about someone erased, or blanks them once too old to delete, and forgets them', async () => {
+    const fresh = setup();
+    await fresh.notifier.arrival(PERSON);
+    await fresh.notifier.erased([PERSON]);
+    expect(fresh.deleted).toEqual([77]);
+    expect(fresh.posts.size).toBe(0);
+    const old = setup({ tooOld: true });
+    await old.notifier.arrival(PERSON);
+    await old.notifier.erased([PERSON]);
+    expect(old.edited).toEqual([
+      {
+        messageId: 77,
+        text: 'Persona anonimizada: sus datos se han borrado.',
+        keyboard: undefined,
+      },
+    ]);
+    expect(old.posts.size).toBe(0);
   });
 
   it('sweeps what is not posted yet, and stops at the first refusal, leaving it to try again', async () => {

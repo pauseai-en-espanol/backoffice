@@ -97,6 +97,8 @@ export interface BotStore {
   recordPost(personId: string, chatId: number, messageId: number): Promise<void>;
   releasePost(personId: string, chatId: number): Promise<void>;
   posts(personId: string): Promise<{ chatId: number; messageId: number }[]>;
+  /** Forgets the posts about these people, once they are gone from the group. */
+  forgetPosts(personIds: readonly string[]): Promise<void>;
 }
 
 /** A dialog lasts an hour from its last step (ADR-0004). */
@@ -318,5 +320,10 @@ export const createBotStore = ({ app, auth }: { app: Database; auth: AuthPool })
       SELECT chat_id::text, message_id::text FROM private.telegram_posts
        WHERE person_id = ${personId} AND message_id IS NOT NULL`.execute(app);
     return rows.map((row) => ({ chatId: Number(row.chat_id), messageId: Number(row.message_id) }));
+  },
+  forgetPosts: async (personIds) => {
+    await sql`DELETE FROM private.telegram_posts WHERE person_id = ANY (${personIds}::uuid[])`.execute(
+      app,
+    );
   },
 });

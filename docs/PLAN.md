@@ -289,10 +289,11 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   same letter; "Sí, enviado" is recorded only by whoever holds the target. Options: a lease that expires; an explicit
   claim. **Chose the claim**, as onboarding's "Me lo quedo": owners show in the campaign and can be changed there.
 - **R35. Once someone wrote to a target, that stays**: it never goes back to the queue, nor out of the campaign.
-- **Open from the review** (low, for later): the team group's Telegram posts about an erased person aren't edited;
-  two simultaneous generic answers with the same new email can make the second fail; the census link travels in the
-  wa.me message (by design: the person sends it); the forms host's error relay has no Origin check; the app role may
-  insert a target already dated (only the importer does).
+- **R36. Erasure reaches the team group too**: the bot deletes its posts about the person, or, past Telegram's
+  48 hours, blanks them to "Persona anonimizada", and forgets them.
+- **Open from the review** (low, for later): two simultaneous generic answers with the same new email can make the
+  second fail; the census link travels in the wa.me message (by design: the person sends it); the app role may insert
+  a target already dated (only the importer does).
 
 ## Tracking
 

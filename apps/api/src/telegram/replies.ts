@@ -158,6 +158,9 @@ export const confirmLeave = (person: PersonLine): { text: string; keyboard: Keyb
 });
 
 /** A post in the team group: who arrived and from where, and who took them once someone did. */
+/** What a team post about someone erased becomes when it can no longer be deleted: no name, no buttons. */
+export const teamPostErased = (): string => t('bot.team.erased');
+
 export const teamPost = (
   staffOrigin: string,
   card: TeamCard,

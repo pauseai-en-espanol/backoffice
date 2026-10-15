@@ -159,6 +159,7 @@ const server = buildApp({
     // New people and claims from the staff app reach the team group at once (ADR-0004, D11).
     onArrival: team ? (personId) => team.arrival(personId) : undefined,
     onClaim: team ? (personId) => team.claimed(personId) : undefined,
+    onErase: team ? (personIds) => team.erased(personIds) : undefined,
     census: config.census,
     telegram: bot?.linking,
   },
