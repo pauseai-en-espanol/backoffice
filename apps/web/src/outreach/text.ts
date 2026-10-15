@@ -5,8 +5,7 @@ import { MERGE_FIELDS } from '@backoffice/domain/outreach';
 import type { Staff } from '@/session';
 import type { TeamMember } from '@/team/data';
 
-import type { LetterWords } from './format';
-
+import { IMPORT_FILE_KINDS, type LetterWords } from './format';
 import {
   CAMPAIGN_STATUSES,
   ORGANISATION_KINDS,
@@ -47,6 +46,10 @@ export const campaignStatusNames = (t: Translator) =>
   labels(CAMPAIGN_STATUSES, (status) => t(`outreach.campaignStatuses.${status}`));
 
 export const tierNames = (t: Translator) => labels(TIERS, (tier) => t(`outreach.tiers.${tier}`));
+
+/** The outreach repo's files, by what each holds (the importer). */
+export const importFileNames = (t: Translator) =>
+  labels(IMPORT_FILE_KINDS, (kind) => t(`campaignImport.kinds.${kind}`));
 
 /** The words a contact's line in a list uses (ContactItem). */
 export const summaryWords = (t: Translator) => ({

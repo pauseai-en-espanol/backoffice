@@ -53,11 +53,14 @@ export const ContactItem = ({
   words,
   children,
   as: Tag = 'li',
+  showOwner = true,
 }: {
   contact: ContactSummary;
   words: SummaryWords;
   children?: ReactNode;
   as?: 'li' | 'div';
+  /** The contact's own owner; a campaign's board shows the target's instead. */
+  showOwner?: boolean;
 }) => (
   <Tag className={onboarding.personItem}>
     <div className={onboarding.personHead}>
@@ -78,9 +81,11 @@ export const ContactItem = ({
           {words.territory}: {contact.territory}
         </li>
       ) : null}
-      <li>
-        {words.owner}: {contact.owner?.displayName || words.noOwner}
-      </li>
+      {showOwner ? (
+        <li>
+          {words.owner}: {contact.owner?.displayName || words.noOwner}
+        </li>
+      ) : null}
       {contact.tags.length > 0 ? <li>{contact.tags.join(', ')}</li> : null}
     </ul>
     <ContactFlags contact={contact} words={words} />
