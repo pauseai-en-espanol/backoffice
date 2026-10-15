@@ -1,5 +1,7 @@
 import { type Dsn, readDsn } from '@backoffice/observability/dsn';
 
+import { isSharedViewUrl } from './imports/airtable.js';
+
 export interface ApiConfig {
   host: string;
   port: number;
@@ -15,6 +17,20 @@ export interface ApiConfig {
   appDatabaseUrl: string | undefined;
   /** The backoffice's mail sender. Undefined: nothing sends mail, so no invitation or password link goes out. */
   mail: MailConfig | undefined;
+  /**
+   * The Airtable sync, run on demand from Importar or the bot (ADR-0005): the ingest role's connection and the shared
+   * view link. Undefined: "Sincronizar Airtable ahora" answers that it isn't configured.
+   */
+  airtable: AirtableConfig | undefined;
+}
+
+export interface AirtableConfig {
+  /** pauseai_backoffice_ingest, which may only execute the sync's function. */
+  ingestDatabaseUrl: string;
+  /** Global's shared view link: a credential, from a sealed secret. Never logged, never in an error. */
+  sharedViewUrl: string;
+  /** Only rows with Global's chapter-share permission (PLAN R14); AIRTABLE_REQUIRE_CHAPTER_PERMISSION=false lifts it. */
+  requirePermission: boolean;
 }
 
 export interface MailConfig {
@@ -137,6 +153,30 @@ const readMail = (env: NodeJS.ProcessEnv): MailConfig | undefined => {
   return { smtpUrl, from };
 };
 
+/** The sync needs the ingest role's connection and the link, or neither. Errors never echo either. */
+const readAirtable = (env: NodeJS.ProcessEnv): AirtableConfig | undefined => {
+  const ingestDatabaseUrl = env.INGEST_DATABASE_URL || undefined;
+  const sharedViewUrl = env.AIRTABLE_SHARED_VIEW_URL || undefined;
+  if (!ingestDatabaseUrl && !sharedViewUrl) {
+    return undefined;
+  }
+  if (!ingestDatabaseUrl || !sharedViewUrl) {
+    throw new Error(
+      `The Airtable sync is half configured: ${ingestDatabaseUrl ? 'AIRTABLE_SHARED_VIEW_URL' : 'INGEST_DATABASE_URL'} not set`,
+    );
+  }
+  if (!isSharedViewUrl(sharedViewUrl)) {
+    throw new Error(
+      'AIRTABLE_SHARED_VIEW_URL must be an Airtable shared view link (https://airtable.com/app…/shr…)',
+    );
+  }
+  return {
+    ingestDatabaseUrl,
+    sharedViewUrl,
+    requirePermission: env.AIRTABLE_REQUIRE_CHAPTER_PERMISSION !== 'false',
+  };
+};
+
 /** Reads the API configuration from the environment, failing fast on invalid values. */
 export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
   const port = Number(env.PORT ?? 3001);
@@ -155,5 +195,6 @@ export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
     auth: readAuth(env),
     appDatabaseUrl: env.APP_DATABASE_URL || undefined,
     mail: readMail(env),
+    airtable: readAirtable(env),
   };
 };

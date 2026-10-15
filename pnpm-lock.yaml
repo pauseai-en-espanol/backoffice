@@ -215,6 +215,9 @@ importers:
       '@backoffice/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@backoffice/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@backoffice/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
@@ -227,6 +230,9 @@ importers:
       better-auth:
         specifier: 1.7.7
         version: 1.7.7(@opentelemetry/api@1.9.1)(next@16.4.0(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(pg@8.23.1)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(vitest@5.0.3)
+      csv-parse:
+        specifier: 7.0.3
+        version: 7.0.3
       fastify:
         specifier: 5.12.5
         version: 5.12.5
@@ -3149,6 +3155,9 @@ packages:
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
+
+  csv-parse@7.0.3:
+    resolution: {integrity: sha512-YFd3QM/yo17vH91L1IOZuvl09zM0zEEtdfTcOCKWcMdM++MNaQSyp09slXyFCLaPXvHstQFx/xC8myiFHSMUvw==}
 
   data-urls@8.0.0:
     resolution: {integrity: sha512-JQUCCK+/CAGbGGx618PlFZMXH81Jtj7t73CHv9dd/zVWvxgGT2zLFRjnKb+Ng46GIwcy+f7f88qd4duqllK+WQ==}
@@ -7181,6 +7190,8 @@ snapshots:
   css.escape@1.5.1: {}
 
   csstype@3.2.3: {}
+
+  csv-parse@7.0.3: {}
 
   data-urls@8.0.0(@noble/hashes@2.4.0):
     dependencies:

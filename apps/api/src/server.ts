@@ -11,6 +11,7 @@ import { createPasswordMail } from './auth/password-mail.js';
 import { loadConfig } from './config.js';
 import { logsInAs } from './database-roles.js';
 import { initErrorTracking } from './error-tracking.js';
+import { runAirtableSync } from './imports/airtable-sync.js';
 import { createMailer, mailFailure } from './mail/mailer.js';
 import { createInvitationSender } from './staff/invitations.js';
 
@@ -29,6 +30,14 @@ const app = config.appDatabaseUrl
   ? createDatabase({
       connectionString: config.appDatabaseUrl,
       applicationName: 'backoffice-api-app',
+    })
+  : undefined;
+// The Airtable sync, on demand (ADR-0005): its own pool, as the ingest role, which may only run the sync's function.
+const ingest = config.airtable
+  ? createDatabase({
+      connectionString: config.airtable.ingestDatabaseUrl,
+      maxConnections: 1,
+      applicationName: 'backoffice-api-ingest',
     })
   : undefined;
 // The backoffice's one sender. Without it, no invitation or password link goes out.
@@ -66,7 +75,10 @@ const checkLogin = async (db: Database, role: string, variable: string): Promise
   await flush(2_000);
   process.exit(1);
 };
-const loginChecks = app ? [checkLogin(app, 'pauseai_backoffice_app', 'APP_DATABASE_URL')] : [];
+const loginChecks = [
+  ...(app ? [checkLogin(app, 'pauseai_backoffice_app', 'APP_DATABASE_URL')] : []),
+  ...(ingest ? [checkLogin(ingest, 'pauseai_backoffice_ingest', 'INGEST_DATABASE_URL')] : []),
+];
 
 const server = buildApp({
   logger: { level: config.logLevel },
@@ -101,6 +113,15 @@ const server = buildApp({
         ? createPasswordLinks({ ...config.auth, pool: authPool, passwordMail })
         : undefined,
     endSessions: authPool ? (userId) => endSessions(authPool, userId) : undefined,
+    syncAirtable:
+      config.airtable && ingest
+        ? () =>
+            runAirtableSync({
+              ingest,
+              link: config.airtable?.sharedViewUrl ?? '',
+              requirePermission: config.airtable?.requirePermission ?? true,
+            })
+        : undefined,
   },
 });
 
@@ -108,6 +129,7 @@ const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   server.log.info({ signal }, 'Shutting down');
   await server.close();
   await app?.destroy();
+  await ingest?.destroy();
   await authPool?.end();
   process.exit(0);
 };

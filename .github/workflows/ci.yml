@@ -182,6 +182,7 @@ jobs:
             echo "TEST_SUPERUSER_DATABASE_URL=postgres://postgres:postgres@$db/pauseai_backoffice_test?sslmode=disable"
             echo "TEST_AUTH_DATABASE_URL=postgres://pauseai_backoffice_auth:ci-auth@$db/pauseai_backoffice_test?sslmode=disable"
             echo "TEST_APP_DATABASE_URL=postgres://pauseai_backoffice_app:ci-app@$db/pauseai_backoffice_test?sslmode=disable"
+            echo "TEST_INGEST_DATABASE_URL=postgres://pauseai_backoffice_ingest:ci-ingest@$db/pauseai_backoffice_test?sslmode=disable"
           } >> "$GITHUB_ENV"
 
       # Rebuilds pauseai_backoffice_test from the migrations, then runs the access matrix, the catalog meta-tests and

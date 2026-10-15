@@ -3,8 +3,10 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { withActor } from '@backoffice/db/actor';
 
+import type { SyncCounts } from '../imports/airtable-sync.js';
 import type { PasswordLinks } from './password-links.js';
 
+import { peopleRoutes } from '../people/routes.js';
 import { type InvitationSender } from '../staff/invitations.js';
 import { staffDataRoutes } from '../staff/routes.js';
 import { staffSelf } from '../staff/staff.js';
@@ -101,6 +103,10 @@ export interface StaffApiOptions {
   passwordLinks?: PasswordLinks;
   /** Ends every session of an account, as Better Auth's role: a deactivated staff member's. */
   endSessions?: (userId: string) => Promise<number>;
+  /** The Airtable sync, run now from Importar (ADR-0005); undefined when not configured. */
+  syncAirtable?: () => Promise<SyncCounts>;
+  /** Told about every new person from the staff app (the bot's team group, ADR-0004). */
+  onArrival?: (personId: string) => Promise<void>;
 }
 
 /**
@@ -109,7 +115,15 @@ export interface StaffApiOptions {
  * reaches nothing. The web app's server-side calls name the staff host too.
  */
 export const staffApiRoutes =
-  ({ auth: signIn, app, invitations, passwordLinks, endSessions }: StaffApiOptions) =>
+  ({
+    auth: signIn,
+    app,
+    invitations,
+    passwordLinks,
+    endSessions,
+    syncAirtable,
+    onArrival,
+  }: StaffApiOptions) =>
   async (scope: FastifyInstance): Promise<void> => {
     if (!signIn) {
       scope.all('/*', async (_request, reply) =>
@@ -208,6 +222,17 @@ export const staffApiRoutes =
         passwordLinks,
         endSessions,
         actorFor: async (request) => actorOf(await findSession(request)),
+      }),
+    );
+
+    // Onboarding (people/routes.ts): onboarding staff and admins, as the database decides.
+    await scope.register(
+      peopleRoutes({
+        app,
+        staffOrigin,
+        actorFor: async (request) => actorOf(await findSession(request)),
+        syncAirtable,
+        onArrival,
       }),
     );
   };
