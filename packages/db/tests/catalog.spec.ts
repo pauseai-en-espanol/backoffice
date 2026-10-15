@@ -218,11 +218,25 @@ describe('catalog: closed by default', () => {
           AND has_table_privilege('pauseai_backoffice_auth', c.oid, p.privilege)
         GROUP BY c.relname ORDER BY 1`,
     );
-    expect(granted.map((g) => g.grant)).toEqual(
-      ['accounts', 'rate_limits', 'sessions', 'two_factors', 'users', 'verifications'].map(
+    expect(granted.map((g) => g.grant)).toEqual([
+      ...['accounts', 'rate_limits', 'sessions'].map(
         (table) => `${table} DELETE,INSERT,SELECT,UPDATE`,
       ),
-    );
+      // The bot's links and their codes (ADR-0004): a link is replaced, never edited; a code is only marked used.
+      'telegram_link_codes DELETE,INSERT,SELECT',
+      'telegram_links DELETE,INSERT,SELECT',
+      ...['two_factors', 'users', 'verifications'].map(
+        (table) => `${table} DELETE,INSERT,SELECT,UPDATE`,
+      ),
+    ]);
+    expect(
+      await rows<{ column: string }>(
+        `SELECT a.attname AS column FROM pg_attribute a
+          WHERE a.attrelid = 'auth.telegram_link_codes'::regclass AND a.attnum > 0 AND NOT a.attisdropped
+            AND has_column_privilege('pauseai_backoffice_auth', a.attrelid, a.attnum, 'UPDATE')
+          ORDER BY 1`,
+      ),
+    ).toEqual([{ column: 'used_at' }]);
     const [schema] = await rows<{ create: boolean }>(
       `SELECT has_schema_privilege('pauseai_backoffice_auth', 'auth', 'CREATE') AS create`,
     );
@@ -407,14 +421,38 @@ describe('catalog: tables', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('keeps the private schema free of tables and views until the bot needs its state (M1)', async () => {
+  it("keeps in private only the bot's own state, with exactly the grants it uses, for the app role alone", async () => {
+    // Internal tables, outside app and its policies (ADR-0004): nobody but the app role reaches them, and it only as
+    // the bot's code needs.
     const relations = await rows<{ relname: string }>(
       `SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'private' AND c.relkind IN ('r', 'p', 'v', 'm')`,
+        WHERE n.nspname = 'private' AND c.relkind IN ('r', 'p', 'v', 'm') ORDER BY 1`,
     );
-    expect(relations).toEqual([]);
+    expect(relations.map((r) => r.relname)).toEqual(Object.keys(PRIVATE_TABLES).sort());
+    for (const role of RUNTIME_ROLES) {
+      const granted = (await reachable(role, ['private'])).filter(
+        (grant) => grant.startsWith('private.telegram_') && !grant.endsWith(' EXECUTE'),
+      );
+      const expected =
+        role === 'pauseai_backoffice_app'
+          ? Object.entries(PRIVATE_TABLES).flatMap(([table, privileges]) =>
+              privileges.map((privilege) => `private.${table} ${privilege}`),
+            )
+          : [];
+      expect({ role, granted: granted.sort() }).toEqual({ role, granted: expected.sort() });
+    }
   });
 });
+
+/**
+ * The bot's internal state in `private` (ADR-0004) and what the app role may do to each, as `reachable` reports it:
+ * a column-level grant (telegram_posts' message_id) counts as the privilege on the table.
+ */
+const PRIVATE_TABLES: Readonly<Record<string, readonly string[]>> = {
+  telegram_dialogs: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+  telegram_posts: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+  telegram_updates: ['DELETE', 'INSERT', 'SELECT'],
+};
 
 /** Tables written without an audit trigger, and why. Every other table in app must have one. */
 const NOT_AUDITED: Readonly<Record<string, string>> = {
@@ -452,6 +490,7 @@ const AUTH_PERSONAL_DATA: readonly string[] = [
   'auth.rate_limits.key',
   'auth.sessions.ip_address',
   'auth.sessions.user_agent',
+  'auth.telegram_links.telegram_user_id',
   'auth.users.email',
   'auth.users.image',
   'auth.users.name',
@@ -499,10 +538,12 @@ describe('catalog: audit', () => {
          JOIN pg_class c ON c.oid = a.attrelid
          JOIN pg_namespace n ON n.oid = c.relnamespace
          JOIN pg_description d ON d.objoid = c.oid AND d.objsubid = a.attnum
-        WHERE n.nspname IN ('app', 'auth') AND d.description = 'personal data'
+        WHERE n.nspname IN ('app', 'auth', 'private') AND d.description = 'personal data'
         ORDER BY 1`,
     );
-    expect(marked.map((m) => m.col)).toEqual([...PERSONAL_DATA, ...AUTH_PERSONAL_DATA].sort());
+    expect(marked.map((m) => m.col)).toEqual(
+      [...PERSONAL_DATA, ...AUTH_PERSONAL_DATA, 'private.telegram_dialogs.state'].sort(),
+    );
   });
 
   it('protects every append-only table with UPDATE, DELETE and TRUNCATE triggers', async () => {

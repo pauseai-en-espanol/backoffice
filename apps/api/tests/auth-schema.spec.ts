@@ -28,8 +28,8 @@ afterAll(async () => {
   await Promise.all(pools.map((p) => p.end()));
 });
 
-/** Our own tables in `auth`, beside Better Auth's: none yet (M1 adds Telegram links), tested in packages/db. */
-const OURS = '';
+/** Our own tables in `auth`, beside Better Auth's: the bot's links and their codes (ADR-0004), tested in packages/db. */
+const OURS = ['telegram_links', 'telegram_link_codes'];
 
 /**
  * A schema's tables as Postgres sees them, with the schema's name taken out so two schemas compare, and without ours
@@ -48,17 +48,17 @@ const describeSchema = async (
       JOIN pg_class c ON c.oid = a.attrelid
       JOIN pg_namespace n ON n.oid = c.relnamespace
       LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
-     WHERE n.nspname = ${schema} AND c.relkind = 'r' AND a.attnum > 0 AND NOT a.attisdropped AND c.relname <> ${OURS}
+     WHERE n.nspname = ${schema} AND c.relkind = 'r' AND a.attnum > 0 AND NOT a.attisdropped AND NOT c.relname::text = ANY(${OURS})
      ORDER BY 1`.execute(trx);
   const constraints = await sql<{ line: string }>`
     SELECT c.relname || ' ' || con.conname || ' ' || pg_get_constraintdef(con.oid) AS line
       FROM pg_constraint con
       JOIN pg_class c ON c.oid = con.conrelid
       JOIN pg_namespace n ON n.oid = c.relnamespace
-     WHERE n.nspname = ${schema} AND c.relname <> ${OURS}
+     WHERE n.nspname = ${schema} AND NOT c.relname::text = ANY(${OURS})
      ORDER BY 1`.execute(trx);
   const indexes = await sql<{ line: string }>`
-    SELECT indexdef AS line FROM pg_indexes WHERE schemaname = ${schema} AND tablename <> ${OURS}
+    SELECT indexdef AS line FROM pg_indexes WHERE schemaname = ${schema} AND NOT tablename::text = ANY(${OURS})
      ORDER BY indexname`.execute(trx);
   return [...columns.rows, ...constraints.rows, ...indexes.rows].map((row) => strip(row.line));
 };

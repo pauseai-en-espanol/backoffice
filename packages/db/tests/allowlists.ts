@@ -7,6 +7,7 @@ export const EXECUTE_ALLOWLIST: readonly string[] = [
   'pauseai_backoffice_app private.bot_can(VARIADIC roles app.staff_role[])',
   'pauseai_backoffice_app private.bot_candidates(arrival_name text, province text, phones text[], emails text[])',
   'pauseai_backoffice_app private.bot_people(scope text, query text, phones text[], emails text[])',
+  'pauseai_backoffice_app private.bot_summary()',
   'pauseai_backoffice_app private.claim_person(person uuid)',
   'pauseai_backoffice_app private.current_aal()',
   'pauseai_backoffice_app private.current_channel()',
@@ -19,6 +20,8 @@ export const EXECUTE_ALLOWLIST: readonly string[] = [
   'pauseai_backoffice_app private.resolve_intake(intake_id uuid, decision text, target uuid)',
   'pauseai_backoffice_app private.staff_can(VARIADIC roles app.staff_role[])',
   'pauseai_backoffice_app private.submit_intake(source app.source_kind, external_id text, payload jsonb, decision text, target uuid)',
+  'pauseai_backoffice_app private.team_card(person uuid)',
+  'pauseai_backoffice_app private.team_unposted(chat bigint)',
   // The Airtable sync's one function (ADR-0005): nothing else is granted to the ingest role.
   'pauseai_backoffice_ingest private.ingest_airtable(records jsonb)',
 ];
@@ -31,6 +34,7 @@ export const SECURITY_DEFINER_ALLOWLIST: readonly string[] = [
   // The bot's reads and acts, each checking its caller and channel itself (ADR-0004).
   'private.bot_candidates',
   'private.bot_people',
+  'private.bot_summary',
   'private.claim_person',
   'private.import_csv',
   'private.ingest_airtable',
@@ -41,6 +45,9 @@ export const SECURITY_DEFINER_ALLOWLIST: readonly string[] = [
   'private.resolve_intake',
   'private.staff_can',
   'private.submit_intake',
+  // The team group's posts (ADR-0004): without an actor, only what a post shows, of the last 48 hours' arrivals.
+  'private.team_card',
+  'private.team_unposted',
 ];
 
 /**

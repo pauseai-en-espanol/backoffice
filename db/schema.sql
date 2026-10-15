@@ -435,6 +435,31 @@ CREATE FUNCTION private.bot_people(scope text, query text DEFAULT NULL::text, ph
 ALTER FUNCTION private.bot_people(scope text, query text, phones text[], emails text[]) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: bot_summary(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.bot_summary() RETURNS TABLE(unassigned integer, arrived_yesterday integer)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT private.may_intake(true) THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN QUERY
+    SELECT (SELECT count(*)::int FROM app.people p
+             WHERE p.stage = 'new' AND p.owner_id IS NULL AND p.merged_into IS NULL AND p.anonymised_at IS NULL),
+           (SELECT count(*)::int FROM app.people p
+             WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL
+               AND (p.created_at AT TIME ZONE 'Europe/Madrid')::date
+                   = (now() AT TIME ZONE 'Europe/Madrid')::date - 1);
+  END
+  $$;
+
+
+ALTER FUNCTION private.bot_summary() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: check_payload(jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1480,6 +1505,46 @@ CREATE FUNCTION private.survivor(person uuid) RETURNS uuid
 ALTER FUNCTION private.survivor(person uuid) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: team_card(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.team_card(person uuid) RETURNS TABLE(person_id uuid, name text, province text, sources text[], stage app.stage, owner_name text)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+    SELECT p.id, coalesce(p.preferred_name, p.full_name), p.province,
+           ARRAY(SELECT s.source::text FROM app.person_sources s WHERE s.person_id = p.id ORDER BY s.first_seen_at),
+           p.stage, st.display_name
+      FROM app.people p
+      LEFT JOIN app.staff st ON st.user_id = p.owner_id
+     WHERE p.id = team_card.person AND p.merged_into IS NULL AND p.anonymised_at IS NULL
+       AND (p.created_at > now() - interval '48 hours'
+            OR EXISTS (SELECT 1 FROM private.telegram_posts t WHERE t.person_id = p.id))
+  $$;
+
+
+ALTER FUNCTION private.team_card(person uuid) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: team_unposted(bigint); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.team_unposted(chat bigint) RETURNS SETOF uuid
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+    SELECT p.id
+      FROM app.people p
+     WHERE p.created_at > now() - interval '48 hours' AND p.merged_into IS NULL AND p.anonymised_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM private.telegram_posts t WHERE t.person_id = p.id AND t.chat_id = chat)
+     ORDER BY p.created_at
+     LIMIT 20
+  $$;
+
+
+ALTER FUNCTION private.team_unposted(chat bigint) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: audit_log; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -2008,6 +2073,45 @@ COMMENT ON COLUMN auth.sessions.aal IS '2 only for a session created by a TOTP o
 
 
 --
+-- Name: telegram_link_codes; Type: TABLE; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE auth.telegram_link_codes (
+    code_hash text NOT NULL,
+    user_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone,
+    CONSTRAINT telegram_link_codes_check CHECK (((expires_at > created_at) AND (expires_at <= (created_at + '00:10:00'::interval)))),
+    CONSTRAINT telegram_link_codes_check1 CHECK (((used_at IS NULL) OR (used_at <= expires_at))),
+    CONSTRAINT telegram_link_codes_code_hash_check CHECK ((code_hash ~ '^[0-9a-f]{64}$'::text))
+);
+
+
+ALTER TABLE auth.telegram_link_codes OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: telegram_links; Type: TABLE; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE auth.telegram_links (
+    user_id uuid NOT NULL,
+    telegram_user_id bigint NOT NULL,
+    linked_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT telegram_links_telegram_user_id_check CHECK ((telegram_user_id > 0))
+);
+
+
+ALTER TABLE auth.telegram_links OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN telegram_links.telegram_user_id; Type: COMMENT; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN auth.telegram_links.telegram_user_id IS 'personal data';
+
+
+--
 -- Name: two_factors; Type: TABLE; Schema: auth; Owner: pauseai_backoffice_owner
 --
 
@@ -2078,6 +2182,54 @@ CREATE TABLE auth.verifications (
 
 
 ALTER TABLE auth.verifications OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: telegram_dialogs; Type: TABLE; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE private.telegram_dialogs (
+    telegram_user_id bigint NOT NULL,
+    user_id uuid NOT NULL,
+    state jsonb NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    CONSTRAINT telegram_dialogs_state_check CHECK ((jsonb_typeof(state) = 'object'::text))
+);
+
+
+ALTER TABLE private.telegram_dialogs OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN telegram_dialogs.state; Type: COMMENT; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN private.telegram_dialogs.state IS 'personal data';
+
+
+--
+-- Name: telegram_posts; Type: TABLE; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE private.telegram_posts (
+    person_id uuid NOT NULL,
+    chat_id bigint NOT NULL,
+    message_id bigint,
+    posted_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE private.telegram_posts OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: telegram_updates; Type: TABLE; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE private.telegram_updates (
+    update_id bigint NOT NULL,
+    received_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE private.telegram_updates OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: schema_migrations; Type: TABLE; Schema: public; Owner: pauseai_backoffice_owner
@@ -2259,6 +2411,30 @@ ALTER TABLE ONLY auth.sessions
 
 
 --
+-- Name: telegram_link_codes telegram_link_codes_pkey; Type: CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY auth.telegram_link_codes
+    ADD CONSTRAINT telegram_link_codes_pkey PRIMARY KEY (code_hash);
+
+
+--
+-- Name: telegram_links telegram_links_pkey; Type: CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY auth.telegram_links
+    ADD CONSTRAINT telegram_links_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: telegram_links telegram_links_telegram_user_id_key; Type: CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY auth.telegram_links
+    ADD CONSTRAINT telegram_links_telegram_user_id_key UNIQUE (telegram_user_id);
+
+
+--
 -- Name: two_factors two_factors_pkey; Type: CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
 --
 
@@ -2288,6 +2464,30 @@ ALTER TABLE ONLY auth.users
 
 ALTER TABLE ONLY auth.verifications
     ADD CONSTRAINT verifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: telegram_dialogs telegram_dialogs_pkey; Type: CONSTRAINT; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY private.telegram_dialogs
+    ADD CONSTRAINT telegram_dialogs_pkey PRIMARY KEY (telegram_user_id);
+
+
+--
+-- Name: telegram_posts telegram_posts_pkey; Type: CONSTRAINT; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY private.telegram_posts
+    ADD CONSTRAINT telegram_posts_pkey PRIMARY KEY (person_id, chat_id);
+
+
+--
+-- Name: telegram_updates telegram_updates_pkey; Type: CONSTRAINT; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY private.telegram_updates
+    ADD CONSTRAINT telegram_updates_pkey PRIMARY KEY (update_id);
 
 
 --
@@ -2394,6 +2594,13 @@ CREATE INDEX accounts_user_id_idx ON auth.accounts USING btree (user_id);
 --
 
 CREATE INDEX sessions_user_id_idx ON auth.sessions USING btree (user_id);
+
+
+--
+-- Name: telegram_link_codes_user_id_idx; Type: INDEX; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX telegram_link_codes_user_id_idx ON auth.telegram_link_codes USING btree (user_id);
 
 
 --
@@ -2837,11 +3044,35 @@ ALTER TABLE ONLY auth.sessions
 
 
 --
+-- Name: telegram_link_codes telegram_link_codes_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY auth.telegram_link_codes
+    ADD CONSTRAINT telegram_link_codes_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: telegram_links telegram_links_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY auth.telegram_links
+    ADD CONSTRAINT telegram_links_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: two_factors two_factors_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
 --
 
 ALTER TABLE ONLY auth.two_factors
     ADD CONSTRAINT two_factors_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: telegram_posts telegram_posts_person_id_fkey; Type: FK CONSTRAINT; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY private.telegram_posts
+    ADD CONSTRAINT telegram_posts_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
 
 
 --
@@ -3194,6 +3425,14 @@ GRANT ALL ON FUNCTION private.bot_people(scope text, query text, phones text[], 
 
 
 --
+-- Name: FUNCTION bot_summary(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.bot_summary() FROM PUBLIC;
+GRANT ALL ON FUNCTION private.bot_summary() TO pauseai_backoffice_app;
+
+
+--
 -- Name: FUNCTION check_payload(payload jsonb); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -3442,6 +3681,22 @@ GRANT ALL ON FUNCTION private.submit_intake(source app.source_kind, external_id 
 --
 
 REVOKE ALL ON FUNCTION private.survivor(person uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION team_card(person uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.team_card(person uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.team_card(person uuid) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION team_unposted(chat bigint); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.team_unposted(chat bigint) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.team_unposted(chat bigint) TO pauseai_backoffice_app;
 
 
 --
@@ -3872,6 +4127,27 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE auth.sessions TO pauseai_backoffice_a
 
 
 --
+-- Name: TABLE telegram_link_codes; Type: ACL; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE auth.telegram_link_codes TO pauseai_backoffice_auth;
+
+
+--
+-- Name: COLUMN telegram_link_codes.used_at; Type: ACL; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(used_at) ON TABLE auth.telegram_link_codes TO pauseai_backoffice_auth;
+
+
+--
+-- Name: TABLE telegram_links; Type: ACL; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE auth.telegram_links TO pauseai_backoffice_auth;
+
+
+--
 -- Name: TABLE two_factors; Type: ACL; Schema: auth; Owner: pauseai_backoffice_owner
 --
 
@@ -3890,6 +4166,34 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE auth.users TO pauseai_backoffice_auth
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE auth.verifications TO pauseai_backoffice_auth;
+
+
+--
+-- Name: TABLE telegram_dialogs; Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE private.telegram_dialogs TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE telegram_posts; Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE private.telegram_posts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN telegram_posts.message_id; Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(message_id) ON TABLE private.telegram_posts TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE telegram_updates; Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,INSERT,DELETE ON TABLE private.telegram_updates TO pauseai_backoffice_app;
 
 
 --
