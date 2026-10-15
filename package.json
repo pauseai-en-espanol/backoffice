@@ -19,6 +19,7 @@
     "test": "turbo test",
     "test:db": "turbo test:db",
     "test:e2e": "turbo test:e2e",
+    "test:mutation": "node scripts/mutation-test.mjs",
     "verify": "scripts/verify.sh",
     "format": "prettier --ignore-unknown --write .",
     "format:check": "prettier --ignore-unknown --check .",
