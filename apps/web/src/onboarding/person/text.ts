@@ -1,0 +1,147 @@
+import type { getTranslator } from '@backoffice/i18n/messages';
+
+import {
+  availabilityNames,
+  channelNames,
+  onboardingErrors,
+  outcomeNames,
+  personLabels,
+  stageHints,
+  stageNames,
+} from '../text';
+
+type Translator = ReturnType<typeof getTranslator>;
+
+/**
+ * Every word a person's page hands its client components, built once by the server page. Templates keep their
+ * `{name}` placeholders, which the components fill (fill.ts).
+ */
+export const personPageText = (t: Translator) => {
+  const raw = (key: Parameters<Translator['raw']>[0]) => String(t.raw(key));
+  return {
+    errors: onboardingErrors(t),
+    labels: personLabels(t),
+    stages: stageNames(t),
+    stageHints: stageHints(t),
+    channels: channelNames(t),
+    outcomes: outcomeNames(t),
+    availability: availabilityNames(t),
+    identityKinds: {
+      email: t('person.identityKinds.email'),
+      phone: t('person.identityKinds.phone'),
+      airtable: t('person.identityKinds.airtable'),
+    },
+    cancel: t('person.cancel'),
+    saved: t('person.saved'),
+    profile: {
+      edit: t('person.editProfile'),
+      save: t('person.saveProfile'),
+      fullName: t('person.fullName'),
+      preferredName: t('person.preferredName'),
+      province: t('person.province'),
+      town: t('person.town'),
+      languages: t('person.languages'),
+      languagesHint: t('person.languagesHint'),
+      pronouns: t('person.pronouns'),
+      pronounsHint: t('person.pronounsHint'),
+      availability: t('person.availability'),
+      availabilityNone: t('person.availabilityNone'),
+      howHeard: t('person.howHeard'),
+    },
+    identities: {
+      add: t('person.addIdentity'),
+      kind: t('person.identityKind'),
+      value: t('person.identityValue'),
+      valueHint: t('person.identityValueHint'),
+      willBe: raw('person.identityWillBe'),
+      notValid: t('person.identityNotValid'),
+      added: t('person.identityAdded'),
+      taken: t('person.identityTaken'),
+      takenLink: t('person.identityTakenLink'),
+      remove: raw('person.removeIdentity'),
+      confirmRemove: raw('person.confirmRemoveIdentity'),
+      removed: t('person.identityRemoved'),
+      confirm: t('team.confirm'),
+      verified: t('person.verified'),
+      copyEmail: t('person.copyEmail'),
+      emailCopied: t('person.emailCopied'),
+    },
+    presence: {
+      hasLeft: t('person.hasLeft'),
+      hasJoined: t('person.hasJoined'),
+      leftDate: t('person.leftDate'),
+      joinedDate: t('person.joinedDate'),
+      chat: t('person.chat'),
+      dateHint: t('person.dateHint'),
+      confirmLeft: t('person.confirmLeft'),
+      confirmJoined: t('person.confirmJoined'),
+      leftDone: t('person.leftDone'),
+      joinedDone: t('person.joinedDone'),
+    },
+    stage: {
+      title: t('person.stageTitle'),
+      stage: t('person.changeStage'),
+      saveStage: t('person.saveStage'),
+      stageChanged: t('person.stageChanged'),
+      owner: t('person.changeOwner'),
+      noOwner: t('person.noOwner'),
+      saveOwner: t('person.saveOwner'),
+      ownerChanged: t('person.ownerChanged'),
+      claim: t('person.claim'),
+      claimed: raw('today.claimed'),
+      taken: raw('today.claimTaken'),
+    },
+    nextAction: {
+      title: t('person.nextActionTitle'),
+      text: t('person.nextActionText'),
+      hint: t('person.nextActionHint'),
+      due: t('person.nextActionDue'),
+      save: t('person.saveNextAction'),
+      clear: t('person.clearNextAction'),
+      saved: t('person.nextActionSaved'),
+      cleared: t('person.nextActionCleared'),
+      missing: t('person.nextActionMissing'),
+    },
+    attempt: {
+      title: t('person.attemptTitle'),
+      channel: t('person.attemptChannel'),
+      outcome: t('person.attemptOutcome'),
+      note: t('person.attemptNote'),
+      save: t('person.saveAttempt'),
+      saved: t('person.attemptSaved'),
+    },
+    note: {
+      title: t('person.noteTitle'),
+      note: t('person.note'),
+      save: t('person.saveNote'),
+      saved: t('person.noteSaved'),
+      missing: t('person.noteMissing'),
+      warning: t('person.notesWarning'),
+    },
+    whatsapp: {
+      title: t('person.whatsappTitle'),
+      intro: t('person.whatsappIntro'),
+      open: t('person.whatsappOpen'),
+      noPhone: t('person.whatsappNoPhone'),
+      message: raw('person.whatsappMessage'),
+      sent: t('person.whatsappSent'),
+      yes: t('person.whatsappYes'),
+      no: t('person.whatsappNo'),
+      logged: t('person.whatsappLogged'),
+    },
+    merge: {
+      title: t('person.mergeTitle'),
+      intro: t('person.mergeIntro'),
+      search: t('person.mergeSearch'),
+      searchHint: t('person.mergeSearchHint'),
+      searchButton: t('person.mergeSearchButton'),
+      none: t('person.mergeNone'),
+      pick: raw('person.mergePick'),
+      confirm: raw('person.mergeConfirm'),
+      confirmButton: t('person.mergeConfirmButton'),
+      done: t('person.mergeDone'),
+    },
+  };
+};
+
+export type PersonPageText = ReturnType<typeof personPageText>;
