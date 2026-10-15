@@ -13,7 +13,8 @@ lives in config.
 - [Architecture decisions](docs/adr/): hosting, authorization and data protection, stack, the Telegram bot, the
   Airtable intake
 - [Specs](docs/spec/): onboarding, outreach, data model, personal data
-- [Runbooks](docs/runbooks/): the first admin, a lost authenticator, deploying
+- [Runbooks](docs/runbooks/): deploying, the first admin, a lost authenticator, the bot's token, importing an
+  outreach campaign
 - [Contributing](CONTRIBUTING.md): workflow, the local database, the new-table checklist
 
 ## Getting started

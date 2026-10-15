@@ -35,8 +35,10 @@ PauseAI España's backoffice: the onboarding and outreach pipelines, for a singl
 ## Layout
 
 - `apps/web`: Next.js staff UI (Spanish), no database access · `apps/api`: Fastify API, Better Auth, the Telegram
-  webhook (M1) and the jobs' entry points (`src/jobs/`); the only code that touches Postgres
-- `packages/db`: Kysely, generated types, `withActor`, pools, database tests · `packages/domain`: pure logic (M1)
+  webhook (M1), the forms app's routes (M2) and the jobs' entry points (`src/jobs/`); the only code that touches
+  Postgres · `apps/forms`: the public census form (M2), which reaches the API inside the cluster only
+- `packages/db`: Kysely, generated types, `withActor`, pools, database tests · `packages/domain`: pure logic
+  (identities, stages, the bot's messages, outreach letters)
 - `packages/ui`: Panda preset · `packages/i18n`: Spanish messages · `packages/observability`: Sentry privacy options
 - `db/migrations/*.sql` (dbmate) and `db/schema.sql` (generated dump, review it in every change)
 - `helm-charts/backoffice`: the umbrella chart; each deployable's subchart in its own `helm-chart/`
