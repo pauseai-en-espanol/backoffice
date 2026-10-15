@@ -119,6 +119,12 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   returns only what a post in the group shows (name, province, sources, stage, owner), and only for someone who
   arrived in the last 48 hours or already has a post; `private.team_unposted(chat)` returns ids. The bot posts
   arrivals from every source, the hourly Airtable sync's included, which has no person behind it.
+- **Erasure** (M2 and M3, [personal data](../spec/personal-data.md)): `private.anonymise_person` and
+  `private.anonymise_contact`, each `SECURITY DEFINER` to blank append-only timeline text (the owner's `app.redact`),
+  each for admins through the staff app alone, checked first.
+- **Outreach** (M3): its tables admit outreach staff and admins through the staff app
+  (`staff_can('admin', 'outreach')`), never the bot, which has no outreach command. Onboarding staff don't see it, nor
+  outreach staff onboarding's. Nothing there is reached through a definer function but erasure.
 - **The bot's own state** is in `private` (`telegram_updates`, `telegram_dialogs`, `telegram_posts`), outside `app`
   and its policies: only the app role reaches it, with exactly the privileges the bot uses, and a catalog test keeps
   that list. Its links and their codes are credentials, in `auth`, for the auth role alone.
