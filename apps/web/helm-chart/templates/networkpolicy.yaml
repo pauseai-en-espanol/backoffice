@@ -1,0 +1,40 @@
+{{- $policy := .Values.networkPolicy | default dict }}
+{{- if $policy.enabled }}
+{{- /* An empty list or map is falsy: on with no gateway, or a gateway with no labels, would shut every visitor out
+     (Cilium drops, the pods stay Ready), or let every pod of a namespace in. Refuse to render either. */}}
+{{- if not $policy.gateways }}
+{{- fail "networkPolicy.gateways must list the gateways that bring visitors: on without one, nobody reaches the app" }}
+{{- end }}
+{{- range $policy.gateways }}
+{{- if or (not .namespace) (not .podLabels) }}
+{{- fail "networkPolicy.gateways[] needs a namespace and podLabels: without labels it would admit every pod there" }}
+{{- end }}
+{{- end }}
+# Who may open a connection to the web app's pods (ADR-0001, network policies): the gateways' Envoy pods, which bring
+# every visitor; nothing else in the cluster. Ingress only: what the app reaches (the API) is the API's policy's
+# business. The kubelet's probes come from the node, which Cilium always admits.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "backoffice-web.fullname" . }}
+  labels:
+    {{- include "backoffice-web.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "backoffice-web.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        {{- range $gateway := $policy.gateways }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $gateway.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $gateway.podLabels | nindent 14 }}
+        {{- end }}
+      ports:
+        - port: {{ .Values.service.port }}
+          protocol: TCP
+{{- end }}

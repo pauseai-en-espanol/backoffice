@@ -1,0 +1,182 @@
+# One replica (ADR-0001): an internal tool, where a short restart is acceptable. The rate limiters count per process.
+replicaCount: 1
+image:
+  repository: backoffice/api
+  tag: ''
+  pullPolicy: IfNotPresent
+service:
+  port: 3001
+resources:
+  requests:
+    cpu: 100m
+    memory: 192Mi
+  limits:
+    cpu: '1'
+    memory: 384Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+# Extra environment for the API's own pods (plain values, or secretKeyRef for credentials sealed in gitops). Never
+# passed to the jobs, which get only their own credentials.
+env: []
+# e.g. the secret with SENTRY_DSN (GlitchTip project backoffice-api).
+envFrom: []
+logLevel: info
+
+# The product's name (PRODUCT_NAME), from each deployment's configuration: what authenticator apps file the staff
+# accounts under, and what emails are signed with. Sign-in needs it.
+productName: ''
+
+# The pauseai_backoffice_app role's connection (APP_DATABASE_URL), for everything a signed-in staff member or the bot
+# does, always through withActor (ADR-0002). Without it the signed-in data routes answer 503.
+appDatabaseUrlSecret:
+  name: ''
+  key: DATABASE_URL
+
+# Sign-in (Better Auth, ADR-0003) on the staff host's /api. Set all three and productName, or none of the three: with
+# none, /api answers 503; with some, the chart refuses to render (and the API to start).
+auth:
+  # The staff host's origin, e.g. https://backoffice.example.org: the only host /api answers on.
+  staffOrigin: ''
+  # The pauseai_backoffice_auth role's connection, the only role that reaches Better Auth's tables (ADR-0002).
+  databaseUrlSecret:
+    name: ''
+    key: DATABASE_URL
+  # Signs Better Auth's cookies and encrypts TOTP secrets and backup codes. Changing it signs everyone out and makes
+  # every enrolled authenticator unreadable, so it is set once.
+  betterAuthSecret:
+    name: ''
+    key: BETTER_AUTH_SECRET
+  # The daily clean-up of sign-in data (expired sessions and verifications, day-old rate-limit rows): a CronJob from
+  # this image, as pauseai_backoffice_auth and with no other credential. Rendered once databaseUrlSecret is set.
+  cleanup:
+    # Its own extra environment, never the API's: e.g. the secret with SENTRY_DSN, so its failures reach GlitchTip.
+    envFrom: []
+    # Europe/Madrid, at a quiet hour (ADR-0001, jobs).
+    schedule: '0 3 * * *'
+    resources:
+      requests:
+        cpu: 10m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# Mail through Mailu's SMTP submission: invitations, password links and, from M1, the digest for staff without
+# Telegram. Set both or neither: with neither, nothing sends mail and no invitation can be made; with one, the chart
+# refuses to render (and the API to start).
+mail:
+  # smtps://user:password@host:465, from a secret sealed in gitops. Through Mailu's in-cluster Service, add
+  # ?tls.servername=<the name on Mailu's certificate>.
+  smtpUrlSecret:
+    name: ''
+    key: SMTP_URL
+  # The sending address, e.g. avisos@example.org.
+  from: ''
+
+# The Telegram bot (M1, ADR-0004): off by default. On, the API gets the bot's token and webhook secret, registers its
+# webhook at <staffOrigin>/telegram/webhook, and reaches api.telegram.org on 443 (the network policy opens it). The web
+# chart's route.telegramWebhook must be on too, or Telegram's updates never arrive.
+telegram:
+  enabled: false
+  # One sealed secret with both keys (scripts/seal-telegram-secret.sh).
+  secret:
+    name: ''
+    botTokenKey: TELEGRAM_BOT_TOKEN
+    webhookSecretKey: TELEGRAM_WEBHOOK_SECRET
+  # The bot's @username, without the @, for the "Conectar Telegram" deep links.
+  botUsername: ''
+  # The onboarding team's group chat id (D11): optional; empty, nothing is posted to a group.
+  teamChatId: ''
+
+# The Airtable sync (M1, ADR-0005): off by default. On, an hourly CronJob reads Global's shared view as
+# pauseai_backoffice_ingest, and the API can run it on demand (the bot's /sincronizar, the Importar page). The shared
+# view's link is a credential: it lives only in its sealed secret (scripts/seal-airtable-link.sh).
+airtableSync:
+  enabled: false
+  schedule: '5 * * * *'
+  ingestDatabaseUrlSecret:
+    name: ''
+    key: DATABASE_URL
+  sharedViewUrlSecret:
+    name: ''
+    key: AIRTABLE_SHARED_VIEW_URL
+  # Its own extra environment: e.g. the secret with SENTRY_DSN.
+  envFrom: []
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# The daily digest (M1, onboarding spec, notifications): a CronJob at 09:00 Madrid time, as pauseai_backoffice_app with
+# the system actor, by Telegram (or mail, for staff without it). Needs appDatabaseUrlSecret, and telegram or mail.
+digest:
+  enabled: false
+  schedule: '0 9 * * *'
+  envFrom: []
+  resources:
+    requests:
+      cpu: 10m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# The bot's conversations in progress expire after an hour (M1, ADR-0004): an hourly CronJob deletes them, as
+# pauseai_backoffice_app with the system actor.
+dialogCleanup:
+  enabled: false
+  schedule: '25 * * * *'
+  envFrom: []
+  resources:
+    requests:
+      cpu: 10m
+      memory: 96Mi
+    limits:
+      cpu: 200m
+      memory: 192Mi
+
+# Who may reach the API's pods, and what they and the jobs' pods may reach (ADR-0001, network policies). Off by
+# default; gitops turns it on with its environment's selectors. On, the API admits only the gateways' Envoy pods and
+# the web app's pods, and reaches only the database, DNS, error tracking and mail when set, and the internet on 443
+# while the bot or the Airtable sync is on. The jobs admit nothing, and reach the database, DNS and error tracking;
+# the sync and the digest also the internet on 443, and the digest mail.
+networkPolicy:
+  enabled: false
+  # Each gateway whose Envoy pods bring requests to /api and /telegram/webhook: their namespace and pods' labels, e.g.
+  #   - namespace: envoy-gateway-system
+  #     podLabels:
+  #       gateway.envoyproxy.io/owning-gateway-name: gateway-public
+  #       gateway.envoyproxy.io/owning-gateway-namespace: gateway-public
+  gateways: []
+  # The web app's pods' app.kubernetes.io/name: the web chart's nameOverride in the umbrella (web). They must match.
+  webName: web
+  # The database's namespace and port.
+  database:
+    namespace: ''
+    port: 5432
+  # Error tracking inside the cluster (GlitchTip): its namespace, its web pods' labels and their port (the pods', not
+  # the Service's). Without a namespace, nothing reaches error tracking.
+  errorTracking:
+    namespace: ''
+    podLabels: {}
+    port: 8000
+  # Mail (Mailu's front, inside the cluster): its namespace, its pods' labels and the submission ports. Without a
+  # namespace, no mail leaves (invitations fail with "mail").
+  mail:
+    namespace: ''
+    podLabels: {}
+    ports: [465]

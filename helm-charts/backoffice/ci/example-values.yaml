@@ -1,0 +1,63 @@
+# Rendered in CI (helm lint/template) to exercise every template, the M1 blocks included. Fictional hosts,
+# placeholder secret names.
+backoffice-migrations:
+  image: { repository: registry.example/backoffice/migrations, tag: 0.1.0.abc1234 }
+  databaseUrlSecret: { name: backoffice-owner-db }
+backoffice-api:
+  image: { repository: registry.example/backoffice/api, tag: 0.1.0.abc1234 }
+  productName: Backoffice de ejemplo
+  envFrom: [{ secretRef: { name: backoffice-api-glitchtip } }]
+  appDatabaseUrlSecret: { name: backoffice-app-db }
+  auth:
+    staffOrigin: https://backoffice.example-org.test
+    databaseUrlSecret: { name: backoffice-auth-db }
+    betterAuthSecret: { name: backoffice-better-auth }
+    cleanup:
+      envFrom: [{ secretRef: { name: backoffice-api-glitchtip } }]
+  mail:
+    smtpUrlSecret: { name: backoffice-mail }
+    from: avisos@example-org.test
+  telegram:
+    enabled: true
+    secret: { name: backoffice-telegram }
+    botUsername: ejemplo_backoffice_bot
+    teamChatId: '-1001234567890'
+  airtableSync:
+    enabled: true
+    ingestDatabaseUrlSecret: { name: backoffice-ingest-db }
+    sharedViewUrlSecret: { name: backoffice-airtable }
+    envFrom: [{ secretRef: { name: backoffice-api-glitchtip } }]
+  digest:
+    enabled: true
+    envFrom: [{ secretRef: { name: backoffice-api-glitchtip } }]
+  dialogCleanup:
+    enabled: true
+  networkPolicy:
+    enabled: true
+    gateways:
+      - namespace: envoy-gateway-system
+        podLabels: { gateway.envoyproxy.io/owning-gateway-name: gateway-public }
+    database: { namespace: example-postgres }
+    errorTracking:
+      namespace: example-glitchtip
+      podLabels: { app.kubernetes.io/name: glitchtip, app.kubernetes.io/component: web }
+    mail:
+      namespace: example-mail
+      podLabels: { app.kubernetes.io/component: front }
+backoffice-web:
+  image: { repository: registry.example/backoffice/web, tag: 0.1.0.abc1234 }
+  productName: Backoffice de ejemplo
+  envFrom: [{ secretRef: { name: backoffice-web-glitchtip } }]
+  route:
+    enabled: true
+    parentRefs: [{ name: gateway-public, namespace: gateway-public }]
+    hostnames: [backoffice.example-org.test]
+    telegramWebhook: true
+    # Renders the per-address limits, so lint covers them.
+    trafficPolicy:
+      { rateLimit: { auth: 30, invitations: 30, telegramWebhook: 600, errorRelay: 60 } }
+  networkPolicy:
+    enabled: true
+    gateways:
+      - namespace: envoy-gateway-system
+        podLabels: { gateway.envoyproxy.io/owning-gateway-name: gateway-public }

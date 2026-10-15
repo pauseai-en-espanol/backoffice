@@ -1,0 +1,44 @@
+{{- if .Values.route.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "backoffice-web.fullname" . }}
+  labels:
+    {{- include "backoffice-web.labels" . | nindent 4 }}
+  {{- with .Values.route.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- toYaml (required "route.parentRefs is required when route.enabled" .Values.route.parentRefs) | nindent 4 }}
+  hostnames:
+    {{- toYaml (required "route.hostnames is required when route.enabled" .Values.route.hostnames) | nindent 4 }}
+  rules:
+    # The API lives under /api on the staff host: same origin, so host-only session cookies just work (ADR-0003).
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: {{ include "backoffice-web.apiService" . }}
+          port: {{ .Values.api.servicePort }}
+    {{- if .Values.route.telegramWebhook }}
+    # Telegram's updates (ADR-0004): this one path, POST only; the API checks the webhook secret on each.
+    - matches:
+        - path:
+            type: Exact
+            value: /telegram/webhook
+          method: POST
+      backendRefs:
+        - name: {{ include "backoffice-web.apiService" . }}
+          port: {{ .Values.api.servicePort }}
+    {{- end }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ include "backoffice-web.fullname" . }}
+          port: {{ .Values.service.port }}
+{{- end }}

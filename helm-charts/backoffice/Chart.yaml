@@ -1,0 +1,16 @@
+apiVersion: v2
+name: backoffice
+description: Umbrella chart for PauseAI España's backoffice, deployed by Argo CD on danilupion-com (ADR-0001)
+type: application
+version: 0.1.0
+appVersion: '0.0.0'
+dependencies:
+  - name: backoffice-migrations
+    version: 0.1.0
+    repository: file://../../db/helm-chart
+  - name: backoffice-api
+    version: 0.1.0
+    repository: file://../../apps/api/helm-chart
+  - name: backoffice-web
+    version: 0.1.0
+    repository: file://../../apps/web/helm-chart

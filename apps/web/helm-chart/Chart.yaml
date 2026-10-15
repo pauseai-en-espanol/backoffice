@@ -1,0 +1,6 @@
+apiVersion: v2
+name: backoffice-web
+description: The backoffice staff UI (Next.js) and the staff host's route, which sends /api to the API
+type: application
+version: 0.1.0
+appVersion: '0.0.0'

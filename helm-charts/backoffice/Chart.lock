@@ -1,0 +1,12 @@
+dependencies:
+- name: backoffice-migrations
+  repository: file://../../db/helm-chart
+  version: 0.1.0
+- name: backoffice-api
+  repository: file://../../apps/api/helm-chart
+  version: 0.1.0
+- name: backoffice-web
+  repository: file://../../apps/web/helm-chart
+  version: 0.1.0
+digest: sha256:8ed2ace516314573d2d06155a1333bea13b5d169ebb47ad97819ade943bfb7ca
+generated: "2026-10-15T22:50:47.695185+02:00"

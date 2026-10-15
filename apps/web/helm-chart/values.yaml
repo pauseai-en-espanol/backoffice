@@ -1,0 +1,82 @@
+# One replica (ADR-0001): an internal tool, where a short restart is acceptable.
+replicaCount: 1
+image:
+  repository: backoffice/web
+  tag: ''
+  pullPolicy: IfNotPresent
+service:
+  port: 3000
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: '1'
+    memory: 512Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+# Extra environment (plain values, or secretKeyRef for credentials sealed in gitops), e.g. nothing yet.
+env: []
+# e.g. the secret with SENTRY_DSN (GlitchTip project backoffice-web), which the browser error relay forwards to.
+envFrom: []
+
+# The product's name (PRODUCT_NAME), from each deployment's configuration: the pages' title.
+productName: ''
+
+# Gateway API HTTPRoute for the staff host (halyard `route:` convention). Hostnames and gateway come from gitops values.
+# /api (and, with telegramWebhook, /telegram/webhook) go to the API; everything else to this app.
+route:
+  enabled: false
+  # e.g. - name: gateway-public
+  #        namespace: gateway-public
+  parentRefs: []
+  hostnames: []
+  annotations: {}
+  # The Telegram bot's webhook (M1, ADR-0004): off until the API's telegram block is on. On, POST /telegram/webhook
+  # (exactly) goes to the API, which refuses any request without the webhook secret.
+  telegramWebhook: false
+  trafficPolicy:
+    enabled: true
+    # Per-client-address limits at the gateway (ADR-0001, routes): requests a minute for each address, past which
+    # Envoy answers 429. They are Envoy Gateway global limits (a bucket per address needs them), so its rate-limit
+    # service and Redis must be on first, or the whole route answers 500 (it is on in danilupion-com, as for
+    # aiontheballot). Set them as a flood ceiling, above what a team behind one address sends, so the API's own limits
+    # answer first, in Spanish. 0 leaves a group unlimited, and all 0 (the default) adds nothing.
+    rateLimit:
+      # POST /api/auth/…: sign-in, the second factor, enrolment, password links.
+      auth: 0
+      # POST /api/invitations/lookup and /accept: whoever holds an invitation link.
+      invitations: 0
+      # POST /telegram/webhook. Telegram delivers from a few addresses of its own: a ceiling far above the team's
+      # updates, never a per-person limit.
+      telegramWebhook: 0
+      # POST /_relay/errors: browser error reports (packages/observability).
+      errorRelay: 0
+
+# Who may connect to the web app's pods (ADR-0001, network policies): off by default. On, only the gateways' Envoy pods
+# listed here; nothing else in the cluster. Ingress only. Gitops turns it on with the gateways of its environment.
+networkPolicy:
+  enabled: false
+  # Each gateway whose Envoy pods bring visitors: their namespace and their pods' labels, e.g.
+  #   - namespace: envoy-gateway-system
+  #     podLabels:
+  #       gateway.envoyproxy.io/owning-gateway-name: gateway-public
+  #       gateway.envoyproxy.io/owning-gateway-namespace: gateway-public
+  gateways: []
+
+# The API service: the web app's server calls it (API_URL), and the route sends /api to it.
+api:
+  # Defaults to <release>-api, the API service of the same release.
+  serviceName: ''
+  servicePort: 3001

@@ -1,0 +1,120 @@
+{{- $policy := .Values.networkPolicy | default dict }}
+{{- if $policy.enabled }}
+{{- /* An empty list or map is falsy: on with no gateway, or a gateway with no labels, would shut every request out
+     (Cilium drops, the pods stay Ready), or let every pod of a namespace in. Refuse to render either. */}}
+{{- if not $policy.gateways }}
+{{- fail "networkPolicy.gateways must list the gateways that bring requests: on without one, nothing reaches the API" }}
+{{- end }}
+{{- range $policy.gateways }}
+{{- if or (not .namespace) (not .podLabels) }}
+{{- fail "networkPolicy.gateways[] needs a namespace and podLabels: without labels it would admit every pod there" }}
+{{- end }}
+{{- end }}
+{{- if not $policy.database.namespace }}
+{{- fail "networkPolicy.database.namespace is required with the network policy: without it the API reaches no database" }}
+{{- end }}
+{{- if and $policy.errorTracking.namespace (not $policy.errorTracking.podLabels) }}
+{{- fail "networkPolicy.errorTracking.podLabels is required with its namespace: without them every pod there is reachable" }}
+{{- end }}
+{{- if and $policy.mail.namespace (not $policy.mail.podLabels) }}
+{{- fail "networkPolicy.mail.podLabels is required with its namespace: without them every pod there is reachable" }}
+{{- end }}
+{{- $internet := or .Values.telegram.enabled .Values.airtableSync.enabled }}
+# The API's pods (ADR-0001, network policies): requests only from the gateways' Envoy pods (the staff host's /api and
+# /telegram/webhook) and the web app's pods (its server-side calls); out only to the database, DNS, error tracking and
+# mail when set, and the internet on 443 while the bot or the Airtable sync is on (Telegram, Airtable). The kubelet's
+# probes come from the node, which Cilium always admits.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "backoffice-api.fullname" . }}
+  labels:
+    {{- include "backoffice-api.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "backoffice-api.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        {{- range $gateway := $policy.gateways }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $gateway.namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $gateway.podLabels | nindent 14 }}
+        {{- end }}
+        # The web app's pods, in this namespace. The name is the web chart's nameOverride in the umbrella
+        # (helm-charts/backoffice/values.yaml): rename one, rename both (CI checks they match).
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/name: {{ $policy.webName | default "web" }}
+      ports:
+        - port: {{ .Values.service.port }}
+          protocol: TCP
+  egress:
+    {{- include "backoffice-api.egress" (dict "policy" $policy "mail" true "internet" $internet) | nindent 4 }}
+---
+# The jobs' pods: nothing may connect to them; they reach the database, DNS and error tracking.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "backoffice-api.fullname" . }}-jobs
+  labels:
+    {{- include "backoffice-api.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/part-of: backoffice
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [session-cleanup, airtable-sync, daily-digest, dialog-cleanup]
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    {{- include "backoffice-api.egress" (dict "policy" $policy "mail" false "internet" false) | nindent 4 }}
+{{- if or .Values.airtableSync.enabled .Values.digest.enabled }}
+---
+# The Airtable sync reads Airtable, and the digest sends through Telegram: the internet on 443. Policies add up, so
+# this widens only these two jobs' egress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "backoffice-api.fullname" . }}-jobs-internet
+  labels:
+    {{- include "backoffice-api.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/part-of: backoffice
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [airtable-sync, daily-digest]
+  policyTypes: [Egress]
+  egress:
+    {{- include "backoffice-api.internetEgress" . | nindent 4 }}
+{{- end }}
+{{- if and .Values.digest.enabled $policy.mail.namespace }}
+---
+# The digest mails staff without Telegram.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "backoffice-api.fullname" . }}-jobs-mail
+  labels:
+    {{- include "backoffice-api.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "backoffice-api.jobLabels" (dict "root" . "component" "daily-digest") | nindent 6 }}
+  policyTypes: [Egress]
+  egress:
+    {{- include "backoffice-api.mailEgress" $policy | nindent 4 }}
+{{- end }}
+{{- end }}

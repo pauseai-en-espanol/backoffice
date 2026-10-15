@@ -1,0 +1,58 @@
+{{- /*
+The API image's scheduled jobs (ADR-0001, jobs; docs/spec/data-model.md). Each gets only its own credentials, never the
+API's env or envFrom. The script paths are apps/api's build output (dist/jobs/*.js).
+*/}}
+{{- if .Values.auth.databaseUrlSecret.name }}
+# The daily clean-up of sign-in data: expired sessions and verification values, and day-old rate-limit rows, as
+# pauseai_backoffice_auth (ADR-0002) and with no other credential.
+{{- $env := include "backoffice-api.secretEnv" (dict "name" "AUTH_DATABASE_URL" "secret" .Values.auth.databaseUrlSecret) }}
+{{ include "backoffice-api.cronjob" (dict "root" . "component" "session-cleanup" "script" "dist/jobs/session-cleanup.js" "schedule" .Values.auth.cleanup.schedule "env" $env "envFrom" .Values.auth.cleanup.envFrom "resources" .Values.auth.cleanup.resources) }}
+{{- end }}
+{{- if .Values.airtableSync.enabled }}
+---
+# The Airtable sync (M1, ADR-0005): reads Global's shared view and inserts intake records, as pauseai_backoffice_ingest.
+# A Postgres advisory lock keeps it and an on-demand run from overlapping.
+{{- $env := printf "%s\n%s"
+      (include "backoffice-api.secretEnv" (dict "name" "INGEST_DATABASE_URL" "secret" .Values.airtableSync.ingestDatabaseUrlSecret))
+      (include "backoffice-api.secretEnv" (dict "name" "AIRTABLE_SHARED_VIEW_URL" "secret" .Values.airtableSync.sharedViewUrlSecret)) }}
+{{- if not .Values.airtableSync.ingestDatabaseUrlSecret.name }}
+{{- fail "airtableSync.ingestDatabaseUrlSecret.name is required with the sync" }}
+{{- end }}
+{{- if not .Values.airtableSync.sharedViewUrlSecret.name }}
+{{- fail "airtableSync.sharedViewUrlSecret.name is required with the sync" }}
+{{- end }}
+{{ include "backoffice-api.cronjob" (dict "root" . "component" "airtable-sync" "script" "dist/jobs/airtable-sync.js" "schedule" .Values.airtableSync.schedule "env" $env "envFrom" .Values.airtableSync.envFrom "resources" .Values.airtableSync.resources "activeDeadlineSeconds" 900) }}
+{{- end }}
+{{- if .Values.digest.enabled }}
+---
+# The daily digest (M1): each onboarder's people needing attention, by Telegram, or by mail for those without it.
+{{- if not .Values.appDatabaseUrlSecret.name }}
+{{- fail "digest.enabled needs appDatabaseUrlSecret" }}
+{{- end }}
+{{- if not (or .Values.telegram.enabled .Values.mail.smtpUrlSecret.name) }}
+{{- fail "digest.enabled needs the bot (telegram.enabled) or mail" }}
+{{- end }}
+{{- $env := include "backoffice-api.secretEnv" (dict "name" "APP_DATABASE_URL" "secret" .Values.appDatabaseUrlSecret) }}
+{{- if .Values.telegram.enabled }}
+{{- $env = printf "%s\n%s" $env (include "backoffice-api.telegramSendEnv" .) }}
+{{- end }}
+{{- if .Values.mail.smtpUrlSecret.name }}
+{{- $env = printf "%s\n%s" $env (include "backoffice-api.mailEnv" .) }}
+{{- end }}
+{{- if .Values.auth.staffOrigin }}
+{{- $env = printf "%s\n- name: STAFF_ORIGIN\n  value: %s" $env (.Values.auth.staffOrigin | quote) }}
+{{- end }}
+{{- if .Values.productName }}
+{{- $env = printf "%s\n- name: PRODUCT_NAME\n  value: %s" $env (.Values.productName | quote) }}
+{{- end }}
+{{ include "backoffice-api.cronjob" (dict "root" . "component" "daily-digest" "script" "dist/jobs/daily-digest.js" "schedule" .Values.digest.schedule "env" $env "envFrom" .Values.digest.envFrom "resources" .Values.digest.resources) }}
+{{- end }}
+{{- if .Values.dialogCleanup.enabled }}
+---
+# The bot's conversations in progress expire after an hour (M1, ADR-0004).
+{{- if not .Values.appDatabaseUrlSecret.name }}
+{{- fail "dialogCleanup.enabled needs appDatabaseUrlSecret" }}
+{{- end }}
+{{- $env := include "backoffice-api.secretEnv" (dict "name" "APP_DATABASE_URL" "secret" .Values.appDatabaseUrlSecret) }}
+{{ include "backoffice-api.cronjob" (dict "root" . "component" "dialog-cleanup" "script" "dist/jobs/dialog-cleanup.js" "schedule" .Values.dialogCleanup.schedule "env" $env "envFrom" .Values.dialogCleanup.envFrom "resources" .Values.dialogCleanup.resources) }}
+{{- end }}

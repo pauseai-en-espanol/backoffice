@@ -1,0 +1,130 @@
+{{- $signIn := or .Values.auth.staffOrigin .Values.auth.databaseUrlSecret.name .Values.auth.betterAuthSecret.name }}
+{{- if and .Values.telegram.enabled (not (and $signIn .Values.appDatabaseUrlSecret.name)) }}
+{{- fail "telegram.enabled needs sign-in (auth.*) and appDatabaseUrlSecret: the bot links staff accounts and acts as them" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "backoffice-api.fullname" . }}
+  labels:
+    {{- include "backoffice-api.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "backoffice-api.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "backoffice-api.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/part-of: backoffice
+      annotations:
+        # Velero's file-system backup (gitops backup plan) copies every pod volume unless told: the scratch volume
+        # `tmp` (below) holds nothing to keep. Rename them together.
+        backup.velero.io/backup-volumes-excludes: tmp
+    spec:
+      # preStop sleep + time to drain in-flight requests
+      terminationGracePeriodSeconds: 30
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ .Values.service.port | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel | quote }}
+            {{- if .Values.appDatabaseUrlSecret.name }}
+            # Everything a signed-in staff member or the bot does, through withActor (ADR-0002).
+            {{- include "backoffice-api.secretEnv" (dict "name" "APP_DATABASE_URL" "secret" .Values.appDatabaseUrlSecret) | nindent 12 }}
+            {{- end }}
+            {{- if $signIn }}
+            # Sign-in takes all of these or none (apps/api/src/config.ts), so a partial set fails here, not at startup.
+            - name: STAFF_ORIGIN
+              value: {{ required "auth.staffOrigin is required with sign-in" .Values.auth.staffOrigin | quote }}
+            - name: PRODUCT_NAME
+              value: {{ required "productName is required with sign-in" .Values.productName | quote }}
+            - name: AUTH_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "auth.databaseUrlSecret.name is required with sign-in" .Values.auth.databaseUrlSecret.name }}
+                  key: {{ .Values.auth.databaseUrlSecret.key }}
+            - name: BETTER_AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "auth.betterAuthSecret.name is required with sign-in" .Values.auth.betterAuthSecret.name }}
+                  key: {{ .Values.auth.betterAuthSecret.key }}
+            {{- else if .Values.productName }}
+            - name: PRODUCT_NAME
+              value: {{ .Values.productName | quote }}
+            {{- end }}
+            {{- if or .Values.mail.smtpUrlSecret.name .Values.mail.from }}
+            # Mail takes both or neither (apps/api/src/config.ts), so one without the other fails here.
+            {{- include "backoffice-api.mailEnv" . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.telegram.enabled }}
+            # The bot (ADR-0004): its token, and the secret Telegram sends with every update, which the webhook checks.
+            {{- include "backoffice-api.telegramSendEnv" . | nindent 12 }}
+            - name: TELEGRAM_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.telegram.secret.name }}
+                  key: {{ .Values.telegram.secret.webhookSecretKey }}
+            {{- end }}
+            {{- if .Values.airtableSync.enabled }}
+            # The Airtable sync on demand (ADR-0005): its own role, and the shared view's link, a credential.
+            - name: INGEST_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "airtableSync.ingestDatabaseUrlSecret.name is required with the sync" .Values.airtableSync.ingestDatabaseUrlSecret.name }}
+                  key: {{ .Values.airtableSync.ingestDatabaseUrlSecret.key }}
+            - name: AIRTABLE_SHARED_VIEW_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "airtableSync.sharedViewUrlSecret.name is required with the sync" .Values.airtableSync.sharedViewUrlSecret.name }}
+                  key: {{ .Values.airtableSync.sharedViewUrlSecret.key }}
+            {{- end }}
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              # Keep serving while the endpoint removal reaches the gateway; SIGTERM arrives after the sleep.
+              exec:
+                command: ['sleep', '8']
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

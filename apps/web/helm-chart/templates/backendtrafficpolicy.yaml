@@ -1,0 +1,71 @@
+{{- if and .Values.route.enabled .Values.route.trafficPolicy.enabled }}
+{{- $limits := .Values.route.trafficPolicy.rateLimit | default dict }}
+{{- $auth := int ($limits.auth | default 0) }}
+{{- $invitations := int ($limits.invitations | default 0) }}
+{{- $telegram := int ($limits.telegramWebhook | default 0) }}
+{{- $errorRelay := int ($limits.errorRelay | default 0) }}
+# Envoy Gateway policy for the staff host's HTTPRoute (as aiontheballot's). One policy per route: Envoy Gateway refuses
+# a second one targeting it as conflicting, so the rate limits live here too.
+# - retry connection-level failures only (never 5xx), so a request that may have been processed is never replayed;
+# - close idle upstream connections (60s) before the pods would (keep-alive 75s), avoiding reset races;
+# - per-client-address limits on the endpoints anyone can reach before signing in (ADR-0001), when values set them.
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: BackendTrafficPolicy
+metadata:
+  name: {{ include "backoffice-web.fullname" . }}
+  labels:
+    {{- include "backoffice-web.labels" . | nindent 4 }}
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: {{ include "backoffice-web.fullname" . }}
+  retry:
+    numRetries: 2
+    retryOn:
+      triggers:
+        - connect-failure
+        - refused-stream
+        - reset
+  timeout:
+    http:
+      connectionIdleTimeout: 60s
+  {{- if or (gt $auth 0) (gt $invitations 0) (gt $telegram 0) (gt $errorRelay 0) }}
+  # Global limits: only Envoy Gateway's rate-limit service counts each client address apart (Distinct), IPv4 and IPv6
+  # alike. It must be on before any number is set: without it Envoy Gateway answers every request of this route with
+  # a 500. Counted per address and per rule. The path is matched whole, query included.
+  rateLimit:
+    global:
+      rules:
+        {{- range $cidr := list "0.0.0.0/0" "::/0" }}
+        {{- if gt $auth 0 }}
+        - clientSelectors:
+            - sourceCIDR: { type: Distinct, value: {{ $cidr | quote }} }
+              methods: [{ value: POST }]
+              path: { type: PathPrefix, value: /api/auth/ }
+          limit: { requests: {{ $auth }}, unit: Minute }
+        {{- end }}
+        {{- if gt $invitations 0 }}
+        - clientSelectors:
+            - sourceCIDR: { type: Distinct, value: {{ $cidr | quote }} }
+              methods: [{ value: POST }]
+              path: { type: RegularExpression, value: '/api/invitations/(lookup|accept)(\?.*)?' }
+          limit: { requests: {{ $invitations }}, unit: Minute }
+        {{- end }}
+        {{- if gt $telegram 0 }}
+        - clientSelectors:
+            - sourceCIDR: { type: Distinct, value: {{ $cidr | quote }} }
+              methods: [{ value: POST }]
+              path: { type: PathPrefix, value: /telegram/webhook }
+          limit: { requests: {{ $telegram }}, unit: Minute }
+        {{- end }}
+        {{- if gt $errorRelay 0 }}
+        - clientSelectors:
+            - sourceCIDR: { type: Distinct, value: {{ $cidr | quote }} }
+              methods: [{ value: POST }]
+              path: { type: PathPrefix, value: /_relay/errors }
+          limit: { requests: {{ $errorRelay }}, unit: Minute }
+        {{- end }}
+        {{- end }}
+  {{- end }}
+{{- end }}
