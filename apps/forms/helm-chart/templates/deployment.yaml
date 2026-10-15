@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "backoffice-forms.fullname" . }}
+  labels:
+    {{- include "backoffice-forms.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "backoffice-forms.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "backoffice-forms.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/part-of: backoffice
+      annotations:
+        # Velero's file-system backup (gitops backup plan) copies every pod volume unless told: these two scratch
+        # volumes (named below) hold nothing to keep. Rename them together.
+        backup.velero.io/backup-volumes-excludes: next-cache,tmp
+    spec:
+      # preStop sleep + time to drain in-flight requests
+      terminationGracePeriodSeconds: 30
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ required "image.tag is required" .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          env:
+            - name: PORT
+              value: {{ .Values.service.port | quote }}
+            # The census routes, inside the cluster only (ADR-0002 §7): the browser never reaches the API.
+            - name: API_URL
+              value: {{ printf "http://%s:%v" (include "backoffice-forms.apiService" .) .Values.api.servicePort | quote }}
+            {{- with .Values.formsTokenSecret }}
+            {{- if .name }}
+            # The secret shared with the API, which refuses any call without it.
+            - name: FORMS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .name | quote }}
+                  key: {{ .key | default "token" | quote }}
+            {{- end }}
+            {{- end }}
+            {{- with .Values.productName }}
+            - name: PRODUCT_NAME
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.privacyNoticeUrl }}
+            - name: PRIVACY_NOTICE_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.contactEmail }}
+            - name: CONTACT_EMAIL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.wordingVersion }}
+            - name: WORDING_VERSION
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              # Keep serving while the endpoint removal reaches the gateway; SIGTERM arrives after the sleep.
+              exec:
+                command: ['sleep', '8']
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: next-cache
+              mountPath: /app/apps/forms/.next/cache
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: next-cache
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

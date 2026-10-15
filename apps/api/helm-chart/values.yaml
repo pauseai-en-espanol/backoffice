@@ -153,11 +153,32 @@ dialogCleanup:
       cpu: 200m
       memory: 192Mi
 
+# The census (M2, ADR-0002 §7): the forms app's routes at /public/census, which only the forms app's pods reach, inside
+# the cluster. Set both secrets or neither: with neither, /public/census answers 503; with one, the chart refuses to
+# render (and the API to start).
+# The pauseai_backoffice_public role's connection (PUBLIC_DATABASE_URL), which may only run the census form's two
+# functions.
+publicDatabaseUrlSecret:
+  name: ''
+  key: DATABASE_URL
+# The secret the forms app sends with every call (FORMS_TOKEN, 32 characters or more): the forms chart's
+# formsTokenSecret names the same one (scripts/seal-forms-token.sh makes it).
+formsTokenSecret:
+  name: ''
+  key: token
+census:
+  # The forms app's origin (CENSUS_URL), e.g. https://unete.example.org: personal links point there. Empty: no personal
+  # link can be made.
+  formsOrigin: ''
+  # The consent wording's version recorded with each answer (CENSUS_WORDING_VERSION). Empty: v1. The forms chart's
+  # wordingVersion, which its draft notice shows, should be the same.
+  wordingVersion: ''
+
 # Who may reach the API's pods, and what they and the jobs' pods may reach (ADR-0001, network policies). Off by
-# default; gitops turns it on with its environment's selectors. On, the API admits only the gateways' Envoy pods and
-# the web app's pods, and reaches only the database, DNS, error tracking and mail when set, and the internet on 443
-# while the bot or the Airtable sync is on. The jobs admit nothing, and reach the database, DNS and error tracking;
-# the sync and the digest also the internet on 443, and the digest mail.
+# default; gitops turns it on with its environment's selectors. On, the API admits only the gateways' Envoy pods, the
+# web app's pods and the forms app's pods, and reaches only the database, DNS, error tracking and mail when set, and
+# the internet on 443 while the bot or the Airtable sync is on. The jobs admit nothing, and reach the database, DNS
+# and error tracking; the sync and the digest also the internet on 443, and the digest mail.
 networkPolicy:
   enabled: false
   # Each gateway whose Envoy pods bring requests to /api and /telegram/webhook: their namespace and pods' labels, e.g.
@@ -168,6 +189,8 @@ networkPolicy:
   gateways: []
   # The web app's pods' app.kubernetes.io/name: the web chart's nameOverride in the umbrella (web). They must match.
   webName: web
+  # The forms app's pods' app.kubernetes.io/name: the forms chart's nameOverride in the umbrella (forms).
+  formsName: forms
   # The database's namespace and port.
   database:
     namespace: ''

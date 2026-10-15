@@ -1,0 +1,6 @@
+apiVersion: v2
+name: backoffice-forms
+description: The public census form (Next.js) and its host's route; it reaches the API only inside the cluster
+type: application
+version: 0.1.0
+appVersion: '0.0.0'

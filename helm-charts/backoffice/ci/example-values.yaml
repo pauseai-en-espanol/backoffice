@@ -1,4 +1,4 @@
-# Rendered in CI (helm lint/template) to exercise every template, the M1 blocks included. Fictional hosts,
+# Rendered in CI (helm lint/template) to exercise every template, the M1 and M2 blocks included. Fictional hosts,
 # placeholder secret names.
 backoffice-migrations:
   image: { repository: registry.example/backoffice/migrations, tag: 0.1.0.abc1234 }
@@ -32,6 +32,11 @@ backoffice-api:
     envFrom: [{ secretRef: { name: backoffice-api-glitchtip } }]
   dialogCleanup:
     enabled: true
+  publicDatabaseUrlSecret: { name: backoffice-public-db }
+  formsTokenSecret: { name: backoffice-forms-token }
+  census:
+    formsOrigin: https://unete.example-org.test
+    wordingVersion: v1
   networkPolicy:
     enabled: true
     gateways:
@@ -56,6 +61,25 @@ backoffice-web:
     # Renders the per-address limits, so lint covers them.
     trafficPolicy:
       { rateLimit: { auth: 30, invitations: 30, telegramWebhook: 600, errorRelay: 60 } }
+  networkPolicy:
+    enabled: true
+    gateways:
+      - namespace: envoy-gateway-system
+        podLabels: { gateway.envoyproxy.io/owning-gateway-name: gateway-public }
+backoffice-forms:
+  image: { repository: registry.example/backoffice/forms, tag: 0.1.0.abc1234 }
+  productName: Censo de ejemplo
+  envFrom: [{ secretRef: { name: backoffice-forms-glitchtip } }]
+  formsTokenSecret: { name: backoffice-forms-token }
+  privacyNoticeUrl: https://example-org.test/privacidad
+  contactEmail: privacidad@example-org.test
+  wordingVersion: v1
+  route:
+    enabled: true
+    parentRefs: [{ name: gateway-public, namespace: gateway-public }]
+    hostnames: [unete.example-org.test]
+    # Renders the per-address limits, so lint covers them.
+    trafficPolicy: { rateLimit: { submit: 10, form: 60, errorRelay: 60 } }
   networkPolicy:
     enabled: true
     gateways:

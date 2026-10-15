@@ -14,3 +14,6 @@ dependencies:
   - name: backoffice-web
     version: 0.1.0
     repository: file://../../apps/web/helm-chart
+  - name: backoffice-forms
+    version: 0.1.0
+    repository: file://../../apps/forms/helm-chart

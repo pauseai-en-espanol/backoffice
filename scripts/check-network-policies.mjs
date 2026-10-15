@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // The charts' network policies (ADR-0001), checked in CI after `helm lint`:
-// - on, the web and API charts refuse to render without gateways, with a gateway without pod labels, or (the API's)
-//   without the database's namespace, since such a policy would shut everyone out (Cilium drops; the pods stay Ready)
-//   or admit a whole namespace;
-// - with the CI values, the API policy's rule for the web app's pods matches the web Deployment's pod labels (the
-//   umbrella's nameOverride and the policy's webName must agree), or every page would hang on the API;
+// - on, the web, forms and API charts refuse to render without gateways, with a gateway without pod labels, or (the
+//   API's) without the database's namespace, since such a policy would shut everyone out (Cilium drops; the pods stay
+//   Ready) or admit a whole namespace;
+// - with the CI values, the API policy's rules for the web and forms apps' pods match their Deployments' pod labels
+//   (the umbrella's nameOverrides and the policy's webName and formsName must agree), or every page would hang on the
+//   API;
 // - every job's pods are selected by the jobs' policy, and none carries the API's selector labels, which would let the
 //   API's Service send them requests;
-// - the bot can't be turned on without sign-in and the app role.
+// - the bot can't be turned on without sign-in and the app role, nor the forms app's routes with half their settings.
 // Usage: node scripts/check-network-policies.mjs (needs helm, and the umbrella's dependencies built)
 import { spawnSync } from 'node:child_process';
 
@@ -22,6 +23,17 @@ const refusals = [
   ['apps/web/helm-chart', 'no gateway', ['--set', 'networkPolicy.enabled=true']],
   [
     'apps/web/helm-chart',
+    'a gateway without pod labels',
+    [
+      '--set',
+      'networkPolicy.enabled=true',
+      '--set-json',
+      'networkPolicy.gateways=[{"namespace":"envoy-gateway-system"}]',
+    ],
+  ],
+  ['apps/forms/helm-chart', 'no gateway', ['--set', 'networkPolicy.enabled=true']],
+  [
+    'apps/forms/helm-chart',
     'a gateway without pod labels',
     [
       '--set',
@@ -72,6 +84,11 @@ const refusals = [
     ],
   ],
   ['apps/api/helm-chart', 'the bot without sign-in', ['--set', 'telegram.enabled=true']],
+  [
+    'apps/api/helm-chart',
+    "the forms app's secret without its role",
+    ['--set', 'formsTokenSecret.name=backoffice-forms-token'],
+  ],
 ];
 for (const [chart, what, extra] of refusals) {
   if (helm(chart, '--set', 'image.tag=x', ...extra).status === 0) {
@@ -102,21 +119,30 @@ const podLabels = (doc) => {
 
 const apiPolicy = named('NetworkPolicy', 'backoffice-api');
 const web = named('Deployment', 'backoffice-web');
+const forms = named('Deployment', 'backoffice-forms');
 const api = named('Deployment', 'backoffice-api');
-if (!apiPolicy || !web || !api) {
+if (!apiPolicy || !web || !forms || !api) {
   fail(
-    'the CI values render no API network policy, web Deployment or API Deployment: they should render all three',
+    'the CI values render no API network policy, or no web, forms or API Deployment: they should render all four',
   );
 }
-const [, instance, name] =
-  /- podSelector:\n\s+matchLabels:\n\s+app\.kubernetes\.io\/instance: (\S+)\n\s+app\.kubernetes\.io\/name: (\S+)/.exec(
-    apiPolicy,
-  ) ?? [];
-const webPods = podLabels(web);
-if (!name || name !== webPods.name || instance !== webPods.instance) {
-  fail(
-    `the API policy admits web pods named ${name} (${instance}), but they are ${webPods.name} (${webPods.instance})`,
-  );
+// The API policy's same-namespace rules, in order: the web app's pods, then the forms app's.
+const admitted = [
+  ...apiPolicy.matchAll(
+    /- podSelector:\n\s+matchLabels:\n\s+app\.kubernetes\.io\/instance: (\S+)\n\s+app\.kubernetes\.io\/name: (\S+)/g,
+  ),
+].map(([, instance, name]) => ({ instance, name }));
+for (const [index, [what, deployment]] of [
+  ['web', web],
+  ['forms', forms],
+].entries()) {
+  const { instance, name } = admitted[index] ?? {};
+  const pods = podLabels(deployment);
+  if (!name || name !== pods.name || instance !== pods.instance) {
+    fail(
+      `the API policy admits ${what} pods named ${name} (${instance}), but they are ${pods.name} (${pods.instance})`,
+    );
+  }
 }
 
 const jobsPolicy = named('NetworkPolicy', 'backoffice-api-jobs');

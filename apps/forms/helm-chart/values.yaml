@@ -1,0 +1,92 @@
+# One replica (ADR-0001): a form people fill in now and then, where a short restart is acceptable.
+replicaCount: 1
+image:
+  repository: backoffice/forms
+  tag: ''
+  pullPolicy: IfNotPresent
+service:
+  port: 3002
+resources:
+  requests:
+    cpu: 50m
+    memory: 192Mi
+  limits:
+    cpu: '1'
+    memory: 384Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+# Extra environment (plain values, or secretKeyRef for credentials sealed in gitops), e.g. nothing yet.
+env: []
+# e.g. the secret with SENTRY_DSN (GlitchTip project backoffice-forms), which the browser error relay forwards to.
+envFrom: []
+
+# The product's name (PRODUCT_NAME), from each deployment's configuration: the pages' title.
+productName: ''
+# The association's privacy notice (PRIVACY_NOTICE_URL), an https address. Empty: the form links its own draft at
+# /privacidad, which says it is a draft pending review.
+privacyNoticeUrl: ''
+# The association's address for privacy questions (CONTACT_EMAIL), shown on the draft notice. Empty: none shown.
+contactEmail: ''
+# The consent wording's version (WORDING_VERSION) the draft notice shows; the form shows the API's
+# (CENSUS_WORDING_VERSION), which is the one recorded. Keep the two the same. Empty: v1.
+wordingVersion: ''
+
+# The secret the form's server sends the API with every call (FORMS_TOKEN, ADR-0002 §7): the same secret and key the
+# API chart's formsTokenSecret names (scripts/seal-forms-token.sh makes it). Required: without it the form answers
+# that it is unavailable.
+formsTokenSecret:
+  name: ''
+  key: token
+
+# Gateway API HTTPRoute for the form's host (halyard `route:` convention). Hostnames and gateway come from gitops
+# values. Everything on the host goes to this app: the API is never routed here, the form's server calls it inside the
+# cluster.
+route:
+  enabled: false
+  # e.g. - name: gateway-public
+  #        namespace: gateway-public
+  parentRefs: []
+  hostnames: []
+  annotations: {}
+  trafficPolicy:
+    enabled: true
+    # Per-client-address limits at the gateway (ADR-0001, routes): requests a minute for each address, past which
+    # Envoy answers 429. They are Envoy Gateway global limits (a bucket per address needs them), so its rate-limit
+    # service and Redis must be on first, or the whole route answers 500 (it is on in danilupion-com). Set them as a
+    # flood ceiling, above what a household behind one address sends, so the API's own limit (5 answers per address
+    # every 10 minutes) answers first, in Spanish. 0 leaves a group unlimited, and all 0 (the default) adds nothing.
+    rateLimit:
+      # POST /enviar: census answers.
+      submit: 0
+      # POST /formulario: loading the form's lists (and a personal link's greeting).
+      form: 0
+      # POST /_relay/errors: browser error reports (packages/observability).
+      errorRelay: 0
+
+# Who may connect to the form's pods (ADR-0001, network policies): off by default. On, only the gateways' Envoy pods
+# listed here; nothing else in the cluster. Ingress only. Gitops turns it on with the gateways of its environment.
+networkPolicy:
+  enabled: false
+  # Each gateway whose Envoy pods bring visitors: their namespace and their pods' labels, e.g.
+  #   - namespace: envoy-gateway-system
+  #     podLabels:
+  #       gateway.envoyproxy.io/owning-gateway-name: gateway-public
+  #       gateway.envoyproxy.io/owning-gateway-namespace: gateway-public
+  gateways: []
+
+# The API service, which the form's server calls (API_URL) at /public/census.
+api:
+  # Defaults to <release>-api, the API service of the same release.
+  serviceName: ''
+  servicePort: 3001

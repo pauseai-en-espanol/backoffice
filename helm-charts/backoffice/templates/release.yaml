@@ -17,3 +17,4 @@ data:
   migrations-values: {{ toYaml (index .Values "backoffice-migrations") | sha256sum | quote }}
   api: {{ index .Values "backoffice-api" "image" "tag" | quote }}
   web: {{ index .Values "backoffice-web" "image" "tag" | quote }}
+  forms: {{ index .Values "backoffice-forms" "image" "tag" | quote }}

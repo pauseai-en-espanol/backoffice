@@ -21,7 +21,7 @@
 {{- end }}
 {{- $internet := or .Values.telegram.enabled .Values.airtableSync.enabled }}
 # The API's pods (ADR-0001, network policies): requests only from the gateways' Envoy pods (the staff host's /api and
-# /telegram/webhook) and the web app's pods (its server-side calls); out only to the database, DNS, error tracking and
+# /telegram/webhook), the web app's pods (its server-side calls) and the forms app's (the census); out only to the database, DNS, error tracking and
 # mail when set, and the internet on 443 while the bot or the Airtable sync is on (Telegram, Airtable). The kubelet's
 # probes come from the node, which Cilium always admits.
 apiVersion: networking.k8s.io/v1
@@ -51,6 +51,11 @@ spec:
             matchLabels:
               app.kubernetes.io/instance: {{ .Release.Name }}
               app.kubernetes.io/name: {{ $policy.webName | default "web" }}
+        # The forms app's pods (its server calls /public/census), likewise: the forms chart's nameOverride (forms).
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/name: {{ $policy.formsName | default "forms" }}
       ports:
         - port: {{ .Values.service.port }}
           protocol: TCP

@@ -1,8 +1,9 @@
 # Image tags are written by the release workflow (.github/workflows/release.yml). Everything environment-specific
 # (hostnames, gateway, registry, secrets) lives in the gitops values for each environment, not here.
 #
-# The nameOverrides name each deployable's pods: the API's network policy admits the web app's pods by theirs (web),
-# so rename one, rename both (scripts/check-network-policies.mjs checks they match).
+# The nameOverrides name each deployable's pods: the API's network policy admits the web app's pods by theirs (web)
+# and the forms app's by theirs (forms), so rename one, rename both (scripts/check-network-policies.mjs checks they
+# match).
 backoffice-migrations:
   nameOverride: migrations
   image:
@@ -13,5 +14,9 @@ backoffice-api:
     tag: ''
 backoffice-web:
   nameOverride: web
+  image:
+    tag: ''
+backoffice-forms:
+  nameOverride: forms
   image:
     tag: ''

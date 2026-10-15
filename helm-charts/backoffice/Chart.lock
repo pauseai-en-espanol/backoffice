@@ -8,5 +8,8 @@ dependencies:
 - name: backoffice-web
   repository: file://../../apps/web/helm-chart
   version: 0.1.0
-digest: sha256:8ed2ace516314573d2d06155a1333bea13b5d169ebb47ad97819ade943bfb7ca
-generated: "2026-10-15T22:50:47.695185+02:00"
+- name: backoffice-forms
+  repository: file://../../apps/forms/helm-chart
+  version: 0.1.0
+digest: sha256:2f8589af36bc9082384f226f6ea61d7d78c3df0037dacbfbe8d207b3b604697b
+generated: "2026-10-16T00:06:08.726538+02:00"

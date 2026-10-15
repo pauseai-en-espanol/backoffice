@@ -96,6 +96,29 @@ spec:
             - name: AIRTABLE_REQUIRE_CHAPTER_PERMISSION
               value: {{ .Values.airtableSync.requireChapterPermission | quote }}
             {{- end }}
+            {{- if or .Values.publicDatabaseUrlSecret.name .Values.formsTokenSecret.name }}
+            # The forms app's routes (ADR-0002 §7) take both or neither (apps/api/src/config.ts), so one without the
+            # other fails here: the census form's role, and the secret the forms app sends with every call.
+            - name: PUBLIC_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "publicDatabaseUrlSecret.name is required with formsTokenSecret" .Values.publicDatabaseUrlSecret.name }}
+                  key: {{ .Values.publicDatabaseUrlSecret.key }}
+            - name: FORMS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "formsTokenSecret.name is required with publicDatabaseUrlSecret" .Values.formsTokenSecret.name }}
+                  key: {{ .Values.formsTokenSecret.key }}
+            {{- end }}
+            {{- with .Values.census.formsOrigin }}
+            # Where personal census links point (M2).
+            - name: CENSUS_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.census.wordingVersion }}
+            - name: CENSUS_WORDING_VERSION
+              value: {{ . | quote }}
+            {{- end }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

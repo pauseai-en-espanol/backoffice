@@ -1,3 +1,5 @@
 backoffice {{ .Chart.AppVersion }} deployed as release "{{ .Release.Name }}".
 Migrations run first, as a Sync hook in wave -1; the staff host is exposed only through the web chart's HTTPRoute, which
 sends /api (and, with the bot, /telegram/webhook) to the API.
+The census form's host is exposed only through the forms chart's HTTPRoute, all of it to the form; its server reaches
+the API's /public/census inside the cluster, with the shared FORMS_TOKEN.
