@@ -81,7 +81,7 @@ seal "$PG_DIR/backoffice-db-credentials.yaml" \
 
 describe() {
   case "$1" in
-    owner) echo 'migrations only (the migration Job)' ;;
+    owner) echo 'the migration Job only' ;;
     app) echo 'the API: staff and bot routes, always through withActor' ;;
     auth) echo "Better Auth, in the API, and the session-cleanup job" ;;
     ingest) echo 'the Airtable sync (M1)' ;;
