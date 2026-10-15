@@ -62,7 +62,8 @@ dry run shows the counts and problems before anything is written. How the files 
   without a `source` is imported with `needs_review` set, as is one the repo marked `needsReview`. A phone or website
   that doesn't parse is dropped, with a warning. The contact's `id` is kept as its external reference.
 - **Targets:** every contact not on hold, with its `priority` and `anchor`, in the status `tracking.csv` gives it
-  (`pending` if it has no row), with its dates and notes. A held contact is imported but not made a target. The
+  (`pending` if it has no row), with its dates and notes. A held contact is imported but not made a target, unless
+  the sheet shows someone already wrote to them: that history is kept, and the hold keeps them out of every queue. The
   furthest status moves the relationship: `sent` or `bounced` to `contacted`, `replied` or `meeting` to `engaged`,
   `declined` to `declined`. The `owner` column is kept in the target's notes, since repo names aren't accounts.
 - **Templates and anchors:** `tier-a.md` and `tier-b.md` (front matter: `subject`, `maxWords`, `sources`, `notes`),

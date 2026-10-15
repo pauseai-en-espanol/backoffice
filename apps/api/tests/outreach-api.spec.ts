@@ -487,6 +487,7 @@ describe('importing from the outreach repo (M3)', () => {
     tracking:
       'id,org,person,email,tier,status,sent_at,replied_at,meeting_at,owner,notes\n' +
       'uno,X,,uno@ejemplo.test,A,replied,2026-09-01,2026-09-03,,Persona Ejemplo,Respondió\n' +
+      'tres,X,,tres@ejemplo.test,B,sent,2026-09-02,,,,\n' +
       'fantasma,X,,x@ejemplo.test,B,sent,2026-09-01,,,,\n',
   });
 
@@ -505,7 +506,7 @@ describe('importing from the outreach repo (M3)', () => {
     expect(preview.counts).toEqual({
       organisations: 2,
       contacts: 3,
-      targets: 2,
+      targets: 3,
       templates: 2,
       anchors: 1,
     });
@@ -513,7 +514,7 @@ describe('importing from the outreach repo (M3)', () => {
     expect(preview.warnings.map((w) => [w.file, w.line])).toEqual(
       expect.arrayContaining([
         ['contacts/contacts.yaml', 3],
-        ['tracking.csv', 3],
+        ['tracking.csv', 4],
       ]),
     );
     // A dry run writes nothing.
@@ -533,7 +534,7 @@ describe('importing from the outreach repo (M3)', () => {
       dryRun: false,
       files: files(slug),
     });
-    expect(done.json()).toMatchObject({ dryRun: false, counts: { contacts: 3, targets: 2 } });
+    expect(done.json()).toMatchObject({ dryRun: false, counts: { contacts: 3, targets: 3 } });
     const rows = await superuser.query<{
       id: string;
       stage: string;
@@ -549,7 +550,8 @@ describe('importing from the outreach repo (M3)', () => {
     );
     expect(rows.rows).toEqual([
       { id: 'dos', stage: 'identified', needs_review: true, status: 'pending', notes: null },
-      { id: 'tres', stage: 'identified', needs_review: false, status: null, notes: null },
+      // Held, but already written to: the history is kept, and the hold keeps them out of every queue.
+      { id: 'tres', stage: 'contacted', needs_review: false, status: 'sent', notes: null },
       {
         id: 'uno',
         stage: 'engaged',

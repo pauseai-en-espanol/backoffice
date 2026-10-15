@@ -552,16 +552,6 @@ export const importCampaign = async (
       });
     });
   }
-  for (const contact of contacts) {
-    if (contact.hold && tracking.has(contact.id)) {
-      warnings.push({
-        file: FILES.contacts,
-        line: contact.line,
-        message: t('outreachImport.warnings.heldInTracking', { id: contact.id }),
-      });
-    }
-  }
-
   if (problems.length > 0 || !slug || !name) {
     return { counts, problems, warnings };
   }
@@ -632,7 +622,10 @@ export const importCampaign = async (
         RETURNING id`.execute(trx)
     ).rows[0]?.id;
     counts.contacts += 1;
-    if (!contactId || contact.hold) {
+    // A held contact isn't put in the campaign, unless someone already wrote to them: that history is kept, and the
+    // hold still keeps them out of every queue.
+    const history = row !== undefined && !['pending', 'skip'].includes(row.status);
+    if (!contactId || (contact.hold && !history)) {
       continue;
     }
     const notes = [

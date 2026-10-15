@@ -1059,8 +1059,7 @@
       "websiteDropped": "La web de {id} no es una dirección: no se importa.",
       "trackingUnknown": "La fila de {id} en tracking.csv no corresponde a ningún contacto: se ignora.",
       "anchorUnknown": "{id} usa el anchor «{anchor}», que no está en anchors.yaml: su carta fallará hasta que se añada.",
-      "noSource": "{id} no tiene fuente: se importa por revisar.",
-      "heldInTracking": "{id} está en espera («hold»): se importa, pero no entra en la campaña."
+      "noSource": "{id} no tiene fuente: se importa por revisar."
     }
   }
 }
