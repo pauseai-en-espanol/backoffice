@@ -1,41 +1,9 @@
-import { randomInt } from 'node:crypto';
-
 import { expectAccessible } from '../axe.js';
+import { phone, uniqueName } from '../names.js';
 import { signedInStaff } from '../staff.js';
 import { expect, test } from '../test.js';
 
-/** A Spanish mobile number nobody else in this run uses: fictional, never contacted. */
-const phone = () => `6${randomInt(10_000_000, 99_999_999)}`;
 const tag = () => crypto.randomUUID().slice(0, 6);
-
-const SYLLABLES = [
-  'ka',
-  'lo',
-  'mi',
-  'ne',
-  'ru',
-  'sa',
-  'ti',
-  'vo',
-  'be',
-  'da',
-  'fu',
-  'go',
-  'pe',
-  'xi',
-  'zo',
-  'yu',
-];
-/**
- * A made-up name unlike any other in the database: the matcher would rightly send a name like an earlier run's to
- * the Bandeja as a possible duplicate.
- */
-const uniqueName = (): string => {
-  const word = (length: number) =>
-    Array.from({ length }, () => SYLLABLES[randomInt(SYLLABLES.length)] ?? 'ka').join('');
-  const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
-  return `${capital(word(3))} ${capital(word(4))}`;
-};
 
 test('quick-add someone, find them unassigned in Hoy, and claim them', async ({ page }) => {
   await signedInStaff(page, ['onboarding']);

@@ -5,6 +5,7 @@
 export const PORTS = {
   web: 4200,
   api: 4201,
+  forms: 4202,
   glitchtip: 4203,
   gateway: 4205,
   smtp: 4206,
@@ -13,6 +14,11 @@ export const PORTS = {
 
 export const WEB_URL = `http://127.0.0.1:${PORTS.web}`;
 export const API_URL = `http://127.0.0.1:${PORTS.api}`;
+
+/** The census form (apps/forms), as visitors reach it; personal links point here. */
+export const FORMS_URL = `http://localhost:${PORTS.forms}`;
+/** The secret the forms app and the API share, for the e2e run only. */
+export const FORMS_TOKEN = 'an-e2e-only-forms-token-of-more-than-thirty-two-characters';
 
 /**
  * The staff host, through the stand-in gateway (fake-gateway.ts), as browsers reach it in production. `localhost`, so

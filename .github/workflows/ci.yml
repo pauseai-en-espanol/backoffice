@@ -246,6 +246,7 @@ jobs:
             echo "DATABASE_URL=postgres://pauseai_backoffice_owner:ci-owner@$db/pauseai_backoffice?sslmode=disable"
             echo "AUTH_DATABASE_URL=postgres://pauseai_backoffice_auth:ci-auth@$db/pauseai_backoffice?sslmode=disable"
             echo "APP_DATABASE_URL=postgres://pauseai_backoffice_app:ci-app@$db/pauseai_backoffice?sslmode=disable"
+            echo "PUBLIC_DATABASE_URL=postgres://pauseai_backoffice_public:ci-public@$db/pauseai_backoffice?sslmode=disable"
           } >> "$GITHUB_ENV"
 
       # The fictional seeds, when there are any; their guard admits this database because it is reached on localhost.

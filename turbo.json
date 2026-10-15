@@ -56,14 +56,20 @@
       ]
     },
     "test:e2e": {
-      "dependsOn": ["^build", "@backoffice/web#build", "@backoffice/api#build"],
+      "dependsOn": [
+        "^build",
+        "@backoffice/web#build",
+        "@backoffice/api#build",
+        "@backoffice/forms#build"
+      ],
       "cache": false,
       "passThroughEnv": [
         "CI",
         "PLAYWRIGHT_*",
         "DATABASE_URL",
         "AUTH_DATABASE_URL",
-        "APP_DATABASE_URL"
+        "APP_DATABASE_URL",
+        "PUBLIC_DATABASE_URL"
       ]
     },
     "docker:build": {
