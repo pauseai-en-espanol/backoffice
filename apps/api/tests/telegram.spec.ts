@@ -180,6 +180,7 @@ const telegramIds = { onboarder: 5_000_001, outreach: 5_000_002, stranger: 5_000
 let onboarder: Awaited<ReturnType<typeof staffMember>>;
 
 beforeAll(async () => {
+  await cleanUp();
   await new Promise<void>((resolve) => fake.listen(0, '127.0.0.1', resolve));
   const address = fake.address();
   apiUrl = typeof address === 'object' && address ? `http://127.0.0.1:${address.port}` : '';
@@ -219,7 +220,44 @@ beforeEach(() => {
   calls.length = 0;
 });
 
+/** The phones the bot is told about here: fictional, and these tests' alone. */
+const PHONES = ['+34699100200', '+34699300400'];
+
+/**
+ * What these tests reported through the bot, as superuser past the append-only rules, before and after: a run never
+ * depends on what an earlier, interrupted one left behind. The people they made go; a fixture person they attached a
+ * phone to (Ana) only loses it.
+ */
+const cleanUp = async () => {
+  await superuser.query("SET session_replication_role = 'replica'");
+  const made = (
+    await superuser.query<{ id: string }>(
+      `SELECT DISTINCT p.id FROM app.people p JOIN app.identities i ON i.person_id = p.id
+        WHERE i.value = ANY($1::text[]) AND p.full_name LIKE 'Persona Telegram %'`,
+      [PHONES],
+    )
+  ).rows.map((row) => row.id);
+  for (const table of [
+    'app.person_events',
+    'app.person_sources',
+    'app.community_presence',
+    'app.identities',
+    'private.telegram_posts',
+  ]) {
+    await superuser.query(`DELETE FROM ${table} WHERE person_id = ANY($1::uuid[])`, [made]);
+  }
+  await superuser.query('DELETE FROM app.identities WHERE value = ANY($1::text[])', [PHONES]);
+  await superuser.query(
+    `DELETE FROM app.intake_records
+      WHERE person_id = ANY($1::uuid[]) OR (source = 'telegram' AND payload -> 'phones' ?| $2::text[])`,
+    [made, PHONES],
+  );
+  await superuser.query('DELETE FROM app.people WHERE id = ANY($1::uuid[])', [made]);
+  await superuser.query("SET session_replication_role = 'origin'");
+};
+
 afterAll(async () => {
+  await cleanUp();
   await authPool.query('DELETE FROM telegram_links WHERE telegram_user_id = ANY($1::bigint[])', [
     Object.values(telegramIds),
   ]);
