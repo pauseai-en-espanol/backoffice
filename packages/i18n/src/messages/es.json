@@ -22,6 +22,260 @@
     }
   },
   "errors": {
-    "unexpected": "Algo ha fallado. Vuelve a intentarlo en un momento."
+    "unexpected": "Algo ha fallado. Vuelve a intentarlo en un momento.",
+    "forbidden": "No tienes permiso para hacer esto. Si crees que deberías, pídeselo a quien administra el equipo.",
+    "stale": "Alguien ha cambiado esto mientras lo tenías abierto. Recarga la página y vuelve a intentarlo.",
+    "incomplete": "Faltan datos para guardar esto. Revisa el formulario.",
+    "taken": "Ya existe algo con esos datos.",
+    "linked": "No se puede quitar porque otros datos dependen de esto.",
+    "invalid": "Hay un dato que no es válido. Revisa el formulario.",
+    "limit": "Demasiados intentos. Espera unos minutos y vuelve a intentarlo.",
+    "signIn": "Tu sesión ha terminado. Vuelve a entrar.",
+    "notFound": "Ya no existe: puede que alguien lo haya quitado. Recarga la página.",
+    "network": "No hay conexión con el servidor. Comprueba tu conexión y vuelve a intentarlo."
+  },
+  "web": {
+    "skip": "Ir al contenido",
+    "signedInAs": "Has entrado como {name}",
+    "nav": {
+      "label": "Secciones",
+      "today": "Hoy",
+      "team": "Equipo",
+      "audit": "Registro",
+      "signOut": "Salir"
+    },
+    "home": {
+      "title": "Hoy",
+      "greeting": "Hola, {name}.",
+      "comingTitle": "Esto es lo que viene",
+      "coming": "Aquí verás a las personas que necesitan algo de ti, la cola de personas sin asignar y lo que llega cada día. Esas vistas llegan con la siguiente entrega (M1). Mientras tanto puedes ver el equipo.",
+      "toTeam": "Ver el equipo",
+      "toAudit": "Ver el registro de cambios"
+    },
+    "noAccess": {
+      "title": "Tu cuenta no tiene acceso",
+      "body": "Has entrado correctamente, pero tu cuenta no forma parte del equipo o se ha desactivado. Si crees que es un error, habla con quien administra el equipo.",
+      "signOut": "Salir"
+    },
+    "notFound": {
+      "title": "Esta página no existe",
+      "body": "Puede que la dirección esté mal escrita, o que ya no esté disponible.",
+      "home": "Ir a Hoy"
+    },
+    "unavailable": {
+      "title": "No se ha podido cargar",
+      "body": "El servidor no ha respondido. Vuelve a intentarlo en un momento."
+    }
+  },
+  "auth": {
+    "otherAccount": "Entrar con otra cuenta",
+    "signIn": {
+      "title": "Entrar",
+      "intro": "Entra con la dirección de correo a la que se envió tu invitación.",
+      "email": "Correo electrónico",
+      "password": "Contraseña",
+      "submit": "Entrar",
+      "noAccount": "Las cuentas son solo por invitación. Si necesitas una, pídesela a quien administra el equipo.",
+      "forgot": "He olvidado mi contraseña",
+      "unavailable": "Todavía no se puede entrar: el servidor no tiene el acceso configurado."
+    },
+    "challenge": {
+      "title": "Verificación en dos pasos",
+      "intro": "Escribe el código de 6 cifras que muestra tu aplicación de autenticación para esta cuenta.",
+      "code": "Código",
+      "submit": "Verificar",
+      "useBackupCode": "Usar un código de recuperación",
+      "backupIntro": "Escribe uno de los códigos de recuperación que guardaste al configurar la verificación en dos pasos. Cada uno sirve una sola vez.",
+      "backupCode": "Código de recuperación",
+      "useAuthenticator": "Usar la aplicación de autenticación",
+      "restart": "Volver a entrar"
+    },
+    "enrol": {
+      "title": "Configura la verificación en dos pasos",
+      "intro": "Todas las cuentas necesitan un segundo paso: un código de una aplicación de autenticación en tu móvil, como Google Authenticator, Microsoft Authenticator, Aegis o 2FAS.",
+      "passwordStep": "Confirma tu contraseña para empezar.",
+      "password": "Contraseña",
+      "begin": "Continuar",
+      "scanTitle": "Añade esta cuenta a tu aplicación",
+      "scan": "Escanea este código QR con tu aplicación de autenticación.",
+      "qrLabel": "Código QR para añadir esta cuenta a una aplicación de autenticación",
+      "manual": "Si no puedes escanearlo, añade la cuenta a mano con esta clave:",
+      "code": "Código de la aplicación",
+      "codeHint": "Escribe el código de 6 cifras que muestra ahora la aplicación, para comprobar que funciona.",
+      "verify": "Verificar",
+      "backupTitle": "Guarda tus códigos de recuperación",
+      "backupIntro": "Si pierdes el móvil, cada uno de estos códigos te permite entrar una vez. Guárdalos en un lugar seguro, como un gestor de contraseñas: no se volverán a mostrar.",
+      "backupList": "Códigos de recuperación",
+      "done": "Ya los he guardado, continuar"
+    },
+    "setPassword": {
+      "title": "Elige tu contraseña",
+      "intro": "Elige la contraseña de tu cuenta. Este enlace sirve una sola vez, durante una hora.",
+      "password": "Nueva contraseña",
+      "passwordHint": "Al menos 12 caracteres. Unas cuantas palabras sin relación entre sí dan una contraseña fuerte y fácil de recordar.",
+      "confirm": "Repite la contraseña",
+      "submit": "Guardar la contraseña",
+      "doneTitle": "Contraseña guardada",
+      "done": "Entra ya con ella. Si aún no has configurado la verificación en dos pasos, lo harás a continuación; si ya la tienes, al entrar se te pedirá el código como siempre.",
+      "signIn": "Entrar",
+      "missing": "Esta página necesita el enlace que te enviamos por correo. Abre ese enlace."
+    },
+    "forgot": {
+      "title": "¿Has olvidado tu contraseña?",
+      "intro": "Escribe la dirección de correo de tu cuenta. Si tiene una, le enviaremos un enlace para elegir una contraseña nueva. El enlace funciona una vez, durante una hora.",
+      "email": "Correo electrónico",
+      "submit": "Enviar el enlace",
+      "sentTitle": "Revisa tu correo",
+      "sent": "Si {email} tiene aquí una cuenta con verificación en dos pasos, le estamos enviando un enlace para elegir una contraseña nueva. Puede tardar unos minutos, así que mira también en la carpeta de spam. Cada cuenta recibe como mucho un enlace cada 15 minutos.",
+      "secondFactor": "Elegir una contraseña nueva cierra la sesión de la cuenta en todas partes. Tu segundo paso no cambia: al entrar se te seguirá pidiendo el código de tu aplicación de autenticación.",
+      "lostAuthenticator": "¿Has perdido la aplicación de autenticación y tus códigos de recuperación, o no llegaste a configurar la verificación en dos pasos? Entonces un enlace no sirve, y no se envía ninguno: pide ayuda a quien administra el equipo.",
+      "back": "Volver a la página de entrada"
+    },
+    "signOut": "Salir",
+    "errors": {
+      "invalidCredentials": "El correo electrónico o la contraseña no son correctos.",
+      "invalidEmail": "Escribe una dirección de correo, como nombre@ejemplo.org.",
+      "invalidPassword": "La contraseña no es correcta.",
+      "invalidCode": "El código no es correcto. Revísalo e inténtalo de nuevo.",
+      "rateLimited": "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+      "locked": "Demasiados códigos incorrectos. Espera unos minutos y vuelve a entrar.",
+      "tooManyCodes": "Demasiados códigos incorrectos para esta entrada. Vuelve a entrar.",
+      "expired": "Esta entrada ha caducado. Vuelve a entrar.",
+      "invalidLink": "Este enlace ya no sirve: funciona una sola vez, durante una hora. Pide uno nuevo.",
+      "passwordTooShort": "Usa al menos 12 caracteres.",
+      "passwordTooLong": "Usa como mucho 128 caracteres.",
+      "passwordsDiffer": "Las dos contraseñas no coinciden.",
+      "unexpected": "Algo ha ido mal. Inténtalo de nuevo más tarde."
+    },
+    "invitation": {
+      "title": "Tu invitación",
+      "checking": "Comprobando la invitación…",
+      "missing": "Este enlace no lleva ninguna invitación. Vuelve a abrir el enlace del correo.",
+      "invalid": "Esta invitación no se puede usar: puede haber caducado, haberse revocado o haberse usado ya. Pide una nueva a quien te invitó.",
+      "offer": "Esta invitación es para {email}, con estos permisos: {roles}.",
+      "newAccount": "Aún no tienes cuenta: elige tu nombre y una contraseña. Después entra y configura la verificación en dos pasos.",
+      "name": "Tu nombre",
+      "nameHint": "Tal como lo verá el equipo.",
+      "password": "Contraseña",
+      "passwordHint": "Entre 12 y 128 caracteres.",
+      "confirm": "Repite la contraseña",
+      "mismatch": "Las dos contraseñas no coinciden.",
+      "create": "Crear la cuenta y aceptar",
+      "created": "Tu cuenta está lista y la invitación aceptada. Entra para configurar la verificación en dos pasos.",
+      "signIn": "Entrar",
+      "existing": "Esta dirección ya tiene cuenta. Entra con ella y vuelve a abrir el enlace del correo para aceptar.",
+      "accept": "Aceptar la invitación",
+      "accepted": "Invitación aceptada.",
+      "toHome": "Ir a Hoy",
+      "otherAccount": "Has entrado con otra cuenta. Sal y vuelve a abrir el enlace.",
+      "failed": "No ha funcionado. Inténtalo de nuevo en un momento.",
+      "limit": "Demasiados intentos desde aquí. Espera unos minutos y vuelve a intentarlo.",
+      "nameMissing": "Escribe tu nombre.",
+      "invalidEmail": "La dirección invitada no es válida. Pide una invitación nueva."
+    }
+  },
+  "team": {
+    "title": "Equipo",
+    "intro": "Las personas que entran en el backoffice y lo que puede hacer cada una.",
+    "members": "Personas del equipo",
+    "name": "Nombre",
+    "permissions": "Permisos",
+    "status": "Estado",
+    "actions": "Acciones",
+    "active": "Activa",
+    "inactive": "Desactivada",
+    "you": "(tú)",
+    "noRoles": "Sin permisos",
+    "since": "En el equipo desde",
+    "deactivatedOn": "Desactivada el",
+    "edit": "Editar",
+    "editTitle": "Editar a {name}",
+    "rename": "Nombre visible",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "saved": "Cambios guardados.",
+    "deactivate": "Desactivar",
+    "reactivate": "Reactivar",
+    "confirmDeactivate": "¿Desactivar a {name}? Dejará de poder entrar y de usar el bot hasta que se reactive.",
+    "confirmReactivate": "¿Reactivar a {name}? Volverá a poder entrar con sus permisos.",
+    "confirm": "Sí, continuar",
+    "deactivated": "{name} se ha desactivado.",
+    "reactivated": "{name} se ha reactivado.",
+    "passwordLink": "Enviar enlace de contraseña",
+    "confirmPasswordLink": "¿Enviar a {name} un enlace para elegir una contraseña nueva? Le llega por correo y sirve una hora.",
+    "passwordLinkSent": "Enlace enviado a {name}.",
+    "invite": {
+      "title": "Invitar a alguien",
+      "intro": "La invitación llega por correo y sirve durante 7 días. Quien la acepte elige su contraseña y configura la verificación en dos pasos.",
+      "email": "Correo electrónico",
+      "roles": "Permisos",
+      "rolesHint": "Elige al menos uno. Se pueden cambiar después.",
+      "submit": "Enviar la invitación",
+      "sent": "Invitación enviada a {email}."
+    },
+    "invitations": {
+      "title": "Invitaciones",
+      "none": "No hay invitaciones.",
+      "email": "Correo",
+      "state": "Estado",
+      "expires": "Caduca",
+      "by": "Invitada por",
+      "pending": "Pendiente",
+      "accepted": "Aceptada",
+      "revoked": "Revocada",
+      "expired": "Caducada",
+      "revoke": "Revocar",
+      "confirmRevoke": "¿Revocar la invitación a {email}? El enlace dejará de funcionar.",
+      "revokedDone": "Invitación revocada.",
+      "delete": "Borrar",
+      "confirmDelete": "¿Borrar la invitación a {email}? Se olvida la dirección; el registro de cambios lo conserva sin ella.",
+      "deleted": "Invitación borrada."
+    },
+    "roleHelp": {
+      "admin": "Gestiona el equipo, los ajustes y el registro de cambios.",
+      "onboarding": "Acoge a las personas nuevas y lleva el embudo de acogida.",
+      "outreach": "Lleva las organizaciones, los contactos y las campañas."
+    },
+    "errors": {
+      "lastAdmin": "No puedes quitar a la última persona con administración: da antes ese permiso a otra persona.",
+      "alreadyStaff": "Esa dirección ya es del equipo. Cambia sus permisos en la lista.",
+      "mail": "No se ha podido enviar el correo, así que no se ha guardado nada. Vuelve a intentarlo en un momento.",
+      "unavailable": "El envío de correo no está configurado: no se pueden enviar invitaciones ni enlaces.",
+      "notEnrolled": "Esa cuenta aún no tiene la verificación en dos pasos: un enlace no le serviría. Pídele que entre con su contraseña y la configure.",
+      "email": "Escribe una dirección de correo, como nombre@ejemplo.org.",
+      "roles": "Elige al menos un permiso.",
+      "displayName": "Escribe un nombre de hasta 200 caracteres."
+    }
+  },
+  "audit": {
+    "title": "Registro de cambios",
+    "intro": "Cada cambio en los datos, quién lo hizo y por dónde. No muestra datos personales: solo dice qué campos cambiaron.",
+    "when": "Cuándo",
+    "who": "Quién",
+    "channel": "Por dónde",
+    "what": "Qué",
+    "row": "Registro",
+    "fields": "Campos",
+    "personalFields": "Datos personales cambiados: {fields}",
+    "system": "Sistema",
+    "none": "Todavía no hay cambios registrados.",
+    "pages": "Páginas del registro",
+    "older": "Cambios anteriores",
+    "newest": "Volver a los más recientes",
+    "channels": {
+      "web": "Web",
+      "bot": "Bot",
+      "none": "—"
+    },
+    "actions": {
+      "insert": "Alta",
+      "update": "Cambio",
+      "delete": "Baja"
+    },
+    "tables": {
+      "staff": "Equipo",
+      "staff_roles": "Permisos",
+      "invitations": "Invitaciones"
+    }
   }
 }

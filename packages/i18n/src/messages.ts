@@ -18,6 +18,9 @@ export const TIME_ZONE = 'Europe/Madrid';
 export const getTranslator = (locale: Locale = DEFAULT_LOCALE) =>
   createTranslator({ locale, messages: messages[locale], timeZone: TIME_ZONE });
 
-/** Dates, times and numbers, in Spanish and Madrid's time. */
-export const getFormatter = (locale: Locale = DEFAULT_LOCALE) =>
+/**
+ * Dates, times and numbers, in Spanish and Madrid's time. Typed by name: inferred, the declaration would name React's
+ * types (use-intl's rich formatting), which a package without React can't.
+ */
+export const getFormatter = (locale: Locale = DEFAULT_LOCALE): ReturnType<typeof createFormatter> =>
   createFormatter({ locale, timeZone: TIME_ZONE });
