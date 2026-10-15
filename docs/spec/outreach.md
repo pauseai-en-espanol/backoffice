@@ -60,7 +60,7 @@ dry run shows the counts and problems before anything is written. How the files 
 - **Contacts:** every field carries over (`web` becomes the website, `source` the first source). The reason they
   matter is the campaign's list itself ("Del listado de la campaña «…»"), since the repo recorded none; a contact
   without a `source` is imported with `needs_review` set, as is one the repo marked `needsReview`. A phone or website
-  that doesn't parse is dropped, with a problem listed. The contact's `id` is kept as its external reference.
+  that doesn't parse is dropped, with a warning. The contact's `id` is kept as its external reference.
 - **Targets:** every contact not on hold, with its `priority` and `anchor`, in the status `tracking.csv` gives it
   (`pending` if it has no row), with its dates and notes. A held contact is imported but not made a target. The
   furthest status moves the relationship: `sent` or `bounced` to `contacted`, `replied` or `meeting` to `engaged`,

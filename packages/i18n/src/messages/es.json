@@ -1027,5 +1027,40 @@
       "minors": "Si tienes menos de 14 años, necesitas el consentimiento de tus padres o tutores: no envíes el censo y habla con alguien del equipo.",
       "back": "Volver al censo"
     }
+  },
+  "outreachImport": {
+    "reason": "Del listado de la campaña «{campaign}»",
+    "ownerNote": "Responsable en el repositorio: {owner}",
+    "problems": {
+      "unreadable": "No se puede leer el archivo: no es YAML válido.",
+      "campaignField": "Falta «{field}» en campaign.yaml, o no es válido.",
+      "slugTaken": "Ya hay una campaña con el identificador «{slug}»: cada campaña se importa una sola vez.",
+      "noContacts": "No hay ningún contacto en «contacts».",
+      "contactId": "Hay un contacto sin «id», o con uno repetido.",
+      "contactOrg": "El contacto {id} no tiene organización («org»).",
+      "contactEmail": "El correo de {id} no es válido.",
+      "contactEmailsExtra": "Uno de los correos adicionales de {id} no es válido.",
+      "contactTier": "El nivel («tier») de {id} tiene que ser A o B.",
+      "contactAnchor": "El «anchor» de {id} no es una clave válida (minúsculas, números, guiones).",
+      "contactPriority": "La prioridad de {id} tiene que ser un número entero positivo.",
+      "contactTreatment": "El tratamiento de {id} tiene que ser neutral, masculino o femenino.",
+      "tooLong": "«{field}» de {id} es demasiado largo.",
+      "anchorInvalid": "El anchor «{key}» necesita «label», «text» y al menos una fuente.",
+      "anchorKey": "«{key}» no es una clave de anchor válida (minúsculas, números, guiones).",
+      "templateFrontMatter": "Falta la cabecera YAML entre «---», con al menos «subject».",
+      "templateFields": "La plantilla usa campos que no existen: {fields}.",
+      "trackingColumns": "Faltan columnas en tracking.csv: {columns}.",
+      "trackingUnreadable": "No se puede leer tracking.csv como CSV.",
+      "trackingStatus": "Estado desconocido en la fila de {id}: «{status}».",
+      "trackingDate": "Fecha no válida en la fila de {id}: «{value}»."
+    },
+    "warnings": {
+      "phoneDropped": "El teléfono de {id} no se entiende: no se importa.",
+      "websiteDropped": "La web de {id} no es una dirección: no se importa.",
+      "trackingUnknown": "La fila de {id} en tracking.csv no corresponde a ningún contacto: se ignora.",
+      "anchorUnknown": "{id} usa el anchor «{anchor}», que no está en anchors.yaml: su carta fallará hasta que se añada.",
+      "noSource": "{id} no tiene fuente: se importa por revisar.",
+      "heldInTracking": "{id} está en espera («hold»): se importa, pero no entra en la campaña."
+    }
   }
 }

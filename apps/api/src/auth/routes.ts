@@ -8,6 +8,7 @@ import type { SyncCounts } from '../imports/airtable-sync.js';
 import type { PasswordLinks } from './password-links.js';
 
 import { censusRoutes } from '../census/routes.js';
+import { outreachRoutes } from '../outreach/routes.js';
 import { peopleRoutes } from '../people/routes.js';
 import { type InvitationSender } from '../staff/invitations.js';
 import { staffDataRoutes } from '../staff/routes.js';
@@ -255,6 +256,15 @@ export const staffApiRoutes =
         app,
         staffOrigin,
         census,
+        actorFor: async (request) => actorOf(await findSession(request)),
+      }),
+    );
+
+    // Outreach (outreach/routes.ts): outreach staff and admins, as the database decides.
+    await scope.register(
+      outreachRoutes({
+        app,
+        staffOrigin,
         actorFor: async (request) => actorOf(await findSession(request)),
       }),
     );
