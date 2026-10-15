@@ -571,6 +571,32 @@ describe('importing from the outreach repo (M3)', () => {
     ]);
   });
 
+  it('takes a campaign far larger than the API’s usual 64 KB body', async () => {
+    const contacts = [
+      'contacts:',
+      ...Array.from({ length: 500 }, (_, n) =>
+        [
+          `  - id: contacto-${n}`,
+          '    org: Prueba Organización Grande',
+          `    orgDisplay: Prueba Organización Grande — Sección ${n}`,
+          `    email: buzon.${n}@ejemplo.test`,
+          '    tier: B',
+          '    anchor: empleo',
+          `    source: https://ejemplo.test/fuente/${n}`,
+          '    notes: Una nota de ejemplo para que el archivo pese lo que pesa uno de verdad.',
+        ].join('\n'),
+      ),
+      '',
+    ].join('\n');
+    expect(contacts.length).toBeGreaterThan(128 * 1024);
+    const dry = await admin.who.send('POST', '/api/outreach/import', {
+      dryRun: true,
+      files: files(slugOf(), contacts),
+    });
+    expect(dry.statusCode).toBe(200);
+    expect(dry.json<{ counts: { contacts: number } }>().counts.contacts).toBe(500);
+  });
+
   it('lists every problem with its file and line, and writes nothing', async () => {
     const slug = slugOf();
     const broken = await admin.who.send('POST', '/api/outreach/import', {
