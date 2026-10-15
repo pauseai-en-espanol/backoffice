@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Seals the GlitchTip DSN of each backoffice app (api, web) for the danilupion.com cluster into a gitops checkout
+# Seals the GlitchTip DSN of each backoffice app (api, web, forms) for the danilupion.com cluster into a gitops checkout
 # (ADR-0003, observability). Nothing secret is printed or written unencrypted: each DSN is read with hidden input and
 # reaches kubectl through /dev/fd (process substitution), never through argv or a file.
 #
-# Usage: scripts/seal-glitchtip-dsns.sh <path-to-gitops>
+# Usage: scripts/seal-glitchtip-dsns.sh <path-to-gitops> [app...]
+# The apps default to api, web and forms; name some to seal only theirs (forms, say, once the others are sealed).
 # Paste each project's DSN from GlitchTip (project settings, Client Keys). The host is rewritten to the in-cluster
 # Service, because GlitchTip's UI host is VPN-only and the apps post in-cluster. Refuses to overwrite: to rotate,
 # delete the files first.
@@ -15,7 +16,8 @@ read -r -a KUBESEAL_ARGS <<<"${KUBESEAL_ARGS:---context danilupion.com --control
 
 APP_DIR="$GITOPS/clusters/danilupion-com/resources/apps/backoffice/secrets"
 SERVICE_HOST="glitchtip-web.glitchtip.svc.cluster.local"
-APPS=(api web)
+APPS=("${@:2}")
+[ "${#APPS[@]}" -gt 0 ] || APPS=(api web forms)
 
 [ -d "$APP_DIR" ] || { echo "Not a gitops checkout with the backoffice's secrets: $APP_DIR is missing" >&2; exit 1; }
 for app in "${APPS[@]}"; do
