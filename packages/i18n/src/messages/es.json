@@ -1,0 +1,27 @@
+{
+  "roles": {
+    "admin": "Administración",
+    "onboarding": "Acogida",
+    "outreach": "Relaciones externas"
+  },
+  "email": {
+    "invitation": {
+      "subject": "Te invitan a {product}",
+      "body": "Hola:\n\n{inviter} te ha invitado a {product}, la herramienta interna de PauseAI España, con estos permisos: {roles}.\n\nPara aceptar, abre este enlace en los próximos {days} días. Si aún no tienes cuenta, ahí eliges tu nombre y una contraseña, y luego configuras la verificación en dos pasos con una aplicación de autenticación:\n{link}\n\nSi no lo esperabas, ignora este correo: no pasa nada si no se abre el enlace.\n\n{product}"
+    },
+    "passwordReset": {
+      "subject": "Elige una contraseña nueva para {product}",
+      "body": "Hola:\n\nAlguien, probablemente tú, ha pedido una contraseña nueva para la cuenta con esta dirección en {product}.\n\nPara elegirla, abre este enlace en menos de una hora. Funciona una sola vez:\n{link}\n\nElegir una contraseña nueva cierra la sesión de la cuenta en todas partes. Al entrar se te seguirá pidiendo el código de tu aplicación de autenticación.\n\nSi no lo has pedido tú, ignora este correo: tu contraseña no cambia.\n\n{product}",
+      "bodyByAdmin": "Hola:\n\n{admin}, que administra {product}, ha enviado a esta dirección un enlace para elegir una contraseña nueva para tu cuenta. No ve ni el enlace ni tu contraseña.\n\nPara elegirla, abre este enlace en menos de una hora. Funciona una sola vez:\n{link}\n\nElegir una contraseña nueva cierra la sesión de la cuenta en todas partes. Al entrar se te seguirá pidiendo el código de tu aplicación de autenticación.\n\nSi no necesitas una contraseña nueva, ignora este correo: tu contraseña no cambia.\n\n{product}",
+      "someAdmin": "Alguien"
+    },
+    "passwordChanged": {
+      "subject": "Se ha cambiado tu contraseña de {product}",
+      "body": "Hola:\n\nSe acaba de cambiar la contraseña de la cuenta con esta dirección en {product}, con un enlace enviado a esta dirección. Se han cerrado todas las sesiones de la cuenta, y al entrar se seguirá pidiendo el código de tu aplicación de autenticación.\n\nSi no has sido tú, puede que alguien esté leyendo tu correo. Protege primero tu cuenta de correo, elige después una contraseña nueva aquí y avisa a quien administra {product}:\n{forgot}\n\n{product}",
+      "bodyNoFactor": "Hola:\n\nSe acaba de cambiar la contraseña de la cuenta con esta dirección en {product}, y se han cerrado todas sus sesiones. La cuenta aún no tiene aplicación de autenticación: quien entre ahora con la contraseña nueva la configura.\n\nSi no has sido tú, avisa cuanto antes a quien administra {product}.\n\n{product}"
+    }
+  },
+  "errors": {
+    "unexpected": "Algo ha fallado. Vuelve a intentarlo en un momento."
+  }
+}
