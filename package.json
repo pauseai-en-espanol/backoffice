@@ -26,7 +26,7 @@
     "check": "turbo check",
     "db:up": "docker compose up -d --wait postgres",
     "db:down": "docker compose down",
-    "db:reset": "docker compose down -v && pnpm db:up && pnpm db:migrate",
+    "db:reset": "docker compose down -v && pnpm db:up && pnpm db:migrate && pnpm db:seed",
     "db:new": "dbmate --migrations-dir db/migrations new",
     "db:migrate": "dbmate --migrations-dir db/migrations --no-dump-schema up && pnpm db:dump",
     "db:status": "dbmate --migrations-dir db/migrations status",
