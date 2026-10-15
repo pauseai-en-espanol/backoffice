@@ -25,6 +25,24 @@ export interface ApiConfig {
   airtable: AirtableConfig | undefined;
   /** The Telegram bot (ADR-0004). Undefined: no webhook, no linking, no team group. */
   telegram: TelegramConfig | undefined;
+  /** The census (M2): where personal links point. Undefined: no personal link can be made. */
+  census: CensusConfig | undefined;
+  /** The forms app's routes (ADR-0002 §7). Undefined: /public/census answers 503. */
+  forms: FormsConfig | undefined;
+}
+
+export interface CensusConfig {
+  /** The forms app's origin (CENSUS_URL), such as `https://unete.example.org`: personal links point there. */
+  formsOrigin: string;
+  /** The privacy notice's wording version that consents are recorded against (CENSUS_WORDING_VERSION, `v1`). */
+  wordingVersion: string;
+}
+
+export interface FormsConfig {
+  /** pauseai_backoffice_public, which may only run the census form's two functions. */
+  databaseUrl: string;
+  /** The secret the forms app sends with every call (FORMS_TOKEN): 32 characters or more. */
+  token: string;
 }
 
 export interface AirtableConfig {
@@ -180,6 +198,41 @@ const readAirtable = (env: NodeJS.ProcessEnv): AirtableConfig | undefined => {
   };
 };
 
+/** The census's settings: the forms app's origin, if set, and the wording version. */
+const readCensus = (env: NodeJS.ProcessEnv): CensusConfig | undefined => {
+  const origin = env.CENSUS_URL || undefined;
+  if (!origin) {
+    return undefined;
+  }
+  const wordingVersion = env.CENSUS_WORDING_VERSION || 'v1';
+  if (!/^[a-z0-9][a-z0-9.-]{0,39}$/u.test(wordingVersion)) {
+    throw new Error(
+      'CENSUS_WORDING_VERSION must be lowercase letters, digits, dots and dashes, such as v1',
+    );
+  }
+  return { formsOrigin: readOrigin(origin, 'CENSUS_URL'), wordingVersion };
+};
+
+/** The forms app's routes need the public role's connection and the shared secret, or neither. Never echoed. */
+const readForms = (env: NodeJS.ProcessEnv): FormsConfig | undefined => {
+  const databaseUrl = env.PUBLIC_DATABASE_URL || undefined;
+  const token = env.FORMS_TOKEN || undefined;
+  if (!databaseUrl && !token) {
+    return undefined;
+  }
+  if (!databaseUrl || !token) {
+    throw new Error(
+      `The forms app is half configured: ${databaseUrl ? 'FORMS_TOKEN' : 'PUBLIC_DATABASE_URL'} not set`,
+    );
+  }
+  if (token.length < MIN_SECRET_LENGTH || !/^[\w-]+$/u.test(token)) {
+    throw new Error(
+      `FORMS_TOKEN must have at least ${MIN_SECRET_LENGTH} letters, digits, dashes or underscores`,
+    );
+  }
+  return { databaseUrl, token };
+};
+
 /** Reads the API configuration from the environment, failing fast on invalid values. */
 export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
   const port = Number(env.PORT ?? 3001);
@@ -200,5 +253,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
     mail: readMail(env),
     airtable: readAirtable(env),
     telegram: readTelegram(env),
+    census: readCensus(env),
+    forms: readForms(env),
   };
 };

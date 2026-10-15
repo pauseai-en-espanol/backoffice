@@ -3,9 +3,11 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { withActor } from '@backoffice/db/actor';
 
+import type { CensusConfig } from '../config.js';
 import type { SyncCounts } from '../imports/airtable-sync.js';
 import type { PasswordLinks } from './password-links.js';
 
+import { censusRoutes } from '../census/routes.js';
 import { peopleRoutes } from '../people/routes.js';
 import { type InvitationSender } from '../staff/invitations.js';
 import { staffDataRoutes } from '../staff/routes.js';
@@ -110,6 +112,8 @@ export interface StaffApiOptions {
   onArrival?: ((personId: string) => Promise<void>) | undefined;
   /** Told when someone is claimed from the staff app, so the team group's post says who. */
   onClaim?: ((personId: string) => Promise<void>) | undefined;
+  /** The census (M2): where personal links point; without it, no personal link can be made. */
+  census?: CensusConfig | undefined;
   /** Linking Telegram accounts (ADR-0004); without the bot, the link routes say it isn't configured. */
   telegram?: TelegramLinking | undefined;
 }
@@ -129,6 +133,7 @@ export const staffApiRoutes =
     syncAirtable,
     onArrival,
     onClaim,
+    census,
     telegram,
   }: StaffApiOptions) =>
   async (scope: FastifyInstance): Promise<void> => {
@@ -241,6 +246,16 @@ export const staffApiRoutes =
         syncAirtable,
         onArrival,
         onClaim,
+      }),
+    );
+
+    // The census's staff side (census/routes.ts).
+    await scope.register(
+      censusRoutes({
+        app,
+        staffOrigin,
+        census,
+        actorFor: async (request) => actorOf(await findSession(request)),
       }),
     );
 

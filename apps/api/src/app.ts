@@ -1,6 +1,7 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
 import { type StaffApiOptions, staffApiRoutes } from './auth/routes.js';
+import { type CensusPublicOptions, censusPublicRoutes } from './census/public-routes.js';
 import { telegramWebhookRoutes, type WebhookOptions } from './telegram/webhook.js';
 
 export interface AppOptions {
@@ -9,6 +10,8 @@ export interface AppOptions {
   api?: StaffApiOptions;
   /** The Telegram bot's webhook (ADR-0004); without it, /telegram/webhook answers 503. */
   telegram?: WebhookOptions | undefined;
+  /** The forms app's routes (ADR-0002 §7); without them, /public/census answers 503. */
+  forms?: CensusPublicOptions | undefined;
 }
 
 /**
@@ -26,6 +29,7 @@ export const buildApp = ({
   logger = false,
   api = {},
   telegram,
+  forms,
 }: AppOptions = {}): FastifyInstance => {
   const app = Fastify({
     logger:
@@ -48,5 +52,7 @@ export const buildApp = ({
   void app.register(staffApiRoutes(api), { prefix: '/api' });
   // The bot's webhook, outside /api, on the staff host (ADR-0004).
   void app.register(telegramWebhookRoutes(telegram));
+  // The census form's, for the forms app inside the cluster, with its shared secret (ADR-0002 §7).
+  void app.register(censusPublicRoutes(forms), { prefix: '/public/census' });
   return app;
 };

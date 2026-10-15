@@ -44,7 +44,7 @@ interface SummaryRow {
 
 const SUMMARY_COLUMNS = sql`
   p.id, p.full_name, p.preferred_name, p.stage::text AS stage, p.owner_id, s.display_name AS owner_name, p.province,
-  p.next_action, to_char(p.next_action_due, 'YYYY-MM-DD') AS next_action_due, a.reasons,
+  p.next_action, to_char(p.next_action_due, 'YYYY-MM-DD') AS next_action_due, coalesce(a.reasons, '{}') AS reasons,
   EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = p.id AND c.left_on IS NULL) AS in_community,
   ARRAY(SELECT ps.source::text FROM app.person_sources ps WHERE ps.person_id = p.id ORDER BY ps.first_seen_at)
     AS sources,
@@ -52,7 +52,7 @@ const SUMMARY_COLUMNS = sql`
 
 const SUMMARY_FROM = sql`
   app.people p
-  JOIN app.people_attention a ON a.person_id = p.id
+  LEFT JOIN app.people_attention a ON a.person_id = p.id
   LEFT JOIN app.staff s ON s.user_id = p.owner_id`;
 
 const toSummary = (row: SummaryRow): PersonSummary => ({
@@ -159,7 +159,7 @@ export const listPeople = async (
   };
 };
 
-/** The summaries of these people, as RLS shows them; tombstones and anonymised people are left out. */
+/** The summaries of these people, as RLS shows them; a tombstone has none (its survivor stands for it). */
 export const summariesOf = async (
   trx: Transaction<DB>,
   ids: string[],
@@ -176,12 +176,13 @@ export const summariesOf = async (
 export const today = async (trx: Transaction<DB>, me: string) => {
   const mine = await sql<SummaryRow>`
     SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
-     WHERE p.merged_into IS NULL AND p.owner_id = ${me} AND cardinality(a.reasons) > 0
+     WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.owner_id = ${me}
+       AND cardinality(a.reasons) > 0
      ORDER BY p.next_action_due NULLS LAST, p.created_at
      LIMIT 100`.execute(trx);
   const unassigned = await sql<SummaryRow>`
     SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
-     WHERE p.merged_into IS NULL AND p.stage = 'new' AND p.owner_id IS NULL
+     WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.stage = 'new' AND p.owner_id IS NULL
      ORDER BY p.created_at
      LIMIT 100`.execute(trx);
   const [counts] = (
@@ -189,7 +190,8 @@ export const today = async (trx: Transaction<DB>, me: string) => {
       SELECT (SELECT count(*)::int FROM app.people p JOIN app.people_attention a ON a.person_id = p.id
                WHERE p.owner_id = ${me} AND cardinality(a.reasons) > 0) AS mine,
              (SELECT count(*)::int FROM app.people p
-               WHERE p.merged_into IS NULL AND p.stage = 'new' AND p.owner_id IS NULL) AS unassigned,
+               WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.stage = 'new'
+                 AND p.owner_id IS NULL) AS unassigned,
              (SELECT count(*)::int FROM app.intake_records i WHERE i.status IN ('review', 'conflict')) AS bandeja`.execute(
       trx,
     )

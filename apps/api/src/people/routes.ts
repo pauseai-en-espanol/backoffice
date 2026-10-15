@@ -20,6 +20,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type { SyncCounts } from '../imports/airtable-sync.js';
 
+import { censusOfPerson } from '../census/census.js';
 import { databaseRefusal } from '../database-errors.js';
 import { AirtableError } from '../imports/airtable.js';
 import {
@@ -281,14 +282,24 @@ export const peopleRoutes =
       { schema: { params: ID_PARAMS } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const found = await onboarding(db, actor, (trx) => getPerson(trx, request.params.id));
+          const found = await onboarding(db, actor, async (trx) => {
+            const page = await getPerson(trx, request.params.id);
+            return page
+              ? { ...page, census: await censusOfPerson(trx, page.person.id) }
+              : undefined;
+          });
           if (!found) {
             throw new Refusal(404, 'notFound');
           }
-          const { phone, ...person } = found.person;
+          const { census, ...rest } = found;
+          const { phone, ...person } = rest.person;
           return {
-            ...found,
-            person: { ...person, whatsapp: phone ? (whatsappLink(phone) ?? null) : null },
+            ...rest,
+            person: {
+              ...person,
+              ...census,
+              whatsapp: phone ? (whatsappLink(phone) ?? null) : null,
+            },
           };
         }),
     );

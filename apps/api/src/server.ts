@@ -42,6 +42,15 @@ const ingest = config.airtable
       applicationName: 'backoffice-api-ingest',
     })
   : undefined;
+// The forms app's routes (ADR-0002 §7): their own pool, as the public role, which may only run the census form's two
+// functions.
+const publicDb = config.forms
+  ? createDatabase({
+      connectionString: config.forms.databaseUrl,
+      maxConnections: 2,
+      applicationName: 'backoffice-api-public',
+    })
+  : undefined;
 // The backoffice's one sender. Without it, no invitation or password link goes out.
 const mailer = config.mail ? createMailer(config.mail) : undefined;
 const passwordMail =
@@ -80,6 +89,7 @@ const checkLogin = async (db: Database, role: string, variable: string): Promise
 const loginChecks = [
   ...(app ? [checkLogin(app, 'pauseai_backoffice_app', 'APP_DATABASE_URL')] : []),
   ...(ingest ? [checkLogin(ingest, 'pauseai_backoffice_ingest', 'INGEST_DATABASE_URL')] : []),
+  ...(publicDb ? [checkLogin(publicDb, 'pauseai_backoffice_public', 'PUBLIC_DATABASE_URL')] : []),
 ];
 
 // The Telegram bot (ADR-0004): it links staff accounts and acts as them, so it needs sign-in and the app role. A
@@ -149,9 +159,18 @@ const server = buildApp({
     // New people and claims from the staff app reach the team group at once (ADR-0004, D11).
     onArrival: team ? (personId) => team.arrival(personId) : undefined,
     onClaim: team ? (personId) => team.claimed(personId) : undefined,
+    census: config.census,
     telegram: bot?.linking,
   },
   telegram: bot?.webhook,
+  forms:
+    config.forms && publicDb
+      ? {
+          db: publicDb,
+          token: config.forms.token,
+          wordingVersion: config.census?.wordingVersion ?? 'v1',
+        }
+      : undefined,
 });
 
 const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
@@ -159,6 +178,7 @@ const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   await server.close();
   await app?.destroy();
   await ingest?.destroy();
+  await publicDb?.destroy();
   await authPool?.end();
   process.exit(0);
 };

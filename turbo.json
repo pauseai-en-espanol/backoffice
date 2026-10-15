@@ -39,7 +39,8 @@
         "TEST_SUPERUSER_DATABASE_URL",
         "TEST_AUTH_DATABASE_URL",
         "TEST_APP_DATABASE_URL",
-        "TEST_INGEST_DATABASE_URL"
+        "TEST_INGEST_DATABASE_URL",
+        "TEST_PUBLIC_DATABASE_URL"
       ]
     },
     "@backoffice/api#test:db": {
@@ -50,7 +51,8 @@
         "TEST_SUPERUSER_DATABASE_URL",
         "TEST_AUTH_DATABASE_URL",
         "TEST_APP_DATABASE_URL",
-        "TEST_INGEST_DATABASE_URL"
+        "TEST_INGEST_DATABASE_URL",
+        "TEST_PUBLIC_DATABASE_URL"
       ]
     },
     "test:e2e": {

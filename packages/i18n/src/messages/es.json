@@ -807,5 +807,8 @@
     "disconnect": "Desconectar Telegram",
     "confirmDisconnect": "¿Desconectar tu Telegram? El bot dejará de responderte hasta que vuelvas a conectarlo.",
     "disconnected": "Telegram desconectado."
+  },
+  "censusLink": {
+    "whatsapp": "Hola, {name}: soy del equipo de acogida de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}"
   }
 }
