@@ -464,16 +464,26 @@ const NOT_AUDITED: Readonly<Record<string, string>> = {
 };
 
 /** Tables in app whose rows are never updated or deleted, except by anonymisation (data model spec). */
-const APPEND_ONLY = ['audit_log', 'consents', 'person_events'];
+const APPEND_ONLY = ['audit_log', 'consents', 'contact_events', 'person_events'];
 
 /** Columns commented `personal data` (data model spec, conventions), as `table.column`: never copied to the log. */
 const PERSONAL_DATA: readonly string[] = [
+  'campaign_targets.next_action',
+  'campaign_targets.notes',
   'community_presence.chat',
+  'contact_events.body',
+  'contacts.email',
+  'contacts.emails_extra',
+  'contacts.greeting_name',
+  'contacts.notes',
+  'contacts.person_name',
+  'contacts.phone',
   'exports.filter',
   'identities.value',
   'intake_records.conflicts',
   'intake_records.payload',
   'invitations.email',
+  'organisations.notes',
   'people.availability',
   'people.full_name',
   'people.how_heard',

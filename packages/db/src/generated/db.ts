@@ -7,6 +7,16 @@ import type { ColumnType } from 'kysely';
 
 export type AppAvailability = 'from_2_to_5h' | 'occasional' | 'over_5h' | 'under_2h';
 
+export type AppContactEventKind =
+  | 'created'
+  | 'imported'
+  | 'note'
+  | 'owner_changed'
+  | 'reviewed'
+  | 'sent'
+  | 'stage_changed'
+  | 'status_changed';
+
 export type AppEventKind =
   | 'contact_attempt'
   | 'created'
@@ -27,6 +37,20 @@ export type AppIdentityKind = 'airtable' | 'email' | 'phone';
 export type AppIntakeStatus =
   'attached' | 'conflict' | 'created' | 'discarded' | 'pending' | 'review';
 
+export type AppOrganisationKind =
+  | 'association'
+  | 'company'
+  | 'media'
+  | 'ngo'
+  | 'other'
+  | 'party'
+  | 'public_body'
+  | 'union'
+  | 'university';
+
+export type AppRelationshipStage =
+  'ally' | 'contacted' | 'declined' | 'dormant' | 'engaged' | 'identified' | 'qualified';
+
 export type AppSourceKind = 'airtable' | 'census' | 'csv' | 'manual' | 'telegram';
 
 export type AppStaffRole = 'admin' | 'onboarding' | 'outreach';
@@ -42,6 +66,17 @@ export type AppStage =
   | 'to_triage'
   | 'unresponsive'
   | 'welcomed';
+
+export type AppTargetStatus =
+  | 'bounced'
+  | 'declined'
+  | 'meeting'
+  | 'no_response'
+  | 'pending'
+  | 'ready'
+  | 'replied'
+  | 'sent'
+  | 'skip';
 
 export type ArrayType<T> = ArrayTypeImpl<T> extends (infer U)[] ? U[] : ArrayTypeImpl<T>;
 
@@ -80,6 +115,75 @@ export interface AppAuditLog {
   id: Generated<Int8>;
   row_id: string;
   table_name: string;
+}
+
+export interface AppCampaignAnchors {
+  campaign_id: string;
+  id: Generated<string>;
+  key: string;
+  label: string;
+  sources: string[];
+  text: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface AppCampaigns {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  from_email: string | null;
+  from_name: string | null;
+  goal: string | null;
+  id: Generated<string>;
+  language: Generated<string>;
+  name: string;
+  owner_id: string | null;
+  signature: Generated<string>;
+  slug: string;
+  status: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface AppCampaignTargets {
+  anchor: string | null;
+  campaign_id: string;
+  contact_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  meeting_at: Timestamp | null;
+  /**
+   * personal data
+   */
+  next_action: string | null;
+  next_action_due: Timestamp | null;
+  /**
+   * personal data
+   */
+  notes: string | null;
+  owner_id: string | null;
+  priority: number | null;
+  replied_at: Timestamp | null;
+  sent_at: Timestamp | null;
+  status: Generated<AppTargetStatus>;
+  template_version: number | null;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface AppCampaignTemplates {
+  body: string;
+  campaign_id: string;
+  id: Generated<string>;
+  max_words: number | null;
+  notes: string | null;
+  sources: Generated<string[]>;
+  subject: string;
+  tier: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+  version: Generated<number>;
 }
 
 export interface AppCensusLinks {
@@ -128,6 +232,73 @@ export interface AppConsents {
   person_id: string;
   source: AppSourceKind;
   wording_version: string;
+}
+
+export interface AppContactEvents {
+  actor_id: string | null;
+  /**
+   * personal data
+   */
+  body: string | null;
+  campaign_id: string | null;
+  channel: string | null;
+  contact_id: string;
+  created_at: Generated<Timestamp>;
+  data: Generated<Json>;
+  id: Generated<string>;
+  kind: AppContactEventKind;
+}
+
+export interface AppContacts {
+  anchor: string | null;
+  anonymised_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  /**
+   * personal data
+   */
+  email: string | null;
+  /**
+   * personal data
+   */
+  emails_extra: Generated<string[]>;
+  external_ref: string | null;
+  /**
+   * personal data
+   */
+  greeting_name: string | null;
+  hold: Generated<boolean>;
+  hold_reason: string | null;
+  id: Generated<string>;
+  needs_review: Generated<boolean>;
+  /**
+   * personal data
+   */
+  notes: string | null;
+  org_display: string;
+  organisation_id: string | null;
+  owner_id: string | null;
+  /**
+   * personal data
+   */
+  person_name: string | null;
+  /**
+   * personal data
+   */
+  phone: string | null;
+  reason: string | null;
+  role: string | null;
+  scope: string | null;
+  sector: string | null;
+  sources: Generated<string[]>;
+  stage: Generated<AppRelationshipStage>;
+  tags: Generated<string[]>;
+  territory: string | null;
+  tier: Generated<string>;
+  treatment: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+  website: string | null;
 }
 
 export interface AppExports {
@@ -202,6 +373,23 @@ export interface AppInvitations {
   revoked_at: Timestamp | null;
   roles: ArrayType<AppStaffRole>;
   token_hash: string;
+}
+
+export interface AppOrganisations {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  external_ref: string | null;
+  id: Generated<string>;
+  kind: Generated<AppOrganisationKind>;
+  name: string;
+  /**
+   * personal data
+   */
+  notes: string | null;
+  territory: string | null;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+  website: string | null;
 }
 
 export interface AppPeople {
@@ -335,15 +523,22 @@ export interface AppStaffRoles {
 
 export interface DB {
   'app.audit_log': AppAuditLog;
+  'app.campaign_anchors': AppCampaignAnchors;
+  'app.campaign_targets': AppCampaignTargets;
+  'app.campaign_templates': AppCampaignTemplates;
+  'app.campaigns': AppCampaigns;
   'app.census_links': AppCensusLinks;
   'app.census_options': AppCensusOptions;
   'app.community_presence': AppCommunityPresence;
   'app.consents': AppConsents;
+  'app.contact_events': AppContactEvents;
+  'app.contacts': AppContacts;
   'app.exports': AppExports;
   'app.identities': AppIdentities;
   'app.imports': AppImports;
   'app.intake_records': AppIntakeRecords;
   'app.invitations': AppInvitations;
+  'app.organisations': AppOrganisations;
   'app.people': AppPeople;
   'app.people_attention': AppPeopleAttention;
   'app.person_events': AppPersonEvents;

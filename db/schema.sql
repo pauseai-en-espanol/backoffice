@@ -107,6 +107,24 @@ CREATE TYPE app.contact_channel AS ENUM (
 ALTER TYPE app.contact_channel OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: contact_event_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.contact_event_kind AS ENUM (
+    'created',
+    'imported',
+    'note',
+    'stage_changed',
+    'owner_changed',
+    'status_changed',
+    'sent',
+    'reviewed'
+);
+
+
+ALTER TYPE app.contact_event_kind OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: contact_outcome; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -174,6 +192,42 @@ CREATE TYPE app.intake_status AS ENUM (
 ALTER TYPE app.intake_status OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: organisation_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.organisation_kind AS ENUM (
+    'party',
+    'union',
+    'ngo',
+    'university',
+    'media',
+    'company',
+    'public_body',
+    'association',
+    'other'
+);
+
+
+ALTER TYPE app.organisation_kind OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: relationship_stage; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.relationship_stage AS ENUM (
+    'identified',
+    'qualified',
+    'contacted',
+    'engaged',
+    'ally',
+    'declined',
+    'dormant'
+);
+
+
+ALTER TYPE app.relationship_stage OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: source_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -220,6 +274,25 @@ CREATE TYPE app.stage AS ENUM (
 
 
 ALTER TYPE app.stage OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: target_status; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.target_status AS ENUM (
+    'pending',
+    'ready',
+    'sent',
+    'replied',
+    'meeting',
+    'declined',
+    'bounced',
+    'no_response',
+    'skip'
+);
+
+
+ALTER TYPE app.target_status OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: accept_invitation(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -270,6 +343,40 @@ CREATE FUNCTION private.accept_invitation(token_hash text) RETURNS boolean
 
 
 ALTER FUNCTION private.accept_invitation(token_hash text) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: anonymise_contact(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.anonymise_contact(contact uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    subject app.contacts;
+  BEGIN
+    IF NOT private.staff_can('admin') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    SELECT c.* INTO subject FROM app.contacts c WHERE c.id = contact FOR UPDATE;
+    IF NOT FOUND OR subject.anonymised_at IS NOT NULL THEN
+      RETURN false;
+    END IF;
+    PERFORM set_config('app.redact', 'on', true);
+    UPDATE app.contact_events e SET body = NULL WHERE e.contact_id = contact;
+    PERFORM set_config('app.redact', '', true);
+    UPDATE app.campaign_targets t SET notes = NULL, next_action = NULL, next_action_due = NULL
+     WHERE t.contact_id = contact;
+    UPDATE app.contacts c
+       SET person_name = NULL, greeting_name = NULL, treatment = 'neutral', email = NULL, emails_extra = '{}',
+           phone = NULL, notes = NULL, hold = true, hold_reason = NULL, owner_id = NULL, anonymised_at = now()
+     WHERE c.id = contact;
+    RETURN true;
+  END
+  $$;
+
+
+ALTER FUNCTION private.anonymise_contact(contact uuid) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: anonymise_person(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -724,6 +831,39 @@ CREATE FUNCTION private.contact_attempt_rules() RETURNS trigger
 
 
 ALTER FUNCTION private.contact_attempt_rules() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: contact_timeline(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.contact_timeline() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF TG_OP = 'INSERT' THEN
+      INSERT INTO app.contact_events (contact_id, kind, data)
+      VALUES (NEW.id, CASE WHEN NEW.external_ref IS NULL THEN 'created'::app.contact_event_kind ELSE 'imported' END,
+              jsonb_build_object('stage', NEW.stage));
+      RETURN NULL;
+    END IF;
+    IF NEW.stage IS DISTINCT FROM OLD.stage THEN
+      INSERT INTO app.contact_events (contact_id, kind, data)
+      VALUES (NEW.id, 'stage_changed', jsonb_build_object('from', OLD.stage, 'to', NEW.stage));
+    END IF;
+    IF NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
+      INSERT INTO app.contact_events (contact_id, kind, data)
+      VALUES (NEW.id, 'owner_changed', jsonb_build_object('from', OLD.owner_id, 'to', NEW.owner_id));
+    END IF;
+    IF OLD.needs_review AND NOT NEW.needs_review THEN
+      INSERT INTO app.contact_events (contact_id, kind) VALUES (NEW.id, 'reviewed');
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.contact_timeline() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: current_aal(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -1769,6 +1909,65 @@ CREATE FUNCTION private.survivor(person uuid) RETURNS uuid
 ALTER FUNCTION private.survivor(person uuid) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: target_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.target_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NEW.status IN ('ready', 'sent') AND (TG_OP = 'UPDATE' OR NEW.status = 'ready')
+       AND (TG_OP = 'INSERT' OR NEW.status IS DISTINCT FROM OLD.status)
+       AND EXISTS (SELECT 1 FROM app.contacts c
+                    WHERE c.id = NEW.contact_id AND (c.needs_review OR c.hold OR c.anonymised_at IS NOT NULL)) THEN
+      RAISE EXCEPTION 'contact not ready' USING ERRCODE = 'check_violation', HINT = 'needsReview';
+    END IF;
+    IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
+      CASE NEW.status
+        WHEN 'sent' THEN NEW.sent_at := coalesce(NEW.sent_at, now());
+        WHEN 'replied' THEN NEW.replied_at := coalesce(NEW.replied_at, now());
+        WHEN 'meeting' THEN NEW.meeting_at := coalesce(NEW.meeting_at, now());
+        ELSE NULL;
+      END CASE;
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.target_rules() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: target_timeline(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.target_timeline() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NEW.status IS DISTINCT FROM OLD.status THEN
+      INSERT INTO app.contact_events (contact_id, campaign_id, kind, data)
+      VALUES (NEW.contact_id, NEW.campaign_id,
+              CASE WHEN NEW.status = 'sent' THEN 'sent'::app.contact_event_kind ELSE 'status_changed' END,
+              jsonb_strip_nulls(jsonb_build_object('from', OLD.status, 'to', NEW.status,
+                                                   'templateVersion', NEW.template_version)));
+      -- A first reply or meeting moves the relationship along, never back.
+      IF NEW.status IN ('replied', 'meeting') THEN
+        UPDATE app.contacts c SET stage = 'engaged' WHERE c.id = NEW.contact_id AND c.stage IN ('identified', 'qualified', 'contacted');
+      ELSIF NEW.status = 'sent' THEN
+        UPDATE app.contacts c SET stage = 'contacted' WHERE c.id = NEW.contact_id AND c.stage IN ('identified', 'qualified');
+      END IF;
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.target_timeline() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: team_card(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1809,6 +2008,25 @@ CREATE FUNCTION private.team_unposted(chat bigint) RETURNS SETOF uuid
 ALTER FUNCTION private.team_unposted(chat bigint) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: template_version(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.template_version() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NEW.subject IS DISTINCT FROM OLD.subject OR NEW.body IS DISTINCT FROM OLD.body THEN
+      NEW.version := OLD.version + 1;
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.template_version() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: audit_log; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -1840,6 +2058,133 @@ ALTER TABLE app.audit_log ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     CACHE 1
 );
 
+
+--
+-- Name: campaign_anchors; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.campaign_anchors (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    campaign_id uuid NOT NULL,
+    key text NOT NULL,
+    label text NOT NULL,
+    text text NOT NULL,
+    sources text[] NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT campaign_anchors_key_check CHECK ((key ~ '^[a-z0-9_-]{1,60}$'::text)),
+    CONSTRAINT campaign_anchors_label_check CHECK (((btrim(label) <> ''::text) AND (length(label) <= 200))),
+    CONSTRAINT campaign_anchors_sources_check CHECK (((cardinality(sources) >= 1) AND (cardinality(sources) <= 30))),
+    CONSTRAINT campaign_anchors_text_check CHECK (((btrim(text) <> ''::text) AND (length(text) <= 4000)))
+);
+
+
+ALTER TABLE app.campaign_anchors OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: campaign_targets; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.campaign_targets (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    campaign_id uuid NOT NULL,
+    contact_id uuid NOT NULL,
+    status app.target_status DEFAULT 'pending'::app.target_status NOT NULL,
+    owner_id uuid,
+    priority integer,
+    anchor text,
+    next_action text,
+    next_action_due date,
+    sent_at timestamp with time zone,
+    template_version integer,
+    replied_at timestamp with time zone,
+    meeting_at timestamp with time zone,
+    notes text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT campaign_targets_anchor_check CHECK ((anchor ~ '^[a-z0-9_-]{1,60}$'::text)),
+    CONSTRAINT campaign_targets_next_action_check CHECK ((length(next_action) <= 300)),
+    CONSTRAINT campaign_targets_notes_check CHECK ((length(notes) <= 4000)),
+    CONSTRAINT campaign_targets_priority_check CHECK ((priority > 0))
+);
+
+
+ALTER TABLE app.campaign_targets OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN campaign_targets.next_action; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.campaign_targets.next_action IS 'personal data';
+
+
+--
+-- Name: COLUMN campaign_targets.notes; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.campaign_targets.notes IS 'personal data';
+
+
+--
+-- Name: campaign_templates; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.campaign_templates (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    campaign_id uuid NOT NULL,
+    tier text NOT NULL,
+    subject text NOT NULL,
+    body text NOT NULL,
+    max_words integer,
+    sources text[] DEFAULT '{}'::text[] NOT NULL,
+    notes text,
+    version integer DEFAULT 1 NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT campaign_templates_body_check CHECK (((btrim(body) <> ''::text) AND (length(body) <= 40000))),
+    CONSTRAINT campaign_templates_max_words_check CHECK ((max_words > 0)),
+    CONSTRAINT campaign_templates_notes_check CHECK ((length(notes) <= 4000)),
+    CONSTRAINT campaign_templates_sources_check CHECK ((cardinality(sources) <= 50)),
+    CONSTRAINT campaign_templates_subject_check CHECK (((btrim(subject) <> ''::text) AND (length(subject) <= 300))),
+    CONSTRAINT campaign_templates_tier_check CHECK ((tier = ANY (ARRAY['A'::text, 'B'::text])))
+);
+
+
+ALTER TABLE app.campaign_templates OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: campaigns; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.campaigns (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    slug text NOT NULL,
+    name text NOT NULL,
+    goal text,
+    language text DEFAULT 'es'::text NOT NULL,
+    from_name text,
+    from_email text,
+    signature text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    owner_id uuid,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT campaigns_from_email_check CHECK (((from_email = lower(from_email)) AND (from_email ~ '^[^@[:space:]]+@[^@[:space:]]+$'::text))),
+    CONSTRAINT campaigns_from_name_check CHECK ((length(from_name) <= 200)),
+    CONSTRAINT campaigns_goal_check CHECK ((length(goal) <= 2000)),
+    CONSTRAINT campaigns_language_check CHECK ((language ~ '^[a-z]{2}$'::text)),
+    CONSTRAINT campaigns_name_check CHECK (((btrim(name) <> ''::text) AND (length(name) <= 200))),
+    CONSTRAINT campaigns_signature_check CHECK ((length(signature) <= 2000)),
+    CONSTRAINT campaigns_slug_check CHECK (((slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text) AND (length(slug) <= 80))),
+    CONSTRAINT campaigns_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'active'::text, 'closed'::text])))
+);
+
+
+ALTER TABLE app.campaigns OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: census_links; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -1928,6 +2273,139 @@ CREATE TABLE app.consents (
 
 
 ALTER TABLE app.consents OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: contact_events; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.contact_events (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    contact_id uuid NOT NULL,
+    campaign_id uuid,
+    kind app.contact_event_kind NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    actor_id uuid,
+    channel text,
+    body text,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT contact_events_body_check CHECK ((length(body) <= 4000)),
+    CONSTRAINT contact_events_channel_check CHECK ((channel = ANY (ARRAY['web'::text, 'bot'::text]))),
+    CONSTRAINT contact_events_data_check CHECK ((jsonb_typeof(data) = 'object'::text))
+);
+
+
+ALTER TABLE app.contact_events OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN contact_events.body; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contact_events.body IS 'personal data';
+
+
+--
+-- Name: contacts; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.contacts (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    organisation_id uuid,
+    org_display text NOT NULL,
+    person_name text,
+    role text,
+    treatment text DEFAULT 'neutral'::text NOT NULL,
+    greeting_name text,
+    email text,
+    emails_extra text[] DEFAULT '{}'::text[] NOT NULL,
+    phone text,
+    website text,
+    territory text,
+    scope text,
+    sector text,
+    tier text DEFAULT 'B'::text NOT NULL,
+    anchor text,
+    tags text[] DEFAULT '{}'::text[] NOT NULL,
+    stage app.relationship_stage DEFAULT 'identified'::app.relationship_stage NOT NULL,
+    owner_id uuid,
+    reason text,
+    sources text[] DEFAULT '{}'::text[] NOT NULL,
+    needs_review boolean DEFAULT false NOT NULL,
+    hold boolean DEFAULT false NOT NULL,
+    hold_reason text,
+    notes text,
+    external_ref text,
+    anonymised_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT contacts_anchor_check CHECK ((anchor ~ '^[a-z0-9_-]{1,60}$'::text)),
+    CONSTRAINT contacts_check CHECK ((needs_review OR ((btrim(COALESCE(reason, ''::text)) <> ''::text) AND (cardinality(sources) > 0)))),
+    CONSTRAINT contacts_email_check CHECK (((email = lower(email)) AND (email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'::text))),
+    CONSTRAINT contacts_emails_extra_check CHECK ((cardinality(emails_extra) <= 10)),
+    CONSTRAINT contacts_external_ref_check CHECK ((length(external_ref) <= 200)),
+    CONSTRAINT contacts_greeting_name_check CHECK ((length(greeting_name) <= 200)),
+    CONSTRAINT contacts_hold_reason_check CHECK ((length(hold_reason) <= 500)),
+    CONSTRAINT contacts_notes_check CHECK ((length(notes) <= 4000)),
+    CONSTRAINT contacts_org_display_check CHECK (((btrim(org_display) <> ''::text) AND (length(org_display) <= 300))),
+    CONSTRAINT contacts_person_name_check CHECK ((length(person_name) <= 200)),
+    CONSTRAINT contacts_phone_check CHECK ((phone ~ '^\+[1-9][0-9]{6,14}$'::text)),
+    CONSTRAINT contacts_reason_check CHECK ((length(reason) <= 2000)),
+    CONSTRAINT contacts_role_check CHECK ((length(role) <= 200)),
+    CONSTRAINT contacts_scope_check CHECK ((length(scope) <= 50)),
+    CONSTRAINT contacts_sector_check CHECK ((length(sector) <= 100)),
+    CONSTRAINT contacts_sources_check CHECK ((cardinality(sources) <= 30)),
+    CONSTRAINT contacts_tags_check CHECK ((cardinality(tags) <= 30)),
+    CONSTRAINT contacts_territory_check CHECK ((length(territory) <= 100)),
+    CONSTRAINT contacts_tier_check CHECK ((tier = ANY (ARRAY['A'::text, 'B'::text]))),
+    CONSTRAINT contacts_treatment_check CHECK ((treatment = ANY (ARRAY['neutral'::text, 'masculino'::text, 'femenino'::text]))),
+    CONSTRAINT contacts_website_check CHECK (((website ~ '^https?://'::text) AND (length(website) <= 500)))
+);
+
+
+ALTER TABLE app.contacts OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN contacts.person_name; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.person_name IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.greeting_name; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.greeting_name IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.email; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.email IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.emails_extra; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.emails_extra IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.phone; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.phone IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.notes; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.notes IS 'personal data';
+
 
 --
 -- Name: exports; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -2038,6 +2516,39 @@ ALTER TABLE app.invitations OWNER TO pauseai_backoffice_owner;
 --
 
 COMMENT ON COLUMN app.invitations.email IS 'personal data';
+
+
+--
+-- Name: organisations; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.organisations (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    name text NOT NULL,
+    kind app.organisation_kind DEFAULT 'other'::app.organisation_kind NOT NULL,
+    territory text,
+    website text,
+    notes text,
+    external_ref text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT organisations_external_ref_check CHECK ((length(external_ref) <= 200)),
+    CONSTRAINT organisations_name_check CHECK (((btrim(name) <> ''::text) AND (length(name) <= 200))),
+    CONSTRAINT organisations_notes_check CHECK ((length(notes) <= 4000)),
+    CONSTRAINT organisations_territory_check CHECK ((length(territory) <= 100)),
+    CONSTRAINT organisations_website_check CHECK (((website ~ '^https?://'::text) AND (length(website) <= 500)))
+);
+
+
+ALTER TABLE app.organisations OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN organisations.notes; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.organisations.notes IS 'personal data';
 
 
 --
@@ -2607,6 +3118,70 @@ ALTER TABLE ONLY app.audit_log
 
 
 --
+-- Name: campaign_anchors campaign_anchors_campaign_id_key_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_anchors
+    ADD CONSTRAINT campaign_anchors_campaign_id_key_key UNIQUE (campaign_id, key);
+
+
+--
+-- Name: campaign_anchors campaign_anchors_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_anchors
+    ADD CONSTRAINT campaign_anchors_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: campaign_targets campaign_targets_campaign_id_contact_id_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_targets
+    ADD CONSTRAINT campaign_targets_campaign_id_contact_id_key UNIQUE (campaign_id, contact_id);
+
+
+--
+-- Name: campaign_targets campaign_targets_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_targets
+    ADD CONSTRAINT campaign_targets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: campaign_templates campaign_templates_campaign_id_tier_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_templates
+    ADD CONSTRAINT campaign_templates_campaign_id_tier_key UNIQUE (campaign_id, tier);
+
+
+--
+-- Name: campaign_templates campaign_templates_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_templates
+    ADD CONSTRAINT campaign_templates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: campaigns campaigns_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaigns
+    ADD CONSTRAINT campaigns_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: campaigns campaigns_slug_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaigns
+    ADD CONSTRAINT campaigns_slug_key UNIQUE (slug);
+
+
+--
 -- Name: census_links census_links_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -2652,6 +3227,30 @@ ALTER TABLE ONLY app.community_presence
 
 ALTER TABLE ONLY app.consents
     ADD CONSTRAINT consents_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: contact_events contact_events_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.contact_events
+    ADD CONSTRAINT contact_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: contacts contacts_external_ref_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.contacts
+    ADD CONSTRAINT contacts_external_ref_key UNIQUE (external_ref);
+
+
+--
+-- Name: contacts contacts_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.contacts
+    ADD CONSTRAINT contacts_pkey PRIMARY KEY (id);
 
 
 --
@@ -2716,6 +3315,22 @@ ALTER TABLE ONLY app.invitations
 
 ALTER TABLE ONLY app.invitations
     ADD CONSTRAINT invitations_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: organisations organisations_external_ref_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.organisations
+    ADD CONSTRAINT organisations_external_ref_key UNIQUE (external_ref);
+
+
+--
+-- Name: organisations organisations_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.organisations
+    ADD CONSTRAINT organisations_pkey PRIMARY KEY (id);
 
 
 --
@@ -2917,6 +3532,13 @@ CREATE INDEX audit_log_row_idx ON app.audit_log USING btree (table_name, row_id)
 
 
 --
+-- Name: campaign_targets_contact_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX campaign_targets_contact_id_idx ON app.campaign_targets USING btree (contact_id);
+
+
+--
 -- Name: census_links_person_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -2942,6 +3564,20 @@ CREATE INDEX community_presence_person_id_idx ON app.community_presence USING bt
 --
 
 CREATE INDEX consents_person_id_idx ON app.consents USING btree (person_id, kind, created_at DESC);
+
+
+--
+-- Name: contact_events_contact_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX contact_events_contact_id_idx ON app.contact_events USING btree (contact_id, created_at DESC);
+
+
+--
+-- Name: contacts_organisation_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX contacts_organisation_id_idx ON app.contacts USING btree (organisation_id);
 
 
 --
@@ -3050,6 +3686,34 @@ CREATE TRIGGER activation BEFORE INSERT OR UPDATE ON app.staff FOR EACH ROW EXEC
 
 
 --
+-- Name: campaign_anchors audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.campaign_anchors FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: campaign_targets audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.campaign_targets FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: campaign_templates audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.campaign_templates FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: campaigns audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.campaigns FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
 -- Name: census_links audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3075,6 +3739,20 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.community_presence 
 --
 
 CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.consents FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: contact_events audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.contact_events FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: contacts audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.contacts FOR EACH ROW EXECUTE FUNCTION private.audit();
 
 
 --
@@ -3110,6 +3788,13 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.intake_records FOR 
 --
 
 CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.invitations FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: organisations audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.organisations FOR EACH ROW EXECUTE FUNCTION private.audit();
 
 
 --
@@ -3183,6 +3868,13 @@ CREATE TRIGGER forbid_mutation BEFORE DELETE OR UPDATE ON app.consents FOR EACH 
 
 
 --
+-- Name: contact_events forbid_mutation; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER forbid_mutation BEFORE DELETE OR UPDATE ON app.contact_events FOR EACH ROW EXECUTE FUNCTION private.forbid_mutation();
+
+
+--
 -- Name: person_events forbid_mutation; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3201,6 +3893,13 @@ CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.audit_log FOR EACH STATEME
 --
 
 CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.consents FOR EACH STATEMENT EXECUTE FUNCTION private.forbid_mutation();
+
+
+--
+-- Name: contact_events forbid_truncate; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.contact_events FOR EACH STATEMENT EXECUTE FUNCTION private.forbid_mutation();
 
 
 --
@@ -3225,6 +3924,13 @@ CREATE TRIGGER keep_an_admin AFTER DELETE ON app.staff_roles FOR EACH ROW WHEN (
 
 
 --
+-- Name: campaign_targets rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules BEFORE INSERT OR UPDATE ON app.campaign_targets FOR EACH ROW EXECUTE FUNCTION private.target_rules();
+
+
+--
 -- Name: people rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3243,6 +3949,34 @@ CREATE TRIGGER sent BEFORE UPDATE ON app.census_links FOR EACH ROW EXECUTE FUNCT
 --
 
 CREATE TRIGGER stamp BEFORE INSERT ON app.audit_log FOR EACH ROW EXECUTE FUNCTION private.stamp('actor_id');
+
+
+--
+-- Name: campaign_anchors stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.campaign_anchors FOR EACH ROW EXECUTE FUNCTION private.stamp('updated_by', 'updated_at');
+
+
+--
+-- Name: campaign_targets stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.campaign_targets FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
+
+
+--
+-- Name: campaign_templates stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.campaign_templates FOR EACH ROW EXECUTE FUNCTION private.stamp('updated_by', 'updated_at');
+
+
+--
+-- Name: campaigns stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.campaigns FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
 
 
 --
@@ -3274,6 +4008,20 @@ CREATE TRIGGER stamp BEFORE INSERT ON app.consents FOR EACH ROW EXECUTE FUNCTION
 
 
 --
+-- Name: contact_events stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT ON app.contact_events FOR EACH ROW EXECUTE FUNCTION private.stamp('actor_id', 'created_at');
+
+
+--
+-- Name: contacts stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.contacts FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
+
+
+--
 -- Name: exports stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3299,6 +4047,13 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.intake_records FOR EACH ROW 
 --
 
 CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.invitations FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: organisations stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.organisations FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
 
 
 --
@@ -3344,6 +4099,13 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.staff_roles FOR EACH ROW EXE
 
 
 --
+-- Name: contact_events stamp_channel; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp_channel BEFORE INSERT ON app.contact_events FOR EACH ROW EXECUTE FUNCTION private.stamp_channel();
+
+
+--
 -- Name: person_events stamp_channel; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3351,10 +4113,24 @@ CREATE TRIGGER stamp_channel BEFORE INSERT ON app.person_events FOR EACH ROW EXE
 
 
 --
+-- Name: campaign_targets timeline; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER timeline AFTER UPDATE ON app.campaign_targets FOR EACH ROW EXECUTE FUNCTION private.target_timeline();
+
+
+--
 -- Name: community_presence timeline; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER timeline AFTER INSERT OR UPDATE OF left_on ON app.community_presence FOR EACH ROW EXECUTE FUNCTION private.presence_timeline();
+
+
+--
+-- Name: contacts timeline; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER timeline AFTER INSERT OR UPDATE ON app.contacts FOR EACH ROW EXECUTE FUNCTION private.contact_timeline();
 
 
 --
@@ -3372,10 +4148,65 @@ CREATE TRIGGER transition BEFORE UPDATE ON app.invitations FOR EACH ROW EXECUTE 
 
 
 --
+-- Name: campaign_templates version; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER version BEFORE UPDATE ON app.campaign_templates FOR EACH ROW EXECUTE FUNCTION private.template_version();
+
+
+--
 -- Name: sessions aal2_needs_second_factor; Type: TRIGGER; Schema: auth; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER aal2_needs_second_factor BEFORE INSERT OR UPDATE OF aal ON auth.sessions FOR EACH ROW WHEN ((new.aal = 2)) EXECUTE FUNCTION private.session_needs_second_factor();
+
+
+--
+-- Name: campaign_anchors campaign_anchors_campaign_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_anchors
+    ADD CONSTRAINT campaign_anchors_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES app.campaigns(id);
+
+
+--
+-- Name: campaign_targets campaign_targets_campaign_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_targets
+    ADD CONSTRAINT campaign_targets_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES app.campaigns(id);
+
+
+--
+-- Name: campaign_targets campaign_targets_contact_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_targets
+    ADD CONSTRAINT campaign_targets_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES app.contacts(id);
+
+
+--
+-- Name: campaign_targets campaign_targets_owner_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_targets
+    ADD CONSTRAINT campaign_targets_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: campaign_templates campaign_templates_campaign_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaign_templates
+    ADD CONSTRAINT campaign_templates_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES app.campaigns(id);
+
+
+--
+-- Name: campaigns campaigns_owner_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.campaigns
+    ADD CONSTRAINT campaigns_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES app.staff(user_id);
 
 
 --
@@ -3416,6 +4247,38 @@ ALTER TABLE ONLY app.community_presence
 
 ALTER TABLE ONLY app.consents
     ADD CONSTRAINT consents_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
+-- Name: contact_events contact_events_campaign_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.contact_events
+    ADD CONSTRAINT contact_events_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES app.campaigns(id);
+
+
+--
+-- Name: contact_events contact_events_contact_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.contact_events
+    ADD CONSTRAINT contact_events_contact_id_fkey FOREIGN KEY (contact_id) REFERENCES app.contacts(id);
+
+
+--
+-- Name: contacts contacts_organisation_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.contacts
+    ADD CONSTRAINT contacts_organisation_id_fkey FOREIGN KEY (organisation_id) REFERENCES app.organisations(id);
+
+
+--
+-- Name: contacts contacts_owner_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.contacts
+    ADD CONSTRAINT contacts_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES app.staff(user_id);
 
 
 --
@@ -3700,6 +4563,30 @@ CREATE POLICY admin_update ON app.staff FOR UPDATE TO pauseai_backoffice_app USI
 ALTER TABLE app.audit_log ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: campaign_anchors; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.campaign_anchors ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: campaign_targets; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.campaign_targets ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: campaign_templates; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.campaign_templates ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: campaigns; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.campaigns ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: census_links; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3722,6 +4609,18 @@ ALTER TABLE app.community_presence ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE app.consents ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: contact_events; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.contact_events ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: contacts; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.contacts ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: exports; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
@@ -3901,6 +4800,159 @@ CREATE POLICY onboarding_update ON app.people FOR UPDATE TO pauseai_backoffice_a
 
 
 --
+-- Name: organisations; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.organisations ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: campaign_targets outreach_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_delete ON app.campaign_targets FOR DELETE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (status = ANY (ARRAY['pending'::app.target_status, 'ready'::app.target_status, 'skip'::app.target_status]))));
+
+
+--
+-- Name: campaign_anchors outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_insert ON app.campaign_anchors FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaign_targets outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_insert ON app.campaign_targets FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaign_templates outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_insert ON app.campaign_templates FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaigns outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_insert ON app.campaigns FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: contact_events outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_insert ON app.contact_events FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((kind = 'note'::app.contact_event_kind) OR (pg_trigger_depth() > 0))));
+
+
+--
+-- Name: contacts outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_insert ON app.contacts FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: organisations outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_insert ON app.organisations FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaign_anchors outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_read ON app.campaign_anchors FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaign_targets outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_read ON app.campaign_targets FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaign_templates outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_read ON app.campaign_templates FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaigns outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_read ON app.campaigns FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: contact_events outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_read ON app.contact_events FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: contacts outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_read ON app.contacts FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: organisations outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_read ON app.organisations FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaign_anchors outreach_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_update ON app.campaign_anchors FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaign_targets outreach_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_update ON app.campaign_targets FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaign_templates outreach_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_update ON app.campaign_templates FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: campaigns outreach_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_update ON app.campaigns FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: contacts outreach_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_update ON app.contacts FOR UPDATE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (anonymised_at IS NULL))) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: organisations outreach_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_update ON app.organisations FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: people; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4016,6 +5068,14 @@ GRANT ALL ON FUNCTION private.accept_invitation(token_hash text) TO pauseai_back
 
 
 --
+-- Name: FUNCTION anonymise_contact(contact uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.anonymise_contact(contact uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.anonymise_contact(contact uuid) TO pauseai_backoffice_app;
+
+
+--
 -- Name: FUNCTION anonymise_person(person uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -4111,6 +5171,13 @@ GRANT ALL ON FUNCTION private.claim_person(person uuid) TO pauseai_backoffice_ap
 --
 
 REVOKE ALL ON FUNCTION private.contact_attempt_rules() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION contact_timeline(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.contact_timeline() FROM PUBLIC;
 
 
 --
@@ -4351,6 +5418,20 @@ REVOKE ALL ON FUNCTION private.survivor(person uuid) FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION target_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.target_rules() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION target_timeline(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.target_timeline() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION team_card(person uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -4367,10 +5448,283 @@ GRANT ALL ON FUNCTION private.team_unposted(chat bigint) TO pauseai_backoffice_a
 
 
 --
+-- Name: FUNCTION template_version(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.template_version() FROM PUBLIC;
+
+
+--
 -- Name: TABLE audit_log; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 GRANT SELECT ON TABLE app.audit_log TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE campaign_anchors; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.campaign_anchors TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_anchors.campaign_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(campaign_id) ON TABLE app.campaign_anchors TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_anchors.key; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(key) ON TABLE app.campaign_anchors TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_anchors.label; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(label),UPDATE(label) ON TABLE app.campaign_anchors TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_anchors.text; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(text),UPDATE(text) ON TABLE app.campaign_anchors TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_anchors.sources; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(sources),UPDATE(sources) ON TABLE app.campaign_anchors TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE campaign_targets; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.campaign_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(campaign_id) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.contact_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(contact_id) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.status; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(status),UPDATE(status) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.owner_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(owner_id),UPDATE(owner_id) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.priority; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(priority),UPDATE(priority) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.anchor; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(anchor),UPDATE(anchor) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.next_action; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(next_action),UPDATE(next_action) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.next_action_due; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(next_action_due),UPDATE(next_action_due) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.sent_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(sent_at) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.template_version; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(template_version),UPDATE(template_version) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.replied_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(replied_at) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.meeting_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(meeting_at) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_targets.notes; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(notes),UPDATE(notes) ON TABLE app.campaign_targets TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE campaign_templates; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.campaign_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_templates.campaign_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(campaign_id) ON TABLE app.campaign_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_templates.tier; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(tier) ON TABLE app.campaign_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_templates.subject; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(subject),UPDATE(subject) ON TABLE app.campaign_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_templates.body; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(body),UPDATE(body) ON TABLE app.campaign_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_templates.max_words; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(max_words),UPDATE(max_words) ON TABLE app.campaign_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_templates.sources; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(sources),UPDATE(sources) ON TABLE app.campaign_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaign_templates.notes; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(notes),UPDATE(notes) ON TABLE app.campaign_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE campaigns; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.campaigns TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaigns.slug; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(slug) ON TABLE app.campaigns TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaigns.name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(name),UPDATE(name) ON TABLE app.campaigns TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaigns.goal; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(goal),UPDATE(goal) ON TABLE app.campaigns TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaigns.language; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(language),UPDATE(language) ON TABLE app.campaigns TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaigns.from_name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(from_name),UPDATE(from_name) ON TABLE app.campaigns TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaigns.from_email; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(from_email),UPDATE(from_email) ON TABLE app.campaigns TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaigns.signature; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(signature),UPDATE(signature) ON TABLE app.campaigns TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaigns.status; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(status),UPDATE(status) ON TABLE app.campaigns TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN campaigns.owner_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(owner_id),UPDATE(owner_id) ON TABLE app.campaigns TO pauseai_backoffice_app;
 
 
 --
@@ -4528,6 +5882,230 @@ GRANT SELECT ON TABLE app.consents TO pauseai_backoffice_app;
 
 
 --
+-- Name: TABLE contact_events; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.contact_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contact_events.contact_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(contact_id) ON TABLE app.contact_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contact_events.campaign_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(campaign_id) ON TABLE app.contact_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contact_events.kind; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(kind) ON TABLE app.contact_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contact_events.body; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(body) ON TABLE app.contact_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contact_events.data; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(data) ON TABLE app.contact_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE contacts; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.organisation_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(organisation_id),UPDATE(organisation_id) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.org_display; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(org_display),UPDATE(org_display) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.person_name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(person_name),UPDATE(person_name) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.role; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(role),UPDATE(role) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.treatment; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(treatment),UPDATE(treatment) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.greeting_name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(greeting_name),UPDATE(greeting_name) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.email; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(email),UPDATE(email) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.emails_extra; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(emails_extra),UPDATE(emails_extra) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.phone; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(phone),UPDATE(phone) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.website; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(website),UPDATE(website) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.territory; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(territory),UPDATE(territory) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.scope; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(scope),UPDATE(scope) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.sector; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(sector),UPDATE(sector) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.tier; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(tier),UPDATE(tier) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.anchor; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(anchor),UPDATE(anchor) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.tags; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(tags),UPDATE(tags) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.stage; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(stage),UPDATE(stage) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.owner_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(owner_id),UPDATE(owner_id) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.reason; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(reason),UPDATE(reason) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.sources; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(sources),UPDATE(sources) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.needs_review; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(needs_review),UPDATE(needs_review) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.hold; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(hold),UPDATE(hold) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.hold_reason; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(hold_reason),UPDATE(hold_reason) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.notes; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(notes),UPDATE(notes) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.external_ref; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(external_ref) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
 -- Name: TABLE exports; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4644,6 +6222,55 @@ GRANT INSERT(expires_at) ON TABLE app.invitations TO pauseai_backoffice_app;
 --
 
 GRANT UPDATE(revoked_at) ON TABLE app.invitations TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE organisations; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.organisations TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisations.name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(name),UPDATE(name) ON TABLE app.organisations TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisations.kind; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(kind),UPDATE(kind) ON TABLE app.organisations TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisations.territory; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(territory),UPDATE(territory) ON TABLE app.organisations TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisations.website; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(website),UPDATE(website) ON TABLE app.organisations TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisations.notes; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(notes),UPDATE(notes) ON TABLE app.organisations TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisations.external_ref; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(external_ref) ON TABLE app.organisations TO pauseai_backoffice_app;
 
 
 --

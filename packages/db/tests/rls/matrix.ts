@@ -7,6 +7,7 @@ import {
   IMPORT_ID,
   INTAKE_ID,
   INVITATION_IDS,
+  OUTREACH,
   PEOPLE,
   type StaffRole,
   tokenHash,
@@ -30,6 +31,8 @@ const ANY_STAFF: readonly StaffRole[] = ['admin', 'onboarding', 'outreach'];
 const ADMIN: Rule = { web: ['admin'] };
 /** Onboarding staff and admins, through the staff app; never the bot, which has its own functions (ADR-0004). */
 const ONBOARDING: Rule = { web: ['admin', 'onboarding'] };
+/** Outreach staff and admins, through the staff app; never the bot (outreach spec). */
+const OUTREACH_STAFF: Rule = { web: ['admin', 'outreach'] };
 const NOBODY: Rule = {};
 
 export interface Row {
@@ -57,6 +60,7 @@ export interface RelationSpec {
 
 const user = (key: keyof typeof USERS): string => `'${USERS[key]}'`;
 const ana = `'${PEOPLE.ana}'`;
+const quote = (value: string): string => `'${value}'`;
 
 export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
   'app.staff': {
@@ -397,6 +401,149 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         sql: `INSERT INTO app.census_links (person_id, token_hash, expires_at)
               VALUES (${ana}, '${'c'.repeat(64)}', now() + interval '30 days')`,
         rule: ONBOARDING,
+      },
+    ],
+  },
+  'app.organisations': {
+    rows: [
+      {
+        id: 'an organisation',
+        where: `id = ${quote(OUTREACH.organisation)}`,
+        select: OUTREACH_STAFF,
+        update: { set: "territory = 'Teruel'", rule: OUTREACH_STAFF },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'an organisation',
+        sql: "INSERT INTO app.organisations (name, kind) VALUES ('Medio de ejemplo', 'media')",
+        rule: OUTREACH_STAFF,
+      },
+    ],
+  },
+  'app.contacts': {
+    rows: [
+      {
+        id: 'a contact',
+        where: `id = ${quote(OUTREACH.berta)}`,
+        select: OUTREACH_STAFF,
+        update: { set: "stage = 'qualified'", rule: OUTREACH_STAFF },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a contact to review',
+        sql: "INSERT INTO app.contacts (org_display, needs_review) VALUES ('Universidad Ejemplo', true)",
+        rule: OUTREACH_STAFF,
+      },
+    ],
+  },
+  'app.campaigns': {
+    rows: [
+      {
+        id: 'a campaign',
+        where: `id = ${quote(OUTREACH.campaign)}`,
+        select: OUTREACH_STAFF,
+        update: { set: "status = 'active'", rule: OUTREACH_STAFF },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a campaign',
+        sql: "INSERT INTO app.campaigns (slug, name) VALUES ('otra-campana', 'Otra campaña')",
+        rule: OUTREACH_STAFF,
+      },
+    ],
+  },
+  'app.campaign_templates': {
+    rows: [
+      {
+        id: 'a template',
+        where: `campaign_id = ${quote(OUTREACH.campaign)} AND tier = 'A'`,
+        select: OUTREACH_STAFF,
+        update: { set: "subject = 'Otro asunto'", rule: OUTREACH_STAFF },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: "tier B's template",
+        sql: `INSERT INTO app.campaign_templates (campaign_id, tier, subject, body)
+              VALUES (${quote(OUTREACH.campaign)}, 'B', 'Asunto', '{{saludo}}')`,
+        rule: OUTREACH_STAFF,
+      },
+    ],
+  },
+  'app.campaign_anchors': {
+    rows: [
+      {
+        id: 'an anchor',
+        where: `campaign_id = ${quote(OUTREACH.campaign)} AND key = 'empleo'`,
+        select: OUTREACH_STAFF,
+        update: { set: "label = 'Trabajo'", rule: OUTREACH_STAFF },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'an anchor',
+        sql: `INSERT INTO app.campaign_anchors (campaign_id, key, label, text, sources)
+              VALUES (${quote(OUTREACH.campaign)}, 'salud', 'Salud', 'Texto.', '{https://ejemplo.test/otra}')`,
+        rule: OUTREACH_STAFF,
+      },
+    ],
+  },
+  'app.campaign_targets': {
+    rows: [
+      {
+        id: 'a pending target',
+        where: `id = ${quote(OUTREACH.pendingTarget)}`,
+        select: OUTREACH_STAFF,
+        update: { set: 'priority = 1', rule: OUTREACH_STAFF },
+        delete: OUTREACH_STAFF,
+      },
+      {
+        id: 'a target already sent to',
+        where: `id = ${quote(OUTREACH.sentTarget)}`,
+        select: OUTREACH_STAFF,
+        update: { set: "status = 'replied'", rule: OUTREACH_STAFF },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a target',
+        sql: `INSERT INTO app.campaign_targets (campaign_id, contact_id)
+              VALUES (${quote(OUTREACH.campaign)}, ${quote(OUTREACH.unreviewed)})`,
+        rule: OUTREACH_STAFF,
+      },
+    ],
+  },
+  'app.contact_events': {
+    rows: [
+      {
+        id: "a contact's first event",
+        where: `contact_id = ${quote(OUTREACH.berta)} AND kind = 'created'`,
+        select: OUTREACH_STAFF,
+        update: { set: "body = 'Cambiado'", rule: NOBODY },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a note',
+        sql: `INSERT INTO app.contact_events (contact_id, kind, body)
+              VALUES (${quote(OUTREACH.berta)}, 'note', 'Una nota')`,
+        rule: OUTREACH_STAFF,
+      },
+      {
+        id: 'a send, written by hand',
+        sql: `INSERT INTO app.contact_events (contact_id, campaign_id, kind)
+              VALUES (${quote(OUTREACH.berta)}, ${quote(OUTREACH.campaign)}, 'sent')`,
+        rule: NOBODY,
       },
     ],
   },

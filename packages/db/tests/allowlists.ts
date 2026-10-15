@@ -4,6 +4,7 @@
  */
 export const EXECUTE_ALLOWLIST: readonly string[] = [
   'pauseai_backoffice_app private.accept_invitation(token_hash text)',
+  'pauseai_backoffice_app private.anonymise_contact(contact uuid)',
   'pauseai_backoffice_app private.anonymise_person(person uuid)',
   'pauseai_backoffice_app private.bot_can(VARIADIC roles app.staff_role[])',
   'pauseai_backoffice_app private.bot_candidates(arrival_name text, province text, phones text[], emails text[])',
@@ -34,6 +35,7 @@ export const EXECUTE_ALLOWLIST: readonly string[] = [
 export const SECURITY_DEFINER_ALLOWLIST: readonly string[] = [
   'private.accept_invitation',
   // Erasure (personal data spec, rights): admins only, through the staff app.
+  'private.anonymise_contact',
   'private.anonymise_person',
   'private.audit',
   'private.bot_can',

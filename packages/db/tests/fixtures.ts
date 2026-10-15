@@ -74,6 +74,20 @@ export const CENSUS_LINK_ID = '0190f8c4-0000-7000-8000-0000000004d1';
 /** Ana's personal census link's token; only its hash is stored. */
 export const CENSUS_TOKEN = 'token-de-censo-de-ana';
 
+/** Outreach (M3): an organisation, its contacts, and a campaign with a template, an anchor and two targets. */
+export const OUTREACH = {
+  organisation: '0190f8c4-0000-7000-8000-0000000005a1',
+  /** Berta, a person at the organisation, owned by the outreacher; pending in the campaign. */
+  berta: '0190f8c4-0000-7000-8000-0000000005b1',
+  /** The organisation's own inbox, with no person; already sent to. */
+  inbox: '0190f8c4-0000-7000-8000-0000000005b2',
+  /** Suggested by a tool, still to be reviewed; in no campaign. */
+  unreviewed: '0190f8c4-0000-7000-8000-0000000005b3',
+  campaign: '0190f8c4-0000-7000-8000-0000000005c1',
+  pendingTarget: '0190f8c4-0000-7000-8000-0000000005d1',
+  sentTarget: '0190f8c4-0000-7000-8000-0000000005d2',
+} as const;
+
 /** Loads the fixtures as superuser, through the same triggers the app runs. */
 export const loadFixtures = async (client: pg.Client): Promise<void> => {
   await client.query('BEGIN');
@@ -168,6 +182,51 @@ export const loadFixtures = async (client: pg.Client): Promise<void> => {
       `INSERT INTO app.census_links (id, person_id, token_hash, expires_at)
        VALUES ($1, $2, $3, now() + interval '30 days')`,
       [CENSUS_LINK_ID, PEOPLE.ana, tokenHash(CENSUS_TOKEN)],
+    );
+    await client.query(
+      `INSERT INTO app.organisations (id, name, kind, territory) VALUES ($1, 'Asociación Ejemplo', 'association', 'Aragón')`,
+      [OUTREACH.organisation],
+    );
+    await client.query(
+      `INSERT INTO app.contacts (id, organisation_id, org_display, person_name, role, email, tier, anchor, owner_id,
+                                 reason, sources, needs_review)
+       VALUES ($1, $4, 'Asociación Ejemplo', 'Berta Ejemplo', 'Presidencia', 'berta@ejemplo.test', 'A', 'empleo', $5,
+               'Preside una asociación de ejemplo', '{https://ejemplo.test/fuente}', false),
+              ($2, $4, 'Asociación Ejemplo', NULL, NULL, 'info@ejemplo.test', 'B', NULL, NULL,
+               'El buzón de la asociación', '{https://ejemplo.test/fuente}', false),
+              ($3, NULL, 'Fundación Ejemplo', NULL, NULL, NULL, 'B', NULL, NULL, NULL, '{}', true)`,
+      [
+        OUTREACH.berta,
+        OUTREACH.inbox,
+        OUTREACH.unreviewed,
+        OUTREACH.organisation,
+        USERS.outreacher,
+      ],
+    );
+    await client.query(
+      `INSERT INTO app.campaigns (id, slug, name, signature) VALUES ($1, 'campana-de-ejemplo', 'Campaña de ejemplo', 'Firma')`,
+      [OUTREACH.campaign],
+    );
+    await client.query(
+      `INSERT INTO app.campaign_templates (campaign_id, tier, subject, body)
+       VALUES ($1, 'A', 'Asunto de ejemplo', '{{saludo}}\n\n{{anchor}}\n\n{{firma}}')`,
+      [OUTREACH.campaign],
+    );
+    await client.query(
+      `INSERT INTO app.campaign_anchors (campaign_id, key, label, text, sources)
+       VALUES ($1, 'empleo', 'Empleo', 'Un párrafo de ejemplo.', '{https://ejemplo.test/fuente}')`,
+      [OUTREACH.campaign],
+    );
+    await client.query(
+      `INSERT INTO app.campaign_targets (id, campaign_id, contact_id, status, sent_at)
+       VALUES ($1, $3, $4, 'pending', NULL), ($2, $3, $5, 'sent', now() - interval '2 days')`,
+      [
+        OUTREACH.pendingTarget,
+        OUTREACH.sentTarget,
+        OUTREACH.campaign,
+        OUTREACH.berta,
+        OUTREACH.inbox,
+      ],
     );
     // An expired one can only be made in the past, past the stamp trigger: as superuser, with triggers off.
     await client.query("SET LOCAL session_replication_role = 'replica'");
