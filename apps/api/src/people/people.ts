@@ -172,6 +172,84 @@ export const summariesOf = async (
   return rows.map(toSummary);
 };
 
+/**
+ * The Panel (onboarding spec, views; M4): people by stage; arrivals per week (Monday to Sunday, in Madrid) by the
+ * source they first came from; how long the arrivals of those weeks waited for a first contact attempt; and who has
+ * waited more than 48 hours with nobody on them. Counts only, but for the unassigned, who are named so someone can
+ * take them. Anonymised people count where they were; merged duplicates don't.
+ */
+export const panel = async (trx: Transaction<DB>, weeks: number) => {
+  const stages = Object.fromEntries(
+    (
+      await sql<{ stage: string; n: number }>`
+        SELECT stage::text AS stage, count(*)::int AS n FROM app.people
+         WHERE merged_into IS NULL AND anonymised_at IS NULL GROUP BY 1`.execute(trx)
+    ).rows.map((row) => [row.stage, row.n]),
+  );
+  const since = sql`(date_trunc('week', now() AT TIME ZONE 'Europe/Madrid') - make_interval(weeks => ${weeks - 1}))
+                      AT TIME ZONE 'Europe/Madrid'`;
+  const arrivals = (
+    await sql<{ week: string; counts: Record<string, number> }>`
+      WITH weeks AS (
+        SELECT (date_trunc('week', now() AT TIME ZONE 'Europe/Madrid') - make_interval(weeks => g))::date AS week
+          FROM generate_series(0, ${weeks - 1}) AS g),
+      arrived AS (
+        SELECT date_trunc('week', p.created_at AT TIME ZONE 'Europe/Madrid')::date AS week,
+               coalesce((SELECT ps.source::text FROM app.person_sources ps WHERE ps.person_id = p.id
+                          ORDER BY ps.first_seen_at LIMIT 1), 'manual') AS source
+          FROM app.people p
+         WHERE p.merged_into IS NULL AND p.created_at >= ${since}),
+      tally AS (SELECT week, source, count(*)::int AS n FROM arrived GROUP BY 1, 2)
+      SELECT to_char(w.week, 'YYYY-MM-DD') AS week,
+             coalesce(jsonb_object_agg(t.source, t.n) FILTER (WHERE t.source IS NOT NULL), '{}') AS counts
+        FROM weeks w LEFT JOIN tally t ON t.week = w.week
+       GROUP BY w.week ORDER BY w.week`.execute(trx)
+  ).rows;
+  const [waited] = (
+    await sql<{
+      arrived: number;
+      contacted: number;
+      median_hours: number | null;
+      p90_hours: number | null;
+    }>`
+      WITH arrivals AS (
+        SELECT p.created_at,
+               (SELECT min(e.created_at) FROM app.person_events e
+                 WHERE e.person_id = p.id AND e.kind = 'contact_attempt') AS first_contact
+          FROM app.people p
+         WHERE p.merged_into IS NULL AND p.created_at >= ${since})
+      SELECT count(*)::int AS arrived, count(first_contact)::int AS contacted,
+             (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM first_contact - created_at) / 3600)
+                FROM arrivals WHERE first_contact IS NOT NULL) AS median_hours,
+             (SELECT percentile_cont(0.9) WITHIN GROUP (ORDER BY extract(epoch FROM first_contact - created_at) / 3600)
+                FROM arrivals WHERE first_contact IS NOT NULL) AS p90_hours
+        FROM arrivals`.execute(trx)
+  ).rows;
+  const unassigned = await sql<SummaryRow & { total: number }>`
+    SELECT ${SUMMARY_COLUMNS}, count(*) OVER ()::int AS total FROM ${SUMMARY_FROM}
+     WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.stage = 'new' AND p.owner_id IS NULL
+       AND p.created_at < now() - interval '48 hours'
+     ORDER BY p.created_at
+     LIMIT 50`.execute(trx);
+  const hours = (value: number | null | undefined) =>
+    value === null || value === undefined ? null : Math.round(Number(value) * 10) / 10;
+  return {
+    weeks,
+    stages,
+    arrivals,
+    firstContact: {
+      arrived: waited?.arrived ?? 0,
+      contacted: waited?.contacted ?? 0,
+      medianHours: hours(waited?.median_hours),
+      p90Hours: hours(waited?.p90_hours),
+    },
+    unassigned: {
+      count: unassigned.rows[0]?.total ?? 0,
+      people: unassigned.rows.map(toSummary),
+    },
+  };
+};
+
 /** Hoy: my people needing attention, the unassigned queue (oldest first), and the Bandeja's size. */
 export const today = async (trx: Transaction<DB>, me: string) => {
   const mine = await sql<SummaryRow>`

@@ -429,6 +429,62 @@ describe('onboarding through the staff API (M1)', () => {
     people.push(...rows.map((r) => r.person_id));
   });
 
+  it('shows the Panel: by stage, arrivals by week and source, time to first contact, the unassigned', async () => {
+    const add = async (name: string) => {
+      const added = await onboarder.who.send('POST', '/api/intake', {
+        name,
+        email: `${suffix()}.panel@ejemplo.test`,
+        decision: 'new',
+      });
+      const { personId } = added.json<{ personId: string }>();
+      people.push(personId);
+      return personId;
+    };
+    const waiting = await add(`Panel Esperando ${suffix()}`);
+    const contacted = await add(`Panel Contactada ${suffix()}`);
+    // Arrived three days ago: as superuser, past the stamp that dates rows now.
+    await superuser.query("SET session_replication_role = 'replica'");
+    await superuser.query(
+      "UPDATE app.people SET created_at = now() - interval '3 days' WHERE id = ANY($1::uuid[])",
+      [[waiting, contacted]],
+    );
+    await superuser.query("SET session_replication_role = 'origin'");
+    expect(
+      (
+        await onboarder.who.send('POST', `/api/people/${contacted}/attempts`, {
+          channel: 'whatsapp',
+          outcome: 'no_answer',
+        })
+      ).statusCode,
+    ).toBe(201);
+
+    const response = await onboarder.who.send('GET', '/api/panel?weeks=4');
+    expect(response.statusCode).toBe(200);
+    const shown = response.json<{
+      weeks: number;
+      stages: Record<string, number>;
+      arrivals: { week: string; counts: Record<string, number> }[];
+      firstContact: { arrived: number; contacted: number; medianHours: number | null };
+      unassigned: { count: number; people: { id: string }[] };
+    }>();
+    expect(shown.weeks).toBe(4);
+    expect(shown.stages.new).toBeGreaterThanOrEqual(1);
+    expect(shown.arrivals).toHaveLength(4);
+    expect(shown.arrivals.map((week) => week.week)).toEqual(
+      shown.arrivals.map((week) => week.week).sort(),
+    );
+    expect(new Date(`${shown.arrivals[0]?.week ?? ''}T12:00:00Z`).getUTCDay()).toBe(1);
+    const total = shown.arrivals.reduce((sum, week) => sum + (week.counts.manual ?? 0), 0);
+    expect(total).toBeGreaterThanOrEqual(2);
+    expect(shown.firstContact.contacted).toBeGreaterThanOrEqual(1);
+    expect(shown.firstContact.medianHours).not.toBeNull();
+    const unassigned = shown.unassigned.people.map((person) => person.id);
+    expect(unassigned).toContain(waiting);
+    // Contacted, though still nobody's: the attempt moved them on from new.
+    expect(unassigned).not.toContain(contacted);
+    expect((await outreacher.who.send('GET', '/api/panel')).statusCode).toBe(403);
+  });
+
   it('keeps onboarding from outreach staff, settings changes and exports to admins', async () => {
     expect((await outreacher.who.send('GET', '/api/today')).statusCode).toBe(403);
     expect((await outreacher.who.send('GET', '/api/people')).statusCode).toBe(403);

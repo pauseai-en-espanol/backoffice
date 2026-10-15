@@ -50,6 +50,7 @@ import {
   getPerson,
   listPeople,
   mergePeople,
+  panel,
   type PeopleFilter,
   type PersonChange,
   recordJoin,
@@ -247,6 +248,22 @@ export const peopleRoutes =
         tell(personId).catch((error: unknown) => captureException(error));
       }
     };
+
+    scope.get<{ Querystring: { weeks?: number } }>(
+      '/panel',
+      {
+        schema: {
+          querystring: {
+            type: 'object',
+            properties: { weeks: { type: 'integer', minimum: 1, maximum: 52 } },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) =>
+          onboarding(db, actor, (trx) => panel(trx, request.query.weeks ?? 12)),
+        ),
+    );
 
     scope.get('/today', async (request, reply) =>
       signedIn(request, reply, async (db, actor) =>
