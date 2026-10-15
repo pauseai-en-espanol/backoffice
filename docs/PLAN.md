@@ -244,13 +244,25 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   only what a post shows (name, province, sources, stage, owner, never contact details), only for arrivals of the
   last 48 hours or people already posted; `private.team_unposted` returns ids. Both are in the catalog allowlists and
   ADR-0002 §4.
+- **R20. The forms app reaches the API inside the cluster only, with a shared secret.** The gateway sends nothing of
+  the forms host to the API; the API's census routes also want `X-Backoffice-Forms-Token` (compared in constant time),
+  so a gateway route added by mistake still reaches nothing. Options: network isolation alone; plus the secret.
+  **Chose both** (defence in depth, as aiontheballot's preview token).
+- **R21. A filled honeypot is answered as a success and dropped**, so a bot learns nothing; an answer sent less than
+  3 seconds after the form loaded is refused in words (a person can send it again).
+- **R22. Through the generic link, a census answer that matches someone never applies itself** (anyone can type
+  anyone's number): it waits in the Bandeja, applied or dropped by a person. Consents included: nobody can give or
+  withdraw someone else's consent with their phone number.
+- **R23. An erased person keeps their row, as "Persona anonimizada"**, for the counts by stage, and leaves every work
+  queue (Hoy, the unassigned, the census queue, the bot). Their consents stay as proof of what was agreed, no longer
+  naming anyone.
 
 ## Tracking
 
-| Milestone | Status      | Demo note |
-| --------- | ----------- | --------- |
-| M0        | In progress | —         |
-| M1        | Not started | —         |
-| M2        | Not started | —         |
-| M3        | Not started | —         |
-| M4        | Not started | —         |
+| Milestone | Status              | Demo note                                                                                                                                                                                                                                                                                                                                         |
+| --------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0        | Built, not deployed | Sign-in with TOTP, invitations by email, the team, the audit log; Helm chart, CI and release workflows, gitops branch prepared (not pushed). Locally: `pnpm db:reset`, `pnpm build`, `pnpm test:e2e` (sign-in, invitation, access, axe). Deploying waits on Dani's steps in [deploying](runbooks/deploying.md).                                   |
+| M1        | Built, not deployed | Hoy, Personas, Persona, Embudo, Añadir rápido, Bandeja, Importar (CSV, and the Airtable sync, checked against the real view's structure), Ajustes; the Telegram bot (linking, /alta, /baja, /mios, /libres, /buscar, /sincronizar, the team group, the digest). E2E covers the web flows; the bot is covered by API tests against a fake Bot API. |
+| M2        | In progress         | Census schema and API done (public role, personal links, consents, erasure); the forms app and the staff pages are being built.                                                                                                                                                                                                                   |
+| M3        | Not started         | —                                                                                                                                                                                                                                                                                                                                                 |
+| M4        | Not started         | —                                                                                                                                                                                                                                                                                                                                                 |
