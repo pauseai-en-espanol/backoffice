@@ -1507,7 +1507,7 @@
     "why": "Por qué importa",
     "noReason": "Aún no consta.",
     "noSources": "Sin fuentes.",
-    "createdOn": "En el directorio desde el {date}",
+    "inDirectorySince": "En el directorio desde",
     "reviewTitle": "Revisión",
     "reviewIntro": "Un contacto importado o sugerido queda por revisar hasta que alguien confirma por qué importa y de dónde sale. Mientras tanto no se le puede escribir.",
     "reviewHint": "Comprueba el motivo y las fuentes, corrígelos aquí si hace falta, y márcalo como revisado.",
