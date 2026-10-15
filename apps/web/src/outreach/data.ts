@@ -1,7 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 
 import { getFromApi } from '@/api';
-import { isUnavailable, readFromApi, UNAVAILABLE, type Unavailable } from '@/data';
+import { readFromApi, UNAVAILABLE, type Unavailable } from '@/data';
 import { type Forbidden } from '@/onboarding/data';
 import { forwardedRequest, PAGE_OF } from '@/session';
 
@@ -13,19 +13,14 @@ import {
   organisationApiQuery,
   type OrganisationFilters,
 } from './filters';
-import { queueAfterSkipping } from './format';
 import {
-  type CampaignRef,
-  type Next,
   parseCampaignPage,
   parseCampaigns,
   parseContactPage,
   parseContacts,
-  parseHandover,
   parseNext,
   parseOrganisationPage,
   parseOrganisations,
-  type Target,
 } from './types';
 
 /** What the outreach pages read (docs/spec/staff-api.md, M3), each checked before a page renders it. */
@@ -38,50 +33,9 @@ export const getContacts = (filters: ContactFilters) =>
 
 export const getCampaigns = () => readFromApi('/api/outreach/campaigns', parseCampaigns);
 
-/**
- * Siguiente: my next target, in one campaign or all active ones, passing over those left for later in this visit. The
- * API's `next` doesn't know which those are: when it answers one of them, the page reads the campaigns' targets, finds
- * the next in the API's own order (format.ts queueAfterSkipping) and reads that target's letter.
- */
-export const getNext = async (filters: NextFilters, me: string): Promise<Next | Unavailable> => {
-  const next = await readFromApi(`/api/outreach/next${nextApiQuery(filters)}`, parseNext);
-  if (isUnavailable(next) || next.target === null || !filters.skip.includes(next.target.id)) {
-    return next;
-  }
-  let ids = [filters.campaign];
-  if (!filters.campaign) {
-    const campaigns = await getCampaigns();
-    if (isUnavailable(campaigns)) {
-      return campaigns;
-    }
-    ids = campaigns.filter((campaign) => campaign.status === 'active').map(({ id }) => id);
-  }
-  const pages = await Promise.all(
-    ids.map((id) =>
-      readFromApi(`/api/outreach/campaigns/${encodeURIComponent(id)}`, parseCampaignPage),
-    ),
-  );
-  const entries: { target: Target; campaign: CampaignRef }[] = [];
-  for (const page of pages) {
-    if (isUnavailable(page)) {
-      return page;
-    }
-    const { id, slug, name } = page.campaign;
-    entries.push(...page.targets.map((target) => ({ target, campaign: { id, slug, name } })));
-  }
-  const queue = queueAfterSkipping(entries, { me, skip: filters.skip });
-  const [first] = queue;
-  if (!first) {
-    return { target: null, campaign: null, handover: null, remaining: 0, blocked: next.blocked };
-  }
-  const handover = await readFromApi(
-    `/api/outreach/targets/${encodeURIComponent(first.target.id)}/letter`,
-    parseHandover,
-  );
-  return isUnavailable(handover)
-    ? handover
-    : { ...first, handover, remaining: queue.length, blocked: next.blocked };
-};
+/** Siguiente: my next target, in one campaign or all active ones, past those left for later in this visit. */
+export const getNext = (filters: NextFilters) =>
+  readFromApi(`/api/outreach/next${nextApiQuery(filters)}`, parseNext);
 
 /**
  * One record's page (a contact, a campaign, an organisation): 404 is the not-found page, 403 the "not your section"

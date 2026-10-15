@@ -1,4 +1,4 @@
-import { bySendOrder, fieldsIn, MERGE_FIELDS } from '@backoffice/domain/outreach';
+import { fieldsIn, MERGE_FIELDS } from '@backoffice/domain/outreach';
 
 import { fill } from '@/fill';
 
@@ -7,7 +7,6 @@ import {
   type LetterProblem,
   type LetterWarning,
   type ProseIssue,
-  type Target,
   TARGET_STATUSES,
   type TargetStatus,
   type Tier,
@@ -43,32 +42,6 @@ export const queuePositions = (
   }
   return positions;
 };
-
-/**
- * Siguiente's queue past the targets left for later ("Ahora no"), which the API's `next` doesn't know about: the same
- * rule as the API's (pending or ready, mine or nobody's, a contact neither in review, held nor erased), in the same
- * send order (priority, tier, then the contact), across the campaigns given.
- */
-export const queueAfterSkipping = <E extends { target: Target }>(
-  entries: readonly E[],
-  { me, skip }: { me: string; skip: readonly string[] },
-): E[] =>
-  entries
-    .filter(
-      ({ target }) =>
-        QUEUED.includes(target.status) &&
-        (target.owner === null || target.owner.userId === me) &&
-        !target.contact.needsReview &&
-        !target.contact.hold &&
-        !target.contact.anonymised &&
-        !skip.includes(target.id),
-    )
-    .toSorted((a, b) =>
-      bySendOrder(
-        { priority: a.target.priority, tier: a.target.contact.tier, id: a.target.contact.id },
-        { priority: b.target.priority, tier: b.target.contact.tier, id: b.target.contact.id },
-      ),
-    );
 
 /** "Prioridad 1", or "Sin prioridad": none sorts last. */
 export const priorityLabel = (

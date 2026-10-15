@@ -68,7 +68,7 @@ export const contactFiltersFromPage = (params: SearchParams): ContactFilters => 
     territory: first(params.territorio).slice(0, 100),
     kind: isOrganisationKind(kind) ? kind : '',
     stage: isRelationshipStage(stage) ? stage : '',
-    owner: owner === 'yo' ? 'me' : isUuid(owner) ? owner : '',
+    owner: owner === 'yo' ? 'me' : owner === 'nadie' ? 'none' : isUuid(owner) ? owner : '',
     review: yesNo(first(params.revisar)),
     hold: yesNo(first(params.pausa)),
   };
@@ -92,7 +92,10 @@ export const contactPageQuery = (filters: ContactFilters): string => {
   set('territorio', filters.territory);
   set('tipo', filters.kind);
   set('relacion', filters.stage);
-  set('responsable', filters.owner === 'me' ? 'yo' : filters.owner);
+  set(
+    'responsable',
+    filters.owner === 'me' ? 'yo' : filters.owner === 'none' ? 'nadie' : filters.owner,
+  );
   set('revisar', siNo(filters.review));
   set('pausa', siNo(filters.hold));
   return query(params);
@@ -182,6 +185,15 @@ export const nextPageQuery = ({ campaign, skip }: NextFilters): string => {
   return query(params);
 };
 
-/** The API's query for Siguiente: the campaign only (the targets left for later are the page's, not the API's). */
-export const nextApiQuery = ({ campaign }: Pick<NextFilters, 'campaign'>): string =>
-  campaign ? `?${new URLSearchParams({ campaign }).toString()}` : '';
+/** The API's query for Siguiente: the campaign, and the targets left for later, which the API passes over. */
+export const nextApiQuery = ({ campaign, skip }: NextFilters): string => {
+  const params = new URLSearchParams();
+  if (campaign) {
+    params.set('campaign', campaign);
+  }
+  const kept = [...new Set(skip)].slice(-MAX_SKIPPED);
+  if (kept.length > 0) {
+    params.set('skip', kept.join(','));
+  }
+  return query(params);
+};

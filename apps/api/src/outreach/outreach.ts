@@ -118,7 +118,7 @@ export interface ContactFilter {
   territory?: string | undefined;
   kind?: OrganisationKind | undefined;
   stage?: string | undefined;
-  /** A user id, or `me`. */
+  /** A user id, `me`, or `none` (nobody's). */
   owner?: string | undefined;
   review?: boolean | undefined;
   hold?: boolean | undefined;
@@ -150,7 +150,11 @@ export const listContacts = async (
     where.push(sql`c.stage = ${filter.stage}::app.relationship_stage`);
   }
   if (filter.owner) {
-    where.push(sql`c.owner_id = ${filter.owner === 'me' ? me : filter.owner}`);
+    where.push(
+      filter.owner === 'none'
+        ? sql`c.owner_id IS NULL`
+        : sql`c.owner_id = ${filter.owner === 'me' ? me : filter.owner}`,
+    );
   }
   if (filter.review !== undefined) {
     where.push(sql`c.needs_review = ${filter.review}`);
@@ -950,13 +954,15 @@ export const handoverFor = async (
 };
 
 /**
- * Siguiente: my next target, pending or ready, mine or nobody's, in send order, in one campaign or every active one.
- * Targets whose contact needs review or is held are skipped and counted.
+ * Siguiente: my next target, pending or ready, mine or nobody's, in send order, in one campaign or every active one,
+ * past those the person left for later in this visit (`skip`, "Ahora no"). Targets whose contact needs review or is
+ * held are passed over and counted.
  */
 export const nextTarget = async (
   trx: Transaction<DB>,
   me: string,
   campaign: string | undefined,
+  skip: readonly string[] = [],
 ) => {
   const rows = (
     await sql<TargetRow & { blocked: boolean }>`
@@ -967,8 +973,10 @@ export const nextTarget = async (
       trx,
     )
   ).rows;
-  const open = inSendOrder(rows.filter((row) => !row.blocked).map(toTarget));
-  const blocked = rows.length - open.length;
+  const open = inSendOrder(
+    rows.filter((row) => !row.blocked && !skip.includes(row.target_id)).map(toTarget),
+  );
+  const blocked = rows.filter((row) => row.blocked).length;
   const [first] = open;
   if (!first) {
     return { target: null, campaign: null, handover: null, remaining: 0, blocked };

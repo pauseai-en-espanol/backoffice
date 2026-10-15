@@ -208,6 +208,25 @@ describe('organisations and contacts (M3)', () => {
     expect(orgPage.organisation.kind).toBe('union');
     expect(orgPage.contacts.map((contact) => contact.id)).toEqual([id]);
 
+    // Nobody's: the contact above has no owner yet; once someone takes it, it isn't.
+    const nobodys = async () =>
+      (await outreacher.who.send('GET', '/api/outreach/contacts?owner=none'))
+        .json<{ contacts: { id: string }[] }>()
+        .contacts.map((contact) => contact.id);
+    expect(await nobodys()).toContain(id);
+    expect(
+      (
+        await outreacher.who.send('PATCH', `/api/outreach/contacts/${id}`, {
+          ownerId: outreacher.id,
+        })
+      ).statusCode,
+    ).toBe(204);
+    expect(await nobodys()).not.toContain(id);
+    const mine = (await outreacher.who.send('GET', '/api/outreach/contacts?owner=me')).json<{
+      contacts: { id: string }[];
+    }>();
+    expect(mine.contacts.map((contact) => contact.id)).toContain(id);
+
     expect((await onboarder.who.send('GET', '/api/outreach/contacts')).statusCode).toBe(403);
     expect((await onboarder.who.send('GET', `/api/outreach/contacts/${id}`)).statusCode).toBe(403);
   });
@@ -356,6 +375,18 @@ describe('campaigns, letters and Siguiente (M3)', () => {
     }>();
     expect(next.target.id).toBe(targetOf(ready));
     expect(next).toMatchObject({ remaining: 1, blocked: 1 });
+    // "Ahora no": left for later in this visit, it isn't offered again.
+    expect(
+      (
+        await outreacher.who.send(
+          'GET',
+          `/api/outreach/next?campaign=${campaign}&skip=${targetOf(ready)}`,
+        )
+      ).json(),
+    ).toMatchObject({ target: null, remaining: 0, blocked: 1 });
+    expect(
+      (await outreacher.who.send('GET', `/api/outreach/next?skip=no-es-un-id`)).statusCode,
+    ).toBe(400);
     expect(next.handover.letter).toMatchObject({
       ok: true,
       body: expect.stringContaining('Estimado/a Berta Ejemplo:'),

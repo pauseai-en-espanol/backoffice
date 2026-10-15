@@ -1538,7 +1538,8 @@
     "eraseUnderstand": "Entiendo que no se puede deshacer",
     "eraseConfirm": "Sí, borrar sus datos",
     "erased": "Datos borrados.",
-    "eraseAlready": "Sus datos ya se habían borrado."
+    "eraseAlready": "Sus datos ya se habían borrado.",
+    "ownerNone": "Sin responsable"
   },
   "organisations": {
     "title": "Organizaciones",

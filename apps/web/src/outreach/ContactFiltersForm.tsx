@@ -87,10 +87,13 @@ export const ContactFiltersForm = ({
         id="responsable"
         name="responsable"
         className={onboarding.select}
-        defaultValue={filters.owner === 'me' ? 'yo' : filters.owner}
+        defaultValue={
+          filters.owner === 'me' ? 'yo' : filters.owner === 'none' ? 'nadie' : filters.owner
+        }
       >
         <option value="">{t('contacts.ownerAny')}</option>
         <option value="yo">{t('contacts.ownerMe')}</option>
+        <option value="nadie">{t('contacts.ownerNone')}</option>
         {owners.map((owner) => (
           <option key={owner.userId} value={owner.userId}>
             {owner.displayName}

@@ -50,7 +50,7 @@ const NextPage = async ({
     );
   }
   const filters = nextFiltersFromPage(await searchParams);
-  const [next, campaigns] = await Promise.all([getNext(filters, me.user.id), getCampaigns()]);
+  const [next, campaigns] = await Promise.all([getNext(filters), getCampaigns()]);
   const statuses = campaignStatusNames(t);
   // Any campaign that isn't closed may be chosen; the API serves all active ones without a choice.
   const choices = isUnavailable(campaigns)

@@ -364,7 +364,7 @@ export const outreachRoutes =
               territory: TEXT(100),
               kind: { type: 'string', enum: [...ORGANISATION_KINDS] },
               stage: { type: 'string', enum: [...RELATIONSHIP_STAGES] },
-              owner: { anyOf: [{ type: 'string', const: 'me' }, UUID] },
+              owner: { anyOf: [{ type: 'string', enum: ['me', 'none'] }, UUID] },
               review: { type: 'string', enum: ['true', 'false'] },
               hold: { type: 'string', enum: ['true', 'false'] },
             },
@@ -806,16 +806,34 @@ export const outreachRoutes =
         }),
     );
 
-    scope.get<{ Querystring: { campaign?: string } }>(
+    scope.get<{ Querystring: { campaign?: string; skip?: string } }>(
       '/outreach/next',
       {
         schema: {
-          querystring: { type: 'object', properties: { campaign: UUID } },
+          querystring: {
+            type: 'object',
+            properties: {
+              campaign: UUID,
+              // Up to 50 target ids, comma-separated: the ones left for later in this visit.
+              skip: {
+                type: 'string',
+                maxLength: 50 * 37,
+                pattern: '^[0-9a-f-]{36}(,[0-9a-f-]{36})*$',
+              },
+            },
+          },
         },
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) =>
-          outreach(db, actor, (trx) => nextTarget(trx, actor.userId, request.query.campaign)),
+          outreach(db, actor, (trx) =>
+            nextTarget(
+              trx,
+              actor.userId,
+              request.query.campaign,
+              request.query.skip?.split(',') ?? [],
+            ),
+          ),
         ),
     );
 

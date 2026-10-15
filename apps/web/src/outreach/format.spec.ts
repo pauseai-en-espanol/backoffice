@@ -11,7 +11,6 @@ import {
   type LetterWords,
   priorityLabel,
   problemText,
-  queueAfterSkipping,
   queuePositions,
   recogniseFile,
   unknownMergeFields,
@@ -32,8 +31,6 @@ const words: LetterWords = {
   unknownWarning: 'Otro aviso.',
   fields: { role: 'el cargo', firma: 'la firma', anchor: 'el párrafo' },
 };
-
-const ME = 'me';
 
 /** A fictional target: only what the helpers look at differs between them. */
 const target = (
@@ -143,36 +140,6 @@ describe("a campaign's board", () => {
     expect(contactName({ ...contact, personName: null, anonymised: true }, labels)).toBe(
       'Datos borrados',
     );
-  });
-});
-
-describe('Siguiente past the targets left for later', () => {
-  it("keeps the API's rule: pending or ready, mine or nobody's, a contact that may be written to", () => {
-    const entries = [
-      target('sent', { status: 'sent' }),
-      target('theirs', { owner: 'someone-else' }),
-      target('mine', { owner: ME }),
-      target('review', { needsReview: true }),
-      target('held', { hold: true }),
-      target('nobodys', { status: 'ready' }),
-      target('skipped'),
-    ].map((entry) => ({ target: entry }));
-    expect(
-      queueAfterSkipping(entries, { me: ME, skip: ['skipped'] }).map(({ target: { id } }) => id),
-    ).toEqual(['mine', 'nobodys']);
-  });
-
-  it('goes in send order: priority, then tier A before B, then the contact', () => {
-    const entries = [
-      target('t1', { tier: 'B', contact: 'c1' }),
-      target('t2', { tier: 'A', contact: 'c9' }),
-      target('t3', { priority: 2, contact: 'c3' }),
-      target('t4', { priority: 1, tier: 'B', contact: 'c4' }),
-      target('t5', { tier: 'A', contact: 'c5' }),
-    ].map((entry) => ({ target: entry }));
-    expect(
-      queueAfterSkipping(entries, { me: ME, skip: [] }).map(({ target: { id } }) => id),
-    ).toEqual(['t4', 't3', 't5', 't2', 't1']);
   });
 });
 

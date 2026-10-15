@@ -87,7 +87,8 @@ describe("Siguiente's address", () => {
   });
 
   it('asks the API for the campaign only', () => {
-    expect(nextApiQuery({ campaign: ID })).toBe(`?campaign=${ID}`);
-    expect(nextApiQuery({ campaign: '' })).toBe('');
+    expect(nextApiQuery({ campaign: ID, skip: [] })).toBe(`?campaign=${ID}`);
+    expect(nextApiQuery({ campaign: '', skip: [] })).toBe('');
+    expect(nextApiQuery({ campaign: '', skip: [ID, ID] })).toBe(`?skip=${ID}`);
   });
 });
