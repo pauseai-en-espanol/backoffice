@@ -53,6 +53,21 @@ describe('relayErrors', () => {
     expect(lines.slice(1)).toEqual(item);
   });
 
+  it('refuses what a browser says came from another site', async () => {
+    const send = vi.fn<typeof fetch>();
+    const answer = await relayErrors(
+      post(envelope({ event_id: 'e2' }, ...item), { 'sec-fetch-site': 'cross-site' }),
+      { dsn, fetch: send },
+    );
+    expect(answer.status).toBe(403);
+    expect(send).not.toHaveBeenCalled();
+    const own = await relayErrors(
+      post(envelope({ event_id: 'e3' }, ...item), { 'sec-fetch-site': 'same-origin' }),
+      { dsn, fetch: upstreamOk() },
+    );
+    expect(own.status).toBe(200);
+  });
+
   it('accepts and drops envelopes when no DSN is configured', async () => {
     const send = upstreamOk();
 

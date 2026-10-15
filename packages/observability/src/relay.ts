@@ -72,6 +72,12 @@ export const relayErrors = async (request: Request, options: RelayOptions): Prom
   if (!dsn) {
     return reply(204);
   }
+  // Only the page's own reports: a browser says when a request comes from another site. (A script can still post;
+  // the gateway's per-address limit is what bounds that.)
+  const site = request.headers.get('sec-fetch-site');
+  if (site !== null && site !== 'same-origin') {
+    return reply(403);
+  }
   if (Number(request.headers.get('content-length') ?? 0) > maxBytes) {
     return reply(413);
   }

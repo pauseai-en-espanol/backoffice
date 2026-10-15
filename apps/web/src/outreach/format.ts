@@ -180,6 +180,12 @@ export const unknownMergeFields = (...texts: readonly string[]): string[] => [
   ),
 ];
 
+/**
+ * Whether a source is a web address, to show as a link: anything else (a note like "BOE, 12 de marzo", or a
+ * `javascript:` someone typed) is shown as text.
+ */
+export const isWebLink = (value: string): boolean => /^https?:\/\/[^\s"<>]+$/iu.test(value.trim());
+
 /** The outreach repo's files a campaign is imported from (outreach spec §4), by what each holds. */
 export const IMPORT_FILE_KINDS = ['campaign', 'contacts', 'anchors', 'A', 'B', 'tracking'] as const;
 export type ImportFileKind = (typeof IMPORT_FILE_KINDS)[number];

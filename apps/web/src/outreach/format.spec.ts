@@ -8,6 +8,7 @@ import {
   fieldNames,
   groupByStatus,
   importFiles,
+  isWebLink,
   type LetterWords,
   priorityLabel,
   problemText,
@@ -225,5 +226,15 @@ describe("the outreach repo's files", () => {
     });
     expect(importFiles({ A: 'a' })).toEqual({ missing: ['campaign', 'contacts'] });
     expect(importFiles({ campaign: 'c' })).toEqual({ missing: ['contacts'] });
+  });
+});
+
+describe('sources as links', () => {
+  it('links web addresses only', () => {
+    expect(isWebLink('https://ejemplo.test/fuente')).toBe(true);
+    expect(isWebLink('http://ejemplo.test')).toBe(true);
+    expect(isWebLink('javascript:alert(1)')).toBe(false);
+    expect(isWebLink('BOE, 12 de marzo')).toBe(false);
+    expect(isWebLink('https://ejemplo.test/ con espacio')).toBe(false);
   });
 });

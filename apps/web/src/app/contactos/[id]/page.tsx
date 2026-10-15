@@ -19,7 +19,7 @@ import { ContactEditor } from '@/outreach/ContactForm';
 import { ContactFlags } from '@/outreach/ContactItem';
 import { ContactNote, EraseContact, HoldPanel, ReviewPanel } from '@/outreach/ContactPanels';
 import { getContact, getOrganisations } from '@/outreach/data';
-import { contactName } from '@/outreach/format';
+import { contactName, isWebLink } from '@/outreach/format';
 import { OutreachForbidden, OutreachOnly, Unavailable } from '@/outreach/OutreachOnly';
 import * as outreach from '@/outreach/styles';
 import {
@@ -188,14 +188,18 @@ const ContactPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 <ul className={outreach.bullets}>
                   {contact.sources.map((source) => (
                     <li key={source}>
-                      <a
-                        className={styles.link}
-                        href={source}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {source}
-                      </a>
+                      {isWebLink(source) ? (
+                        <a
+                          className={styles.link}
+                          href={source}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {source}
+                        </a>
+                      ) : (
+                        source
+                      )}
                     </li>
                   ))}
                 </ul>

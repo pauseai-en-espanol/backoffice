@@ -7,7 +7,7 @@ import type { LetterText } from './text';
 import type { Handover } from './types';
 
 import { CopyButton } from './CopyButton';
-import { type Fix, problemText, warningText } from './format';
+import { type Fix, isWebLink, problemText, warningText } from './format';
 import * as styles from './styles';
 
 /** Where each fix is made: the contact's page, or a part of the campaign's (its sections' ids). */
@@ -118,9 +118,13 @@ export const LetterView = ({
           <ul className={styles.bullets}>
             {letter.sources.map((source) => (
               <li key={source}>
-                <a className={ui.link} href={source} target="_blank" rel="noopener noreferrer">
-                  {source}
-                </a>
+                {isWebLink(source) ? (
+                  <a className={ui.link} href={source} target="_blank" rel="noopener noreferrer">
+                    {source}
+                  </a>
+                ) : (
+                  source
+                )}
               </li>
             ))}
           </ul>
