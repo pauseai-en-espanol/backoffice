@@ -1,17 +1,26 @@
 import type { Metadata } from 'next';
 
 import { getTranslator } from '@backoffice/i18n/messages';
+import { Fragment } from 'react';
 
 import type { BandejaItem } from '@/onboarding/types';
 
 import { isUnavailable } from '@/data';
 import { BandejaActions } from '@/onboarding/BandejaActions';
+import { getCensusOptions } from '@/onboarding/census/data';
+import { answerRows } from '@/onboarding/census/format';
 import { getBandeja } from '@/onboarding/data';
 import { formatInstant } from '@/onboarding/format';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { PersonItem } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
-import { canOnboard, onboardingErrors, personLabels, sourceName } from '@/onboarding/text';
+import {
+  availabilityNames,
+  canOnboard,
+  onboardingErrors,
+  personLabels,
+  sourceName,
+} from '@/onboarding/text';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { Announcer } from '@/ui/Announcer';
@@ -30,6 +39,26 @@ const FIELDS: Readonly<Record<string, string>> = {
   how_heard: t('bandeja.fields.how_heard'),
 };
 
+/** A census answer's fields, in the order the Bandeja shows them (census/format.ts answerRows). */
+const CENSUS_FIELDS = [
+  'name',
+  'preferredName',
+  'province',
+  'town',
+  'languages',
+  'availability',
+  'howHeard',
+  'pronouns',
+  'skills',
+  'skillsOther',
+  'interests',
+  'interestsOther',
+  'consentEmail',
+  'consentWhatsapp',
+  'consentPrivacy',
+  'wordingVersion',
+] as const;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -43,7 +72,9 @@ const shown = (value: unknown): string =>
 /**
  * The Bandeja (onboarding spec, views and matching): records waiting for a person's decision. A possible duplicate
  * shows what arrived beside the records it looks like; a conflict shows each field as the person has it and as it
- * arrived. Contact details never appear here: an identity someone else holds is only counted.
+ * arrived. Contact details never appear here: an identity someone else holds is only counted. A census answer that
+ * matched someone (through the generic link, where anyone can type anyone's number) shows its fields in words, to
+ * check before it's applied.
  */
 const BandejaPage = async () => {
   const me = await requireStaff();
@@ -54,14 +85,24 @@ const BandejaPage = async () => {
       </AppShell>
     );
   }
-  const items = await getBandeja();
+  const [items, options] = await Promise.all([getBandeja(), getCensusOptions()]);
   const labels = personLabels(t);
   const errors = onboardingErrors(t);
+  const answerWords = {
+    fields: Object.fromEntries(
+      CENSUS_FIELDS.map((field) => [field, t(`bandeja.censusFields.${field}`)]),
+    ),
+    availability: availabilityNames(t),
+    yes: t('bandeja.yes'),
+    no: t('bandeja.no'),
+    unknownOption: isUnavailable(options) ? '—' : t('bandeja.unknownOption'),
+  };
 
   const item = (entry: BandejaItem) => {
     const fields = Object.entries(entry.conflicts).filter(
-      ([field, value]) => field !== 'identities' && isRecord(value),
+      ([field, value]) => field !== 'identities' && field !== 'census' && isRecord(value),
     );
+    const census = isRecord(entry.conflicts.census) ? entry.conflicts.census : undefined;
     const takenIdentities = Array.isArray(entry.conflicts.identities)
       ? entry.conflicts.identities.length
       : 0;
@@ -81,6 +122,23 @@ const BandejaPage = async () => {
           })}
           {entry.reportedBy ? ` · ${t('bandeja.reportedBy', { name: entry.reportedBy })}` : ''}
         </p>
+        {census ? (
+          <>
+            <h3 className={styles.h3}>{t('bandeja.census')}</h3>
+            <p className={styles.hint}>{t('bandeja.censusIntro')}</p>
+            {isUnavailable(options) ? (
+              <p className={styles.notice}>{t('bandeja.optionsUnavailable')}</p>
+            ) : null}
+            <dl className={styles.facts}>
+              {answerRows(census, isUnavailable(options) ? [] : options, answerWords).map((row) => (
+                <Fragment key={row.key}>
+                  <dt>{row.label}</dt>
+                  <dd>{row.value}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          </>
+        ) : null}
         {entry.status === 'review' ? (
           <>
             <h3 className={styles.h3}>{t('bandeja.record')}</h3>
@@ -157,8 +215,11 @@ const BandejaPage = async () => {
             isNew: t('bandeja.isNew'),
             discard: t('bandeja.discard'),
             discardConfirm: t('bandeja.discardConfirm'),
-            apply: t('bandeja.apply'),
-            keep: t('bandeja.keep'),
+            apply:
+              census && entry.person
+                ? t('bandeja.censusApply', { name: entry.person.name })
+                : t('bandeja.apply'),
+            keep: census ? t('bandeja.censusKeep') : t('bandeja.keep'),
             confirm: t('team.confirm'),
             cancel: t('person.cancel'),
             done: t('bandeja.done'),
