@@ -16,8 +16,8 @@ const t = getTranslator();
 
 /**
  * Every signed-in page's frame: the product's name, who is signed in, and the sections, a menu on a phone. The
- * onboarding sections are listed to onboarding staff and admins, Registro to admins (the API refuses anyone else
- * anyway). `bandeja`, when the page knows it, is how many records wait in the Bandeja. A skip link leads past it all to
+ * onboarding sections are listed to onboarding staff and admins, the outreach ones (Siguiente, Campañas, Contactos,
+ * Organizaciones) to outreach staff and admins, Registro to admins (the API refuses anyone else anyway). `bandeja`, when the page knows it, is how many records wait in the Bandeja. A skip link leads past it all to
  * the page's content.
  */
 export const AppShell = ({
@@ -27,6 +27,7 @@ export const AppShell = ({
 }: PropsWithChildren<{ me: Staff; bandeja?: number }>) => {
   const admin = me.staff.roles.includes('admin');
   const onboarding = admin || me.staff.roles.includes('onboarding');
+  const outreach = admin || me.staff.roles.includes('outreach');
   return (
     <>
       <a className={styles.skipLink} href="#contenido">
@@ -72,6 +73,22 @@ export const AppShell = ({
               </li>
               <li>
                 <NavLink href="/importar" label={t('web.nav.imports')} />
+              </li>
+            </>
+          ) : null}
+          {outreach ? (
+            <>
+              <li>
+                <NavLink href="/siguiente" label={t('web.nav.next')} />
+              </li>
+              <li>
+                <NavLink href="/campanas" label={t('web.nav.campaigns')} />
+              </li>
+              <li>
+                <NavLink href="/contactos" label={t('web.nav.contacts')} />
+              </li>
+              <li>
+                <NavLink href="/organizaciones" label={t('web.nav.organisations')} />
               </li>
             </>
           ) : null}

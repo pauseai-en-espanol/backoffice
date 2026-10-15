@@ -1,0 +1,89 @@
+import type { ReactNode } from 'react';
+
+import Link from 'next/link';
+
+import { fill } from '@/fill';
+import { StageTag } from '@/onboarding/PersonItem';
+import * as onboarding from '@/onboarding/styles';
+import { Status } from '@/ui/Status';
+
+import type { SummaryWords } from './text';
+import type { ContactSummary } from './types';
+
+import { contactName } from './format';
+
+/**
+ * Whether a contact may be written to, in words with its mark: "Por revisar", "En pausa", "Datos borrados". Never by
+ * colour alone.
+ */
+export const ContactFlags = ({
+  contact,
+  words,
+}: {
+  contact: Pick<ContactSummary, 'needsReview' | 'hold' | 'anonymised'>;
+  words: Pick<SummaryWords, 'needsReview' | 'held' | 'anonymised'>;
+}) =>
+  contact.needsReview || contact.hold || contact.anonymised ? (
+    <ul className={onboarding.reasons}>
+      {contact.anonymised ? (
+        <li>
+          <Status kind="info" label={words.anonymised} />
+        </li>
+      ) : null}
+      {contact.needsReview ? (
+        <li>
+          <Status kind="attention" label={words.needsReview} />
+        </li>
+      ) : null}
+      {contact.hold ? (
+        <li>
+          <Status kind="attention" label={words.held} />
+        </li>
+      ) : null}
+    </ul>
+  ) : null;
+
+/**
+ * A contact in a list (Contactos, an organisation's, a campaign's): who, linked to their page, at which organisation,
+ * their relationship, tier, territory and owner, and whether they may be written to. Never their email or phone.
+ * `children` are the list's own facts and buttons, kept outside the link.
+ */
+export const ContactItem = ({
+  contact,
+  words,
+  children,
+  as: Tag = 'li',
+}: {
+  contact: ContactSummary;
+  words: SummaryWords;
+  children?: ReactNode;
+  as?: 'li' | 'div';
+}) => (
+  <Tag className={onboarding.personItem}>
+    <div className={onboarding.personHead}>
+      <Link className={onboarding.personName} href={`/contactos/${encodeURIComponent(contact.id)}`}>
+        {contactName(contact, words)}
+      </Link>
+      <StageTag label={words.stages[contact.stage]} />
+    </div>
+    <p>
+      {contact.orgDisplay}
+      {contact.role ? ` · ${contact.role}` : ''}
+    </p>
+    <ul className={onboarding.meta}>
+      <li>{fill(words.tier, { tier: contact.tier })}</li>
+      {contact.organisation ? <li>{words.kinds[contact.organisation.kind]}</li> : null}
+      {contact.territory ? (
+        <li>
+          {words.territory}: {contact.territory}
+        </li>
+      ) : null}
+      <li>
+        {words.owner}: {contact.owner?.displayName || words.noOwner}
+      </li>
+      {contact.tags.length > 0 ? <li>{contact.tags.join(', ')}</li> : null}
+    </ul>
+    <ContactFlags contact={contact} words={words} />
+    {children}
+  </Tag>
+);

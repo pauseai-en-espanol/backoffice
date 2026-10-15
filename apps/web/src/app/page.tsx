@@ -12,6 +12,7 @@ import { getToday } from '@/onboarding/data';
 import { PersonItem } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, onboardingErrors, personLabels } from '@/onboarding/text';
+import { canOutreach } from '@/outreach/text';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { Announcer } from '@/ui/Announcer';
@@ -36,6 +37,13 @@ const Today = async () => {
         <p className={styles.text}>{t('web.home.greeting', { name: me.staff.displayName })}</p>
         <p className={styles.text}>{t('web.home.notOnboarding')}</p>
         <ul className={styles.linkList}>
+          {canOutreach(me) ? (
+            <li>
+              <Link className={styles.link} href="/siguiente">
+                {t('web.home.toNext')}
+              </Link>
+            </li>
+          ) : null}
           <li>
             <Link className={styles.link} href="/equipo">
               {t('web.home.toTeam')}
