@@ -58,15 +58,33 @@ export const nav = css({
   bg: 'bg.subtle',
 });
 
-/** A row of sections: on a phone one line that scrolls sideways rather than rows that push the content down. */
+/**
+ * The sections: on a phone a menu that opens under its button (NavMenu), one section a line; from a tablet up a row
+ * that wraps, always shown.
+ */
 export const navList = css({
-  display: 'flex',
+  display: { base: 'none', md: 'flex' },
+  flexDirection: { base: 'column', md: 'row' },
   flexWrap: { base: 'nowrap', md: 'wrap' },
-  overflowX: { base: 'auto', md: 'visible' },
   paddingBlock: '1',
   gap: '1',
   listStyle: 'none',
+  '&[data-open="true"]': { display: 'flex' },
   '& > li': { flexShrink: '0' },
+});
+
+/** The phone's menu button; from a tablet up the sections are always shown, and it is not. */
+export const menuButton = css({
+  display: { base: 'inline-flex', md: 'none' },
+  alignItems: 'center',
+  gap: '2',
+  minHeight: '11',
+  paddingInline: '3',
+  bg: 'transparent',
+  color: 'fg.default',
+  fontWeight: 'bold',
+  cursor: 'pointer',
+  _focusVisible: focusRing,
 });
 
 /** The current section is marked by a thick underline and bold text, besides aria-current. */

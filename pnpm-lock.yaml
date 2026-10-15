@@ -294,6 +294,9 @@ importers:
       '@ark-ui/react':
         specifier: 5.39.3
         version: 5.39.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@backoffice/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@backoffice/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

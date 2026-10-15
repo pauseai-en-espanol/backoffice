@@ -10,16 +10,23 @@ import { productName } from '@/product';
 import * as styles from '@/ui/styles';
 
 import { NavLink } from './NavLink';
+import { NavMenu } from './NavMenu';
 
 const t = getTranslator();
 
 /**
- * Every signed-in page's frame: the product's name, who is signed in, and the sections, one row that scrolls sideways
- * on a phone. Registro is listed only for admins (the API refuses it to anyone else anyway). A skip link leads past it
- * all to the page's content.
+ * Every signed-in page's frame: the product's name, who is signed in, and the sections, a menu on a phone. The
+ * onboarding sections are listed to onboarding staff and admins, Registro to admins (the API refuses anyone else
+ * anyway). `bandeja`, when the page knows it, is how many records wait in the Bandeja. A skip link leads past it all to
+ * the page's content.
  */
-export const AppShell = ({ me, children }: PropsWithChildren<{ me: Staff }>) => {
+export const AppShell = ({
+  me,
+  bandeja,
+  children,
+}: PropsWithChildren<{ me: Staff; bandeja?: number }>) => {
   const admin = me.staff.roles.includes('admin');
+  const onboarding = admin || me.staff.roles.includes('onboarding');
   return (
     <>
       <a className={styles.skipLink} href="#contenido">
@@ -32,10 +39,36 @@ export const AppShell = ({ me, children }: PropsWithChildren<{ me: Staff }>) => 
         <span className={styles.muted}>{t('web.signedInAs', { name: me.staff.displayName })}</span>
       </header>
       <nav className={styles.nav} aria-label={t('web.nav.label')}>
-        <ul className={styles.navList}>
+        <NavMenu label={t('web.nav.menu')}>
           <li>
             <NavLink href="/" label={t('web.nav.today')} />
           </li>
+          {onboarding ? (
+            <>
+              <li>
+                <NavLink href="/personas" label={t('web.nav.people')} />
+              </li>
+              <li>
+                <NavLink href="/embudo" label={t('web.nav.board')} />
+              </li>
+              <li>
+                <NavLink href="/anadir" label={t('web.nav.add')} />
+              </li>
+              <li>
+                <NavLink
+                  href="/bandeja"
+                  label={
+                    bandeja === undefined || bandeja === 0
+                      ? t('web.nav.bandeja')
+                      : t('web.nav.bandejaCount', { count: bandeja })
+                  }
+                />
+              </li>
+              <li>
+                <NavLink href="/importar" label={t('web.nav.imports')} />
+              </li>
+            </>
+          ) : null}
           <li>
             <NavLink href="/equipo" label={t('web.nav.team')} />
           </li>
@@ -45,9 +78,12 @@ export const AppShell = ({ me, children }: PropsWithChildren<{ me: Staff }>) => 
             </li>
           ) : null}
           <li>
+            <NavLink href="/ajustes" label={t('web.nav.settings')} />
+          </li>
+          <li>
             <SignOutButton label={t('web.nav.signOut')} className={styles.navLink} />
           </li>
-        </ul>
+        </NavMenu>
       </nav>
       <main id="contenido" tabIndex={-1} className={styles.main}>
         {children}

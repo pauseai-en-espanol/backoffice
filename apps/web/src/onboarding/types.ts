@@ -1,0 +1,564 @@
+import { isStage, type Stage } from '@backoffice/domain/stages';
+
+/**
+ * What the onboarding pages read from the API (docs/spec/staff-api.md, M1), and the checks that keep a page from
+ * rendering an answer it doesn't understand. Optional or nullable fields the API may leave out become null.
+ */
+
+export interface StaffRef {
+  userId: string;
+  displayName: string;
+}
+
+/** A person as lists show one. `name` is the preferred name, else the full name. */
+export interface PersonSummary {
+  id: string;
+  name: string;
+  fullName: string;
+  stage: Stage;
+  owner: StaffRef | null;
+  province: string | null;
+  nextAction: string | null;
+  nextActionDue: string | null;
+  reasons: string[];
+  inCommunity: boolean;
+  sources: string[];
+  createdAt: string;
+}
+
+export interface Identity {
+  id: string;
+  kind: 'email' | 'phone' | 'airtable';
+  value: string;
+  verified: boolean;
+  source: string;
+}
+
+export interface Presence {
+  id: string;
+  joinedOn: string | null;
+  leftOn: string | null;
+  chat: string | null;
+}
+
+export interface PersonSource {
+  source: string;
+  firstSeenAt: string | null;
+  /** Who reported it: a staff member, or nobody known (a sync, the owner). */
+  reportedBy: StaffRef | string | null;
+}
+
+export interface PersonDetail extends Omit<PersonSummary, 'sources'> {
+  preferredName: string | null;
+  town: string | null;
+  languages: string[];
+  pronouns: string | null;
+  availability: string | null;
+  howHeard: string | null;
+  profileCompletedAt: string | null;
+  mergedInto: string | null;
+  identities: Identity[];
+  presence: Presence[];
+  sources: PersonSource[];
+  /** The API's WhatsApp handover link or number, if the person has a phone. */
+  whatsapp: string | null;
+}
+
+export interface TimelineEvent {
+  id: string;
+  kind: string;
+  at: string;
+  actor: StaffRef | null;
+  channel: 'web' | 'bot' | null;
+  body: string | null;
+  data: Record<string, unknown>;
+}
+
+export interface PersonPage {
+  person: PersonDetail;
+  timeline: TimelineEvent[];
+  tombstones: string[];
+}
+
+export interface Today {
+  mine: PersonSummary[];
+  unassigned: PersonSummary[];
+  counts: { mine: number; unassigned: number; bandeja: number };
+}
+
+export interface PeoplePage {
+  people: PersonSummary[];
+  next: string | null;
+}
+
+export type Board = Partial<Record<Stage, { count: number; people: PersonSummary[] }>>;
+
+export interface Candidate {
+  personId: string;
+  name: string;
+  stage: Stage | null;
+  owner: string | null;
+  exact: boolean;
+}
+
+export interface BandejaItem {
+  id: string;
+  source: string;
+  status: 'review' | 'conflict';
+  name: string | null;
+  province: string | null;
+  town: string | null;
+  reportedBy: string | null;
+  createdAt: string;
+  candidates: PersonSummary[];
+  person: PersonSummary | null;
+  conflicts: Record<string, unknown>;
+}
+
+export interface ImportRun {
+  id: string;
+  kind: string;
+  startedAt: string;
+  finishedAt: string | null;
+  /** Who ran it: a staff member, an id, or null for the scheduled sync. */
+  startedBy: StaffRef | string | null;
+  counts: Record<string, number>;
+}
+
+export interface Imports {
+  imports: ImportRun[];
+  airtable: { configured: boolean; lastRun: ImportRun | null };
+}
+
+export interface Settings {
+  followUpDays: number;
+  unresponsiveAttempts: number;
+  unresponsiveDays: number;
+  unassignedAlertHours: number;
+  matchThreshold: number;
+  communityChats: string[];
+}
+
+export interface TelegramLinkState {
+  configured: boolean;
+  linked: boolean;
+  botUsername: string | null;
+}
+
+// Its own, not @/data's: these parsers run in the browser too, and @/data reaches the API over node:http.
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const str = (value: unknown): value is string => typeof value === 'string';
+
+/** A string, or null for null or a field the API left out; undefined (not valid) for anything else. */
+const nullable = (value: unknown): string | null | undefined =>
+  value === undefined || value === null ? null : str(value) ? value : undefined;
+
+const strings = (value: unknown): string[] | undefined =>
+  value === undefined || value === null
+    ? []
+    : Array.isArray(value) && value.every(str)
+      ? value
+      : undefined;
+
+/** A list whose every item parses, or undefined. */
+const every = <T>(value: unknown, parse: (item: unknown) => T | undefined): T[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const out: T[] = [];
+  for (const item of value) {
+    const parsed = parse(item);
+    if (parsed === undefined) {
+      return undefined;
+    }
+    out.push(parsed);
+  }
+  return out;
+};
+
+export const parseStaffRef = (value: unknown): StaffRef | undefined =>
+  isRecord(value) && str(value.userId) && str(value.displayName)
+    ? { userId: value.userId, displayName: value.displayName }
+    : undefined;
+
+const nullableRef = (value: unknown): StaffRef | null | undefined =>
+  value === undefined || value === null ? null : parseStaffRef(value);
+
+/** A staff member as a field may give one: their reference, their id, or nobody. */
+const refOrId = (value: unknown): StaffRef | string | null | undefined =>
+  value === undefined || value === null ? null : str(value) ? value : parseStaffRef(value);
+
+const summaryFields = (value: Record<string, unknown>) => {
+  const fullName = str(value.fullName) ? value.fullName : str(value.name) ? value.name : undefined;
+  const name = str(value.name) ? value.name : fullName;
+  const owner = nullableRef(value.owner);
+  const province = nullable(value.province);
+  const nextAction = nullable(value.nextAction);
+  const nextActionDue = nullable(value.nextActionDue);
+  const reasons = strings(value.reasons);
+  if (
+    !str(value.id) ||
+    name === undefined ||
+    fullName === undefined ||
+    !isStage(value.stage) ||
+    owner === undefined ||
+    province === undefined ||
+    nextAction === undefined ||
+    nextActionDue === undefined ||
+    reasons === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    id: value.id,
+    name,
+    fullName,
+    stage: value.stage,
+    owner,
+    province,
+    nextAction,
+    nextActionDue,
+    reasons,
+    inCommunity: value.inCommunity === true,
+    createdAt: str(value.createdAt) ? value.createdAt : '',
+  };
+};
+
+export const parseSummary = (value: unknown): PersonSummary | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const fields = summaryFields(value);
+  const sources = strings(value.sources);
+  return fields && sources ? { ...fields, sources } : undefined;
+};
+
+const IDENTITY_KINDS: readonly unknown[] = ['email', 'phone', 'airtable'];
+
+const parseIdentity = (value: unknown): Identity | undefined =>
+  isRecord(value) && str(value.id) && IDENTITY_KINDS.includes(value.kind) && str(value.value)
+    ? {
+        id: value.id,
+        kind: value.kind as Identity['kind'],
+        value: value.value,
+        verified: value.verified === true,
+        source: str(value.source) ? value.source : '',
+      }
+    : undefined;
+
+const parsePresence = (value: unknown): Presence | undefined => {
+  if (!isRecord(value) || !str(value.id)) {
+    return undefined;
+  }
+  const joinedOn = nullable(value.joinedOn);
+  const leftOn = nullable(value.leftOn);
+  const chat = nullable(value.chat);
+  return joinedOn === undefined || leftOn === undefined || chat === undefined
+    ? undefined
+    : { id: value.id, joinedOn, leftOn, chat };
+};
+
+const parseSource = (value: unknown): PersonSource | undefined => {
+  if (str(value)) {
+    return { source: value, firstSeenAt: null, reportedBy: null };
+  }
+  if (!isRecord(value) || !str(value.source)) {
+    return undefined;
+  }
+  const firstSeenAt = nullable(value.firstSeenAt);
+  const reportedBy = refOrId(value.reportedBy);
+  return firstSeenAt === undefined || reportedBy === undefined
+    ? undefined
+    : { source: value.source, firstSeenAt, reportedBy };
+};
+
+export const parseDetail = (value: unknown): PersonDetail | undefined => {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const fields = summaryFields(value);
+  const preferredName = nullable(value.preferredName);
+  const town = nullable(value.town);
+  const languages = strings(value.languages);
+  const pronouns = nullable(value.pronouns);
+  const availability = nullable(value.availability);
+  const howHeard = nullable(value.howHeard);
+  const profileCompletedAt = nullable(value.profileCompletedAt);
+  const mergedInto = nullable(value.mergedInto);
+  const identities = value.identities === undefined ? [] : every(value.identities, parseIdentity);
+  const presence = value.presence === undefined ? [] : every(value.presence, parsePresence);
+  const sources = value.sources === undefined ? [] : every(value.sources, parseSource);
+  const whatsapp = nullable(value.whatsapp);
+  if (
+    !fields ||
+    preferredName === undefined ||
+    town === undefined ||
+    languages === undefined ||
+    pronouns === undefined ||
+    availability === undefined ||
+    howHeard === undefined ||
+    profileCompletedAt === undefined ||
+    mergedInto === undefined ||
+    identities === undefined ||
+    presence === undefined ||
+    sources === undefined ||
+    whatsapp === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    ...fields,
+    preferredName,
+    town,
+    languages,
+    pronouns,
+    availability,
+    howHeard,
+    profileCompletedAt,
+    mergedInto,
+    identities,
+    presence,
+    sources,
+    whatsapp,
+  };
+};
+
+export const parseEvent = (value: unknown): TimelineEvent | undefined => {
+  if (!isRecord(value) || !str(value.id) || !str(value.kind) || !str(value.at)) {
+    return undefined;
+  }
+  const actor = nullableRef(value.actor);
+  const body = nullable(value.body);
+  if (actor === undefined || body === undefined) {
+    return undefined;
+  }
+  return {
+    id: value.id,
+    kind: value.kind,
+    at: value.at,
+    actor,
+    channel: value.channel === 'web' || value.channel === 'bot' ? value.channel : null,
+    body,
+    data: isRecord(value.data) ? value.data : {},
+  };
+};
+
+/** `GET /api/people/:id`'s body. */
+export const parsePersonPage = (body: unknown): PersonPage | undefined => {
+  if (!isRecord(body)) {
+    return undefined;
+  }
+  const person = parseDetail(body.person);
+  const timeline = body.timeline === undefined ? [] : every(body.timeline, parseEvent);
+  const tombstones = strings(body.tombstones);
+  return person && timeline && tombstones ? { person, timeline, tombstones } : undefined;
+};
+
+const count = (value: unknown): number =>
+  typeof value === 'number' && Number.isFinite(value) ? value : 0;
+
+/** `GET /api/today`'s body. */
+export const parseToday = (body: unknown): Today | undefined => {
+  if (!isRecord(body)) {
+    return undefined;
+  }
+  const mine = every(body.mine, parseSummary);
+  const unassigned = every(body.unassigned, parseSummary);
+  const counts = isRecord(body.counts) ? body.counts : {};
+  return mine && unassigned
+    ? {
+        mine,
+        unassigned,
+        counts: {
+          mine: isRecord(body.counts) ? count(counts.mine) : mine.length,
+          unassigned: isRecord(body.counts) ? count(counts.unassigned) : unassigned.length,
+          bandeja: count(counts.bandeja),
+        },
+      }
+    : undefined;
+};
+
+/** `GET /api/people`'s body. */
+export const parsePeople = (body: unknown): PeoplePage | undefined => {
+  if (!isRecord(body)) {
+    return undefined;
+  }
+  const people = every(body.people, parseSummary);
+  const next = nullable(body.next);
+  return people && next !== undefined ? { people, next } : undefined;
+};
+
+/** `GET /api/board`'s body. */
+export const parseBoard = (body: unknown): Board | undefined => {
+  if (!isRecord(body) || !isRecord(body.stages)) {
+    return undefined;
+  }
+  const board: Board = {};
+  for (const [stage, column] of Object.entries(body.stages)) {
+    if (!isStage(stage) || !isRecord(column)) {
+      return undefined;
+    }
+    const people = every(column.people, parseSummary);
+    if (!people) {
+      return undefined;
+    }
+    board[stage] = {
+      count: typeof column.count === 'number' ? column.count : people.length,
+      people,
+    };
+  }
+  return board;
+};
+
+const ownerName = (value: unknown): string | null =>
+  str(value) ? value : (parseStaffRef(value)?.displayName ?? null);
+
+const parseCandidate = (value: unknown): Candidate | undefined =>
+  isRecord(value) && str(value.personId) && str(value.name)
+    ? {
+        personId: value.personId,
+        name: value.name,
+        stage: isStage(value.stage) ? value.stage : null,
+        owner: ownerName(value.owner),
+        exact: value.exact === true,
+      }
+    : undefined;
+
+/** `GET /api/candidates`'s body. */
+export const parseCandidates = (body: unknown): Candidate[] | undefined =>
+  isRecord(body) ? every(body.candidates, parseCandidate) : undefined;
+
+const parseBandejaItem = (value: unknown): BandejaItem | undefined => {
+  if (
+    !isRecord(value) ||
+    !str(value.id) ||
+    (value.status !== 'review' && value.status !== 'conflict')
+  ) {
+    return undefined;
+  }
+  const name = nullable(value.name);
+  const province = nullable(value.province);
+  const town = nullable(value.town);
+  const candidates = value.candidates === undefined ? [] : every(value.candidates, parseSummary);
+  const person =
+    value.person === undefined || value.person === null ? null : parseSummary(value.person);
+  if (
+    name === undefined ||
+    province === undefined ||
+    town === undefined ||
+    candidates === undefined ||
+    person === undefined
+  ) {
+    return undefined;
+  }
+  return {
+    id: value.id,
+    source: str(value.source) ? value.source : '',
+    status: value.status,
+    name,
+    province,
+    town,
+    reportedBy: ownerName(value.reportedBy),
+    createdAt: str(value.createdAt) ? value.createdAt : '',
+    candidates,
+    person,
+    conflicts: isRecord(value.conflicts) ? value.conflicts : {},
+  };
+};
+
+/** `GET /api/bandeja`'s body. */
+export const parseBandeja = (body: unknown): BandejaItem[] | undefined =>
+  isRecord(body) ? every(body.items, parseBandejaItem) : undefined;
+
+/** A run's counts: the numbers only (an import's id, say, is no count). */
+export const countsOf = (value: unknown): Record<string, number> =>
+  isRecord(value)
+    ? Object.fromEntries(
+        Object.entries(value).filter(
+          (entry): entry is [string, number] =>
+            typeof entry[1] === 'number' && Number.isFinite(entry[1]),
+        ),
+      )
+    : {};
+
+export const parseImportRun = (value: unknown): ImportRun | undefined => {
+  if (!isRecord(value) || !str(value.id) || !str(value.startedAt)) {
+    return undefined;
+  }
+  const finishedAt = nullable(value.finishedAt);
+  const startedBy = refOrId(value.startedBy);
+  return finishedAt === undefined || startedBy === undefined
+    ? undefined
+    : {
+        id: value.id,
+        kind: str(value.kind) ? value.kind : '',
+        startedAt: value.startedAt,
+        finishedAt,
+        startedBy,
+        counts: countsOf(value.counts),
+      };
+};
+
+/** `GET /api/imports`'s body. */
+export const parseImports = (body: unknown): Imports | undefined => {
+  if (!isRecord(body)) {
+    return undefined;
+  }
+  const imports = every(body.imports, parseImportRun);
+  const airtable = isRecord(body.airtable) ? body.airtable : {};
+  const lastRun =
+    airtable.lastRun === undefined || airtable.lastRun === null
+      ? null
+      : parseImportRun(airtable.lastRun);
+  return imports && lastRun !== undefined
+    ? { imports, airtable: { configured: airtable.configured === true, lastRun } }
+    : undefined;
+};
+
+const SETTINGS_NUMBERS = [
+  'followUpDays',
+  'unresponsiveAttempts',
+  'unresponsiveDays',
+  'unassignedAlertHours',
+  'matchThreshold',
+] as const;
+
+/** `GET /api/settings`'s body: the settings themselves, or wrapped in `settings`. */
+export const parseSettings = (body: unknown): Settings | undefined => {
+  const value = isRecord(body) && isRecord(body.settings) ? body.settings : body;
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const numbers: Partial<Record<(typeof SETTINGS_NUMBERS)[number], number>> = {};
+  for (const key of SETTINGS_NUMBERS) {
+    const raw = value[key];
+    const number = typeof raw === 'string' ? Number(raw) : raw;
+    if (typeof number !== 'number' || !Number.isFinite(number)) {
+      return undefined;
+    }
+    numbers[key] = number;
+  }
+  const chats = strings(value.communityChats);
+  return chats
+    ? {
+        followUpDays: numbers.followUpDays ?? 0,
+        unresponsiveAttempts: numbers.unresponsiveAttempts ?? 0,
+        unresponsiveDays: numbers.unresponsiveDays ?? 0,
+        unassignedAlertHours: numbers.unassignedAlertHours ?? 0,
+        matchThreshold: numbers.matchThreshold ?? 0,
+        communityChats: chats,
+      }
+    : undefined;
+};
+
+/** `GET /api/telegram/link`'s body. */
+export const parseTelegramLink = (body: unknown): TelegramLinkState | undefined =>
+  isRecord(body) && typeof body.configured === 'boolean'
+    ? {
+        configured: body.configured,
+        linked: body.linked === true,
+        botUsername: str(body.botUsername) ? body.botUsername : null,
+      }
+    : undefined;

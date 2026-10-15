@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@ark-ui/react": "5.39.3",
+    "@backoffice/domain": "workspace:*",
     "@backoffice/i18n": "workspace:*",
     "@backoffice/observability": "workspace:*",
     "@sentry/nextjs": "11.6.0",
