@@ -612,7 +612,8 @@
     "eraseUnderstand": "Entiendo que no se puede deshacer",
     "eraseConfirm": "Borrar sus datos para siempre",
     "erased": "Datos borrados. La ficha queda anonimizada.",
-    "anonymised": "Los datos de esta persona se borraron. La ficha solo queda para las cuentas."
+    "anonymised": "Los datos de esta persona se borraron. La ficha solo queda para las cuentas.",
+    "eraseAlready": "Los datos de esta persona ya se habían borrado. Recarga la página."
   },
   "timeline": {
     "created": "Ficha creada en «{stage}»",

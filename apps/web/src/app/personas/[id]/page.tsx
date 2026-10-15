@@ -2,13 +2,17 @@ import type { Metadata } from 'next';
 
 import { getTranslator } from '@backoffice/i18n/messages';
 import Link from 'next/link';
+import { Fragment } from 'react';
 
 import type { StaffRef } from '@/onboarding/types';
 
 import { isUnavailable } from '@/data';
+import { consentText } from '@/onboarding/census/format';
+import * as census from '@/onboarding/census/styles';
 import { getPerson, getSettings, isForbidden } from '@/onboarding/data';
 import { formatDay, formatInstant } from '@/onboarding/format';
 import { Forbidden, OnboardingOnly } from '@/onboarding/OnboardingOnly';
+import { EraseData } from '@/onboarding/person/Erase';
 import { Identities } from '@/onboarding/person/Identities';
 import { MergePanel } from '@/onboarding/person/Merge';
 import { AttemptForm, NextActionForm, NoteForm } from '@/onboarding/person/Notes';
@@ -19,8 +23,9 @@ import { personPageText } from '@/onboarding/person/text';
 import { WhatsAppHandover } from '@/onboarding/person/WhatsApp';
 import { NextAction, ReasonChips, StageTag } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
-import { canOnboard, sourceName } from '@/onboarding/text';
+import { canOnboard, isAdmin, sourceName } from '@/onboarding/text';
 import { describeEvent } from '@/onboarding/timeline';
+import { CONSENT_KINDS } from '@/onboarding/types';
 import { greetingName, handoverLink, whatsappMessage } from '@/onboarding/whatsapp-message';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
@@ -78,6 +83,20 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
     .map(({ userId, displayName }) => ({ userId, displayName }));
   const chats = isUnavailable(settings) ? [] : settings.communityChats;
   const merged = person.mergedInto !== null;
+  const anonymised = person.anonymisedAt !== null;
+  const readOnly = merged || anonymised;
+  const admin = isAdmin(me);
+  const consentWords = {
+    granted: String(t.raw('person.consentGranted')),
+    denied: String(t.raw('person.consentDenied')),
+    never: t('person.consentNever'),
+  };
+  const chosen = (kind: 'skill' | 'interest', other: string | null) => {
+    const labels = person.options
+      .filter((option) => option.kind === kind)
+      .map((option) => option.label);
+    return other ? [...labels, t('person.otherOption', { text: other })] : labels;
+  };
   const link = handoverLink(
     person,
     whatsappMessage(text.whatsapp.message, {
@@ -99,6 +118,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
           </Link>
         </p>
         {person.id === id ? null : <p className={styles.notice}>{t('person.tombstoneNotice')}</p>}
+        {anonymised ? <p className={styles.notice}>{t('person.anonymised')}</p> : null}
         <h1 className={styles.h1}>{person.name}</h1>
         {person.name === person.fullName ? null : <p className={styles.text}>{person.fullName}</p>}
         <ul className={onboarding.meta}>
@@ -136,7 +156,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
               {person.identities.length === 0 ? (
                 <p className={styles.hint}>{t('person.noIdentities')}</p>
               ) : null}
-              {merged ? (
+              {readOnly ? (
                 <ul className={onboarding.personList}>
                   {person.identities.map((identity) => (
                     <li key={identity.id} className={styles.breakAnywhere}>
@@ -148,7 +168,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 <Identities personId={person.id} identities={person.identities} text={text} />
               )}
             </section>
-            {merged ? null : (
+            {readOnly ? null : (
               <>
                 <section className={onboarding.section} aria-labelledby="whatsapp">
                   <h2 id="whatsapp" className={styles.h3}>
@@ -256,18 +276,54 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                     </dd>
                   </>
                 ) : null}
-                {person.profileCompletedAt ? (
-                  <>
-                    <dt>{t('person.profile')}</dt>
-                    <dd>
-                      {t('person.profileCompleted', {
-                        date: formatInstant(person.profileCompletedAt),
-                      })}
-                    </dd>
-                  </>
-                ) : null}
               </dl>
-              {merged ? null : <ProfileEditor person={person} text={text} />}
+              {readOnly ? null : <ProfileEditor person={person} text={text} />}
+            </section>
+
+            <section className={onboarding.section} aria-labelledby="censo">
+              <h2 id="censo" className={styles.h3}>
+                {t('person.census')}
+              </h2>
+              <p className={styles.hint}>
+                {person.profileCompletedAt
+                  ? t('person.profileCompleted', { date: formatInstant(person.profileCompletedAt) })
+                  : t('person.censusNone')}
+              </p>
+              <dl className={styles.facts}>
+                {(
+                  [
+                    ['skill', t('person.skills'), person.skillsOther],
+                    ['interest', t('person.interests'), person.interestsOther],
+                  ] as const
+                ).map(([kind, label, other]) => {
+                  const items = chosen(kind, other);
+                  return (
+                    <Fragment key={kind}>
+                      <dt>{label}</dt>
+                      <dd>
+                        {items.length === 0 ? (
+                          t('person.noOptions')
+                        ) : (
+                          <ul className={census.bullets}>
+                            {items.map((item) => (
+                              <li key={item}>{item}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </dd>
+                    </Fragment>
+                  );
+                })}
+              </dl>
+              <h3 className={styles.h3}>{t('person.consents')}</h3>
+              <dl className={styles.facts}>
+                {CONSENT_KINDS.map((kind) => (
+                  <Fragment key={kind}>
+                    <dt>{t(`person.consentKinds.${kind}`)}</dt>
+                    <dd>{consentText(person.consents[kind], consentWords)}</dd>
+                  </Fragment>
+                ))}
+              </dl>
             </section>
 
             <section className={onboarding.section} aria-labelledby="comunidad">
@@ -291,7 +347,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                   ))}
                 </ul>
               )}
-              {merged ? null : (
+              {readOnly ? null : (
                 <PresenceActions
                   personId={person.id}
                   inCommunity={open}
@@ -332,7 +388,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
               )}
             </section>
 
-            {merged ? null : (
+            {readOnly ? null : (
               <section className={onboarding.section} aria-labelledby="fusionar">
                 <h2 id="fusionar" className={styles.h3}>
                   {t('person.mergeTitle')}
@@ -340,6 +396,42 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 <MergePanel person={person} text={text} />
               </section>
             )}
+
+            {admin && !readOnly ? (
+              <section className={onboarding.section} aria-labelledby="sus-datos">
+                <h2 id="sus-datos" className={styles.h3}>
+                  {t('person.rights')}
+                </h2>
+                <div className={styles.form}>
+                  <p className={styles.hint}>{t('person.rightsIntro')}</p>
+                  <div>
+                    <a
+                      className={styles.secondaryButton}
+                      href={`/api/people/${encodeURIComponent(person.id)}/export`}
+                      download
+                      aria-describedby="exportar-pista"
+                    >
+                      {t('person.export')}
+                    </a>
+                    <p id="exportar-pista" className={styles.hint}>
+                      {t('person.exportHint')}
+                    </p>
+                  </div>
+                  <EraseData
+                    personId={person.id}
+                    text={{
+                      erase: t('person.erase'),
+                      question: t('person.eraseQuestion', { name: person.fullName }),
+                      understand: t('person.eraseUnderstand'),
+                      confirm: t('person.eraseConfirm'),
+                      cancel: t('person.cancel'),
+                      done: t('person.erased'),
+                      errors: { ...text.errors, stale: t('person.eraseAlready') },
+                    }}
+                  />
+                </div>
+              </section>
+            ) : null}
           </div>
         </div>
       </Announcer>
