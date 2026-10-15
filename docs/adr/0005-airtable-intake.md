@@ -53,14 +53,28 @@ read-only token.
 3. **The spike comes first in M1.** Run locally against the real link, which is never committed, it answers: does
    the view load without a full browser, does it allow a CSV download, and what are its columns? It records the
    column names. If it needs a headless browser, the sync isn't built and the CSV import is the route.
-4. **The sync** runs as `pauseai_backoffice_ingest`, which may only insert intake records and import runs and
-   execute the matcher:
+
+   **Result (2026-10-15, structure and counts only; no record's values were read):** the share page loads with a
+   plain request and embeds a signed URL for the view's data (`/v0.3/view/viw…/readSharedViewData`, its
+   `accessPolicy` signed by Airtable), which answers JSON with the table's columns and rows. No browser is needed,
+   so the sync is built (`apps/api/src/imports/airtable.ts`). The share allows `downloadCsv`, so the CSV import is
+   a real fallback. The view had 118 rows, all with Country = Spain, and far more columns than we map (Bio, photo,
+   Discord, stipends, payments…). The sync keeps only these: `Full name`, `Email`, `Email 2`, `Phone`, `City`,
+   `Languages`, `Discovery method of PAI`; it reads `duplicate` (Global's own flag, 8 rows) and
+   `GDPR chapter share permission` (ticked on 43 rows) to leave rows out. Required: `Full name` and `Email`; if
+   either disappears, the run fails and imports nothing.
+
+4. **The sync** runs as `pauseai_backoffice_ingest`, which may only execute `private.ingest_airtable(records)`
+   (it inserts the import run and the intake records and runs the matcher, as the owner); no table grants:
    - **When:** hourly (a CronJob), plus on demand from `/sincronizar` in the bot or a button in Importar. A Postgres
      advisory lock stops two runs overlapping.
    - **Idempotent:** the Airtable record ID is the identity; re-running a sync changes nothing.
    - **Fails loudly:** a run that can't read the view, or finds the columns changed, imports nothing and tells the
      admins through the bot.
    - **Minimal:** only mapped fields are copied, never the rest of Global's record.
+   - **Permission (PLAN R14):** while `AIRTABLE_REQUIRE_CHAPTER_PERMISSION` holds (the default), rows without
+     Global's `GDPR chapter share permission` ticked are left out and only counted. Dani decides whether Global's
+     privacy notice covers the rest; setting it to `false` imports them on the next run.
 5. **The CSV import** in the web app ([onboarding §5.3](../spec/onboarding.md#53-web-and-csv-m1)) is the fallback
    whenever the shared-view sync breaks.
 6. **An API reader** replaces the shared-view reader behind the same interface if Global grants a read-only API

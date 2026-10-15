@@ -12,9 +12,10 @@ API's env or envFrom. The script paths are apps/api's build output (dist/jobs/*.
 ---
 # The Airtable sync (M1, ADR-0005): reads Global's shared view and inserts intake records, as pauseai_backoffice_ingest.
 # A Postgres advisory lock keeps it and an on-demand run from overlapping.
-{{- $env := printf "%s\n%s"
+{{- $env := printf "%s\n%s\n- name: AIRTABLE_REQUIRE_CHAPTER_PERMISSION\n  value: %s"
       (include "backoffice-api.secretEnv" (dict "name" "INGEST_DATABASE_URL" "secret" .Values.airtableSync.ingestDatabaseUrlSecret))
-      (include "backoffice-api.secretEnv" (dict "name" "AIRTABLE_SHARED_VIEW_URL" "secret" .Values.airtableSync.sharedViewUrlSecret)) }}
+      (include "backoffice-api.secretEnv" (dict "name" "AIRTABLE_SHARED_VIEW_URL" "secret" .Values.airtableSync.sharedViewUrlSecret))
+      (.Values.airtableSync.requireChapterPermission | toString | quote) }}
 {{- if not .Values.airtableSync.ingestDatabaseUrlSecret.name }}
 {{- fail "airtableSync.ingestDatabaseUrlSecret.name is required with the sync" }}
 {{- end }}

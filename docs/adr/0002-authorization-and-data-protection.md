@@ -102,6 +102,19 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   `app.channel = 'bot'`, whatever the member's roles.
 - A `SECURITY DEFINER` function, which bypasses RLS, checks the channel itself.
 - No channel set: every policy denies.
+- **M1's narrow functions** (migration `intake`), each `SECURITY DEFINER`, each checking its caller and channel
+  first, and listed in the catalog tests' allowlists:
+  - `private.submit_intake`: a report through the staff app (`manual`) or the bot (`telegram`), each through its
+    own channel only, by onboarding staff and admins; then the matcher.
+  - `private.resolve_intake`, `private.import_csv`, `private.merge_people`: the staff app only.
+  - `private.claim_person`, `private.report_leave`: the staff app or the bot.
+  - `private.bot_people`, `private.bot_candidates`: the bot's reads (and the staff app's duplicate check): names,
+    stages, owners and attention reasons, never contact details.
+  - `private.ingest_airtable`: the ingest role's only grant ([ADR-0005](0005-airtable-intake.md)).
+    The bot reaches people only through these; no table policy names `bot_can`.
+- **pg_trgm** lives in an `extensions` schema of its own: only the app role may look in it (for names' similarity).
+  A trusted extension's functions belong to the bootstrap superuser, executable by PUBLIC, so the schema is what's
+  closed; a catalog test keeps it so.
 - **Tests:** an RLS matrix (role × channel × table × operation) runs in CI against Postgres 18, as
   `packages/db/tests/rls` does in aiontheballot, and is updated with every new table.
 

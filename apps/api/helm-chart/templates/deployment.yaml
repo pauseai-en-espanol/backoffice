@@ -92,6 +92,9 @@ spec:
                 secretKeyRef:
                   name: {{ required "airtableSync.sharedViewUrlSecret.name is required with the sync" .Values.airtableSync.sharedViewUrlSecret.name }}
                   key: {{ .Values.airtableSync.sharedViewUrlSecret.key }}
+            # Only rows with Global's chapter-share permission while true (PLAN R14).
+            - name: AIRTABLE_REQUIRE_CHAPTER_PERMISSION
+              value: {{ .Values.airtableSync.requireChapterPermission | quote }}
             {{- end }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}

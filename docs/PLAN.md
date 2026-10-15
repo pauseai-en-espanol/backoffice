@@ -166,8 +166,9 @@ Each has a recommendation. Unless Dani objects, the recommendation is what gets 
 
 Nothing blocks M0. These get answered along the way:
 
-1. **The shared view (M1's first spike):** does it load without a full browser, does it allow a CSV download, and
-   what are its columns? Checked locally with the real link, which is never committed.
+1. ~~**The shared view (M1's first spike)**~~ Answered 2026-10-15: it loads without a browser, allows a CSV
+   download, and its columns are in [ADR-0005](adr/0005-airtable-intake.md#decision). One question remains for
+   Dani: R14 below.
 2. **The census's lists:** skills and areas to help in, filled in by an admin in settings before the census goes
    out ([onboarding §7.2](spec/onboarding.md#72-the-form-m2)).
 3. **Community chats** for the bot's chat picker: optional; a free-text chat name works too.
@@ -221,6 +222,22 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   and `POLICY` with dynamic SQL would make the security review harder. Consequence: another chapter's instance
   needs its own Postgres server, or a renaming migration (D5). The product name and hostnames still come from
   config.
+
+- **R14. Airtable rows without Global's chapter-share permission are left out by default.** The spike found a
+  `GDPR chapter share permission` checkbox in Global's view, ticked on 43 of 118 rows. Options: import every row,
+  relying on Global's privacy notice (the specification's reading); import only rows with the box ticked. **Chose
+  the box** while Dani decides, as the conservative option: it's a switch (`AIRTABLE_REQUIRE_CHAPTER_PERMISSION`,
+  default `true`), and the skipped rows are counted in every run. Setting it to `false` imports them on the next
+  run; nothing else changes.
+- **R15. Joins and leaves write their own timeline events** (a trigger on community presence), so staff write only
+  notes and contact attempts by hand, and every source records a join the same way.
+- **R16. The bot reaches people only through definer functions,** never a table policy: RLS can't hide columns, and
+  the bot must never see contact details (ADR-0004). So `BOT_POLICIES` stays empty, and the functions check the
+  channel themselves (ADR-0002 §4).
+- **R17. A CSV dry run is the real import in a rolled-back transaction,** so its counts are exactly what applying
+  would do, with no second implementation to drift.
+- **R18. The admin's CSV export defuses formula-looking cells** (a leading `=`, `+`, `-` or `@` gets a `'`), so an
+  exported name can't run as a formula in a spreadsheet.
 
 ## Tracking
 
