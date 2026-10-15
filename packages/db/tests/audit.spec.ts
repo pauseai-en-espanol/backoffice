@@ -72,6 +72,23 @@ describe('audit log', () => {
     });
   });
 
+  it('ignores app.redact set by anyone but the owner', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await client.query("SELECT set_config('app.redact', 'on', true)");
+      await actAs(client, 'pauseai_backoffice_app', {
+        userId: USERS.adminA,
+        aal: 2,
+        channel: 'web',
+      });
+      await client.query("SELECT set_config('app.redact', 'on', true)");
+      // No grant either; with one, forbid_mutation would still refuse a role that isn't the table's owner.
+      expect(await errorCode(client, "UPDATE app.audit_log SET action = 'x'")).toBe('42501');
+      await client.query('RESET ROLE');
+      // The superuser isn't the owner: still refused.
+      expect(await errorCode(client, "UPDATE app.audit_log SET action = 'x'")).toBe('23001');
+    });
+  });
+
   it("can't be backdated or written in someone else's name", async () => {
     await inRolledBackTransaction(async (client) => {
       await actAs(client, 'pauseai_backoffice_app', {

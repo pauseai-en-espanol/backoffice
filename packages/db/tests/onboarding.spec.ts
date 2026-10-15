@@ -323,6 +323,13 @@ describe('the bot', () => {
 
   it('sees names, stages, owners and reasons, never contact details', async () => {
     await inRolledBackTransaction(async (client) => {
+      // Someone else, whom a search for Ana's phone must not find.
+      await submit(
+        client,
+        web(USERS.onboarder),
+        { name: 'Otra Persona Distinta' },
+        { decision: 'new' },
+      );
       const found = await as<Record<string, unknown>>(
         client,
         bot(USERS.onboarder),
@@ -382,6 +389,7 @@ describe('the bot', () => {
         { name: 'Gala Ejemplo' },
         { source: 'telegram' },
       );
+      expect(await reasonsOf(client, made.person_id ?? '')).toEqual(['unassigned', 'no_next_step']);
       const free = await as<{ person_id: string }>(
         client,
         bot(USERS.onboarder),

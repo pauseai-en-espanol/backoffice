@@ -1,0 +1,146 @@
+[
+  {
+    "name": "the staff app reports as the bot",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "OR (submit_intake.source = 'telegram' AND private.bot_can('admin', 'onboarding'))",
+    "new": "OR (submit_intake.source = 'telegram' AND private.may_intake(true))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot reports as the staff app",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "IF NOT ((submit_intake.source = 'manual' AND private.staff_can('admin', 'onboarding'))",
+    "new": "IF NOT ((submit_intake.source = 'manual' AND private.may_intake(true))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot resolves the Bandeja",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "  BEGIN\n    IF NOT private.staff_can('admin', 'onboarding') THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    SELECT i.* INTO intake FROM app.intake_records i WHERE i.id = intake_id FOR UPDATE;\n    IF NOT FOUND THEN",
+    "new": "  BEGIN\n    SELECT i.* INTO intake FROM app.intake_records i WHERE i.id = intake_id FOR UPDATE;\n    IF NOT FOUND THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot merges people",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "    IF NOT private.staff_can('admin', 'onboarding') THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    IF survivor = merged THEN",
+    "new": "    IF NOT private.may_intake(true) THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    IF survivor = merged THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the app role runs the Airtable sync",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "GRANT EXECUTE ON FUNCTION private.ingest_airtable(jsonb) TO pauseai_backoffice_ingest;",
+    "new": "GRANT EXECUTE ON FUNCTION private.ingest_airtable(jsonb) TO pauseai_backoffice_ingest, pauseai_backoffice_app;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a record attaches to nobody by its identity",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "    IF cardinality(exact) = 1 THEN\n      person := exact[1];",
+    "new": "    IF false THEN\n      person := exact[1];",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a disagreeing value overwrites the person's",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "      ELSIF private.fold_name(held) <> private.fold_name(proposed) THEN\n        conflicts := conflicts || jsonb_build_object(field, jsonb_build_object('current', held, 'proposed', proposed));",
+    "new": "      ELSIF private.fold_name(held) <> private.fold_name(proposed) THEN\n        EXECUTE format('UPDATE app.people SET %I = $1 WHERE id = $2', field) USING proposed, person;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a similar name makes a second person",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "      IF cardinality(alike) > 0 THEN",
+    "new": "      IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot's search lists everyone",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "             WHEN 'search' THEN\n               EXISTS",
+    "new": "             WHEN 'search' THEN true OR\n               EXISTS",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a payload carries any field",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "    IF extra IS NOT NULL THEN\n      RAISE EXCEPTION 'an intake payload takes no %', extra USING ERRCODE = 'invalid_parameter_value';\n    END IF;",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "unassigned people need no attention",
+    "file": "db/migrations/20261016000200_intake.sql",
+    "old": "         CASE WHEN p.stage = 'new' AND p.owner_id IS NULL THEN 'unassigned' END,",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff change a tombstone",
+    "file": "db/migrations/20261016000100_people.sql",
+    "old": "USING ((SELECT private.staff_can('admin', 'onboarding')) AND merged_into IS NULL AND anonymised_at IS NULL)",
+    "new": "USING ((SELECT private.staff_can('admin', 'onboarding')) AND anonymised_at IS NULL)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff write any timeline event",
+    "file": "db/migrations/20261016000100_people.sql",
+    "old": "              AND (kind IN ('note', 'contact_attempt') OR pg_catalog.pg_trigger_depth() > 0));",
+    "new": "              AND (kind IS NOT NULL OR pg_catalog.pg_trigger_depth() > 0));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff add identities claiming other sources",
+    "file": "db/migrations/20261016000100_people.sql",
+    "old": "WITH CHECK ((SELECT private.staff_can('admin', 'onboarding')) AND source = 'manual');",
+    "new": "WITH CHECK ((SELECT private.staff_can('admin', 'onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "leaving keeps the next action",
+    "file": "db/migrations/20261016000100_people.sql",
+    "old": "    IF NEW.stage IN ('left', 'discarded') THEN\n      NEW.next_action := NULL;\n      NEW.next_action_due := NULL;\n    END IF;",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a reply doesn't move the person to talking",
+    "file": "db/migrations/20261016000100_people.sql",
+    "old": "      IF current IN ('new', 'contacting', 'unresponsive') THEN\n        UPDATE app.people p SET stage = 'talking' WHERE p.id = NEW.person_id;\n      END IF;",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the timeline is editable",
+    "file": "db/migrations/20261016000100_people.sql",
+    "old": "CREATE TRIGGER forbid_mutation BEFORE UPDATE OR DELETE ON app.person_events\n  FOR EACH ROW EXECUTE FUNCTION private.forbid_mutation();",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a leave writes no event",
+    "file": "db/migrations/20261016000100_people.sql",
+    "old": "    IF NEW.left_on IS NOT NULL AND (TG_OP = 'INSERT' OR OLD.left_on IS NULL) THEN",
+    "new": "    IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  }
+]

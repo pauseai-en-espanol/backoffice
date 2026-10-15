@@ -41,12 +41,28 @@ describe('looking an invitation up', () => {
     });
   });
 
-  it('shows nothing once the admin who made it is no longer an active admin', async () => {
+  it('shows nothing, and accepts nothing, once the admin who made it is no longer an active admin', async () => {
+    // adminA made the fixture invitations; adminB stays, so the last-admin rule lets adminA go.
     await inRolledBackTransaction(async (client) => {
+      // Still staff, with another role, but no longer an admin.
+      await client.query("INSERT INTO app.staff_roles (user_id, role) VALUES ($1, 'outreach')", [
+        USERS.adminA,
+      ]);
       await client.query("DELETE FROM app.staff_roles WHERE user_id = $1 AND role = 'admin'", [
         USERS.adminA,
       ]);
       expect(await pending(client, INVITATION_TOKENS.pending)).toEqual([]);
+      expect(await accept(client, INVITATION_TOKENS.pending, { userId: USERS.newcomer })).toBe(
+        false,
+      );
+    });
+    await inRolledBackTransaction(async (client) => {
+      // Still an admin, but deactivated.
+      await client.query('UPDATE app.staff SET active = false WHERE user_id = $1', [USERS.adminA]);
+      expect(await pending(client, INVITATION_TOKENS.pending)).toEqual([]);
+      expect(await accept(client, INVITATION_TOKENS.pending, { userId: USERS.newcomer })).toBe(
+        false,
+      );
     });
   });
 });
@@ -109,6 +125,25 @@ describe('accepting an invitation', () => {
     });
   });
 
+  it('refuses a revoked or expired invitation even for the invited email itself', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await client.query("UPDATE auth.users SET email = 'revocada@ejemplo.test' WHERE id = $1", [
+        USERS.notStaff,
+      ]);
+      expect(await accept(client, INVITATION_TOKENS.revoked, { userId: USERS.notStaff })).toBe(
+        false,
+      );
+      await client.query("UPDATE auth.users SET email = 'caducada@ejemplo.test' WHERE id = $1", [
+        USERS.noRole,
+      ]);
+      expect(await accept(client, INVITATION_TOKENS.expired, { userId: USERS.noRole })).toBe(false);
+      const staff = await client.query('SELECT 1 FROM app.staff WHERE user_id = $1', [
+        USERS.notStaff,
+      ]);
+      expect(staff.rows).toEqual([]);
+    });
+  });
+
   it('reactivates a deactivated staff member it is meant for', async () => {
     await inRolledBackTransaction(async (client) => {
       await actAs(client, 'pauseai_backoffice_app', {
@@ -163,6 +198,38 @@ describe('an invitation changes once', () => {
           INVITATION_IDS.pending,
         ]),
       ).toBe('23001');
+    });
+  });
+
+  it('refuses deciding a decided one again, for anyone', async () => {
+    await inRolledBackTransaction(async (client) => {
+      expect(
+        await errorCode(client, 'UPDATE app.invitations SET revoked_at = now() WHERE id = $1', [
+          INVITATION_IDS.revoked,
+        ]),
+      ).toBe('23001');
+      expect(
+        await errorCode(
+          client,
+          'UPDATE app.invitations SET revoked_at = NULL, accepted_at = now(), accepted_by = $2 WHERE id = $1',
+          [INVITATION_IDS.revoked, USERS.adminB],
+        ),
+      ).toBe('23001');
+    });
+  });
+
+  it('refuses revoking a decided one again, through the API role too', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await actAs(client, 'pauseai_backoffice_app', {
+        userId: USERS.adminA,
+        aal: 2,
+        channel: 'web',
+      });
+      const { rowCount } = await client.query(
+        'UPDATE app.invitations SET revoked_at = now() WHERE id = $1',
+        [INVITATION_IDS.revoked],
+      );
+      expect(rowCount).toBe(0);
     });
   });
 
