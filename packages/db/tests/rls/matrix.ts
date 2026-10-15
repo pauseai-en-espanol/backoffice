@@ -1,6 +1,16 @@
 import type { Principal } from './harness.js';
 
-import { INVITATION_IDS, type StaffRole, tokenHash, USERS } from '../fixtures.js';
+import {
+  ANA_PHONE,
+  EXPORT_ID,
+  IMPORT_ID,
+  INTAKE_ID,
+  INVITATION_IDS,
+  PEOPLE,
+  type StaffRole,
+  tokenHash,
+  USERS,
+} from '../fixtures.js';
 
 /**
  * The access matrix (ADR-0002, test matrix). Every table and view in `app` has an entry, or the completeness test
@@ -17,6 +27,8 @@ export interface Rule {
 
 const ANY_STAFF: readonly StaffRole[] = ['admin', 'onboarding', 'outreach'];
 const ADMIN: Rule = { web: ['admin'] };
+/** Onboarding staff and admins, through the staff app; never the bot, which has its own functions (ADR-0004). */
+const ONBOARDING: Rule = { web: ['admin', 'onboarding'] };
 const NOBODY: Rule = {};
 
 export interface Row {
@@ -43,6 +55,7 @@ export interface RelationSpec {
 }
 
 const user = (key: keyof typeof USERS): string => `'${USERS[key]}'`;
+const ana = `'${PEOPLE.ana}'`;
 
 export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
   'app.staff': {
@@ -131,6 +144,185 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         rule: NOBODY,
       },
     ],
+  },
+  'app.settings': {
+    rows: [
+      {
+        id: 'the settings',
+        where: 'id',
+        select: { web: ANY_STAFF },
+        update: { set: 'follow_up_days = 6', rule: ADMIN },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      { id: 'another row', sql: 'INSERT INTO app.settings (id) VALUES (false)', rule: NOBODY },
+    ],
+  },
+  'app.people': {
+    rows: [
+      {
+        id: 'a person',
+        where: `id = ${ana}`,
+        select: ONBOARDING,
+        update: { set: "province = 'Provincia de ejemplo'", rule: ONBOARDING },
+        delete: NOBODY,
+      },
+      {
+        id: 'a tombstone',
+        where: `id = '${PEOPLE.anaDuplicate}'`,
+        select: ONBOARDING,
+        update: { set: "province = 'Provincia de ejemplo'", rule: NOBODY },
+      },
+    ],
+    inserts: [
+      {
+        id: 'a person, not through intake',
+        sql: "INSERT INTO app.people (full_name) VALUES ('Persona directa')",
+        rule: NOBODY,
+      },
+    ],
+  },
+  'app.identities': {
+    rows: [
+      {
+        id: "a person's phone",
+        where: `value = '${ANA_PHONE}'`,
+        select: ONBOARDING,
+        update: { set: 'verified = true', rule: ONBOARDING },
+        delete: ONBOARDING,
+      },
+    ],
+    inserts: [
+      {
+        id: 'an email added by hand',
+        sql: `INSERT INTO app.identities (person_id, kind, value, source)
+              VALUES (${ana}, 'email', 'matriz@ejemplo.test', 'manual')`,
+        rule: ONBOARDING,
+      },
+      {
+        id: 'an identity claiming to come from Airtable',
+        sql: `INSERT INTO app.identities (person_id, kind, value, source)
+              VALUES (${ana}, 'airtable', 'recMatrizEjemplo1', 'airtable')`,
+        rule: NOBODY,
+      },
+    ],
+  },
+  'app.person_sources': {
+    rows: [
+      {
+        id: "a person's source",
+        where: `person_id = ${ana} AND source = 'manual'`,
+        select: ONBOARDING,
+        update: { set: "source = 'csv'", rule: NOBODY },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a source',
+        sql: `INSERT INTO app.person_sources (person_id, source) VALUES (${ana}, 'csv')`,
+        rule: NOBODY,
+      },
+    ],
+  },
+  'app.community_presence': {
+    rows: [
+      {
+        id: "a person's open period",
+        where: `person_id = ${ana}`,
+        select: ONBOARDING,
+        update: { set: "chat = 'Otro chat'", rule: ONBOARDING },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a closed period',
+        sql: `INSERT INTO app.community_presence (person_id, joined_on, left_on)
+              VALUES (${ana}, current_date - 30, current_date - 20)`,
+        rule: ONBOARDING,
+      },
+    ],
+  },
+  'app.person_events': {
+    rows: [
+      {
+        id: "a person's first event",
+        where: `person_id = ${ana} AND kind = 'created'`,
+        select: ONBOARDING,
+        update: { set: "body = 'cambiado'", rule: NOBODY },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a note',
+        sql: `INSERT INTO app.person_events (person_id, kind, body) VALUES (${ana}, 'note', 'Nota de ejemplo')`,
+        rule: ONBOARDING,
+      },
+      {
+        id: 'a stage change, by hand',
+        sql: `INSERT INTO app.person_events (person_id, kind, data)
+              VALUES (${ana}, 'stage_changed', '{"from": "new", "to": "active"}')`,
+        rule: NOBODY,
+      },
+    ],
+  },
+  'app.imports': {
+    rows: [
+      {
+        id: 'an import',
+        where: `id = '${IMPORT_ID}'`,
+        select: ONBOARDING,
+        update: { set: "counts = '{}'", rule: NOBODY },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      { id: 'an import', sql: "INSERT INTO app.imports (kind) VALUES ('csv')", rule: NOBODY },
+    ],
+  },
+  'app.intake_records': {
+    rows: [
+      {
+        id: 'an intake record',
+        where: `id = '${INTAKE_ID}'`,
+        select: ONBOARDING,
+        update: { set: "status = 'discarded'", rule: NOBODY },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'an intake record, not through submit_intake',
+        sql: `INSERT INTO app.intake_records (source, external_id, payload)
+              VALUES ('manual', 'directo', '{"name": "Persona directa"}')`,
+        rule: NOBODY,
+      },
+    ],
+  },
+  'app.exports': {
+    rows: [
+      {
+        id: 'an export',
+        where: `id = '${EXPORT_ID}'`,
+        select: ADMIN,
+        update: { set: 'row_count = 2', rule: NOBODY },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'an export',
+        sql: "INSERT INTO app.exports (kind, row_count) VALUES ('people_csv', 3)",
+        rule: ADMIN,
+      },
+    ],
+  },
+  'app.people_attention': {
+    rows: [{ id: "a person's reasons", where: `person_id = ${ana}`, select: ONBOARDING }],
+    inserts: [],
   },
 };
 

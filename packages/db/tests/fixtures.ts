@@ -58,6 +58,19 @@ export const INVITATION_TOKENS = {
 export const tokenHash = (token: string): string =>
   createHash('sha256').update(token).digest('hex');
 
+/** People for the matrix and the onboarding rules: fictional names, numbers from Spain's fictional-looking ranges. */
+export const PEOPLE = {
+  /** New, owned by the onboarder, with a phone, an open presence and an intake record. */
+  ana: '0190f8c4-0000-7000-8000-0000000003a1',
+  /** A tombstone, merged into ana. */
+  anaDuplicate: '0190f8c4-0000-7000-8000-0000000003a2',
+} as const;
+
+export const ANA_PHONE = '+34600000001';
+export const IMPORT_ID = '0190f8c4-0000-7000-8000-0000000004a1';
+export const INTAKE_ID = '0190f8c4-0000-7000-8000-0000000004b1';
+export const EXPORT_ID = '0190f8c4-0000-7000-8000-0000000004c1';
+
 /** Loads the fixtures as superuser, through the same triggers the app runs. */
 export const loadFixtures = async (client: pg.Client): Promise<void> => {
   await client.query('BEGIN');
@@ -106,6 +119,38 @@ export const loadFixtures = async (client: pg.Client): Promise<void> => {
     await client.query('UPDATE app.invitations SET revoked_at = now() WHERE id = $1', [
       INVITATION_IDS.revoked,
     ]);
+    await client.query(
+      `INSERT INTO app.people (id, full_name, stage, owner_id) VALUES ($1, 'Ana Ejemplo Uno', 'new', $3),
+                                                                      ($2, 'Ana Ejemplo', 'new', NULL)`,
+      [PEOPLE.ana, PEOPLE.anaDuplicate, USERS.onboarder],
+    );
+    await client.query(
+      `INSERT INTO app.identities (person_id, kind, value, source) VALUES ($1, 'phone', $2, 'manual')`,
+      [PEOPLE.ana, ANA_PHONE],
+    );
+    await client.query(`INSERT INTO app.person_sources (person_id, source) VALUES ($1, 'manual')`, [
+      PEOPLE.ana,
+    ]);
+    await client.query(
+      `INSERT INTO app.community_presence (person_id, joined_on, chat) VALUES ($1, current_date, 'Chat de ejemplo')`,
+      [PEOPLE.ana],
+    );
+    await client.query(`UPDATE app.people SET merged_into = $1 WHERE id = $2`, [
+      PEOPLE.ana,
+      PEOPLE.anaDuplicate,
+    ]);
+    await client.query(`INSERT INTO app.imports (id, kind, counts) VALUES ($1, 'csv', '{}')`, [
+      IMPORT_ID,
+    ]);
+    await client.query(
+      `INSERT INTO app.intake_records (id, source, external_id, payload, status, person_id, import_id)
+       VALUES ($1, 'csv', 'fila-de-ejemplo', '{"name": "Ana Ejemplo Uno"}', 'attached', $2, $3)`,
+      [INTAKE_ID, PEOPLE.ana, IMPORT_ID],
+    );
+    await client.query(
+      `INSERT INTO app.exports (id, kind, row_count) VALUES ($1, 'people_csv', 1)`,
+      [EXPORT_ID],
+    );
     // An expired one can only be made in the past, past the stamp trigger: as superuser, with triggers off.
     await client.query("SET LOCAL session_replication_role = 'replica'");
     await client.query(

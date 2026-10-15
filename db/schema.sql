@@ -45,6 +45,15 @@ COMMENT ON SCHEMA auth IS 'Better Auth''s tables: only pauseai_backoffice_auth r
 
 
 --
+-- Name: extensions; Type: SCHEMA; Schema: -; Owner: pauseai_backoffice_owner
+--
+
+CREATE SCHEMA extensions;
+
+
+ALTER SCHEMA extensions OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: private; Type: SCHEMA; Schema: -; Owner: pauseai_backoffice_owner
 --
 
@@ -52,6 +61,132 @@ CREATE SCHEMA private;
 
 
 ALTER SCHEMA private OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA extensions;
+
+
+--
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
+
+
+--
+-- Name: availability; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.availability AS ENUM (
+    'occasional',
+    'under_2h',
+    'from_2_to_5h',
+    'over_5h'
+);
+
+
+ALTER TYPE app.availability OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: contact_channel; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.contact_channel AS ENUM (
+    'whatsapp',
+    'phone',
+    'email',
+    'telegram',
+    'in_person',
+    'other'
+);
+
+
+ALTER TYPE app.contact_channel OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: contact_outcome; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.contact_outcome AS ENUM (
+    'no_answer',
+    'replied',
+    'left_message',
+    'wrong_number',
+    'declined'
+);
+
+
+ALTER TYPE app.contact_outcome OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: event_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.event_kind AS ENUM (
+    'created',
+    'note',
+    'contact_attempt',
+    'stage_changed',
+    'owner_changed',
+    'next_action_set',
+    'joined',
+    'left',
+    'reported',
+    'imported',
+    'merged',
+    'profile_updated',
+    'form_submitted'
+);
+
+
+ALTER TYPE app.event_kind OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: identity_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.identity_kind AS ENUM (
+    'email',
+    'phone',
+    'airtable'
+);
+
+
+ALTER TYPE app.identity_kind OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: intake_status; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.intake_status AS ENUM (
+    'pending',
+    'attached',
+    'created',
+    'review',
+    'conflict',
+    'discarded'
+);
+
+
+ALTER TYPE app.intake_status OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: source_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.source_kind AS ENUM (
+    'airtable',
+    'telegram',
+    'census',
+    'manual',
+    'csv'
+);
+
+
+ALTER TYPE app.source_kind OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: staff_role; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
@@ -65,6 +200,26 @@ CREATE TYPE app.staff_role AS ENUM (
 
 
 ALTER TYPE app.staff_role OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: stage; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.stage AS ENUM (
+    'to_triage',
+    'new',
+    'contacting',
+    'talking',
+    'welcomed',
+    'active',
+    'dormant',
+    'unresponsive',
+    'left',
+    'discarded'
+);
+
+
+ALTER TYPE app.stage OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: accept_invitation(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -204,6 +359,180 @@ CREATE FUNCTION private.bot_can(VARIADIC roles app.staff_role[]) RETURNS boolean
 ALTER FUNCTION private.bot_can(VARIADIC roles app.staff_role[]) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: bot_candidates(text, text, text[], text[]); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.bot_candidates(arrival_name text, province text, phones text[], emails text[]) RETURNS TABLE(person_id uuid, name text, stage app.stage, owner_name text, exact boolean)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT private.may_intake(true) THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN QUERY
+    WITH matched AS (
+      SELECT DISTINCT private.survivor(i.person_id) AS id, true AS exact
+        FROM app.identities i
+       WHERE (i.kind = 'phone' AND i.value = ANY (phones)) OR (i.kind = 'email' AND i.value = ANY (emails))
+      UNION
+      SELECT s.person_id, false FROM private.similar_people(arrival_name, province) s
+    )
+    SELECT p.id, coalesce(p.preferred_name, p.full_name), p.stage, st.display_name, bool_or(m.exact)
+      FROM matched m
+      JOIN app.people p ON p.id = m.id
+      LEFT JOIN app.staff st ON st.user_id = p.owner_id
+     GROUP BY p.id, st.display_name
+     ORDER BY bool_or(m.exact) DESC, p.created_at
+     LIMIT 5;
+  END
+  $$;
+
+
+ALTER FUNCTION private.bot_candidates(arrival_name text, province text, phones text[], emails text[]) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: bot_people(text, text, text[], text[]); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.bot_people(scope text, query text DEFAULT NULL::text, phones text[] DEFAULT '{}'::text[], emails text[] DEFAULT '{}'::text[]) RETURNS TABLE(person_id uuid, name text, stage app.stage, owner_name text, reasons text[], in_community boolean, created_at timestamp with time zone)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT private.may_intake(true) THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN QUERY
+    SELECT p.id, coalesce(p.preferred_name, p.full_name), p.stage, s.display_name, a.reasons,
+           EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = p.id AND c.left_on IS NULL),
+           p.created_at
+      FROM app.people p
+      JOIN app.people_attention a ON a.person_id = p.id
+      LEFT JOIN app.staff s ON s.user_id = p.owner_id
+     WHERE CASE scope
+             WHEN 'mine' THEN p.owner_id = private.current_user_id() AND cardinality(a.reasons) > 0
+             WHEN 'unassigned' THEN p.stage = 'new' AND p.owner_id IS NULL
+             WHEN 'person' THEN p.id::text = query
+             WHEN 'search' THEN
+               EXISTS (SELECT 1 FROM app.identities i
+                        WHERE i.person_id = p.id
+                          AND ((i.kind = 'phone' AND i.value = ANY (phones))
+                               OR (i.kind = 'email' AND i.value = ANY (emails))))
+               OR (coalesce(btrim(query), '') <> ''
+                   AND (p.name_folded LIKE '%' || private.fold_name(query) || '%'
+                        OR extensions.similarity(p.name_folded, private.fold_name(query)) >= 0.35))
+             ELSE false
+           END
+     ORDER BY CASE WHEN scope = 'search' AND coalesce(btrim(query), '') <> ''
+                   THEN extensions.similarity(p.name_folded, private.fold_name(query)) END DESC NULLS LAST,
+              p.created_at
+     LIMIT 20;
+  END
+  $$;
+
+
+ALTER FUNCTION private.bot_people(scope text, query text, phones text[], emails text[]) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: check_payload(jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.check_payload(payload jsonb) RETURNS void
+    LANGUAGE plpgsql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    extra text;
+  BEGIN
+    IF jsonb_typeof(payload) IS DISTINCT FROM 'object' THEN
+      RAISE EXCEPTION 'an intake payload is an object' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    SELECT string_agg(k, ', ') INTO extra FROM jsonb_object_keys(payload) k
+     WHERE k NOT IN ('name', 'preferred_name', 'emails', 'phones', 'airtable_id', 'province', 'town', 'languages',
+                     'how_heard', 'chat', 'note', 'stage', 'joined_on');
+    IF extra IS NOT NULL THEN
+      RAISE EXCEPTION 'an intake payload takes no %', extra USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF jsonb_typeof(coalesce(payload -> 'emails', '[]')) <> 'array'
+       OR jsonb_typeof(coalesce(payload -> 'phones', '[]')) <> 'array'
+       OR jsonb_typeof(coalesce(payload -> 'languages', '[]')) <> 'array' THEN
+      RAISE EXCEPTION 'emails, phones and languages are arrays' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+  END
+  $$;
+
+
+ALTER FUNCTION private.check_payload(payload jsonb) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: claim_person(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.claim_person(person uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT private.may_intake(true) THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    UPDATE app.people p SET owner_id = private.current_user_id()
+     WHERE p.id = person AND p.owner_id IS NULL AND p.merged_into IS NULL AND p.anonymised_at IS NULL
+       AND p.stage NOT IN ('left', 'discarded');
+    RETURN FOUND;
+  END
+  $$;
+
+
+ALTER FUNCTION private.claim_person(person uuid) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: contact_attempt_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.contact_attempt_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    current app.stage;
+    attempts integer;
+    first_at timestamptz;
+    settings app.settings;
+  BEGIN
+    SELECT p.stage INTO current FROM app.people p WHERE p.id = NEW.person_id;
+    IF NEW.data ->> 'outcome' = 'replied' THEN
+      IF current IN ('new', 'contacting', 'unresponsive') THEN
+        UPDATE app.people p SET stage = 'talking' WHERE p.id = NEW.person_id;
+      END IF;
+      RETURN NULL;
+    END IF;
+    IF current = 'new' THEN
+      UPDATE app.people p SET stage = 'contacting' WHERE p.id = NEW.person_id;
+      RETURN NULL;
+    END IF;
+    IF current = 'contacting' THEN
+      SELECT s.* INTO settings FROM app.settings s;
+      SELECT count(*), min(e.created_at) INTO attempts, first_at
+        FROM app.person_events e
+       WHERE e.person_id = NEW.person_id AND e.kind = 'contact_attempt'
+         AND e.created_at > coalesce((SELECT max(r.created_at) FROM app.person_events r
+                               WHERE r.person_id = NEW.person_id AND r.kind = 'contact_attempt'
+                                 AND r.data ->> 'outcome' = 'replied'), '-infinity');
+      IF attempts >= settings.unresponsive_attempts
+         AND first_at <= now() - make_interval(days => settings.unresponsive_days) THEN
+        UPDATE app.people p SET stage = 'unresponsive' WHERE p.id = NEW.person_id;
+      END IF;
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.contact_attempt_rules() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: current_aal(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -240,6 +569,22 @@ CREATE FUNCTION private.current_user_id() RETURNS uuid
 ALTER FUNCTION private.current_user_id() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: fold_name(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.fold_name(input text) RETURNS text
+    LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE
+    SET search_path TO ''
+    AS $$
+    SELECT btrim(regexp_replace(
+      translate(lower(normalize(input, NFC)), 'áéíóúüñàèìòùâêîôûäëïöçãõ·', 'aeiouunaeiouaeiouaeiocao '),
+      '[^[:alnum:]]+', ' ', 'g'))
+  $$;
+
+
+ALTER FUNCTION private.fold_name(input text) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: forbid_mutation(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -263,6 +608,353 @@ CREATE FUNCTION private.forbid_mutation() RETURNS trigger
 
 
 ALTER FUNCTION private.forbid_mutation() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: import_batch(text, app.source_kind, text, jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.import_batch(kind text, source app.source_kind, file_sha256 text, records jsonb) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    run uuid;
+    item jsonb;
+    made uuid;
+    existing app.intake_records;
+    outcome app.intake_status;
+    counts jsonb := jsonb_build_object('received', 0, 'unchanged', 0, 'created', 0, 'attached', 0, 'review', 0,
+                                       'conflict', 0, 'updated', 0);
+  BEGIN
+    IF jsonb_typeof(records) IS DISTINCT FROM 'array' THEN
+      RAISE EXCEPTION 'records are an array' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    INSERT INTO app.imports (kind, started_by, file_sha256)
+    VALUES (import_batch.kind, private.current_user_id(), import_batch.file_sha256)
+    RETURNING id INTO run;
+    FOR item IN SELECT * FROM jsonb_array_elements(records) LOOP
+      counts := jsonb_set(counts, '{received}', to_jsonb((counts ->> 'received')::int + 1));
+      PERFORM private.check_payload(item -> 'payload');
+      SELECT i.* INTO existing FROM app.intake_records i
+       WHERE i.source = import_batch.source AND i.external_id = item ->> 'external_id' FOR UPDATE;
+      IF FOUND AND existing.payload = item -> 'payload' THEN
+        counts := jsonb_set(counts, '{unchanged}', to_jsonb((counts ->> 'unchanged')::int + 1));
+        CONTINUE;
+      ELSIF FOUND THEN
+        UPDATE app.intake_records i SET payload = item -> 'payload', import_id = run WHERE i.id = existing.id;
+        counts := jsonb_set(counts, '{updated}', to_jsonb((counts ->> 'updated')::int + 1));
+        IF existing.person_id IS NOT NULL THEN
+          SELECT i.* INTO existing FROM app.intake_records i WHERE i.id = existing.id;
+          IF private.intake_attach(existing, existing.person_id) <> '{}' THEN
+            UPDATE app.intake_records i SET status = 'conflict' WHERE i.id = existing.id;
+          END IF;
+        END IF;
+        CONTINUE;
+      END IF;
+      INSERT INTO app.intake_records (source, external_id, payload, import_id, reported_by)
+      VALUES (import_batch.source, item ->> 'external_id', item -> 'payload', run, private.current_user_id())
+      RETURNING id INTO made;
+      outcome := private.intake_process(made, NULL, NULL);
+      counts := jsonb_set(counts, ARRAY[outcome::text], to_jsonb(coalesce((counts ->> outcome::text)::int, 0) + 1));
+    END LOOP;
+    UPDATE app.imports i SET finished_at = now(), counts = import_batch.counts WHERE i.id = run;
+    RETURN counts || jsonb_build_object('import_id', run);
+  END
+  $$;
+
+
+ALTER FUNCTION private.import_batch(kind text, source app.source_kind, file_sha256 text, records jsonb) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: import_csv(text, jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.import_csv(file_sha256 text, rows jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT private.staff_can('admin', 'onboarding') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF jsonb_typeof(rows) IS DISTINCT FROM 'array' OR jsonb_array_length(rows) > 5000 THEN
+      RAISE EXCEPTION 'rows are an array of at most 5000' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    RETURN private.import_batch('csv', 'csv', file_sha256,
+      (SELECT coalesce(jsonb_agg(jsonb_build_object(
+                'external_id', encode(pg_catalog.sha256(convert_to((r -> 'payload')::text, 'UTF8')), 'hex'),
+                'payload', r -> 'payload')), '[]')
+         FROM jsonb_array_elements(rows) r));
+  END
+  $$;
+
+
+ALTER FUNCTION private.import_csv(file_sha256 text, rows jsonb) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: ingest_airtable(jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.ingest_airtable(records jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $_$
+  BEGIN
+    IF NOT pg_catalog.pg_try_advisory_xact_lock(pg_catalog.hashtext('backoffice:airtable-sync')) THEN
+      RETURN jsonb_build_object('skipped', true);
+    END IF;
+    IF jsonb_typeof(records) IS DISTINCT FROM 'array'
+       OR EXISTS (SELECT 1 FROM jsonb_array_elements(records) r
+                   WHERE NOT (r ->> 'external_id') ~ '^rec[A-Za-z0-9]{14}$') THEN
+      RAISE EXCEPTION 'records need their Airtable record ids' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    RETURN private.import_batch('airtable', 'airtable', NULL, records);
+  END
+  $_$;
+
+
+ALTER FUNCTION private.ingest_airtable(records jsonb) OWNER TO pauseai_backoffice_owner;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: intake_records; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.intake_records (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    source app.source_kind NOT NULL,
+    external_id text NOT NULL,
+    payload jsonb NOT NULL,
+    status app.intake_status DEFAULT 'pending'::app.intake_status NOT NULL,
+    person_id uuid,
+    candidates uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    conflicts jsonb DEFAULT '{}'::jsonb NOT NULL,
+    import_id uuid,
+    reported_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    decided_at timestamp with time zone,
+    decided_by uuid,
+    CONSTRAINT intake_records_conflicts_check CHECK ((jsonb_typeof(conflicts) = 'object'::text)),
+    CONSTRAINT intake_records_external_id_check CHECK (((length(external_id) >= 1) AND (length(external_id) <= 200))),
+    CONSTRAINT intake_records_payload_check CHECK ((jsonb_typeof(payload) = 'object'::text))
+);
+
+
+ALTER TABLE app.intake_records OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN intake_records.payload; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.intake_records.payload IS 'personal data';
+
+
+--
+-- Name: COLUMN intake_records.conflicts; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.intake_records.conflicts IS 'personal data';
+
+
+--
+-- Name: intake_attach(app.intake_records, uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RETURNS jsonb
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $_$
+  DECLARE
+    payload jsonb := intake.payload;
+    found app.people;
+    conflicts jsonb := '{}';
+    identity record;
+    holder uuid;
+    field text;
+    proposed text;
+    held text;
+    taken text[] := '{}';
+  BEGIN
+    SELECT p.* INTO found FROM app.people p WHERE p.id = person FOR UPDATE;
+    FOR identity IN SELECT * FROM private.intake_identities(payload) LOOP
+      SELECT private.survivor(i.person_id) INTO holder FROM app.identities i
+       WHERE i.kind = identity.kind AND i.value = identity.value;
+      IF holder IS NULL THEN
+        INSERT INTO app.identities (person_id, kind, value, source)
+        VALUES (person, identity.kind, identity.value, intake.source);
+      ELSIF holder <> person THEN
+        taken := taken || identity.value;
+      END IF;
+    END LOOP;
+    IF cardinality(taken) > 0 THEN
+      conflicts := conflicts || jsonb_build_object('identities', to_jsonb(taken));
+    END IF;
+    INSERT INTO app.person_sources (person_id, source, reported_by)
+    VALUES (person, intake.source, intake.reported_by)
+    ON CONFLICT DO NOTHING;
+
+    IF coalesce(btrim(payload ->> 'name'), '') <> ''
+       AND private.fold_name(payload ->> 'name') <> found.name_folded THEN
+      conflicts := conflicts || jsonb_build_object('full_name',
+        jsonb_build_object('current', found.full_name, 'proposed', btrim(payload ->> 'name')));
+    END IF;
+    FOREACH field IN ARRAY ARRAY['preferred_name', 'province', 'town', 'how_heard'] LOOP
+      proposed := nullif(btrim(payload ->> field), '');
+      held := to_jsonb(found) ->> field;
+      IF proposed IS NULL THEN
+        CONTINUE;
+      ELSIF held IS NULL THEN
+        EXECUTE format('UPDATE app.people SET %I = $1 WHERE id = $2', field) USING proposed, person;
+      ELSIF private.fold_name(held) <> private.fold_name(proposed) THEN
+        conflicts := conflicts || jsonb_build_object(field, jsonb_build_object('current', held, 'proposed', proposed));
+      END IF;
+    END LOOP;
+    IF jsonb_typeof(payload -> 'languages') = 'array' THEN
+      UPDATE app.people p
+         SET languages = ARRAY(SELECT DISTINCT l FROM unnest(p.languages || ARRAY(
+                                 SELECT jsonb_array_elements_text(payload -> 'languages'))) l ORDER BY l)
+       WHERE p.id = person;
+    END IF;
+
+    IF (intake.source = 'telegram' OR payload ? 'chat' OR payload ? 'joined_on')
+       AND NOT EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = person AND c.left_on IS NULL) THEN
+      INSERT INTO app.community_presence (person_id, joined_on, chat, joined_reported_by)
+      VALUES (person, coalesce((payload ->> 'joined_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date),
+              nullif(btrim(payload ->> 'chat'), ''), intake.reported_by);
+      INSERT INTO app.person_events (person_id, kind, data)
+      VALUES (person, 'joined', jsonb_build_object('chat', nullif(btrim(payload ->> 'chat'), '')));
+    END IF;
+    INSERT INTO app.person_events (person_id, kind, data)
+    VALUES (person, CASE intake.source WHEN 'telegram' THEN 'reported'::app.event_kind
+                                       WHEN 'manual' THEN 'reported'::app.event_kind
+                                       ELSE 'imported'::app.event_kind END,
+            jsonb_build_object('source', intake.source, 'intake_id', intake.id));
+    IF coalesce(btrim(payload ->> 'note'), '') <> '' THEN
+      INSERT INTO app.person_events (person_id, kind, body)
+      VALUES (person, 'note', left(btrim(payload ->> 'note'), 4000));
+    END IF;
+    RETURN conflicts;
+  END
+  $_$;
+
+
+ALTER FUNCTION private.intake_attach(intake app.intake_records, person uuid) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: intake_create(app.intake_records); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.intake_create(intake app.intake_records) RETURNS uuid
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    person uuid;
+  BEGIN
+    IF coalesce(btrim(intake.payload ->> 'name'), '') = '' THEN
+      RAISE EXCEPTION 'a new person needs a name' USING ERRCODE = 'check_violation';
+    END IF;
+    INSERT INTO app.people (full_name, stage)
+    VALUES (left(btrim(intake.payload ->> 'name'), 200),
+            CASE WHEN intake.payload ->> 'stage' IN ('to_triage', 'new', 'welcomed', 'active')
+                 THEN (intake.payload ->> 'stage')::app.stage ELSE 'new' END)
+    RETURNING id INTO person;
+    PERFORM private.intake_attach(intake, person);
+    RETURN person;
+  END
+  $$;
+
+
+ALTER FUNCTION private.intake_create(intake app.intake_records) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: intake_identities(jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.intake_identities(payload jsonb) RETURNS TABLE(kind app.identity_kind, value text)
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+    SELECT 'email'::app.identity_kind, e FROM jsonb_array_elements_text(coalesce(payload -> 'emails', '[]')) e
+    UNION
+    SELECT 'phone'::app.identity_kind, p FROM jsonb_array_elements_text(coalesce(payload -> 'phones', '[]')) p
+    UNION
+    SELECT 'airtable'::app.identity_kind, payload ->> 'airtable_id' WHERE payload ? 'airtable_id'
+  $$;
+
+
+ALTER FUNCTION private.intake_identities(payload jsonb) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: intake_process(uuid, text, uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.intake_process(intake_id uuid, decision text, target uuid) RETURNS app.intake_status
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    intake app.intake_records;
+    exact uuid[];
+    alike uuid[];
+    person uuid;
+    conflicts jsonb;
+    outcome app.intake_status;
+  BEGIN
+    SELECT i.* INTO intake FROM app.intake_records i WHERE i.id = intake_id FOR UPDATE;
+    IF intake.status NOT IN ('pending', 'review') THEN
+      RETURN intake.status;
+    END IF;
+    IF decision = 'discard' THEN
+      UPDATE app.intake_records i SET status = 'discarded', decided_at = now(),
+             decided_by = private.current_user_id() WHERE i.id = intake_id;
+      RETURN 'discarded';
+    END IF;
+    SELECT coalesce(array_agg(DISTINCT private.survivor(i.person_id)), '{}') INTO exact
+      FROM private.intake_identities(intake.payload) x
+      JOIN app.identities i ON i.kind = x.kind AND i.value = x.value;
+    IF cardinality(exact) > 1 THEN
+      UPDATE app.intake_records i SET status = 'review', candidates = exact WHERE i.id = intake_id;
+      RETURN 'review';
+    END IF;
+    IF cardinality(exact) = 1 THEN
+      person := exact[1];
+    ELSIF decision = 'attach' THEN
+      person := private.survivor(target);
+      IF NOT EXISTS (SELECT 1 FROM app.people p WHERE p.id = person AND p.anonymised_at IS NULL) THEN
+        RAISE EXCEPTION 'no person % to attach to', target USING ERRCODE = 'foreign_key_violation';
+      END IF;
+    ELSIF decision IS DISTINCT FROM 'new' THEN
+      SELECT coalesce(array_agg(s.person_id), '{}') INTO alike
+        FROM private.similar_people(intake.payload ->> 'name', intake.payload ->> 'province') s;
+      IF cardinality(alike) > 0 THEN
+        UPDATE app.intake_records i SET status = 'review', candidates = alike WHERE i.id = intake_id;
+        RETURN 'review';
+      END IF;
+    END IF;
+
+    IF person IS NULL THEN
+      person := private.intake_create(intake);
+      outcome := 'created';
+      conflicts := '{}';
+    ELSE
+      conflicts := private.intake_attach(intake, person);
+      outcome := CASE WHEN conflicts = '{}' THEN 'attached' ELSE 'conflict' END;
+    END IF;
+    UPDATE app.intake_records i
+       SET status = outcome, person_id = person, candidates = '{}', conflicts = intake_process.conflicts,
+           decided_at = CASE WHEN outcome = 'conflict' THEN NULL ELSE now() END,
+           decided_by = CASE WHEN outcome = 'conflict' THEN NULL ELSE private.current_user_id() END
+     WHERE i.id = intake_id;
+    RETURN outcome;
+  END
+  $$;
+
+
+ALTER FUNCTION private.intake_process(intake_id uuid, decision text, target uuid) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: invitation_transition(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -322,6 +1014,91 @@ CREATE FUNCTION private.keep_an_admin() RETURNS trigger
 ALTER FUNCTION private.keep_an_admin() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: may_intake(boolean); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.may_intake(bot boolean) RETURNS boolean
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+    SELECT private.staff_can('admin', 'onboarding') OR (bot AND private.bot_can('admin', 'onboarding'))
+  $$;
+
+
+ALTER FUNCTION private.may_intake(bot boolean) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: merge_people(uuid, uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.merge_people(survivor uuid, merged uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    kept app.people;
+    gone app.people;
+  BEGIN
+    IF NOT private.staff_can('admin', 'onboarding') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF survivor = merged THEN
+      RAISE EXCEPTION 'a person is not merged into themselves' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    -- Locked in id order, so two merges of the same pair never wait for each other.
+    PERFORM 1 FROM app.people p WHERE p.id IN (survivor, merged) ORDER BY p.id FOR UPDATE;
+    SELECT p.* INTO kept FROM app.people p WHERE p.id = survivor;
+    SELECT p.* INTO gone FROM app.people p WHERE p.id = merged;
+    IF kept.id IS NULL OR gone.id IS NULL OR kept.merged_into IS NOT NULL OR gone.merged_into IS NOT NULL
+       OR kept.anonymised_at IS NOT NULL OR gone.anonymised_at IS NOT NULL THEN
+      RAISE EXCEPTION 'both people must exist, and be neither merged nor anonymised' USING ERRCODE = 'restrict_violation';
+    END IF;
+
+    INSERT INTO app.person_events (person_id, kind, data)
+    VALUES (merged, 'merged', jsonb_build_object('into', survivor, 'snapshot', to_jsonb(gone) - 'name_folded',
+              'identities', (SELECT coalesce(jsonb_agg(jsonb_build_object('kind', i.kind, 'value', i.value)), '[]')
+                               FROM app.identities i WHERE i.person_id = merged)));
+    INSERT INTO app.person_events (person_id, kind, data)
+    VALUES (survivor, 'merged', jsonb_build_object('from', merged));
+
+    UPDATE app.identities i SET person_id = survivor WHERE i.person_id = merged;
+    INSERT INTO app.person_sources (person_id, source, first_seen_at, reported_by)
+    SELECT survivor, s.source, s.first_seen_at, s.reported_by FROM app.person_sources s WHERE s.person_id = merged
+    ON CONFLICT (person_id, source) DO UPDATE
+      SET first_seen_at = least(app.person_sources.first_seen_at, EXCLUDED.first_seen_at);
+    DELETE FROM app.person_sources s WHERE s.person_id = merged;
+    -- One open period at most: the tombstone's open one closes into the survivor's if the survivor has its own.
+    IF EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = survivor AND c.left_on IS NULL) THEN
+      UPDATE app.community_presence c SET left_on = (now() AT TIME ZONE 'Europe/Madrid')::date
+       WHERE c.person_id = merged AND c.left_on IS NULL;
+    END IF;
+    UPDATE app.community_presence c SET person_id = survivor WHERE c.person_id = merged;
+    UPDATE app.intake_records i SET person_id = survivor WHERE i.person_id = merged;
+    UPDATE app.intake_records i SET candidates = array_remove(i.candidates, merged)
+     WHERE merged = ANY (i.candidates);
+
+    UPDATE app.people p
+       SET owner_id = coalesce(p.owner_id, gone.owner_id),
+           next_action = coalesce(p.next_action, gone.next_action),
+           next_action_due = CASE WHEN p.next_action IS NULL THEN gone.next_action_due ELSE p.next_action_due END,
+           preferred_name = coalesce(p.preferred_name, gone.preferred_name),
+           province = coalesce(p.province, gone.province),
+           town = coalesce(p.town, gone.town),
+           pronouns = coalesce(p.pronouns, gone.pronouns),
+           availability = coalesce(p.availability, gone.availability),
+           how_heard = coalesce(p.how_heard, gone.how_heard),
+           languages = ARRAY(SELECT DISTINCT l FROM unnest(p.languages || gone.languages) l ORDER BY l),
+           profile_completed_at = greatest(p.profile_completed_at, gone.profile_completed_at)
+     WHERE p.id = survivor;
+    UPDATE app.people p SET merged_into = survivor, owner_id = NULL, next_action = NULL, next_action_due = NULL
+     WHERE p.id = merged;
+  END
+  $$;
+
+
+ALTER FUNCTION private.merge_people(survivor uuid, merged uuid) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: pending_invitation(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -343,6 +1120,137 @@ CREATE FUNCTION private.pending_invitation(token_hash text) RETURNS TABLE(email 
 ALTER FUNCTION private.pending_invitation(token_hash text) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: person_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.person_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NEW.stage IN ('left', 'discarded') THEN
+      NEW.next_action := NULL;
+      NEW.next_action_due := NULL;
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.person_rules() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: person_timeline(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.person_timeline() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF TG_OP = 'INSERT' THEN
+      INSERT INTO app.person_events (person_id, kind, data)
+      VALUES (NEW.id, 'created', jsonb_build_object('stage', NEW.stage));
+      RETURN NULL;
+    END IF;
+    IF NEW.stage IS DISTINCT FROM OLD.stage THEN
+      INSERT INTO app.person_events (person_id, kind, data)
+      VALUES (NEW.id, 'stage_changed', jsonb_build_object('from', OLD.stage, 'to', NEW.stage));
+    END IF;
+    IF NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
+      INSERT INTO app.person_events (person_id, kind, data)
+      VALUES (NEW.id, 'owner_changed', jsonb_build_object('from', OLD.owner_id, 'to', NEW.owner_id));
+    END IF;
+    IF (NEW.next_action, NEW.next_action_due) IS DISTINCT FROM (OLD.next_action, OLD.next_action_due)
+       AND NEW.stage NOT IN ('left', 'discarded') THEN
+      INSERT INTO app.person_events (person_id, kind, body, data)
+      VALUES (NEW.id, 'next_action_set', NEW.next_action, jsonb_build_object('due', NEW.next_action_due));
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.person_timeline() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: report_leave(uuid, date); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.report_leave(person uuid, left_on date DEFAULT NULL::date) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    day date := coalesce(left_on, (now() AT TIME ZONE 'Europe/Madrid')::date);
+  BEGIN
+    IF NOT private.may_intake(true) THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM app.people p WHERE p.id = person AND p.merged_into IS NULL
+                                                 AND p.anonymised_at IS NULL) THEN
+      RETURN false;
+    END IF;
+    UPDATE app.community_presence c SET left_on = greatest(day, coalesce(c.joined_on, day)),
+           left_reported_by = private.current_user_id()
+     WHERE c.person_id = person AND c.left_on IS NULL;
+    IF NOT FOUND THEN
+      INSERT INTO app.community_presence (person_id, left_on, left_reported_by)
+      VALUES (person, day, private.current_user_id());
+    END IF;
+    INSERT INTO app.person_events (person_id, kind, data) VALUES (person, 'left', jsonb_build_object('on', day));
+    RETURN true;
+  END
+  $$;
+
+
+ALTER FUNCTION private.report_leave(person uuid, left_on date) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: resolve_intake(uuid, text, uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.resolve_intake(intake_id uuid, decision text, target uuid DEFAULT NULL::uuid) RETURNS app.intake_status
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $_$
+  DECLARE
+    intake app.intake_records;
+    field text;
+  BEGIN
+    IF NOT private.staff_can('admin', 'onboarding') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    SELECT i.* INTO intake FROM app.intake_records i WHERE i.id = intake_id FOR UPDATE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'no intake record %', intake_id USING ERRCODE = 'no_data_found';
+    END IF;
+    IF intake.status = 'review' AND decision IN ('attach', 'new', 'discard') THEN
+      IF decision = 'attach' AND NOT (target = ANY (intake.candidates)) THEN
+        RAISE EXCEPTION 'attach to one of the candidates' USING ERRCODE = 'invalid_parameter_value';
+      END IF;
+      RETURN private.intake_process(intake_id, decision, target);
+    END IF;
+    IF intake.status = 'conflict' AND decision IN ('apply', 'keep') THEN
+      IF decision = 'apply' THEN
+        FOR field IN SELECT k FROM jsonb_object_keys(intake.conflicts) k WHERE k <> 'identities' LOOP
+          EXECUTE format('UPDATE app.people SET %I = $1 WHERE id = $2', field)
+            USING intake.conflicts -> field ->> 'proposed', intake.person_id;
+        END LOOP;
+      END IF;
+      UPDATE app.intake_records i SET status = 'attached', decided_at = now(),
+             decided_by = private.current_user_id() WHERE i.id = intake_id;
+      RETURN 'attached';
+    END IF;
+    RAISE EXCEPTION 'intake record % is %: % is not a decision for it', intake_id, intake.status, decision
+      USING ERRCODE = 'restrict_violation';
+  END
+  $_$;
+
+
+ALTER FUNCTION private.resolve_intake(intake_id uuid, decision text, target uuid) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: session_needs_second_factor(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -361,6 +1269,34 @@ CREATE FUNCTION private.session_needs_second_factor() RETURNS trigger
 
 
 ALTER FUNCTION private.session_needs_second_factor() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: similar_people(text, text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.similar_people(name text, province text) RETURNS TABLE(person_id uuid, score numeric)
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+    WITH scored AS (
+      SELECT p.id,
+             extensions.similarity(p.name_folded, private.fold_name(similar_people.name))
+             + CASE WHEN similar_people.province IS NOT NULL
+                         AND private.fold_name(p.province) = private.fold_name(similar_people.province)
+                    THEN 0.15 ELSE 0 END AS score
+        FROM app.people p
+       WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL
+         AND coalesce(btrim(similar_people.name), '') <> ''
+    )
+    SELECT c.id, round(c.score::numeric, 2)
+      FROM scored c CROSS JOIN app.settings s
+     WHERE c.score >= s.match_threshold
+     ORDER BY c.score DESC, c.id
+     LIMIT 5
+  $$;
+
+
+ALTER FUNCTION private.similar_people(name text, province text) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: staff_activation(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -442,9 +1378,85 @@ CREATE FUNCTION private.stamp() RETURNS trigger
 
 ALTER FUNCTION private.stamp() OWNER TO pauseai_backoffice_owner;
 
-SET default_tablespace = '';
+--
+-- Name: stamp_channel(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
 
-SET default_table_access_method = heap;
+CREATE FUNCTION private.stamp_channel() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    NEW.channel := private.current_channel();
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.stamp_channel() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: submit_intake(app.source_kind, text, jsonb, text, uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.submit_intake(source app.source_kind, external_id text, payload jsonb, decision text DEFAULT NULL::text, target uuid DEFAULT NULL::uuid) RETURNS TABLE(intake_id uuid, status app.intake_status, person_id uuid)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    made uuid;
+  BEGIN
+    IF NOT ((submit_intake.source = 'manual' AND private.staff_can('admin', 'onboarding'))
+            OR (submit_intake.source = 'telegram' AND private.bot_can('admin', 'onboarding'))) THEN
+      RAISE EXCEPTION 'not allowed to report through % here', submit_intake.source
+        USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF decision IS NOT NULL AND decision NOT IN ('attach', 'new') THEN
+      RAISE EXCEPTION 'unknown decision %', decision USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    PERFORM private.check_payload(payload);
+    INSERT INTO app.intake_records (source, external_id, payload, reported_by)
+    VALUES (submit_intake.source, submit_intake.external_id, payload, private.current_user_id())
+    ON CONFLICT ON CONSTRAINT intake_records_source_external_id_key DO NOTHING
+    RETURNING id INTO made;
+    IF made IS NULL THEN
+      SELECT i.id INTO made FROM app.intake_records i
+       WHERE i.source = submit_intake.source AND i.external_id = submit_intake.external_id;
+    ELSE
+      PERFORM private.intake_process(made, decision, target);
+    END IF;
+    RETURN QUERY SELECT i.id, i.status, i.person_id FROM app.intake_records i WHERE i.id = made;
+  END
+  $$;
+
+
+ALTER FUNCTION private.submit_intake(source app.source_kind, external_id text, payload jsonb, decision text, target uuid) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: survivor(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.survivor(person uuid) RETURNS uuid
+    LANGUAGE plpgsql STABLE
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    current uuid := person;
+    next uuid;
+  BEGIN
+    FOR step IN 1..20 LOOP
+      SELECT p.merged_into INTO next FROM app.people p WHERE p.id = current;
+      IF next IS NULL THEN
+        RETURN current;
+      END IF;
+      current := next;
+    END LOOP;
+    RAISE EXCEPTION 'merges of % go deeper than 20', person;
+  END
+  $$;
+
+
+ALTER FUNCTION private.survivor(person uuid) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: audit_log; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -480,6 +1492,111 @@ ALTER TABLE app.audit_log ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: community_presence; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.community_presence (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    person_id uuid NOT NULL,
+    joined_on date,
+    left_on date,
+    chat text,
+    joined_reported_by uuid,
+    left_reported_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT community_presence_chat_check CHECK ((length(chat) <= 100)),
+    CONSTRAINT community_presence_check CHECK (((left_on IS NULL) OR (joined_on IS NULL) OR (left_on >= joined_on)))
+);
+
+
+ALTER TABLE app.community_presence OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN community_presence.chat; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.community_presence.chat IS 'personal data';
+
+
+--
+-- Name: exports; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.exports (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    kind text NOT NULL,
+    filter jsonb DEFAULT '{}'::jsonb NOT NULL,
+    row_count integer NOT NULL,
+    created_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT exports_filter_check CHECK ((jsonb_typeof(filter) = 'object'::text)),
+    CONSTRAINT exports_kind_check CHECK ((kind = ANY (ARRAY['people_csv'::text, 'person_json'::text]))),
+    CONSTRAINT exports_row_count_check CHECK ((row_count >= 0))
+);
+
+
+ALTER TABLE app.exports OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN exports.filter; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.exports.filter IS 'personal data';
+
+
+--
+-- Name: identities; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.identities (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    person_id uuid NOT NULL,
+    kind app.identity_kind NOT NULL,
+    value text NOT NULL,
+    verified boolean DEFAULT false NOT NULL,
+    source app.source_kind NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT identities_check CHECK (
+CASE kind
+    WHEN 'email'::app.identity_kind THEN ((value = lower(value)) AND (value ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'::text))
+    WHEN 'phone'::app.identity_kind THEN (value ~ '^\+[1-9][0-9]{6,14}$'::text)
+    WHEN 'airtable'::app.identity_kind THEN (value ~ '^rec[A-Za-z0-9]{14}$'::text)
+    ELSE NULL::boolean
+END)
+);
+
+
+ALTER TABLE app.identities OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN identities.value; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.identities.value IS 'personal data';
+
+
+--
+-- Name: imports; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.imports (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    kind text NOT NULL,
+    started_by uuid,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    finished_at timestamp with time zone,
+    file_sha256 text,
+    counts jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT imports_counts_check CHECK ((jsonb_typeof(counts) = 'object'::text)),
+    CONSTRAINT imports_file_sha256_check CHECK ((file_sha256 ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT imports_kind_check CHECK ((kind = ANY (ARRAY['airtable'::text, 'csv'::text])))
+);
+
+
+ALTER TABLE app.imports OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: invitations; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -511,6 +1628,239 @@ ALTER TABLE app.invitations OWNER TO pauseai_backoffice_owner;
 
 COMMENT ON COLUMN app.invitations.email IS 'personal data';
 
+
+--
+-- Name: people; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.people (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    full_name text NOT NULL,
+    preferred_name text,
+    province text,
+    town text,
+    languages text[] DEFAULT '{}'::text[] NOT NULL,
+    pronouns text,
+    availability app.availability,
+    how_heard text,
+    stage app.stage DEFAULT 'new'::app.stage NOT NULL,
+    owner_id uuid,
+    next_action text,
+    next_action_due date,
+    profile_completed_at timestamp with time zone,
+    merged_into uuid,
+    anonymised_at timestamp with time zone,
+    name_folded text GENERATED ALWAYS AS (private.fold_name(full_name)) STORED,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT people_check CHECK ((merged_into IS DISTINCT FROM id)),
+    CONSTRAINT people_check1 CHECK (((next_action_due IS NULL) OR (next_action IS NOT NULL))),
+    CONSTRAINT people_full_name_check CHECK (((btrim(full_name) <> ''::text) AND (length(full_name) <= 200))),
+    CONSTRAINT people_how_heard_check CHECK ((length(how_heard) <= 500)),
+    CONSTRAINT people_languages_check CHECK ((cardinality(languages) <= 20)),
+    CONSTRAINT people_next_action_check CHECK (((btrim(next_action) <> ''::text) AND (length(next_action) <= 300))),
+    CONSTRAINT people_preferred_name_check CHECK ((length(preferred_name) <= 100)),
+    CONSTRAINT people_pronouns_check CHECK ((length(pronouns) <= 50)),
+    CONSTRAINT people_province_check CHECK ((length(province) <= 100)),
+    CONSTRAINT people_town_check CHECK ((length(town) <= 100))
+);
+
+
+ALTER TABLE app.people OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN people.full_name; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.full_name IS 'personal data';
+
+
+--
+-- Name: COLUMN people.preferred_name; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.preferred_name IS 'personal data';
+
+
+--
+-- Name: COLUMN people.province; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.province IS 'personal data';
+
+
+--
+-- Name: COLUMN people.town; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.town IS 'personal data';
+
+
+--
+-- Name: COLUMN people.languages; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.languages IS 'personal data';
+
+
+--
+-- Name: COLUMN people.pronouns; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.pronouns IS 'personal data';
+
+
+--
+-- Name: COLUMN people.availability; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.availability IS 'personal data';
+
+
+--
+-- Name: COLUMN people.how_heard; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.how_heard IS 'personal data';
+
+
+--
+-- Name: COLUMN people.next_action; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.next_action IS 'personal data';
+
+
+--
+-- Name: COLUMN people.name_folded; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.name_folded IS 'personal data';
+
+
+--
+-- Name: person_events; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.person_events (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    person_id uuid NOT NULL,
+    kind app.event_kind NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    actor_id uuid,
+    channel text,
+    body text,
+    data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    CONSTRAINT person_events_body_check CHECK ((length(body) <= 4000)),
+    CONSTRAINT person_events_channel_check CHECK ((channel = ANY (ARRAY['web'::text, 'bot'::text]))),
+    CONSTRAINT person_events_check CHECK (((kind <> 'contact_attempt'::app.event_kind) OR ((data ? 'channel'::text) AND (data ? 'outcome'::text) AND ((data ->> 'channel'::text) = ANY (ARRAY['whatsapp'::text, 'phone'::text, 'email'::text, 'telegram'::text, 'in_person'::text, 'other'::text])) AND ((data ->> 'outcome'::text) = ANY (ARRAY['no_answer'::text, 'replied'::text, 'left_message'::text, 'wrong_number'::text, 'declined'::text]))))),
+    CONSTRAINT person_events_data_check CHECK ((jsonb_typeof(data) = 'object'::text))
+);
+
+
+ALTER TABLE app.person_events OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN person_events.body; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.person_events.body IS 'personal data';
+
+
+--
+-- Name: COLUMN person_events.data; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.person_events.data IS 'personal data';
+
+
+--
+-- Name: settings; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.settings (
+    id boolean DEFAULT true NOT NULL,
+    follow_up_days integer DEFAULT 5 NOT NULL,
+    unresponsive_attempts integer DEFAULT 3 NOT NULL,
+    unresponsive_days integer DEFAULT 14 NOT NULL,
+    unassigned_alert_hours integer DEFAULT 48 NOT NULL,
+    match_threshold numeric(3,2) DEFAULT 0.55 NOT NULL,
+    community_chats text[] DEFAULT '{}'::text[] NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT settings_community_chats_check CHECK (((cardinality(community_chats) <= 100) AND (array_position(community_chats, NULL::text) IS NULL))),
+    CONSTRAINT settings_follow_up_days_check CHECK (((follow_up_days >= 1) AND (follow_up_days <= 60))),
+    CONSTRAINT settings_id_check CHECK (id),
+    CONSTRAINT settings_match_threshold_check CHECK (((match_threshold >= 0.3) AND (match_threshold <= (1)::numeric))),
+    CONSTRAINT settings_unassigned_alert_hours_check CHECK (((unassigned_alert_hours >= 1) AND (unassigned_alert_hours <= 720))),
+    CONSTRAINT settings_unresponsive_attempts_check CHECK (((unresponsive_attempts >= 1) AND (unresponsive_attempts <= 20))),
+    CONSTRAINT settings_unresponsive_days_check CHECK (((unresponsive_days >= 1) AND (unresponsive_days <= 180)))
+);
+
+
+ALTER TABLE app.settings OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: people_attention; Type: VIEW; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE VIEW app.people_attention WITH (security_invoker='true') AS
+ SELECT p.id AS person_id,
+    array_remove(ARRAY[
+        CASE
+            WHEN ((p.stage = 'new'::app.stage) AND (p.owner_id IS NULL)) THEN 'unassigned'::text
+            ELSE NULL::text
+        END,
+        CASE
+            WHEN (p.next_action_due <= ((now() AT TIME ZONE 'Europe/Madrid'::text))::date) THEN 'action_due'::text
+            ELSE NULL::text
+        END,
+        CASE
+            WHEN ((p.stage = ANY (ARRAY['new'::app.stage, 'contacting'::app.stage, 'talking'::app.stage, 'welcomed'::app.stage])) AND (p.next_action IS NULL)) THEN 'no_next_step'::text
+            ELSE NULL::text
+        END,
+        CASE
+            WHEN ((p.stage = 'contacting'::app.stage) AND (( SELECT max(e.created_at) AS max
+               FROM app.person_events e
+              WHERE ((e.person_id = p.id) AND (e.kind = 'contact_attempt'::app.event_kind))) < (now() - make_interval(days => s.follow_up_days)))) THEN 'follow_up'::text
+            ELSE NULL::text
+        END,
+        CASE
+            WHEN ((p.stage = ANY (ARRAY['new'::app.stage, 'contacting'::app.stage, 'talking'::app.stage, 'welcomed'::app.stage, 'active'::app.stage])) AND (EXISTS ( SELECT 1
+               FROM app.community_presence c
+              WHERE ((c.person_id = p.id) AND (c.left_on IS NOT NULL)))) AND (NOT (EXISTS ( SELECT 1
+               FROM app.community_presence c
+              WHERE ((c.person_id = p.id) AND (c.left_on IS NULL)))))) THEN 'left_community'::text
+            ELSE NULL::text
+        END,
+        CASE
+            WHEN (EXISTS ( SELECT 1
+               FROM app.intake_records i
+              WHERE ((i.status = 'review'::app.intake_status) AND ((p.id = ANY (i.candidates)) OR (i.person_id = p.id))))) THEN 'possible_duplicate'::text
+            ELSE NULL::text
+        END], NULL::text) AS reasons
+   FROM (app.people p
+     CROSS JOIN app.settings s)
+  WHERE ((p.merged_into IS NULL) AND (p.anonymised_at IS NULL));
+
+
+ALTER VIEW app.people_attention OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: person_sources; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.person_sources (
+    person_id uuid NOT NULL,
+    source app.source_kind NOT NULL,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    reported_by uuid
+);
+
+
+ALTER TABLE app.person_sources OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: staff; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -728,6 +2078,62 @@ ALTER TABLE ONLY app.audit_log
 
 
 --
+-- Name: community_presence community_presence_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.community_presence
+    ADD CONSTRAINT community_presence_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: exports exports_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.exports
+    ADD CONSTRAINT exports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: identities identities_kind_value_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.identities
+    ADD CONSTRAINT identities_kind_value_key UNIQUE (kind, value);
+
+
+--
+-- Name: identities identities_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.identities
+    ADD CONSTRAINT identities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: imports imports_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.imports
+    ADD CONSTRAINT imports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: intake_records intake_records_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.intake_records
+    ADD CONSTRAINT intake_records_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: intake_records intake_records_source_external_id_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.intake_records
+    ADD CONSTRAINT intake_records_source_external_id_key UNIQUE (source, external_id);
+
+
+--
 -- Name: invitations invitations_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -741,6 +2147,38 @@ ALTER TABLE ONLY app.invitations
 
 ALTER TABLE ONLY app.invitations
     ADD CONSTRAINT invitations_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: people people_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.people
+    ADD CONSTRAINT people_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: person_events person_events_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.person_events
+    ADD CONSTRAINT person_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: person_sources person_sources_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.person_sources
+    ADD CONSTRAINT person_sources_pkey PRIMARY KEY (person_id, source);
+
+
+--
+-- Name: settings settings_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.settings
+    ADD CONSTRAINT settings_pkey PRIMARY KEY (id);
 
 
 --
@@ -854,10 +2292,73 @@ CREATE INDEX audit_log_row_idx ON app.audit_log USING btree (table_name, row_id)
 
 
 --
+-- Name: community_presence_open_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE UNIQUE INDEX community_presence_open_idx ON app.community_presence USING btree (person_id) WHERE (left_on IS NULL);
+
+
+--
+-- Name: community_presence_person_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX community_presence_person_id_idx ON app.community_presence USING btree (person_id);
+
+
+--
+-- Name: identities_person_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX identities_person_id_idx ON app.identities USING btree (person_id);
+
+
+--
+-- Name: intake_records_person_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX intake_records_person_id_idx ON app.intake_records USING btree (person_id);
+
+
+--
+-- Name: intake_records_status_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX intake_records_status_idx ON app.intake_records USING btree (status) WHERE (status = ANY (ARRAY['review'::app.intake_status, 'conflict'::app.intake_status]));
+
+
+--
 -- Name: invitations_created_by_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE INDEX invitations_created_by_idx ON app.invitations USING btree (created_by);
+
+
+--
+-- Name: people_name_folded_trgm_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX people_name_folded_trgm_idx ON app.people USING gin (name_folded extensions.gin_trgm_ops);
+
+
+--
+-- Name: people_owner_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX people_owner_id_idx ON app.people USING btree (owner_id) WHERE (merged_into IS NULL);
+
+
+--
+-- Name: people_stage_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX people_stage_idx ON app.people USING btree (stage) WHERE (merged_into IS NULL);
+
+
+--
+-- Name: person_events_person_id_created_at_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX person_events_person_id_created_at_idx ON app.person_events USING btree (person_id, created_at DESC);
 
 
 --
@@ -903,10 +2404,73 @@ CREATE TRIGGER activation BEFORE INSERT OR UPDATE ON app.staff FOR EACH ROW EXEC
 
 
 --
+-- Name: community_presence audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.community_presence FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: exports audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.exports FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: identities audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.identities FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: imports audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.imports FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: intake_records audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.intake_records FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
 -- Name: invitations audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.invitations FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: people audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.people FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: person_events audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.person_events FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: person_sources audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.person_sources FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: settings audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.settings FOR EACH ROW EXECUTE FUNCTION private.audit();
 
 
 --
@@ -924,6 +2488,13 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.staff_roles FOR EAC
 
 
 --
+-- Name: person_events contact_attempt; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER contact_attempt AFTER INSERT ON app.person_events FOR EACH ROW WHEN ((new.kind = 'contact_attempt'::app.event_kind)) EXECUTE FUNCTION private.contact_attempt_rules();
+
+
+--
 -- Name: audit_log forbid_mutation; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -931,10 +2502,24 @@ CREATE TRIGGER forbid_mutation BEFORE DELETE OR UPDATE ON app.audit_log FOR EACH
 
 
 --
+-- Name: person_events forbid_mutation; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER forbid_mutation BEFORE DELETE OR UPDATE ON app.person_events FOR EACH ROW EXECUTE FUNCTION private.forbid_mutation();
+
+
+--
 -- Name: audit_log forbid_truncate; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.audit_log FOR EACH STATEMENT EXECUTE FUNCTION private.forbid_mutation();
+
+
+--
+-- Name: person_events forbid_truncate; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.person_events FOR EACH STATEMENT EXECUTE FUNCTION private.forbid_mutation();
 
 
 --
@@ -952,6 +2537,13 @@ CREATE TRIGGER keep_an_admin AFTER DELETE ON app.staff_roles FOR EACH ROW WHEN (
 
 
 --
+-- Name: people rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules BEFORE UPDATE ON app.people FOR EACH ROW EXECUTE FUNCTION private.person_rules();
+
+
+--
 -- Name: audit_log stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -959,10 +2551,59 @@ CREATE TRIGGER stamp BEFORE INSERT ON app.audit_log FOR EACH ROW EXECUTE FUNCTIO
 
 
 --
+-- Name: community_presence stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.community_presence FOR EACH ROW EXECUTE FUNCTION private.stamp('created_at');
+
+
+--
+-- Name: exports stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.exports FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: identities stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.identities FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: intake_records stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.intake_records FOR EACH ROW EXECUTE FUNCTION private.stamp('created_at');
+
+
+--
 -- Name: invitations stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.invitations FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: people stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.people FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
+
+
+--
+-- Name: person_events stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT ON app.person_events FOR EACH ROW EXECUTE FUNCTION private.stamp('actor_id', 'created_at');
+
+
+--
+-- Name: settings stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.settings FOR EACH ROW EXECUTE FUNCTION private.stamp('updated_by', 'updated_at');
 
 
 --
@@ -980,6 +2621,20 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.staff_roles FOR EACH ROW EXE
 
 
 --
+-- Name: person_events stamp_channel; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp_channel BEFORE INSERT ON app.person_events FOR EACH ROW EXECUTE FUNCTION private.stamp_channel();
+
+
+--
+-- Name: people timeline; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER timeline AFTER INSERT OR UPDATE ON app.people FOR EACH ROW EXECUTE FUNCTION private.person_timeline();
+
+
+--
 -- Name: invitations transition; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -991,6 +2646,70 @@ CREATE TRIGGER transition BEFORE UPDATE ON app.invitations FOR EACH ROW EXECUTE 
 --
 
 CREATE TRIGGER aal2_needs_second_factor BEFORE INSERT OR UPDATE OF aal ON auth.sessions FOR EACH ROW WHEN ((new.aal = 2)) EXECUTE FUNCTION private.session_needs_second_factor();
+
+
+--
+-- Name: community_presence community_presence_joined_reported_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.community_presence
+    ADD CONSTRAINT community_presence_joined_reported_by_fkey FOREIGN KEY (joined_reported_by) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: community_presence community_presence_left_reported_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.community_presence
+    ADD CONSTRAINT community_presence_left_reported_by_fkey FOREIGN KEY (left_reported_by) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: community_presence community_presence_person_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.community_presence
+    ADD CONSTRAINT community_presence_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
+-- Name: identities identities_person_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.identities
+    ADD CONSTRAINT identities_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
+-- Name: imports imports_started_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.imports
+    ADD CONSTRAINT imports_started_by_fkey FOREIGN KEY (started_by) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: intake_records intake_records_import_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.intake_records
+    ADD CONSTRAINT intake_records_import_id_fkey FOREIGN KEY (import_id) REFERENCES app.imports(id);
+
+
+--
+-- Name: intake_records intake_records_person_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.intake_records
+    ADD CONSTRAINT intake_records_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
+-- Name: intake_records intake_records_reported_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.intake_records
+    ADD CONSTRAINT intake_records_reported_by_fkey FOREIGN KEY (reported_by) REFERENCES app.staff(user_id);
 
 
 --
@@ -1007,6 +2726,46 @@ ALTER TABLE ONLY app.invitations
 
 ALTER TABLE ONLY app.invitations
     ADD CONSTRAINT invitations_created_by_fkey FOREIGN KEY (created_by) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: people people_merged_into_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.people
+    ADD CONSTRAINT people_merged_into_fkey FOREIGN KEY (merged_into) REFERENCES app.people(id);
+
+
+--
+-- Name: people people_owner_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.people
+    ADD CONSTRAINT people_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: person_events person_events_person_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.person_events
+    ADD CONSTRAINT person_events_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
+-- Name: person_sources person_sources_person_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.person_sources
+    ADD CONSTRAINT person_sources_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
+-- Name: person_sources person_sources_reported_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.person_sources
+    ADD CONSTRAINT person_sources_reported_by_fkey FOREIGN KEY (reported_by) REFERENCES app.staff(user_id);
 
 
 --
@@ -1072,6 +2831,13 @@ CREATE POLICY admin_delete ON app.staff_roles FOR DELETE TO pauseai_backoffice_a
 
 
 --
+-- Name: exports admin_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY admin_insert ON app.exports FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: invitations admin_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -1093,6 +2859,13 @@ CREATE POLICY admin_read ON app.audit_log FOR SELECT TO pauseai_backoffice_app U
 
 
 --
+-- Name: exports admin_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY admin_read ON app.exports FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: invitations admin_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -1104,6 +2877,13 @@ CREATE POLICY admin_read ON app.invitations FOR SELECT TO pauseai_backoffice_app
 --
 
 CREATE POLICY admin_revoke ON app.invitations FOR UPDATE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can) AND (accepted_at IS NULL) AND (revoked_at IS NULL))) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: settings admin_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY admin_update ON app.settings FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
 
 
 --
@@ -1120,16 +2900,175 @@ CREATE POLICY admin_update ON app.staff FOR UPDATE TO pauseai_backoffice_app USI
 ALTER TABLE app.audit_log ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: community_presence; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.community_presence ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: exports; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.exports ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: identities; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.identities ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: imports; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.imports ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: intake_records; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.intake_records ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: invitations; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 ALTER TABLE app.invitations ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: identities onboarding_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_delete ON app.identities FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: community_presence onboarding_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_insert ON app.community_presence FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: identities onboarding_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_insert ON app.identities FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can) AND (source = 'manual'::app.source_kind)));
+
+
+--
+-- Name: person_events onboarding_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_insert ON app.person_events FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can) AND ((kind = ANY (ARRAY['note'::app.event_kind, 'contact_attempt'::app.event_kind])) OR (pg_trigger_depth() > 0))));
+
+
+--
+-- Name: community_presence onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.community_presence FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: identities onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.identities FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: imports onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.imports FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: intake_records onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.intake_records FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: people onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.people FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: person_events onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.person_events FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: person_sources onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.person_sources FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: community_presence onboarding_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_update ON app.community_presence FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: identities onboarding_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_update ON app.identities FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: people onboarding_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_update ON app.people FOR UPDATE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can) AND (merged_into IS NULL) AND (anonymised_at IS NULL))) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: people; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.people ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: person_events; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.person_events ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: person_sources; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.person_sources ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: settings; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.settings ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: staff; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 ALTER TABLE app.staff ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: settings staff_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY staff_read ON app.settings FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
 
 --
 -- Name: staff staff_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
@@ -1166,10 +3105,18 @@ GRANT USAGE ON SCHEMA auth TO pauseai_backoffice_auth;
 
 
 --
+-- Name: SCHEMA extensions; Type: ACL; Schema: -; Owner: pauseai_backoffice_owner
+--
+
+GRANT USAGE ON SCHEMA extensions TO pauseai_backoffice_app;
+
+
+--
 -- Name: SCHEMA private; Type: ACL; Schema: -; Owner: pauseai_backoffice_owner
 --
 
 GRANT USAGE ON SCHEMA private TO pauseai_backoffice_app;
+GRANT USAGE ON SCHEMA private TO pauseai_backoffice_ingest;
 
 
 --
@@ -1203,6 +3150,44 @@ GRANT ALL ON FUNCTION private.bot_can(VARIADIC roles app.staff_role[]) TO pausea
 
 
 --
+-- Name: FUNCTION bot_candidates(arrival_name text, province text, phones text[], emails text[]); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.bot_candidates(arrival_name text, province text, phones text[], emails text[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.bot_candidates(arrival_name text, province text, phones text[], emails text[]) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION bot_people(scope text, query text, phones text[], emails text[]); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.bot_people(scope text, query text, phones text[], emails text[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.bot_people(scope text, query text, phones text[], emails text[]) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION check_payload(payload jsonb); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.check_payload(payload jsonb) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION claim_person(person uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.claim_person(person uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.claim_person(person uuid) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION contact_attempt_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.contact_attempt_rules() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION current_aal(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1227,10 +3212,76 @@ GRANT ALL ON FUNCTION private.current_user_id() TO pauseai_backoffice_app;
 
 
 --
+-- Name: FUNCTION fold_name(input text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.fold_name(input text) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.fold_name(input text) TO pauseai_backoffice_app;
+
+
+--
 -- Name: FUNCTION forbid_mutation(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
 REVOKE ALL ON FUNCTION private.forbid_mutation() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION import_batch(kind text, source app.source_kind, file_sha256 text, records jsonb); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.import_batch(kind text, source app.source_kind, file_sha256 text, records jsonb) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION import_csv(file_sha256 text, rows jsonb); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.import_csv(file_sha256 text, rows jsonb) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.import_csv(file_sha256 text, rows jsonb) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION ingest_airtable(records jsonb); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.ingest_airtable(records jsonb) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.ingest_airtable(records jsonb) TO pauseai_backoffice_ingest;
+
+
+--
+-- Name: TABLE intake_records; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.intake_records TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION intake_attach(intake app.intake_records, person uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.intake_attach(intake app.intake_records, person uuid) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION intake_create(intake app.intake_records); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.intake_create(intake app.intake_records) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION intake_identities(payload jsonb); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.intake_identities(payload jsonb) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION intake_process(intake_id uuid, decision text, target uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.intake_process(intake_id uuid, decision text, target uuid) FROM PUBLIC;
 
 
 --
@@ -1248,6 +3299,21 @@ REVOKE ALL ON FUNCTION private.keep_an_admin() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION may_intake(bot boolean); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.may_intake(bot boolean) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION merge_people(survivor uuid, merged uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.merge_people(survivor uuid, merged uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.merge_people(survivor uuid, merged uuid) TO pauseai_backoffice_app;
+
+
+--
 -- Name: FUNCTION pending_invitation(token_hash text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1256,10 +3322,47 @@ GRANT ALL ON FUNCTION private.pending_invitation(token_hash text) TO pauseai_bac
 
 
 --
+-- Name: FUNCTION person_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.person_rules() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION person_timeline(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.person_timeline() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION report_leave(person uuid, left_on date); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.report_leave(person uuid, left_on date) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.report_leave(person uuid, left_on date) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION resolve_intake(intake_id uuid, decision text, target uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.resolve_intake(intake_id uuid, decision text, target uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.resolve_intake(intake_id uuid, decision text, target uuid) TO pauseai_backoffice_app;
+
+
+--
 -- Name: FUNCTION session_needs_second_factor(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
 REVOKE ALL ON FUNCTION private.session_needs_second_factor() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION similar_people(name text, province text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.similar_people(name text, province text) FROM PUBLIC;
 
 
 --
@@ -1285,10 +3388,158 @@ REVOKE ALL ON FUNCTION private.stamp() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION stamp_channel(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.stamp_channel() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION submit_intake(source app.source_kind, external_id text, payload jsonb, decision text, target uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.submit_intake(source app.source_kind, external_id text, payload jsonb, decision text, target uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.submit_intake(source app.source_kind, external_id text, payload jsonb, decision text, target uuid) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION survivor(person uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.survivor(person uuid) FROM PUBLIC;
+
+
+--
 -- Name: TABLE audit_log; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 GRANT SELECT ON TABLE app.audit_log TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE community_presence; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.community_presence TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN community_presence.person_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(person_id) ON TABLE app.community_presence TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN community_presence.joined_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(joined_on),UPDATE(joined_on) ON TABLE app.community_presence TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN community_presence.left_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(left_on),UPDATE(left_on) ON TABLE app.community_presence TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN community_presence.chat; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(chat),UPDATE(chat) ON TABLE app.community_presence TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN community_presence.joined_reported_by; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(joined_reported_by) ON TABLE app.community_presence TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN community_presence.left_reported_by; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(left_reported_by),UPDATE(left_reported_by) ON TABLE app.community_presence TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE exports; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.exports TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN exports.kind; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(kind) ON TABLE app.exports TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN exports.filter; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(filter) ON TABLE app.exports TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN exports.row_count; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(row_count) ON TABLE app.exports TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE identities; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.identities TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN identities.person_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(person_id) ON TABLE app.identities TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN identities.kind; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(kind) ON TABLE app.identities TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN identities.value; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(value) ON TABLE app.identities TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN identities.verified; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(verified),UPDATE(verified) ON TABLE app.identities TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN identities.source; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(source) ON TABLE app.identities TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE imports; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.imports TO pauseai_backoffice_app;
 
 
 --
@@ -1331,6 +3582,195 @@ GRANT INSERT(expires_at) ON TABLE app.invitations TO pauseai_backoffice_app;
 --
 
 GRANT UPDATE(revoked_at) ON TABLE app.invitations TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE people; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.full_name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(full_name) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.preferred_name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(preferred_name) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.province; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(province) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.town; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(town) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.languages; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(languages) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.pronouns; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(pronouns) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.availability; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(availability) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.how_heard; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(how_heard) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.stage; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(stage) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.owner_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(owner_id) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.next_action; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(next_action) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.next_action_due; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(next_action_due) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE person_events; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.person_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN person_events.person_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(person_id) ON TABLE app.person_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN person_events.kind; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(kind) ON TABLE app.person_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN person_events.body; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(body) ON TABLE app.person_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN person_events.data; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(data) ON TABLE app.person_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE settings; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.settings TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN settings.follow_up_days; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(follow_up_days) ON TABLE app.settings TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN settings.unresponsive_attempts; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(unresponsive_attempts) ON TABLE app.settings TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN settings.unresponsive_days; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(unresponsive_days) ON TABLE app.settings TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN settings.unassigned_alert_hours; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(unassigned_alert_hours) ON TABLE app.settings TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN settings.match_threshold; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(match_threshold) ON TABLE app.settings TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN settings.community_chats; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(community_chats) ON TABLE app.settings TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE people_attention; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.people_attention TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE person_sources; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.person_sources TO pauseai_backoffice_app;
 
 
 --

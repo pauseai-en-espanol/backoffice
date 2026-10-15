@@ -5,7 +5,43 @@
 
 import type { ColumnType } from 'kysely';
 
+export type AppAvailability = 'from_2_to_5h' | 'occasional' | 'over_5h' | 'under_2h';
+
+export type AppEventKind =
+  | 'contact_attempt'
+  | 'created'
+  | 'form_submitted'
+  | 'imported'
+  | 'joined'
+  | 'left'
+  | 'merged'
+  | 'next_action_set'
+  | 'note'
+  | 'owner_changed'
+  | 'profile_updated'
+  | 'reported'
+  | 'stage_changed';
+
+export type AppIdentityKind = 'airtable' | 'email' | 'phone';
+
+export type AppIntakeStatus =
+  'attached' | 'conflict' | 'created' | 'discarded' | 'pending' | 'review';
+
+export type AppSourceKind = 'airtable' | 'census' | 'csv' | 'manual' | 'telegram';
+
 export type AppStaffRole = 'admin' | 'onboarding' | 'outreach';
+
+export type AppStage =
+  | 'active'
+  | 'contacting'
+  | 'discarded'
+  | 'dormant'
+  | 'left'
+  | 'new'
+  | 'talking'
+  | 'to_triage'
+  | 'unresponsive'
+  | 'welcomed';
 
 export type ArrayType<T> = ArrayTypeImpl<T> extends (infer U)[] ? U[] : ArrayTypeImpl<T>;
 
@@ -31,6 +67,8 @@ export type JsonPrimitive = boolean | number | string | null;
 
 export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
+export type Numeric = ColumnType<string, number | string, number | string>;
+
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
 export interface AppAuditLog {
@@ -42,6 +80,78 @@ export interface AppAuditLog {
   id: Generated<Int8>;
   row_id: string;
   table_name: string;
+}
+
+export interface AppCommunityPresence {
+  /**
+   * personal data
+   */
+  chat: string | null;
+  created_at: Generated<Timestamp>;
+  id: Generated<string>;
+  joined_on: Timestamp | null;
+  joined_reported_by: string | null;
+  left_on: Timestamp | null;
+  left_reported_by: string | null;
+  person_id: string;
+}
+
+export interface AppExports {
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  /**
+   * personal data
+   */
+  filter: Generated<Json>;
+  id: Generated<string>;
+  kind: string;
+  row_count: number;
+}
+
+export interface AppIdentities {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  kind: AppIdentityKind;
+  person_id: string;
+  source: AppSourceKind;
+  /**
+   * personal data
+   */
+  value: string;
+  verified: Generated<boolean>;
+}
+
+export interface AppImports {
+  counts: Generated<Json>;
+  file_sha256: string | null;
+  finished_at: Timestamp | null;
+  id: Generated<string>;
+  kind: string;
+  started_at: Generated<Timestamp>;
+  started_by: string | null;
+}
+
+export interface AppIntakeRecords {
+  candidates: Generated<string[]>;
+  /**
+   * personal data
+   */
+  conflicts: Generated<Json>;
+  created_at: Generated<Timestamp>;
+  decided_at: Timestamp | null;
+  decided_by: string | null;
+  external_id: string;
+  id: Generated<string>;
+  import_id: string | null;
+  /**
+   * personal data
+   */
+  payload: Json;
+  person_id: string | null;
+  reported_by: string | null;
+  source: AppSourceKind;
+  status: Generated<AppIntakeStatus>;
 }
 
 export interface AppInvitations {
@@ -58,6 +168,101 @@ export interface AppInvitations {
   revoked_at: Timestamp | null;
   roles: ArrayType<AppStaffRole>;
   token_hash: string;
+}
+
+export interface AppPeople {
+  anonymised_at: Timestamp | null;
+  /**
+   * personal data
+   */
+  availability: AppAvailability | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  /**
+   * personal data
+   */
+  full_name: string;
+  /**
+   * personal data
+   */
+  how_heard: string | null;
+  id: Generated<string>;
+  /**
+   * personal data
+   */
+  languages: Generated<string[]>;
+  merged_into: string | null;
+  /**
+   * personal data
+   */
+  name_folded: Generated<string | null>;
+  /**
+   * personal data
+   */
+  next_action: string | null;
+  next_action_due: Timestamp | null;
+  owner_id: string | null;
+  /**
+   * personal data
+   */
+  preferred_name: string | null;
+  profile_completed_at: Timestamp | null;
+  /**
+   * personal data
+   */
+  pronouns: string | null;
+  /**
+   * personal data
+   */
+  province: string | null;
+  stage: Generated<AppStage>;
+  /**
+   * personal data
+   */
+  town: string | null;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface AppPeopleAttention {
+  person_id: string | null;
+  reasons: string[] | null;
+}
+
+export interface AppPersonEvents {
+  actor_id: string | null;
+  /**
+   * personal data
+   */
+  body: string | null;
+  channel: string | null;
+  created_at: Generated<Timestamp>;
+  /**
+   * personal data
+   */
+  data: Generated<Json>;
+  id: Generated<string>;
+  kind: AppEventKind;
+  person_id: string;
+}
+
+export interface AppPersonSources {
+  first_seen_at: Generated<Timestamp>;
+  person_id: string;
+  reported_by: string | null;
+  source: AppSourceKind;
+}
+
+export interface AppSettings {
+  community_chats: Generated<string[]>;
+  follow_up_days: Generated<number>;
+  id: Generated<boolean>;
+  match_threshold: Generated<Numeric>;
+  unassigned_alert_hours: Generated<number>;
+  unresponsive_attempts: Generated<number>;
+  unresponsive_days: Generated<number>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
 }
 
 export interface AppStaff {
@@ -82,7 +287,17 @@ export interface AppStaffRoles {
 
 export interface DB {
   'app.audit_log': AppAuditLog;
+  'app.community_presence': AppCommunityPresence;
+  'app.exports': AppExports;
+  'app.identities': AppIdentities;
+  'app.imports': AppImports;
+  'app.intake_records': AppIntakeRecords;
   'app.invitations': AppInvitations;
+  'app.people': AppPeople;
+  'app.people_attention': AppPeopleAttention;
+  'app.person_events': AppPersonEvents;
+  'app.person_sources': AppPersonSources;
+  'app.settings': AppSettings;
   'app.staff': AppStaff;
   'app.staff_roles': AppStaffRoles;
 }

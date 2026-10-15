@@ -180,10 +180,33 @@ describe('catalog: closed by default', () => {
     }
   });
 
-  it('gives the ingest and public roles nothing yet: their grants come with M1 and M2', async () => {
-    for (const role of ['pauseai_backoffice_ingest', 'pauseai_backoffice_public']) {
-      expect({ role, grants: await reachable(role, SCHEMAS) }).toEqual({ role, grants: [] });
-    }
+  it('keeps the ingest role to its one function (ADR-0005), and gives the public role nothing until M2', async () => {
+    expect(await reachable('pauseai_backoffice_ingest', SCHEMAS)).toEqual([
+      'private USAGE',
+      'private.ingest_airtable EXECUTE',
+    ]);
+    expect(await reachable('pauseai_backoffice_public', SCHEMAS)).toEqual([]);
+  });
+
+  it("lets only the app role look in the extensions schema, which holds pg_trgm's functions and nothing else", async () => {
+    // A trusted extension's functions belong to the bootstrap superuser, executable by PUBLIC (migration
+    // onboarding_types): the schema is what's closed.
+    const users = await rows<{ role: string }>(
+      `SELECT r.role FROM unnest($1::text[]) AS r(role) WHERE has_schema_privilege(r.role, 'extensions', 'USAGE')
+       UNION ALL SELECT 'public' WHERE has_schema_privilege('public', 'extensions', 'USAGE')`,
+      [RUNTIME_ROLES],
+    );
+    expect(users.map((u) => u.role)).toEqual(['pauseai_backoffice_app']);
+    const foreign = await rows<{ name: string }>(
+      `SELECT c.relname AS name FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'extensions'
+       UNION ALL
+       SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'extensions'
+          AND NOT EXISTS (SELECT 1 FROM pg_depend d JOIN pg_extension e ON e.oid = d.refobjid
+                           WHERE d.objid = p.oid AND d.deptype = 'e' AND e.extname = 'pg_trgm')`,
+    );
+    expect(foreign).toEqual([]);
   });
 
   it('gives pauseai_backoffice_auth exactly what Better Auth does with its tables, and no default grants anywhere', async () => {
@@ -399,10 +422,30 @@ const NOT_AUDITED: Readonly<Record<string, string>> = {
 };
 
 /** Tables in app whose rows are never updated or deleted, except by anonymisation (data model spec). */
-const APPEND_ONLY = ['audit_log'];
+const APPEND_ONLY = ['audit_log', 'person_events'];
 
 /** Columns commented `personal data` (data model spec, conventions), as `table.column`: never copied to the log. */
-const PERSONAL_DATA: readonly string[] = ['invitations.email', 'staff.display_name'];
+const PERSONAL_DATA: readonly string[] = [
+  'community_presence.chat',
+  'exports.filter',
+  'identities.value',
+  'intake_records.conflicts',
+  'intake_records.payload',
+  'invitations.email',
+  'people.availability',
+  'people.full_name',
+  'people.how_heard',
+  'people.languages',
+  'people.name_folded',
+  'people.next_action',
+  'people.preferred_name',
+  'people.pronouns',
+  'people.province',
+  'people.town',
+  'person_events.body',
+  'person_events.data',
+  'staff.display_name',
+];
 
 /** Better Auth's, in `auth`: it has no audit trigger, but the marks still say what is. */
 const AUTH_PERSONAL_DATA: readonly string[] = [

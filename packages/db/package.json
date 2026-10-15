@@ -24,6 +24,7 @@
     "pg": "8.23.1"
   },
   "devDependencies": {
+    "@backoffice/domain": "workspace:*",
     "@slango.configs/lint-staged": "2.0.8",
     "@slango.configs/oxlint": "0.1.13",
     "@slango.configs/typescript": "3.0.0",
