@@ -165,8 +165,10 @@ describe('parseFormInfo', () => {
 
 describe('outcomeOf', () => {
   it('reads every answer the API gives', () => {
-    expect(outcomeOf(200, { outcome: 'created' })).toEqual({ kind: 'done', outcome: 'created' });
-    expect(outcomeOf(200, { outcome: 'review' })).toEqual({ kind: 'done', outcome: 'review' });
+    expect(outcomeOf(200, { outcome: 'received' })).toEqual({ kind: 'done', outcome: 'received' });
+    expect(outcomeOf(200, { outcome: 'updated' })).toEqual({ kind: 'done', outcome: 'updated' });
+    // The generic link's outcomes before the review, which told whether someone was known: no longer taken.
+    expect(outcomeOf(200, { outcome: 'review' }).kind).not.toBe('done');
     expect(outcomeOf(400, { error: 'invalid', field: 'email' })).toEqual({
       kind: 'invalid',
       field: 'email',

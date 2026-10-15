@@ -388,29 +388,46 @@ CREATE FUNCTION private.anonymise_person(person uuid) RETURNS boolean
     AS $$
   DECLARE
     subject app.people;
+    chain uuid[];
   BEGIN
     IF NOT private.staff_can('admin') THEN
       RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
     END IF;
-    SELECT p.* INTO subject FROM app.people p WHERE p.id = person FOR UPDATE;
+    SELECT p.* INTO subject FROM app.people p WHERE p.id = private.survivor(anonymise_person.person) FOR UPDATE;
     IF NOT FOUND OR subject.anonymised_at IS NOT NULL THEN
       RETURN false;
     END IF;
-    PERFORM set_config('app.redact', 'on', true);
-    UPDATE app.person_events e SET body = NULL, data = '{}'
-     WHERE e.person_id = person OR e.person_id IN (SELECT t.id FROM app.people t WHERE t.merged_into = person);
-    PERFORM set_config('app.redact', '', true);
-    DELETE FROM app.identities i WHERE i.person_id = person;
-    DELETE FROM app.person_options o WHERE o.person_id = person;
-    DELETE FROM app.census_links l WHERE l.person_id = person;
-    UPDATE app.community_presence c SET chat = NULL WHERE c.person_id = person;
-    UPDATE app.intake_records r SET payload = '{}', conflicts = '{}', candidates = '{}'
-     WHERE r.person_id = person OR person = ANY (r.candidates);
+    -- The person and every duplicate merged into them, at any depth.
+    WITH RECURSIVE merged (id) AS (
+      SELECT subject.id
+      UNION
+      SELECT p.id FROM app.people p JOIN merged m ON p.merged_into = m.id)
+    SELECT array_agg(m.id) INTO chain FROM merged m;
+    PERFORM 1 FROM app.people p WHERE p.id = ANY (chain) FOR UPDATE;
+
+    UPDATE app.community_presence c SET chat = NULL WHERE c.person_id = ANY (chain);
+    DELETE FROM app.identities i WHERE i.person_id = ANY (chain);
+    DELETE FROM app.person_options o WHERE o.person_id = ANY (chain);
+    DELETE FROM app.census_links l WHERE l.person_id = ANY (chain);
+    -- Their own records forget the payload, and keep only a hash of their external id (above).
+    UPDATE app.intake_records r
+       SET payload = '{}', conflicts = '{}', candidates = '{}',
+           external_id = CASE WHEN r.external_id LIKE 'erased:%' THEN r.external_id
+                              ELSE private.erased_ref(r.source, r.external_id) END
+     WHERE r.person_id = ANY (chain);
+    -- Someone else's arrival that only named them as a possible duplicate just stops naming them.
+    UPDATE app.intake_records r
+       SET candidates = ARRAY(SELECT c FROM unnest(r.candidates) AS c WHERE c <> ALL (chain))
+     WHERE r.candidates && chain AND (r.person_id IS NULL OR NOT (r.person_id = ANY (chain)));
     UPDATE app.people p
        SET full_name = 'Persona anonimizada', preferred_name = NULL, province = NULL, town = NULL, languages = '{}',
            pronouns = NULL, availability = NULL, how_heard = NULL, next_action = NULL, next_action_due = NULL,
            skills_other = NULL, interests_other = NULL, owner_id = NULL, anonymised_at = now()
-     WHERE p.id = person;
+     WHERE p.id = ANY (chain) AND p.anonymised_at IS NULL;
+    -- Last, so the events the update above just wrote are redacted too.
+    PERFORM set_config('app.redact', 'on', true);
+    UPDATE app.person_events e SET body = NULL, data = '{}' WHERE e.person_id = ANY (chain);
+    PERFORM set_config('app.redact', '', true);
     RETURN true;
   END
   $$;
@@ -614,6 +631,9 @@ CREATE FUNCTION private.census_apply(person uuid, answer jsonb, link text) RETUR
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
+  DECLARE
+    identity record;
+    answered timestamptz := coalesce((answer ->> 'answered_at')::timestamptz, now());
   BEGIN
     UPDATE app.people p
        SET full_name = left(btrim(answer ->> 'name'), 200),
@@ -634,12 +654,22 @@ CREATE FUNCTION private.census_apply(person uuid, answer jsonb, link text) RETUR
     INSERT INTO app.person_options (person_id, option_id)
     SELECT person, o.id FROM app.census_options o
      WHERE o.active AND o.id::text IN (SELECT jsonb_array_elements_text(coalesce(answer -> 'options', '[]')));
-    INSERT INTO app.consents (person_id, kind, granted, wording_version, source)
+    FOR identity IN
+      SELECT 'email'::app.identity_kind AS kind, answer ->> 'email' AS value WHERE coalesce(answer ->> 'email', '') <> ''
+      UNION ALL
+      SELECT 'phone', answer ->> 'phone' WHERE coalesce(answer ->> 'phone', '') <> ''
+    LOOP
+      INSERT INTO app.identities (person_id, kind, value, verified, source)
+      VALUES (person, identity.kind, identity.value, false, 'census')
+      ON CONFLICT (kind, value) DO NOTHING;
+    END LOOP;
+    INSERT INTO app.person_sources (person_id, source) VALUES (person, 'census') ON CONFLICT DO NOTHING;
+    INSERT INTO app.consents (person_id, kind, granted, wording_version, source, given_at)
     SELECT person, k.kind, coalesce((answer ->> ('consent_' || k.kind))::boolean, false), answer ->> 'wording_version',
-           'census'
+           'census', answered
       FROM unnest(ARRAY['email', 'whatsapp', 'privacy']) AS k(kind);
     INSERT INTO app.person_events (person_id, kind, data)
-    VALUES (person, 'form_submitted', jsonb_build_object('link', link));
+    VALUES (person, 'form_submitted', jsonb_build_object('link', link, 'answeredAt', answered));
   END
   $$;
 
@@ -658,17 +688,34 @@ CREATE FUNCTION private.census_form(token_hash text DEFAULT NULL::text) RETURNS 
                                       ORDER BY o.kind, o.position, o.label), '[]')
               FROM app.census_options o WHERE o.active),
            (SELECT coalesce(p.preferred_name, split_part(p.full_name, ' ', 1))
-              FROM app.census_links l JOIN app.people p ON p.id = l.person_id
-             WHERE l.token_hash = census_form.token_hash AND l.expires_at > now()
-               AND p.merged_into IS NULL AND p.anonymised_at IS NULL),
+              FROM private.census_link_person(census_form.token_hash) k JOIN app.people p ON p.id = k.person_id),
            CASE WHEN census_form.token_hash IS NULL THEN 'generic'
-                WHEN EXISTS (SELECT 1 FROM app.census_links l
-                              WHERE l.token_hash = census_form.token_hash AND l.expires_at > now()) THEN 'personal'
+                WHEN EXISTS (SELECT 1 FROM private.census_link_person(census_form.token_hash)) THEN 'personal'
                 ELSE 'invalid' END
   $$;
 
 
 ALTER FUNCTION private.census_form(token_hash text) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: census_link_person(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.census_link_person(token_hash text) RETURNS TABLE(link_id uuid, person_id uuid)
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+    SELECT l.id, private.survivor(l.person_id)
+      FROM app.census_links l
+     WHERE l.token_hash = census_link_person.token_hash AND l.expires_at > now()
+       AND NOT EXISTS (SELECT 1 FROM app.census_links n
+                        WHERE n.person_id = l.person_id AND (n.created_at, n.id) > (l.created_at, l.id))
+       AND EXISTS (SELECT 1 FROM app.people p
+                    WHERE p.id = private.survivor(l.person_id) AND p.anonymised_at IS NULL)
+  $$;
+
+
+ALTER FUNCTION private.census_link_person(token_hash text) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: census_link_sent(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -902,6 +949,21 @@ CREATE FUNCTION private.current_user_id() RETURNS uuid
 ALTER FUNCTION private.current_user_id() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: erased_ref(app.source_kind, text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.erased_ref(source app.source_kind, external_id text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+    SELECT 'erased:' || pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(source::text || ':' || external_id,
+                                                                                    'UTF8')), 'hex')
+  $$;
+
+
+ALTER FUNCTION private.erased_ref(source app.source_kind, external_id text) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: fold_name(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -957,7 +1019,7 @@ CREATE FUNCTION private.import_batch(kind text, source app.source_kind, file_sha
     existing app.intake_records;
     outcome app.intake_status;
     tally jsonb := jsonb_build_object('received', 0, 'unchanged', 0, 'created', 0, 'attached', 0, 'review', 0,
-                                       'conflict', 0, 'updated', 0);
+                                       'conflict', 0, 'updated', 0, 'erased', 0);
   BEGIN
     IF jsonb_typeof(records) IS DISTINCT FROM 'array' THEN
       RAISE EXCEPTION 'records are an array' USING ERRCODE = 'invalid_parameter_value';
@@ -968,9 +1030,21 @@ CREATE FUNCTION private.import_batch(kind text, source app.source_kind, file_sha
     FOR item IN SELECT * FROM jsonb_array_elements(records) LOOP
       tally := jsonb_set(tally, '{received}', to_jsonb((tally ->> 'received')::int + 1));
       PERFORM private.check_payload(item -> 'payload');
+      -- A record of someone erased: counted, never brought back.
+      IF EXISTS (SELECT 1 FROM app.intake_records i
+                  WHERE i.source = import_batch.source
+                    AND i.external_id = private.erased_ref(import_batch.source, item ->> 'external_id')) THEN
+        tally := jsonb_set(tally, '{erased}', to_jsonb((tally ->> 'erased')::int + 1));
+        CONTINUE;
+      END IF;
       SELECT i.* INTO existing FROM app.intake_records i
        WHERE i.source = import_batch.source AND i.external_id = item ->> 'external_id' FOR UPDATE;
-      IF FOUND AND existing.payload = item -> 'payload' THEN
+      IF FOUND AND existing.person_id IS NOT NULL
+         AND EXISTS (SELECT 1 FROM app.people p
+                      WHERE p.id = private.survivor(existing.person_id) AND p.anonymised_at IS NOT NULL) THEN
+        tally := jsonb_set(tally, '{erased}', to_jsonb((tally ->> 'erased')::int + 1));
+        CONTINUE;
+      ELSIF FOUND AND existing.payload = item -> 'payload' THEN
         tally := jsonb_set(tally, '{unchanged}', to_jsonb((tally ->> 'unchanged')::int + 1));
         CONTINUE;
       ELSIF FOUND THEN
@@ -1077,6 +1151,13 @@ CREATE TABLE app.intake_records (
 
 
 ALTER TABLE app.intake_records OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN intake_records.external_id; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.intake_records.external_id IS 'personal data';
+
 
 --
 -- Name: COLUMN intake_records.payload; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
@@ -1529,6 +1610,41 @@ CREATE FUNCTION private.presence_timeline() RETURNS trigger
 ALTER FUNCTION private.presence_timeline() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: refuse_anonymised_detail(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.refuse_anonymised_detail() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM app.people p WHERE p.id = NEW.person_id AND p.anonymised_at IS NOT NULL) THEN
+      RAISE EXCEPTION 'person % was erased', NEW.person_id USING ERRCODE = 'restrict_violation';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.refuse_anonymised_detail() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: refuse_anonymised_person(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.refuse_anonymised_person() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    RAISE EXCEPTION 'person % was erased', OLD.id USING ERRCODE = 'restrict_violation';
+  END
+  $$;
+
+
+ALTER FUNCTION private.refuse_anonymised_person() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: report_leave(uuid, date); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1582,6 +1698,19 @@ CREATE FUNCTION private.resolve_intake(intake_id uuid, decision text, target uui
       RAISE EXCEPTION 'no intake record %', intake_id USING ERRCODE = 'no_data_found';
     END IF;
     census := intake.conflicts -> 'census';
+    IF intake.status = 'review' AND census IS NOT NULL AND decision IN ('attach', 'new') THEN
+      IF decision = 'new' THEN
+        RAISE EXCEPTION 'a census answer that matched two people is attached to one of them, or discarded'
+          USING ERRCODE = 'restrict_violation';
+      END IF;
+      IF target IS NULL OR NOT (target = ANY (intake.candidates)) THEN
+        RAISE EXCEPTION 'attach to one of the candidates' USING ERRCODE = 'invalid_parameter_value';
+      END IF;
+      UPDATE app.intake_records i
+         SET status = 'conflict', person_id = private.survivor(target), candidates = '{}'
+       WHERE i.id = intake_id;
+      RETURN 'conflict';
+    END IF;
     IF intake.status = 'review' AND decision IN ('attach', 'new', 'discard') THEN
       IF decision = 'attach' AND NOT (target = ANY (intake.candidates)) THEN
         RAISE EXCEPTION 'attach to one of the candidates' USING ERRCODE = 'invalid_parameter_value';
@@ -1772,36 +1901,22 @@ CREATE FUNCTION private.submit_census(token_hash text, answer jsonb) RETURNS tex
     SET search_path TO ''
     AS $$
   DECLARE
-    link app.census_links;
+    link record;
     person uuid;
     intake uuid;
     outcome app.intake_status;
-    identity record;
     matched uuid[];
+    kept jsonb;
   BEGIN
     PERFORM private.check_census(answer);
     IF submit_census.token_hash IS NOT NULL THEN
-      SELECT l.* INTO link FROM app.census_links l
-        JOIN app.people p ON p.id = l.person_id
-       WHERE l.token_hash = submit_census.token_hash AND l.expires_at > now()
-         AND p.merged_into IS NULL AND p.anonymised_at IS NULL
-       FOR UPDATE OF l;
+      SELECT k.* INTO link FROM private.census_link_person(submit_census.token_hash) k;
       IF NOT FOUND THEN
         RETURN 'invalid';
       END IF;
-      person := link.person_id;
-      PERFORM private.census_apply(person, answer, 'personal');
-      FOR identity IN
-        SELECT 'email'::app.identity_kind AS kind, answer ->> 'email' AS value WHERE coalesce(answer ->> 'email', '') <> ''
-        UNION ALL
-        SELECT 'phone', answer ->> 'phone' WHERE coalesce(answer ->> 'phone', '') <> ''
-      LOOP
-        INSERT INTO app.identities (person_id, kind, value, verified, source)
-        VALUES (person, identity.kind, identity.value, false, 'census')
-        ON CONFLICT (kind, value) DO NOTHING;
-      END LOOP;
-      INSERT INTO app.person_sources (person_id, source) VALUES (person, 'census') ON CONFLICT DO NOTHING;
-      UPDATE app.census_links l SET used_at = coalesce(l.used_at, now()) WHERE l.id = link.id;
+      PERFORM 1 FROM app.census_links l WHERE l.id = link.link_id FOR UPDATE;
+      PERFORM private.census_apply(link.person_id, answer, 'personal');
+      UPDATE app.census_links l SET used_at = coalesce(l.used_at, now()) WHERE l.id = link.link_id;
       RETURN 'updated';
     END IF;
 
@@ -1818,17 +1933,18 @@ CREATE FUNCTION private.submit_census(token_hash text, answer jsonb) RETURNS tex
             NULL)
     RETURNING id INTO intake;
     -- Anyone can type anyone's number: an answer that matches someone never applies itself, and waits in the Bandeja
-    -- (a conflict to apply, or, matching two people, a duplicate to decide first); one that matches nobody makes a new
-    -- person.
+    -- with the time it was given (a conflict to apply, or, matching two people, one to attach first); one that matches
+    -- nobody makes a new person.
     SELECT coalesce(array_agg(DISTINCT private.survivor(i.person_id)), '{}') INTO matched
       FROM app.identities i
      WHERE (i.kind = 'email' AND i.value = answer ->> 'email') OR (i.kind = 'phone' AND i.value = answer ->> 'phone');
     IF cardinality(matched) > 0 THEN
+      kept := (answer - 'age_ok') || jsonb_build_object('answered_at', now());
       UPDATE app.intake_records r
          SET status = CASE WHEN cardinality(matched) = 1 THEN 'conflict'::app.intake_status ELSE 'review' END,
              person_id = CASE WHEN cardinality(matched) = 1 THEN matched[1] END,
              candidates = CASE WHEN cardinality(matched) > 1 THEN matched ELSE '{}' END,
-             conflicts = jsonb_build_object('census', answer - 'age_ok')
+             conflicts = jsonb_build_object('census', kept)
        WHERE r.id = intake;
       RETURN 'review';
     END IF;
@@ -2267,6 +2383,7 @@ CREATE TABLE app.consents (
     wording_version text NOT NULL,
     source app.source_kind NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    given_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT consents_kind_check CHECK ((kind = ANY (ARRAY['email'::text, 'whatsapp'::text, 'privacy'::text]))),
     CONSTRAINT consents_wording_version_check CHECK ((wording_version ~ '^[a-z0-9][a-z0-9.-]{0,39}$'::text))
 );
@@ -3854,6 +3971,55 @@ CREATE TRIGGER contact_attempt AFTER INSERT ON app.person_events FOR EACH ROW WH
 
 
 --
+-- Name: census_links erased; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER erased BEFORE INSERT ON app.census_links FOR EACH ROW EXECUTE FUNCTION private.refuse_anonymised_detail();
+
+
+--
+-- Name: community_presence erased; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER erased BEFORE INSERT OR UPDATE ON app.community_presence FOR EACH ROW EXECUTE FUNCTION private.refuse_anonymised_detail();
+
+
+--
+-- Name: consents erased; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER erased BEFORE INSERT ON app.consents FOR EACH ROW EXECUTE FUNCTION private.refuse_anonymised_detail();
+
+
+--
+-- Name: identities erased; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER erased BEFORE INSERT OR UPDATE ON app.identities FOR EACH ROW EXECUTE FUNCTION private.refuse_anonymised_detail();
+
+
+--
+-- Name: people erased; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER erased BEFORE UPDATE ON app.people FOR EACH ROW WHEN ((old.anonymised_at IS NOT NULL)) EXECUTE FUNCTION private.refuse_anonymised_person();
+
+
+--
+-- Name: person_options erased; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER erased BEFORE INSERT ON app.person_options FOR EACH ROW EXECUTE FUNCTION private.refuse_anonymised_detail();
+
+
+--
+-- Name: person_sources erased; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER erased BEFORE INSERT ON app.person_sources FOR EACH ROW EXECUTE FUNCTION private.refuse_anonymised_detail();
+
+
+--
 -- Name: audit_log forbid_mutation; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5145,6 +5311,13 @@ GRANT ALL ON FUNCTION private.census_form(token_hash text) TO pauseai_backoffice
 
 
 --
+-- Name: FUNCTION census_link_person(token_hash text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.census_link_person(token_hash text) FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION census_link_sent(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -5209,6 +5382,13 @@ GRANT ALL ON FUNCTION private.current_channel() TO pauseai_backoffice_app;
 
 REVOKE ALL ON FUNCTION private.current_user_id() FROM PUBLIC;
 GRANT ALL ON FUNCTION private.current_user_id() TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION erased_ref(source app.source_kind, external_id text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.erased_ref(source app.source_kind, external_id text) FROM PUBLIC;
 
 
 --
@@ -5340,6 +5520,20 @@ REVOKE ALL ON FUNCTION private.person_timeline() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION private.presence_timeline() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION refuse_anonymised_detail(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.refuse_anonymised_detail() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION refuse_anonymised_person(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.refuse_anonymised_person() FROM PUBLIC;
 
 
 --

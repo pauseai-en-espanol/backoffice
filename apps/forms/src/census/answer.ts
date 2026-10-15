@@ -200,7 +200,7 @@ export const parseFormInfo = (body: unknown, fallbackVersion: string): FormInfo 
 
 /** What submitting came to, as the page words it. */
 export type Outcome =
-  | { kind: 'done'; outcome: 'created' | 'updated' | 'review' }
+  | { kind: 'done'; outcome: 'received' | 'updated' }
   | { kind: 'invalid'; field?: string }
   | { kind: 'invalidLink' }
   | { kind: 'limit' }
@@ -209,10 +209,7 @@ export type Outcome =
 /** The forms app's /enviar answer (status and body), read the same way the API's is. */
 export const outcomeOf = (status: number, body: unknown): Outcome => {
   const record = isRecord(body) ? body : {};
-  if (
-    status === 200 &&
-    (record.outcome === 'created' || record.outcome === 'updated' || record.outcome === 'review')
-  ) {
+  if (status === 200 && (record.outcome === 'received' || record.outcome === 'updated')) {
     return { kind: 'done', outcome: record.outcome };
   }
   if (status === 400) {

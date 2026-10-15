@@ -83,5 +83,5 @@ test('the generic link takes an answer from someone new, and refuses one sent to
   }
   await expect.poll(() => Date.now() - loadedAt, { timeout: FILL_MS * 3 }).toBeGreaterThan(FILL_MS);
   await page.getByRole('button', { name: 'Enviar' }).click();
-  await expect(page.getByText('Ya estás en el censo.', { exact: false })).toBeVisible();
+  await expect(page.getByText('Hemos recibido tus respuestas.', { exact: false })).toBeVisible();
 });

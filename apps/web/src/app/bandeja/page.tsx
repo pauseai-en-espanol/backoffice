@@ -212,7 +212,8 @@ const BandejaPage = async () => {
               personId: candidate.id,
               label: t('bandeja.attachTo', { name: candidate.name }),
             })),
-            isNew: t('bandeja.isNew'),
+            // A census answer that matched two people is theirs to attach to one: both hold its email or phone.
+            ...(census ? {} : { isNew: t('bandeja.isNew') }),
             discard: t('bandeja.discard'),
             discardConfirm: t('bandeja.discardConfirm'),
             apply:

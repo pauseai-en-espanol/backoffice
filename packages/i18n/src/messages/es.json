@@ -800,7 +800,8 @@
       "updated": "Actualizados",
       "skipped": "Omitidos",
       "discarded": "Descartados",
-      "invalid": "Con datos que no valen"
+      "invalid": "Con datos que no valen",
+      "erased": "Borrados (no se recuperan)"
     },
     "csv": "Importar un CSV",
     "csvIntro": "Sube un CSV (máximo 1 MB). Primero verás qué columnas se usan y qué pasaría: no se guarda nada hasta que pulses «Aplicar la importación».",
@@ -930,7 +931,7 @@
     "create": "Crear enlace",
     "createFor": "Crear enlace para {name}",
     "createAgain": "Crear un enlace nuevo",
-    "createAgainHint": "El enlace anterior sigue sirviendo hasta que caduque.",
+    "createAgainHint": "El enlace anterior deja de servir: solo vale el último.",
     "created": "Enlace creado. Solo se muestra ahora: envíalo antes de salir de la página.",
     "url": "Enlace personal",
     "urlHint": "Lleva un código que solo sirve a esta persona durante 30 días. No lo publiques.",
@@ -1001,9 +1002,8 @@
       "ageOk": "Si tienes menos de 14 años, no envíes el formulario: habla con alguien del equipo de PauseAI España, que te explicará cómo participar."
     },
     "outcomes": {
-      "created": "¡Gracias! Ya estás en el censo. Alguien del equipo de acogida te escribirá pronto.",
-      "updated": "¡Gracias! Hemos puesto al día tu ficha.",
-      "review": "¡Gracias! Alguien del equipo revisará tus respuestas para añadirlas a tu ficha."
+      "received": "¡Gracias! Hemos recibido tus respuestas. Si acabas de llegar, alguien del equipo de acogida te escribirá pronto.",
+      "updated": "¡Gracias! Hemos puesto al día tu ficha."
     },
     "thanksTitle": "Gracias",
     "errors": {

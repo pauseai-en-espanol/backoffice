@@ -481,6 +481,7 @@ const PERSONAL_DATA: readonly string[] = [
   'exports.filter',
   'identities.value',
   'intake_records.conflicts',
+  'intake_records.external_id',
   'intake_records.payload',
   'invitations.email',
   'organisations.notes',

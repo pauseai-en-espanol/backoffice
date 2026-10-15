@@ -11,6 +11,7 @@ const ORDER = [
   'conflict',
   'updated',
   'unchanged',
+  'erased',
   'skipped',
   'discarded',
   'invalid',

@@ -292,3 +292,231 @@ describe('erasure', () => {
     });
   });
 });
+
+describe('erasure that holds (security review of M2)', () => {
+  const asAdmin = (client: pg.Client) =>
+    actAs(client, 'pauseai_backoffice_app', { userId: USERS.adminA, aal: 2, channel: 'web' });
+  const erase = async (client: pg.Client, person: string) => {
+    await asAdmin(client);
+    const { rows } = await client.query<{ done: boolean }>(
+      'SELECT private.anonymise_person($1) AS done',
+      [person],
+    );
+    await client.query('RESET ROLE');
+    return rows[0]?.done;
+  };
+  const sync = async (client: pg.Client, records: unknown[]) => {
+    await client.query('SET LOCAL ROLE pauseai_backoffice_ingest');
+    const { rows } = await client.query<{ counts: Record<string, number> }>(
+      'SELECT private.ingest_airtable($1) AS counts',
+      [JSON.stringify(records)],
+    );
+    await client.query('RESET ROLE');
+    return rows[0]?.counts;
+  };
+
+  it('is not undone by the next Airtable sync, which counts the record as erased', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const record = {
+        external_id: 'recEjemploBorra01',
+        payload: {
+          name: 'Irene Ejemplo',
+          emails: ['irene.borrada@ejemplo.test'],
+          province: 'Provincia de ejemplo',
+          airtable_id: 'recEjemploBorra01',
+        },
+      };
+      expect(await sync(client, [record])).toMatchObject({ created: 1 });
+      const { rows } = await client.query<{ person_id: string }>(
+        "SELECT person_id FROM app.identities WHERE value = 'irene.borrada@ejemplo.test'",
+      );
+      const person = rows[0]?.person_id ?? '';
+      expect(await erase(client, person)).toBe(true);
+      // The same record again, and changed: neither brings anything back, nor makes someone new.
+      expect(await sync(client, [record])).toMatchObject({ erased: 1, created: 0, updated: 0 });
+      expect(
+        await sync(client, [{ ...record, payload: { ...record.payload, town: 'Otra' } }]),
+      ).toMatchObject({ erased: 1, created: 0 });
+      const after = await client.query(
+        `SELECT p.full_name, p.province, (SELECT count(*)::int FROM app.identities i WHERE i.person_id = p.id) AS ids
+           FROM app.people p WHERE p.id = $1`,
+        [person],
+      );
+      expect(after.rows[0]).toEqual({ full_name: 'Persona anonimizada', province: null, ids: 0 });
+      // Global's record id no longer appears in clear.
+      const kept = await client.query(
+        "SELECT 1 FROM app.intake_records WHERE external_id = 'recEjemploBorra01'",
+      );
+      expect(kept.rows).toEqual([]);
+    });
+  });
+
+  it('covers the duplicates merged into the person, and spares an arrival that only named them', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const other = await client.query<{ id: string }>(
+        `INSERT INTO app.intake_records (source, external_id, payload, status, candidates)
+         VALUES ('manual', 'otra-llegada', '{"name": "Ana Ejemplo Otra"}', 'review', ARRAY[$1::uuid])
+         RETURNING id`,
+        [PEOPLE.ana],
+      );
+      expect(await erase(client, PEOPLE.ana)).toBe(true);
+      const tombstone = await client.query(
+        'SELECT full_name, anonymised_at IS NOT NULL AS gone FROM app.people WHERE id = $1',
+        [PEOPLE.anaDuplicate],
+      );
+      expect(tombstone.rows[0]).toEqual({ full_name: 'Persona anonimizada', gone: true });
+      const spared = await client.query(
+        'SELECT payload, candidates, status::text FROM app.intake_records WHERE id = $1',
+        [other.rows[0]?.id],
+      );
+      expect(spared.rows[0]).toEqual({
+        payload: { name: 'Ana Ejemplo Otra' },
+        candidates: [],
+        status: 'review',
+      });
+    });
+  });
+
+  it('freezes the erased person: nothing is added to them, and their row stays as it was left', async () => {
+    await inRolledBackTransaction(async (client) => {
+      expect(await erase(client, PEOPLE.ana)).toBe(true);
+      for (const statement of [
+        "INSERT INTO app.identities (person_id, kind, value, source) VALUES ($1, 'email', 'vuelta@ejemplo.test', 'manual')",
+        "INSERT INTO app.person_sources (person_id, source) VALUES ($1, 'csv')",
+        'INSERT INTO app.community_presence (person_id, joined_on) VALUES ($1, current_date)',
+        "UPDATE app.people SET full_name = 'Ana Vuelta' WHERE id = $1",
+      ]) {
+        expect(await errorCode(client, statement, [PEOPLE.ana])).toBe('23001');
+      }
+    });
+  });
+});
+
+describe('the census, after the review', () => {
+  it('applies a generic answer with its new email, and the consents it gave when it was given', async () => {
+    await inRolledBackTransaction(async (client) => {
+      expect(
+        await submit(client, null, {
+          phone: ANA_PHONE,
+          email: 'ana.nueva@ejemplo.test',
+          consent_email: true,
+        }),
+      ).toBe('review');
+      const { rows } = await client.query<{ id: string; answered: string }>(
+        `SELECT id, conflicts -> 'census' ->> 'answered_at' AS answered FROM app.intake_records
+          WHERE source = 'census' AND person_id = $1`,
+        [PEOPLE.ana],
+      );
+      expect(rows[0]?.answered).toBeTruthy();
+      // Answered days before anyone applies it.
+      const answered = '2026-10-01T10:00:00.000Z';
+      await client.query(
+        `UPDATE app.intake_records SET conflicts = jsonb_set(conflicts, '{census,answered_at}', to_jsonb($2::text))
+          WHERE id = $1`,
+        [rows[0]?.id, answered],
+      );
+      await actAs(client, 'pauseai_backoffice_app', {
+        userId: USERS.onboarder,
+        aal: 2,
+        channel: 'web',
+      });
+      await client.query("SELECT private.resolve_intake($1, 'apply')", [rows[0]?.id]);
+      await client.query('RESET ROLE');
+      const email = await client.query(
+        "SELECT source::text FROM app.identities WHERE person_id = $1 AND value = 'ana.nueva@ejemplo.test'",
+        [PEOPLE.ana],
+      );
+      expect(email.rows).toEqual([{ source: 'census' }]);
+      const consent = await client.query<{ given: string; granted: boolean }>(
+        `SELECT to_json(given_at)#>>'{}' AS given, granted FROM app.consents
+          WHERE person_id = $1 AND kind = 'email' ORDER BY created_at DESC LIMIT 1`,
+        [PEOPLE.ana],
+      );
+      expect(consent.rows[0]?.granted).toBe(true);
+      expect(new Date(consent.rows[0]?.given ?? '').toISOString()).toBe(answered);
+    });
+  });
+
+  it('attaches an answer that matched two people to one of them, and never makes a third', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const other = await client.query<{ id: string }>(
+        "INSERT INTO app.people (full_name, stage) VALUES ('Bea Ejemplo', 'new') RETURNING id",
+      );
+      const bea = other.rows[0]?.id ?? '';
+      await client.query(
+        "INSERT INTO app.identities (person_id, kind, value, source) VALUES ($1, 'email', 'bea@ejemplo.test', 'manual')",
+        [bea],
+      );
+      expect(await submit(client, null, { phone: ANA_PHONE, email: 'bea@ejemplo.test' })).toBe(
+        'review',
+      );
+      const { rows } = await client.query<{ id: string }>(
+        "SELECT id FROM app.intake_records WHERE source = 'census' AND status = 'review'",
+      );
+      await actAs(client, 'pauseai_backoffice_app', {
+        userId: USERS.onboarder,
+        aal: 2,
+        channel: 'web',
+      });
+      expect(
+        await errorCode(client, "SELECT private.resolve_intake($1, 'new')", [rows[0]?.id]),
+      ).toBe('23001');
+      const attached = await client.query<{ outcome: string }>(
+        "SELECT private.resolve_intake($1, 'attach', $2)::text AS outcome",
+        [rows[0]?.id, bea],
+      );
+      expect(attached.rows[0]?.outcome).toBe('conflict');
+      const applied = await client.query<{ outcome: string }>(
+        "SELECT private.resolve_intake($1, 'apply')::text AS outcome",
+        [rows[0]?.id],
+      );
+      expect(applied.rows[0]?.outcome).toBe('attached');
+      await client.query('RESET ROLE');
+      const named = await client.query('SELECT full_name FROM app.people WHERE id = $1', [bea]);
+      expect(named.rows[0]?.full_name).toBe('Censo Ejemplo');
+    });
+  });
+
+  it('lets a personal link work only while it is the person’s latest, and through a merge', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const form = async (token: string) =>
+        (
+          await client.query<{ link: string; greeting: string | null }>(
+            'SELECT link, greeting FROM private.census_form($1)',
+            [tokenHash(token)],
+          )
+        ).rows[0];
+      expect(await form(CENSUS_TOKEN)).toMatchObject({ link: 'personal' });
+      await client.query("SELECT set_config('app.user_id', $1, true)", [USERS.onboarder]);
+      // A link for the duplicate, made before the merge, now greets and updates the survivor.
+      await client.query(
+        `INSERT INTO app.census_links (person_id, token_hash, expires_at)
+         VALUES ($1, $2, now() + interval '30 days')`,
+        [PEOPLE.anaDuplicate, tokenHash('enlace-del-duplicado')],
+      );
+      expect(await form('enlace-del-duplicado')).toEqual({ link: 'personal', greeting: 'Ana' });
+      expect(await submit(client, 'enlace-del-duplicado', { name: 'Ana Por Enlace Viejo' })).toBe(
+        'updated',
+      );
+      const names = await client.query<{ id: string; full_name: string }>(
+        'SELECT id, full_name FROM app.people WHERE id = ANY($1::uuid[]) ORDER BY id',
+        [[PEOPLE.ana, PEOPLE.anaDuplicate]],
+      );
+      expect(names.rows.find((row) => row.id === PEOPLE.ana)?.full_name).toBe(
+        'Ana Por Enlace Viejo',
+      );
+      expect(names.rows.find((row) => row.id === PEOPLE.anaDuplicate)?.full_name).not.toBe(
+        'Ana Por Enlace Viejo',
+      );
+      // A newer link for Ana replaces the old one.
+      await client.query(
+        `INSERT INTO app.census_links (person_id, token_hash, expires_at)
+         VALUES ($1, $2, now() + interval '30 days')`,
+        [PEOPLE.ana, tokenHash('enlace-nuevo-de-ana')],
+      );
+      expect(await form(CENSUS_TOKEN)).toMatchObject({ link: 'invalid', greeting: null });
+      expect(await form('enlace-nuevo-de-ana')).toMatchObject({ link: 'personal' });
+      expect(await submit(client, CENSUS_TOKEN)).toBe('invalid');
+    });
+  });
+});

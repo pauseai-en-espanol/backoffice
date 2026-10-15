@@ -10,7 +10,8 @@ import { decide } from './actions';
 export interface BandejaActionsText {
   /** "Es {name}", filled by the page for each candidate. */
   attachTo: { personId: string; label: string }[];
-  isNew: string;
+  /** Absent for a census answer, which is never someone new. */
+  isNew?: string;
   discard: string;
   discardConfirm: string;
   apply: string;
@@ -55,14 +56,16 @@ export const BandejaActions = ({
                 {candidate.label}
               </button>
             ))}
-            <button
-              type="button"
-              className={ui.secondaryButton}
-              aria-disabled={write.pending}
-              onClick={() => run({ decision: 'new' })}
-            >
-              {text.isNew}
-            </button>
+            {text.isNew === undefined ? null : (
+              <button
+                type="button"
+                className={ui.secondaryButton}
+                aria-disabled={write.pending}
+                onClick={() => run({ decision: 'new' })}
+              >
+                {text.isNew}
+              </button>
+            )}
             <ConfirmAction
               label={text.discard}
               text={{

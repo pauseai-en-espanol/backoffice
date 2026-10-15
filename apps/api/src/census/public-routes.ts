@@ -191,7 +191,7 @@ export const censusPublicRoutes =
         }
         // The honeypot: a person never fills it in, so whatever filled it is answered as if it worked, and dropped.
         if (website !== undefined && website !== '') {
-          return { outcome: 'created' };
+          return { outcome: link === undefined ? 'received' : 'updated' };
         }
         if (now() - startedAt < MIN_FILL_MS || startedAt > now() + 60_000) {
           return reply.code(400).send({ error: 'invalid', field: 'startedAt' });
@@ -239,7 +239,9 @@ export const censusPublicRoutes =
         if (outcome === 'invalid') {
           return reply.code(409).send({ error: 'invalidLink' });
         }
-        return { outcome };
+        // Through the generic link, one answer whatever happened: whether it made someone new or matched someone
+        // would tell anyone who types a phone number whether its owner is known here.
+        return { outcome: outcome === 'updated' ? 'updated' : 'received' };
       },
     );
   };

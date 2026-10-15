@@ -253,38 +253,56 @@ export const exportPerson = async (
   person: string,
 ): Promise<Record<string, unknown> | undefined> => {
   const one = async (query: ReturnType<typeof sql>) => (await query.execute(trx)).rows;
-  const [profile] = await one(sql`
+  // The person and every duplicate merged into them, at any depth: what they hold is theirs too.
+  const chain = (
+    await sql<{ id: string }>`
+      WITH RECURSIVE up (id, merged_into) AS (
+        SELECT p.id, p.merged_into FROM app.people p WHERE p.id = ${person}
+        UNION
+        SELECT p.id, p.merged_into FROM app.people p JOIN up u ON p.id = u.merged_into),
+      merged (id, depth) AS (
+        SELECT u.id, 0 FROM up u WHERE u.merged_into IS NULL
+        UNION
+        SELECT p.id, m.depth + 1 FROM app.people p JOIN merged m ON p.merged_into = m.id)
+      SELECT id FROM merged ORDER BY depth, id`.execute(trx)
+  ).rows.map((row) => row.id);
+  const [survivor, ...merged] = chain;
+  const profileOf = (id: string) => sql`
     SELECT id, full_name, preferred_name, province, town, languages, pronouns, availability, how_heard, skills_other,
            interests_other, stage, owner_id, next_action, next_action_due, profile_completed_at, merged_into,
            anonymised_at, created_at, updated_at
-      FROM app.people WHERE id = ${person}`);
+      FROM app.people WHERE id = ${id}`;
+  const [profile] = survivor ? await one(profileOf(survivor)) : [];
   if (!profile) {
     return undefined;
   }
   const data = {
     exportedAt: new Date().toISOString(),
     person: profile,
+    mergedRecords: (
+      await Promise.all(merged.map(async (id) => (await one(profileOf(id)))[0]))
+    ).filter(Boolean),
     identities: await one(sql`SELECT kind, value, verified, source, created_at FROM app.identities
-                               WHERE person_id = ${person} ORDER BY created_at`),
-    sources: await one(
-      sql`SELECT source, first_seen_at FROM app.person_sources WHERE person_id = ${person}`,
-    ),
+                               WHERE person_id = ANY (${chain}::uuid[]) ORDER BY created_at`),
+    sources: await one(sql`SELECT source, first_seen_at FROM app.person_sources
+                            WHERE person_id = ANY (${chain}::uuid[]) ORDER BY first_seen_at`),
     communityPresence: await one(sql`SELECT joined_on, left_on, chat FROM app.community_presence
-                                      WHERE person_id = ${person} ORDER BY created_at`),
-    options: await one(sql`SELECT o.kind, o.label FROM app.person_options po
-                             JOIN app.census_options o ON o.id = po.option_id WHERE po.person_id = ${person}`),
+                                      WHERE person_id = ANY (${chain}::uuid[]) ORDER BY created_at`),
+    options: await one(sql`SELECT DISTINCT o.kind, o.label FROM app.person_options po
+                             JOIN app.census_options o ON o.id = po.option_id
+                            WHERE po.person_id = ANY (${chain}::uuid[])`),
     consents:
-      await one(sql`SELECT kind, granted, wording_version, source, created_at FROM app.consents
-                             WHERE person_id = ${person} ORDER BY created_at`),
+      await one(sql`SELECT kind, granted, wording_version, source, given_at, created_at FROM app.consents
+                             WHERE person_id = ANY (${chain}::uuid[]) ORDER BY given_at`),
     timeline: await one(sql`SELECT kind, created_at, channel, body, data FROM app.person_events
-                             WHERE person_id = ${person} ORDER BY created_at`),
+                             WHERE person_id = ANY (${chain}::uuid[]) ORDER BY created_at`),
     intakeRecords: await one(sql`SELECT source, status, payload, created_at FROM app.intake_records
-                                  WHERE person_id = ${person} ORDER BY created_at`),
+                                  WHERE person_id = ANY (${chain}::uuid[]) ORDER BY created_at`),
     censusLinks: await one(sql`SELECT created_at, expires_at, sent_at, used_at FROM app.census_links
-                                WHERE person_id = ${person} ORDER BY created_at`),
+                                WHERE person_id = ANY (${chain}::uuid[]) ORDER BY created_at`),
   };
   await sql`INSERT INTO app.exports (kind, filter, row_count)
-            VALUES ('person_json', ${JSON.stringify({ person })}::jsonb, 1)`.execute(trx);
+            VALUES ('person_json', ${JSON.stringify({ person: survivor })}::jsonb, 1)`.execute(trx);
   return data;
 };
 

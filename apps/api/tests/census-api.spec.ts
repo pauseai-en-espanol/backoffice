@@ -196,13 +196,13 @@ describe('the forms app’s routes (M2)', () => {
       { startedAt: started, website: '', answer: answer() },
       '203.0.113.12',
     );
-    expect(ok.json()).toEqual({ outcome: 'created' });
+    expect(ok.json()).toEqual({ outcome: 'received' });
     const bot = await forms(
       '/submit',
       { startedAt: started, website: 'spam', answer: answer({ name: 'Bot' }) },
       '203.0.113.13',
     );
-    expect(bot.json()).toEqual({ outcome: 'created' });
+    expect(bot.json()).toEqual({ outcome: 'received' });
     const { rows } = await superuser.query("SELECT 1 FROM app.people WHERE full_name = 'Bot'");
     expect(rows).toEqual([]);
     expect(
@@ -348,7 +348,8 @@ describe('the census’s staff side (M2)', () => {
       },
       '203.0.113.40',
     );
-    expect(submitted.json()).toEqual({ outcome: 'review' });
+    // The same answer as for someone new: the generic link never tells whether a phone or email is known.
+    expect(submitted.json()).toEqual({ outcome: 'received' });
     const bandeja = await onboarder.who.send('GET', '/api/bandeja');
     const item = bandeja
       .json<{

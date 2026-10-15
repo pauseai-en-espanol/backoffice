@@ -1,0 +1,98 @@
+[
+  {
+    "name": "a sync brings an erased record back",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "      IF EXISTS (SELECT 1 FROM app.intake_records i\n                  WHERE i.source = import_batch.source\n                    AND i.external_id = private.erased_ref(import_batch.source, item ->> 'external_id')) THEN",
+    "new": "      IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "erasure keeps the record id in clear",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "           external_id = CASE WHEN r.external_id LIKE 'erased:%' THEN r.external_id\n                              ELSE private.erased_ref(r.source, r.external_id) END\n     WHERE r.person_id = ANY (chain);",
+    "new": "           external_id = r.external_id\n     WHERE r.person_id = ANY (chain);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "erasure skips the merged duplicates",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "      SELECT p.id FROM app.people p JOIN merged m ON p.merged_into = m.id)\n    SELECT array_agg(m.id) INTO chain FROM merged m;",
+    "new": "      SELECT p.id FROM app.people p JOIN merged m ON p.merged_into = m.id AND false)\n    SELECT array_agg(m.id) INTO chain FROM merged m;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "erasure wipes another arrival that named them",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "       SET candidates = ARRAY(SELECT c FROM unnest(r.candidates) AS c WHERE c <> ALL (chain))",
+    "new": "       SET candidates = '{}', payload = '{}'",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an erased person takes a new identity",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "CREATE TRIGGER erased BEFORE INSERT OR UPDATE ON app.identities\n  FOR EACH ROW EXECUTE FUNCTION private.refuse_anonymised_detail();\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an erased person's row changes",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "CREATE TRIGGER erased BEFORE UPDATE ON app.people\n  FOR EACH ROW WHEN (OLD.anonymised_at IS NOT NULL) EXECUTE FUNCTION private.refuse_anonymised_person();\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an applied answer drops its email",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "      INSERT INTO app.identities (person_id, kind, value, verified, source)\n      VALUES (person, identity.kind, identity.value, false, 'census')\n      ON CONFLICT (kind, value) DO NOTHING;",
+    "new": "      NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "consents dated when staff apply them",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "    answered timestamptz := coalesce((answer ->> 'answered_at')::timestamptz, now());",
+    "new": "    answered timestamptz := now();",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an old personal link still works",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "                        WHERE n.person_id = l.person_id AND (n.created_at, n.id) > (l.created_at, l.id))",
+    "new": "                        WHERE false)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a link after a merge points at the tombstone",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "    SELECT l.id, private.survivor(l.person_id)\n      FROM app.census_links l",
+    "new": "    SELECT l.id, l.person_id\n      FROM app.census_links l",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an answer that matched two people can't be attached",
+    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "old": "      UPDATE app.intake_records i\n         SET status = 'conflict', person_id = private.survivor(target), candidates = '{}'\n       WHERE i.id = intake_id;\n      RETURN 'conflict';",
+    "new": "      RETURN private.intake_process(intake_id, decision, target);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the generic link tells whether someone is known",
+    "file": "apps/api/src/census/public-routes.ts",
+    "old": "return { outcome: outcome === 'updated' ? 'updated' : 'received' };",
+    "new": "return { outcome };",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  }
+]

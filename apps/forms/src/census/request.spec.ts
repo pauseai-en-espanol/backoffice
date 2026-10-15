@@ -63,7 +63,9 @@ describe('readJsonBody', () => {
 
 describe('passBack', () => {
   it('keeps only the outcome, the error and the field', () => {
-    expect(passBack({ outcome: 'created', person: 'x', error: 3 })).toEqual({ outcome: 'created' });
+    expect(passBack({ outcome: 'received', person: 'x', error: 3 })).toEqual({
+      outcome: 'received',
+    });
     expect(passBack({ error: 'invalid', field: 'email', detail: 'x' })).toEqual({
       error: 'invalid',
       field: 'email',

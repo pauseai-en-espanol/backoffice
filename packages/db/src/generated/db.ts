@@ -226,6 +226,7 @@ export interface AppCommunityPresence {
 
 export interface AppConsents {
   created_at: Generated<Timestamp>;
+  given_at: Generated<Timestamp>;
   granted: boolean;
   id: Generated<string>;
   kind: string;
@@ -346,6 +347,9 @@ export interface AppIntakeRecords {
   created_at: Generated<Timestamp>;
   decided_at: Timestamp | null;
   decided_by: string | null;
+  /**
+   * personal data
+   */
   external_id: string;
   id: Generated<string>;
   import_id: string | null;

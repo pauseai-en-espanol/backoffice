@@ -33,7 +33,7 @@ export interface CensusFormProps {
   privacyUrl: string;
 }
 
-type Done = 'created' | 'updated' | 'review';
+type Done = 'received' | 'updated';
 type SendError = 'invalid' | 'limit' | 'failed' | 'tooFast';
 
 type View =
