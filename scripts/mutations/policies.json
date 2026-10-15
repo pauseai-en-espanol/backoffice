@@ -1,0 +1,82 @@
+[
+  {
+    "name": "everyone reads the team",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "CREATE POLICY staff_read ON app.staff FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach')));",
+    "new": "CREATE POLICY staff_read ON app.staff FOR SELECT TO pauseai_backoffice_app\n  USING (true);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot reads the team",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "CREATE POLICY staff_read ON app.staff FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach')));",
+    "new": "CREATE POLICY staff_read ON app.staff FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach'))\n         OR (SELECT private.bot_can('admin', 'onboarding', 'outreach')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarders edit staff",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "CREATE POLICY admin_update ON app.staff FOR UPDATE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin')))\n  WITH CHECK ((SELECT private.staff_can('admin')));",
+    "new": "CREATE POLICY admin_update ON app.staff FOR UPDATE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding')))\n  WITH CHECK ((SELECT private.staff_can('admin', 'onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the app role inserts staff",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "GRANT SELECT, UPDATE (display_name, active) ON app.staff TO pauseai_backoffice_app;",
+    "new": "GRANT SELECT, INSERT, UPDATE (display_name, active) ON app.staff TO pauseai_backoffice_app;\nCREATE POLICY anyone_insert ON app.staff FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "anyone grants roles",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "CREATE POLICY admin_insert ON app.staff_roles FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin')));",
+    "new": "CREATE POLICY admin_insert ON app.staff_roles FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'onboarding', 'outreach')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "everyone reads the audit log",
+    "file": "db/migrations/20261015223400_audit.sql",
+    "old": "CREATE POLICY admin_read ON app.audit_log FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin')));",
+    "new": "CREATE POLICY admin_read ON app.audit_log FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarders read invitations",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "CREATE POLICY admin_read ON app.invitations FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin')));",
+    "new": "CREATE POLICY admin_read ON app.invitations FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "pending invitations can be deleted",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "  USING ((SELECT private.staff_can('admin')) AND (accepted_at IS NOT NULL OR revoked_at IS NOT NULL\n                                                   OR expires_at <= now()));",
+    "new": "  USING ((SELECT private.staff_can('admin')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "decided invitations can be revoked",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "  USING ((SELECT private.staff_can('admin')) AND accepted_at IS NULL AND revoked_at IS NULL)",
+    "new": "  USING ((SELECT private.staff_can('admin')))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a policy for PUBLIC",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "CREATE POLICY admin_read ON app.invitations FOR SELECT TO pauseai_backoffice_app\n  USING",
+    "new": "CREATE POLICY admin_read ON app.invitations FOR SELECT\n  USING",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  }
+]

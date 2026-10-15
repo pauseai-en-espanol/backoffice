@@ -1,0 +1,90 @@
+[
+  {
+    "name": "staff_can ignores the channel",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "    SELECT private.current_channel() IS NOT DISTINCT FROM 'web'\n       AND private.current_aal() = 2",
+    "new": "    SELECT private.current_aal() = 2",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff_can admits aal1",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "    SELECT private.current_channel() IS NOT DISTINCT FROM 'web'\n       AND private.current_aal() = 2",
+    "new": "    SELECT private.current_channel() IS NOT DISTINCT FROM 'web'\n       AND private.current_aal() >= 1",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff_can admits deactivated staff",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "    SELECT private.current_channel() IS NOT DISTINCT FROM 'web'\n       AND private.current_aal() = 2\n       AND EXISTS (SELECT 1 FROM app.staff s JOIN app.staff_roles r ON r.user_id = s.user_id\n                    WHERE s.user_id = private.current_user_id() AND s.active AND r.role = ANY (roles))",
+    "new": "    SELECT private.current_channel() IS NOT DISTINCT FROM 'web'\n       AND private.current_aal() = 2\n       AND EXISTS (SELECT 1 FROM app.staff s JOIN app.staff_roles r ON r.user_id = s.user_id\n                    WHERE s.user_id = private.current_user_id() AND r.role = ANY (roles))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff_can ignores the role asked for",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "    SELECT private.current_channel() IS NOT DISTINCT FROM 'web'\n       AND private.current_aal() = 2\n       AND EXISTS (SELECT 1 FROM app.staff s JOIN app.staff_roles r ON r.user_id = s.user_id\n                    WHERE s.user_id = private.current_user_id() AND s.active AND r.role = ANY (roles))",
+    "new": "    SELECT private.current_channel() IS NOT DISTINCT FROM 'web'\n       AND private.current_aal() = 2\n       AND EXISTS (SELECT 1 FROM app.staff s JOIN app.staff_roles r ON r.user_id = s.user_id\n                    WHERE s.user_id = private.current_user_id() AND s.active)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "bot_can answers for the staff app",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "    SELECT private.current_channel() IS NOT DISTINCT FROM 'bot'",
+    "new": "    SELECT private.current_channel() IN ('bot', 'web')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "any channel value counts",
+    "file": "db/migrations/20261015223100_actor_helpers.sql",
+    "old": "AS $$ SELECT CASE current_setting('app.channel', true) WHEN 'web' THEN 'web' WHEN 'bot' THEN 'bot' END $$;",
+    "new": "AS $$ SELECT lower(nullif(current_setting('app.channel', true), '')) $$;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the last admin can lose the role",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "CREATE TRIGGER keep_an_admin AFTER DELETE ON app.staff_roles\n  FOR EACH ROW WHEN (OLD.role = 'admin') EXECUTE FUNCTION private.keep_an_admin();",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the last admin can be deactivated",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "CREATE TRIGGER keep_an_admin AFTER UPDATE OF active ON app.staff\n  FOR EACH ROW WHEN (OLD.active AND NOT NEW.active) EXECUTE FUNCTION private.keep_an_admin();",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "keeping an admin sees only what RLS shows",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "CREATE FUNCTION private.keep_an_admin() RETURNS trigger\n  LANGUAGE plpgsql SECURITY DEFINER",
+    "new": "CREATE FUNCTION private.keep_an_admin() RETURNS trigger\n  LANGUAGE plpgsql",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "deactivation forgets who did it",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "      NEW.deactivated_by := private.current_user_id();",
+    "new": "      NEW.deactivated_by := NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "reactivation keeps the old stamps",
+    "file": "db/migrations/20261015223300_staff.sql",
+    "old": "    ELSIF NEW.active THEN\n      NEW.deactivated_at := NULL;\n      NEW.deactivated_by := NULL;\n    ELSE",
+    "new": "    ELSIF NEW.active THEN\n      NEW.deactivated_by := NULL;\n    ELSE",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff.spec.ts",
+    "cwd": "packages/db"
+  }
+]

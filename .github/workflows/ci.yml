@@ -1,0 +1,332 @@
+name: 🧪 CI
+
+# No pull_request_target anywhere (ADR-0001): untrusted PR code never runs with a write token or secrets.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  # Superseded PR runs are cancelled; runs on main finish, because the release workflow follows each one.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Runners (ADR-0001): every pull_request job runs on a GitHub-hosted runner, so a pull request's code, a fork's
+# included, never runs on ours; pushes to main (and a manual run) use the pauseai-en-espanol organisation's self-hosted
+# runner on juggernaut, as the release that follows them does. Each job repeats the choice: `runs-on` can't read `env`.
+jobs:
+  checks:
+    name: Checks
+    if: github.event.pull_request.draft != true
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["self-hosted", "juggernaut"]') }}
+    timeout-minutes: 30
+    env:
+      # Each turbo command records the tasks it ran, so the cache saved below keeps only what this run used.
+      TURBO_RUN_SUMMARY: true
+    outputs:
+      # The cache holding this run's builds, for the E2E job: the one saved here, or else the one restored.
+      turbo-key: >-
+        ${{ steps.turbo-save.outcome == 'success' && steps.turbo-cache.outputs.cache-primary-key
+        || steps.turbo-cache.outputs.cache-matched-key }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history: the changeset and migration checks diff against the base.
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-pnpm
+      - uses: ./.github/actions/install-pnpm-dependencies
+
+      # Keyed by sha; restore-keys falls back to the latest, and turbo's own hashing decides what is still valid.
+      # Saved at the end, pruned to what this run used, and only when it added something.
+      - name: Restore the Turborepo cache
+        id: turbo-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: List what the cache restored
+        run: mkdir -p .turbo/cache && ls .turbo/cache > "$RUNNER_TEMP/turbo-restored.txt"
+
+      # Renovate PRs get theirs from the renovate-changeset job below.
+      - name: Require a changeset
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'renovate[bot]'
+        run: |
+          if ! pnpm release:check; then
+            echo "::error::Missing changeset. Run 'pnpm release:note', or 'pnpm release:empty' for docs- or CI-only changes."
+            exit 1
+          fi
+
+      # Renovate PRs get their changesets after the checks (renovate-changeset below). The first push to main has no
+      # earlier commit to compare with (github.event.before is all zeros): nothing to check then.
+      - name: Every changed deployable is released
+        if: >-
+          github.event_name != 'workflow_dispatch' &&
+          !(github.event_name == 'pull_request' && github.event.pull_request.user.login == 'renovate[bot]') &&
+          github.event.before != '0000000000000000000000000000000000000000'
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: scripts/check-deployables-released.sh "$BASE"
+
+      - name: Merged migrations are unchanged
+        if: >-
+          github.event_name != 'workflow_dispatch' &&
+          github.event.before != '0000000000000000000000000000000000000000'
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: scripts/check-migrations-append-only.sh "$BASE"
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Formatting
+        run: pnpm format:check
+
+      - name: Type check
+        run: pnpm build:check
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Setup Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.0
+
+      - name: Lint Helm charts
+        run: |
+          for chart in apps/*/helm-chart db/helm-chart; do
+            helm lint --strict "$chart"
+          done
+          # The subcharts aren't committed: built from their sources, as Argo CD does with its own Helm.
+          helm dependency build helm-charts/backoffice
+          helm lint --strict helm-charts/backoffice --values helm-charts/backoffice/ci/example-values.yaml
+          # The network policies refuse to render without selectors, and select the pods they mean to.
+          node scripts/check-network-policies.mjs
+
+      # Never a red run for the cache's sake: if it fails, nothing is saved.
+      - name: Keep only this run's Turborepo cache
+        id: turbo-prune
+        continue-on-error: true
+        run: node scripts/prune-turbo-cache.mjs "$RUNNER_TEMP/turbo-restored.txt"
+
+      # Not when this commit's cache exists (a re-run), nor when every task was a hit: the latest cache already has it.
+      - name: Save the Turborepo cache
+        id: turbo-save
+        if: steps.turbo-cache.outputs.cache-hit != 'true' && steps.turbo-prune.outputs.changed == 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+
+  database:
+    name: Database
+    if: github.event.pull_request.draft != true
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["self-hosted", "juggernaut"]') }}
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Same image as compose.yaml and the cluster's halyard postgresql chart.
+        image: postgres:18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-pnpm
+      - uses: ./.github/actions/install-pnpm-dependencies
+
+      # The script compose.yaml runs at init: the owner, the runtime roles, `pauseai_backoffice` and its test database.
+      - name: Create roles and databases
+        env:
+          CONTAINER: ${{ job.services.postgres.id }}
+          PG_PORT: ${{ job.services.postgres.ports['5432'] }}
+        run: |
+          docker exec -i \
+            -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -e PGPASSWORD=postgres \
+            -e BACKOFFICE_OWNER_PASSWORD=ci-owner -e BACKOFFICE_APP_PASSWORD=ci-app \
+            -e BACKOFFICE_AUTH_PASSWORD=ci-auth -e BACKOFFICE_INGEST_PASSWORD=ci-ingest \
+            -e BACKOFFICE_PUBLIC_PASSWORD=ci-public \
+            "$CONTAINER" sh < db/local/init.sh
+          db="localhost:$PG_PORT"
+          {
+            echo "BACKOFFICE_PG_CONTAINER=$CONTAINER"
+            echo "DATABASE_URL=postgres://pauseai_backoffice_owner:ci-owner@$db/pauseai_backoffice?sslmode=disable"
+            echo "TEST_DATABASE_URL=postgres://pauseai_backoffice_owner:ci-owner@$db/pauseai_backoffice_test?sslmode=disable"
+            echo "TEST_SUPERUSER_DATABASE_URL=postgres://postgres:postgres@$db/pauseai_backoffice_test?sslmode=disable"
+            echo "TEST_AUTH_DATABASE_URL=postgres://pauseai_backoffice_auth:ci-auth@$db/pauseai_backoffice_test?sslmode=disable"
+            echo "TEST_APP_DATABASE_URL=postgres://pauseai_backoffice_app:ci-app@$db/pauseai_backoffice_test?sslmode=disable"
+          } >> "$GITHUB_ENV"
+
+      # Rebuilds pauseai_backoffice_test from the migrations, then runs the access matrix, the catalog meta-tests and
+      # the data rules.
+      - name: Database tests
+        run: pnpm test:db
+
+      - name: Schema dump and Kysely types are up to date
+        run: |
+          pnpm exec dbmate --migrations-dir db/migrations --no-dump-schema up
+          pnpm db:dump
+          pnpm db:types
+          if ! git diff --exit-code -- db/schema.sql packages/db/src/generated; then
+            echo "::error::Run 'pnpm db:migrate && pnpm db:types' and commit db/schema.sql and the generated types."
+            exit 1
+          fi
+
+  e2e:
+    name: E2E smoke
+    # After the checks, so the production builds come from the Turborepo cache they just saved.
+    needs: checks
+    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["self-hosted", "juggernaut"]') }}
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Same image as compose.yaml and the cluster's halyard postgresql chart.
+        image: postgres:18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-pnpm
+      - uses: ./.github/actions/install-pnpm-dependencies
+
+      # As in the database job: the owner, the runtime roles and the databases, with CI-only passwords.
+      - name: Create roles and databases
+        env:
+          CONTAINER: ${{ job.services.postgres.id }}
+          PG_PORT: ${{ job.services.postgres.ports['5432'] }}
+        run: |
+          docker exec -i \
+            -e POSTGRES_USER=postgres -e POSTGRES_DB=postgres -e PGPASSWORD=postgres \
+            -e BACKOFFICE_OWNER_PASSWORD=ci-owner -e BACKOFFICE_APP_PASSWORD=ci-app \
+            -e BACKOFFICE_AUTH_PASSWORD=ci-auth -e BACKOFFICE_INGEST_PASSWORD=ci-ingest \
+            -e BACKOFFICE_PUBLIC_PASSWORD=ci-public \
+            "$CONTAINER" sh < db/local/init.sh
+          db="localhost:$PG_PORT"
+          {
+            echo "DATABASE_URL=postgres://pauseai_backoffice_owner:ci-owner@$db/pauseai_backoffice?sslmode=disable"
+            echo "AUTH_DATABASE_URL=postgres://pauseai_backoffice_auth:ci-auth@$db/pauseai_backoffice?sslmode=disable"
+            echo "APP_DATABASE_URL=postgres://pauseai_backoffice_app:ci-app@$db/pauseai_backoffice?sslmode=disable"
+          } >> "$GITHUB_ENV"
+
+      # The fictional seeds, when there are any; their guard admits this database because it is reached on localhost.
+      - name: Migrate and seed
+        run: |
+          pnpm exec dbmate --migrations-dir db/migrations --no-dump-schema up
+          if [ -f packages/db/seeds/seed.ts ]; then
+            pnpm db:seed
+          fi
+
+      # The cache the checks saved or used, with this commit's builds (a newer run's could lack them): restored, never
+      # saved. The latest is the fallback.
+      - name: Restore the Turborepo cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo
+          key: ${{ needs.checks.outputs.turbo-key || format('turbo-{0}-{1}-{2}', runner.os, runner.arch, github.sha) }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Playwright browsers
+        if: hashFiles('e2e/package.json') != ''
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('e2e/package.json') }}
+
+      # Headless Chromium only, plus the system libraries it needs (apt, every run; the browser itself is cached).
+      - name: Install Chromium
+        if: hashFiles('e2e/package.json') != ''
+        run: pnpm --filter @backoffice/e2e exec playwright install --with-deps --only-shell chromium
+
+      - name: E2E smoke tests
+        run: pnpm test:e2e
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7
+
+  # Renovate doesn't write changesets. Once the checks pass, add a patch changeset for each package the PR touches
+  # and amend it into the PR (as aiontheballot, without pull_request_target: Renovate branches live in this
+  # repository, so a pull_request run can get a write token). A push made with GITHUB_TOKEN doesn't trigger
+  # workflows, so the amended head has no check runs of its own; its code is what the checks above just tested.
+  renovate-changeset:
+    name: Renovate changeset
+    needs: [checks, database, e2e]
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.user.login == 'renovate[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    # A pull_request job only.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-pnpm
+      - uses: ./.github/actions/install-pnpm-dependencies
+
+      - name: Add and push the changeset
+        env:
+          BASE: origin/${{ github.base_ref }}
+          HUSKY: 0
+        run: |
+          scripts/renovate-changeset.sh "$BASE"
+          git add .changeset
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          # --amend keeps Renovate as the author, so Renovate still treats the branch as its own and keeps rebasing it.
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit --amend --no-edit
+          git push --force-with-lease

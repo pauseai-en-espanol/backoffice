@@ -1,0 +1,115 @@
+[
+  {
+    "name": "any account accepts",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "     WHERE u.id = actor AND u.email_verified AND lower(u.email) = invitation.email;",
+    "new": "     WHERE u.id = actor AND u.email_verified;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an unverified email accepts",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "     WHERE u.id = actor AND u.email_verified AND lower(u.email) = invitation.email;",
+    "new": "     WHERE u.id = actor AND lower(u.email) = invitation.email;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot accepts",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "    IF actor IS NULL OR accept_invitation.token_hash IS NULL\n       OR private.current_channel() IS DISTINCT FROM 'web' THEN",
+    "new": "    IF actor IS NULL OR accept_invitation.token_hash IS NULL THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "no actor accepts",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "    IF actor IS NULL OR accept_invitation.token_hash IS NULL\n       OR private.current_channel() IS DISTINCT FROM 'web' THEN",
+    "new": "    IF accept_invitation.token_hash IS NULL\n       OR private.current_channel() IS DISTINCT FROM 'web' THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db",
+    "equivalent": "without an actor, no auth.users row matches the null id, so the email check refuses it next"
+  },
+  {
+    "name": "a revoked invitation is accepted",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "     WHERE i.token_hash = accept_invitation.token_hash\n       AND i.accepted_at IS NULL\n       AND i.revoked_at IS NULL",
+    "new": "     WHERE i.token_hash = accept_invitation.token_hash\n       AND i.accepted_at IS NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an expired invitation is accepted",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "     WHERE i.token_hash = accept_invitation.token_hash\n       AND i.accepted_at IS NULL\n       AND i.revoked_at IS NULL\n       AND i.expires_at > now()",
+    "new": "     WHERE i.token_hash = accept_invitation.token_hash\n       AND i.accepted_at IS NULL\n       AND i.revoked_at IS NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "accepted though its admin is no longer one",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "                    WHERE s.user_id = i.created_by AND s.active AND r.role = 'admin')\n       FOR UPDATE OF i;",
+    "new": "                    WHERE s.user_id = i.created_by)\n       FOR UPDATE OF i;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "lookup shows it though its admin is no longer one",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "                    WHERE s.user_id = i.created_by AND s.active AND r.role = 'admin')\n  $$;",
+    "new": "                    WHERE s.user_id = i.created_by)\n  $$;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "lookup shows revoked ones",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "     WHERE i.token_hash = pending_invitation.token_hash\n       AND i.accepted_at IS NULL\n       AND i.revoked_at IS NULL",
+    "new": "     WHERE i.token_hash = pending_invitation.token_hash\n       AND i.accepted_at IS NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "lookup shows expired ones",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "     WHERE i.token_hash = pending_invitation.token_hash\n       AND i.accepted_at IS NULL\n       AND i.revoked_at IS NULL\n       AND i.expires_at > now()",
+    "new": "     WHERE i.token_hash = pending_invitation.token_hash\n       AND i.accepted_at IS NULL\n       AND i.revoked_at IS NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a deactivated member stays deactivated",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "    ON CONFLICT (user_id) DO UPDATE SET active = true WHERE NOT s.active;",
+    "new": "    ON CONFLICT (user_id) DO NOTHING;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a decided invitation changes again",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "    IF OLD.accepted_at IS NOT NULL OR OLD.revoked_at IS NOT NULL THEN\n      RAISE EXCEPTION 'invitation % is already decided', OLD.id USING ERRCODE = 'restrict_violation';\n    END IF;",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "longer than 30 days",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "expires_at <= created_at + interval '30 days'",
+    "new": "expires_at <= created_at + interval '60 days'",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "no roles",
+    "file": "db/migrations/20261015223500_invitations.sql",
+    "old": "CHECK (cardinality(roles) > 0 AND array_position(roles, NULL) IS NULL)",
+    "new": "CHECK (array_position(roles, NULL) IS NULL)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/invitations.spec.ts",
+    "cwd": "packages/db"
+  }
+]
