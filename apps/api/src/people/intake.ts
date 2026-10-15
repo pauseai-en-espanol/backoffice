@@ -184,7 +184,8 @@ export interface ImportRun {
   kind: string;
   startedAt: string;
   finishedAt: string | null;
-  startedBy: string | null;
+  /** Who ran it; null for the scheduled sync. */
+  startedBy: { userId: string; displayName: string } | null;
   counts: Record<string, unknown>;
 }
 
@@ -196,10 +197,11 @@ export const listImports = async (trx: Transaction<DB>): Promise<ImportRun[]> =>
     started_at: string;
     finished_at: string | null;
     started_by: string | null;
+    started_by_name: string | null;
     counts: Record<string, unknown>;
   }>`
     SELECT i.id, i.kind, to_json(i.started_at)#>>'{}' AS started_at, to_json(i.finished_at)#>>'{}' AS finished_at,
-           s.display_name AS started_by, i.counts
+           i.started_by, s.display_name AS started_by_name, i.counts
       FROM app.imports i LEFT JOIN app.staff s ON s.user_id = i.started_by
      ORDER BY i.started_at DESC
      LIMIT 30`.execute(trx);
@@ -208,7 +210,9 @@ export const listImports = async (trx: Transaction<DB>): Promise<ImportRun[]> =>
     kind: row.kind,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
-    startedBy: row.started_by,
+    startedBy: row.started_by
+      ? { userId: row.started_by, displayName: row.started_by_name ?? '' }
+      : null,
     counts: row.counts,
   }));
 };

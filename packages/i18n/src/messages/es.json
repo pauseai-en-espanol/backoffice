@@ -722,10 +722,10 @@
     "running": "Ya hay una sincronización en marcha. Espera un momento y recarga la página.",
     "airtableFailed": "No se ha podido leer la vista de Airtable, y no se ha importado nada. Mientras se arregla, descarga el CSV de la vista y súbelo abajo.",
     "airtableReasons": {
-      "columns": "Las columnas de la vista han cambiado.",
-      "unreachable": "Airtable no ha respondido.",
-      "blocked": "Airtable no ha dejado leer la vista.",
-      "format": "La vista ha devuelto algo que no se entiende."
+      "link": "El enlace configurado no es una vista compartida de Airtable: revisa el secreto del despliegue.",
+      "page": "No se ha podido abrir la vista compartida: puede que el enlace ya no sirva o que Airtable haya cambiado su página.",
+      "data": "La vista no ha devuelto sus datos como se esperaba.",
+      "columns": "Las columnas de la vista han cambiado: no se ha importado nada."
     },
     "counts": {
       "received": "Recibidos",

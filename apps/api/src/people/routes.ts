@@ -109,7 +109,7 @@ const filterOf = (query: Record<string, unknown>): PeopleFilter => {
   const flag = (value: unknown): boolean | undefined =>
     value === '1' || value === 'true' || value === 'yes'
       ? true
-      : value === '0' || value === 'no'
+      : value === '0' || value === 'false' || value === 'no'
         ? false
         : undefined;
   const stages = list(query.stage).filter((stage): stage is Stage =>

@@ -101,10 +101,10 @@ const ImportsPage = async () => {
                     running: t('imports.running'),
                     failed: t('imports.airtableFailed'),
                     reasons: {
+                      link: t('imports.airtableReasons.link'),
+                      page: t('imports.airtableReasons.page'),
+                      data: t('imports.airtableReasons.data'),
                       columns: t('imports.airtableReasons.columns'),
-                      unreachable: t('imports.airtableReasons.unreachable'),
-                      blocked: t('imports.airtableReasons.blocked'),
-                      format: t('imports.airtableReasons.format'),
                     },
                     counts,
                     errors,
