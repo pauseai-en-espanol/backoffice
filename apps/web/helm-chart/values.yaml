@@ -34,6 +34,10 @@ envFrom: []
 # The product's name (PRODUCT_NAME), from each deployment's configuration: the pages' title.
 productName: ''
 
+# The census form's address (CENSUS_URL), e.g. https://unete.example.org: Censo shows it as the generic link to share.
+# Empty: Censo says the form isn't configured.
+censusUrl: ''
+
 # Gateway API HTTPRoute for the staff host (halyard `route:` convention). Hostnames and gateway come from gitops values.
 # /api (and, with telegramWebhook, /telegram/webhook) go to the API; everything else to this app.
 route:

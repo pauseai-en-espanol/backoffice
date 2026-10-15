@@ -44,6 +44,10 @@ spec:
             - name: PRODUCT_NAME
               value: {{ . | quote }}
             {{- end }}
+            {{- with .Values.censusUrl }}
+            - name: CENSUS_URL
+              value: {{ . | quote }}
+            {{- end }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
