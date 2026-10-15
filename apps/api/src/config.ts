@@ -1,6 +1,7 @@
 import { type Dsn, readDsn } from '@backoffice/observability/dsn';
 
 import { isSharedViewUrl } from './imports/airtable.js';
+import { readTelegram, type TelegramConfig } from './telegram/config.js';
 
 export interface ApiConfig {
   host: string;
@@ -22,6 +23,8 @@ export interface ApiConfig {
    * view link. Undefined: "Sincronizar Airtable ahora" answers that it isn't configured.
    */
   airtable: AirtableConfig | undefined;
+  /** The Telegram bot (ADR-0004). Undefined: no webhook, no linking, no team group. */
+  telegram: TelegramConfig | undefined;
 }
 
 export interface AirtableConfig {
@@ -129,7 +132,7 @@ const readAuth = (env: NodeJS.ProcessEnv): AuthConfig | undefined => {
 const ADDRESS = /^[^\s@<>"]+@[^\s@<>".]+(?:\.[^\s@<>".]+)+$/u;
 
 /** Mail needs both settings or neither. Errors never echo the URL, which holds a password. */
-const readMail = (env: NodeJS.ProcessEnv): MailConfig | undefined => {
+export const readMail = (env: NodeJS.ProcessEnv): MailConfig | undefined => {
   const smtpUrl = env.SMTP_URL || undefined;
   const from = env.MAIL_FROM || undefined;
   if (!smtpUrl && !from) {
@@ -196,5 +199,6 @@ export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
     appDatabaseUrl: env.APP_DATABASE_URL || undefined,
     mail: readMail(env),
     airtable: readAirtable(env),
+    telegram: readTelegram(env),
   };
 };

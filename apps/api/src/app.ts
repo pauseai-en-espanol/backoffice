@@ -1,11 +1,14 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 
 import { type StaffApiOptions, staffApiRoutes } from './auth/routes.js';
+import { telegramWebhookRoutes, type WebhookOptions } from './telegram/webhook.js';
 
 export interface AppOptions {
   logger?: FastifyServerOptions['logger'];
   /** Sign-in and the signed-in routes under /api, on the staff host only; without sign-in they answer 503. */
   api?: StaffApiOptions;
+  /** The Telegram bot's webhook (ADR-0004); without it, /telegram/webhook answers 503. */
+  telegram?: WebhookOptions | undefined;
 }
 
 /**
@@ -19,7 +22,11 @@ const serializers: NonNullable<Exclude<FastifyServerOptions['logger'], boolean>>
   }),
 };
 
-export const buildApp = ({ logger = false, api = {} }: AppOptions = {}): FastifyInstance => {
+export const buildApp = ({
+  logger = false,
+  api = {},
+  telegram,
+}: AppOptions = {}): FastifyInstance => {
   const app = Fastify({
     logger:
       logger === false || logger === true
@@ -39,5 +46,7 @@ export const buildApp = ({ logger = false, api = {} }: AppOptions = {}): Fastify
   app.get('/healthz', { logLevel: 'silent' }, async () => ({ status: 'ok' }));
 
   void app.register(staffApiRoutes(api), { prefix: '/api' });
+  // The bot's webhook, outside /api, on the staff host (ADR-0004).
+  void app.register(telegramWebhookRoutes(telegram));
   return app;
 };

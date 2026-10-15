@@ -10,6 +10,7 @@ import { peopleRoutes } from '../people/routes.js';
 import { type InvitationSender } from '../staff/invitations.js';
 import { staffDataRoutes } from '../staff/routes.js';
 import { staffSelf } from '../staff/staff.js';
+import { type TelegramLinking, telegramLinkRoutes } from '../telegram/linking.js';
 import { type Auth, AUTH_BASE_PATH, TWO_FACTOR_COOKIE, VISITOR_ADDRESS_HEADER } from './auth.js';
 import { invitationRoutes } from './invitation-routes.js';
 import { type InvitedAccounts } from './invited-accounts.js';
@@ -104,9 +105,13 @@ export interface StaffApiOptions {
   /** Ends every session of an account, as Better Auth's role: a deactivated staff member's. */
   endSessions?: (userId: string) => Promise<number>;
   /** The Airtable sync, run now from Importar (ADR-0005); undefined when not configured. */
-  syncAirtable?: () => Promise<SyncCounts>;
+  syncAirtable?: (() => Promise<SyncCounts>) | undefined;
   /** Told about every new person from the staff app (the bot's team group, ADR-0004). */
-  onArrival?: (personId: string) => Promise<void>;
+  onArrival?: ((personId: string) => Promise<void>) | undefined;
+  /** Told when someone is claimed from the staff app, so the team group's post says who. */
+  onClaim?: ((personId: string) => Promise<void>) | undefined;
+  /** Linking Telegram accounts (ADR-0004); without the bot, the link routes say it isn't configured. */
+  telegram?: TelegramLinking | undefined;
 }
 
 /**
@@ -123,6 +128,8 @@ export const staffApiRoutes =
     endSessions,
     syncAirtable,
     onArrival,
+    onClaim,
+    telegram,
   }: StaffApiOptions) =>
   async (scope: FastifyInstance): Promise<void> => {
     if (!signIn) {
@@ -233,6 +240,17 @@ export const staffApiRoutes =
         actorFor: async (request) => actorOf(await findSession(request)),
         syncAirtable,
         onArrival,
+        onClaim,
+      }),
+    );
+
+    // Linking a Telegram account to the bot (telegram/linking.ts).
+    await scope.register(
+      telegramLinkRoutes({
+        linking: telegram,
+        app,
+        staffOrigin,
+        actorFor: async (request) => actorOf(await findSession(request)),
       }),
     );
   };

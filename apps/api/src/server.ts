@@ -14,6 +14,8 @@ import { initErrorTracking } from './error-tracking.js';
 import { runAirtableSync } from './imports/airtable-sync.js';
 import { createMailer, mailFailure } from './mail/mailer.js';
 import { createInvitationSender } from './staff/invitations.js';
+import { botFailure } from './telegram/failure.js';
+import { createBot, webhookUrl } from './telegram/setup.js';
 
 const config = loadConfig(process.env);
 initErrorTracking(config.sentryDsn);
@@ -80,6 +82,36 @@ const loginChecks = [
   ...(ingest ? [checkLogin(ingest, 'pauseai_backoffice_ingest', 'INGEST_DATABASE_URL')] : []),
 ];
 
+// The Telegram bot (ADR-0004): it links staff accounts and acts as them, so it needs sign-in and the app role. A
+// failure is reported by its kind, never with what anyone wrote.
+const reportBotFailure = (error: unknown): void => {
+  const failure = botFailure(error);
+  console.error(failure.message);
+  captureException(failure);
+};
+// The Airtable sync on demand, from Importar and /sincronizar (ADR-0005), as the ingest role.
+const syncAirtable =
+  config.airtable && ingest
+    ? () =>
+        runAirtableSync({
+          ingest,
+          link: config.airtable?.sharedViewUrl ?? '',
+          requirePermission: config.airtable?.requirePermission ?? true,
+        })
+    : undefined;
+const bot =
+  config.telegram && config.auth && authPool && app
+    ? createBot({
+        config: config.telegram,
+        staffOrigin: config.auth.staffOrigin,
+        app,
+        auth: authPool,
+        sync: syncAirtable,
+        onError: reportBotFailure,
+      })
+    : undefined;
+const team = bot?.team;
+
 const server = buildApp({
   logger: { level: config.logLevel },
   api: {
@@ -113,16 +145,13 @@ const server = buildApp({
         ? createPasswordLinks({ ...config.auth, pool: authPool, passwordMail })
         : undefined,
     endSessions: authPool ? (userId) => endSessions(authPool, userId) : undefined,
-    syncAirtable:
-      config.airtable && ingest
-        ? () =>
-            runAirtableSync({
-              ingest,
-              link: config.airtable?.sharedViewUrl ?? '',
-              requirePermission: config.airtable?.requirePermission ?? true,
-            })
-        : undefined,
+    syncAirtable,
+    // New people and claims from the staff app reach the team group at once (ADR-0004, D11).
+    onArrival: team ? (personId) => team.arrival(personId) : undefined,
+    onClaim: team ? (personId) => team.claimed(personId) : undefined,
+    telegram: bot?.linking,
   },
+  telegram: bot?.webhook,
 });
 
 const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
@@ -144,3 +173,20 @@ await Promise.race([
   new Promise((resolve) => setTimeout(resolve, 5_000).unref()),
 ]);
 await server.listen({ host: config.host, port: config.port });
+
+if (bot && config.telegram && config.auth) {
+  // Telegram is told where to send updates on every start: the same address and secret, so a restart changes nothing,
+  // and a rotated secret takes effect with the pods that carry it (docs/runbooks/rotating-the-bot-token.md).
+  bot.client
+    .setWebhook(webhookUrl(config.auth.staffOrigin), config.telegram.webhookSecret)
+    .then(() => server.log.info('Telegram webhook registered'), reportBotFailure);
+  // Arrivals from every source reach the team group (D11): those the bot or the staff app made at once, the rest
+  // (the hourly Airtable sync, CSV imports) within five minutes.
+  const sweep = (): void => {
+    bot.team?.sweep().catch(reportBotFailure);
+  };
+  if (bot.team) {
+    sweep();
+    setInterval(sweep, 5 * 60_000).unref();
+  }
+}

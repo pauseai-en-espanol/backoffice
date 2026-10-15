@@ -7,6 +7,7 @@ export interface DeletedAuthRows {
   sessions: number;
   verifications: number;
   rateLimits: number;
+  linkCodes: number;
 }
 
 /**
@@ -29,15 +30,31 @@ export const deleteExpiredAuthRows = async (
     sessions: sessions.rowCount ?? 0,
     verifications: verifications.rowCount ?? 0,
     rateLimits: rateLimits.rowCount ?? 0,
+    linkCodes: await deleteSpentLinkCodes(pool, now),
   };
 };
 
 /**
- * Ends every session of an account at once: a deactivated staff member's, so they are signed out everywhere, not only
- * refused by the database. As pauseai_backoffice_auth.
+ * Ends every session of an account at once, and unlinks its Telegram account (ADR-0004): a deactivated staff
+ * member's, so they are signed out everywhere and the bot no longer listens to them, not only refused by the
+ * database. As pauseai_backoffice_auth. Returns the sessions ended.
  */
 export const endSessions = async (
   pool: ReturnType<typeof createAuthPool>,
   userId: string,
+): Promise<number> => {
+  await pool.query('DELETE FROM telegram_links WHERE user_id = $1', [userId]);
+  return (await pool.query('DELETE FROM sessions WHERE user_id = $1', [userId])).rowCount ?? 0;
+};
+
+/** Telegram link codes past their ten minutes, or used: they serve nothing any more (ADR-0004). */
+export const deleteSpentLinkCodes = async (
+  pool: ReturnType<typeof createAuthPool>,
+  now: Date = new Date(),
 ): Promise<number> =>
-  (await pool.query('DELETE FROM sessions WHERE user_id = $1', [userId])).rowCount ?? 0;
+  (
+    await pool.query(
+      'DELETE FROM telegram_link_codes WHERE expires_at < $1 OR used_at IS NOT NULL',
+      [now],
+    )
+  ).rowCount ?? 0;

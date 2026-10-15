@@ -338,5 +338,92 @@
     "from_2_to_5h": "De 2 a 5 h a la semana",
     "over_5h": "Más de 5 h a la semana"
   },
-  "bot": {}
+  "bot": {
+    "help": "Esto es lo que puedo hacer:\n/alta: alguien ha entrado en la comunidad\n/baja: alguien ha salido\n/mios: tus personas que necesitan algo\n/libres: quién está sin asignar\n/buscar seguido de un nombre o un teléfono: buscar a alguien\n/sincronizar: traer ya las altas del formulario de PauseAI Global\n/cancelar: dejar lo que estábamos haciendo\n\nTambién puedes mandarme sin más el nombre y el teléfono de quien ha entrado.",
+    "linked": "Listo: tu cuenta de Telegram está conectada. Escribe /ayuda para ver qué puedo hacer.",
+    "linkInvalid": "Ese enlace ya no vale: caduca a los 10 minutos y sirve una sola vez. Pide otro desde la web, en Ajustes.",
+    "noPermission": "Tu cuenta no tiene permiso de acogida, así que aquí no puedo hacer nada por ti.",
+    "notUnderstood": "No te he entendido. Escribe /ayuda para ver qué puedo hacer.",
+    "cancelled": "Hecho, lo dejamos.",
+    "nothingToCancel": "No estábamos haciendo nada.",
+    "expired": "Esta conversación ha caducado. Empieza otra vez con /alta o /baja.",
+    "pressButton": "Pulsa uno de los botones de arriba, o escribe /cancelar.",
+    "unexpected": "Algo ha fallado. Inténtalo de nuevo en un momento.",
+    "notAuthorised": "No autorizado",
+    "unassigned": "sin asignar",
+    "alta": {
+      "askName": "¿Cómo se llama la persona que ha entrado?",
+      "askContact": "¿Cuál es su teléfono o su correo? Si no lo tienes, pulsa «Sin contacto».",
+      "contactNotRecognised": "No reconozco ahí un teléfono ni un correo. Prueba otra vez o pulsa «Sin contacto».",
+      "noContact": "Sin contacto",
+      "withPhone": "con teléfono",
+      "withEmail": "con correo",
+      "withBoth": "con teléfono y correo",
+      "withoutContact": "sin contacto",
+      "fromChat": "del chat {chat}",
+      "confirm": "¿Doy de alta a {who}?",
+      "candidates": "{who} se parece a alguien que ya está. ¿Es alguna de estas personas?",
+      "candidate": "Es {name} · {stage} · {owner}",
+      "isNew": "Es otra persona",
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "created": "Hecho: {name} ya está en el sistema ({stage}, sin asignar).\n{link}",
+      "attached": "Hecho: lo he añadido a la ficha de {name}.\n{link}",
+      "conflict": "Lo he añadido a la ficha de {name}, pero algún dato no coincide: queda en la Bandeja para revisarlo.\n{link}",
+      "review": "Se parece a alguien que ya está, así que lo he dejado en la Bandeja como posible duplicado.",
+      "deleted": "He borrado de este chat tus mensajes con el teléfono o el correo.",
+      "notDeleted": "No he podido borrar tus mensajes con el teléfono o el correo: bórralos tú, por favor."
+    },
+    "baja": {
+      "ask": "¿Quién ha salido? Escribe su nombre o su teléfono.",
+      "pick": "¿Quién de estas personas ha salido?",
+      "none": "No encuentro a nadie así. Prueba con otro nombre o con el teléfono.",
+      "option": "{name} · {stage}",
+      "confirm": "¿{name} ha salido de la comunidad?",
+      "yes": "Sí, ha salido",
+      "no": "No",
+      "done": "Anotado: {name} ha salido de la comunidad.",
+      "kept": "Vale, no anoto nada."
+    },
+    "mine": {
+      "title": "Tus personas que necesitan algo ({count}):",
+      "none": "Ninguna de tus personas necesita nada ahora mismo.",
+      "line": "• {name}: {reasons}\n  {link}"
+    },
+    "free": {
+      "title": "Sin asignar ({count}). Pulsa en quien te quedas:",
+      "none": "No hay nadie sin asignar.",
+      "claim": "Me lo quedo: {name}",
+      "claimed": "Ahora te encargas tú de {name}.",
+      "taken": "Ya se encarga otra persona."
+    },
+    "search": {
+      "usage": "Escribe /buscar seguido de un nombre o un teléfono.",
+      "none": "No encuentro a nadie así.",
+      "title": "He encontrado ({count}):",
+      "line": "• {name}: {stage}, {owner}\n  {link}"
+    },
+    "sync": {
+      "notConfigured": "La sincronización con el formulario de PauseAI Global no está configurada.",
+      "running": "Ya hay una sincronización en marcha; prueba en un momento.",
+      "done": "Sincronizado: {created} nuevas, {attached} ya estaban, {review} en la Bandeja.",
+      "failed": "No he podido leer el formulario de PauseAI Global. Avisa a quien administra el backoffice."
+    },
+    "team": {
+      "arrival": "Nueva llegada: {name}\nFuente: {sources}",
+      "province": "Provincia: {province}",
+      "claimedBy": "Se encarga: {owner}",
+      "claim": "Me lo quedo",
+      "open": "Abrir"
+    },
+    "digest": {
+      "subject": "Tu resumen de acogida",
+      "title": "Buenos días. Tu resumen de acogida:",
+      "mine": "Tus personas que necesitan algo ({count}):",
+      "line": "• {name}: {reasons}",
+      "unassigned": "Sin asignar: {count}.",
+      "arrived": "Llegadas de ayer: {count}.",
+      "open": "Todo, en {link}"
+    }
+  }
 }

@@ -79,6 +79,8 @@ export interface PeopleRoutesOptions {
   syncAirtable?: (() => Promise<SyncCounts>) | undefined;
   /** Told about every new person from the staff app (the bot's team group, ADR-0004); never awaited for long. */
   onArrival?: ((personId: string) => Promise<void>) | undefined;
+  /** Told when someone is claimed here, so the team group's post says who. */
+  onClaim?: ((personId: string) => Promise<void>) | undefined;
 }
 
 const UUID = { type: 'string', format: 'uuid' } as const;
@@ -169,7 +171,7 @@ const csvCell = (
 };
 
 export const peopleRoutes =
-  ({ app, staffOrigin, actorFor, syncAirtable, onArrival }: PeopleRoutesOptions) =>
+  ({ app, staffOrigin, actorFor, syncAirtable, onArrival, onClaim }: PeopleRoutesOptions) =>
   async (scope: FastifyInstance): Promise<void> => {
     scope.setErrorHandler(async (error, _request, reply) => {
       const refusal = schemaRefusal(error);
@@ -238,10 +240,10 @@ export const peopleRoutes =
         return run(trx);
       });
 
-    /** Never fails the request: the team group hears about a new person when it can. */
-    const announce = (personId: string | null): void => {
-      if (personId && onArrival) {
-        onArrival(personId).catch((error: unknown) => captureException(error));
+    /** Never fails the request: the team group hears about a new person, or a claim, when it can. */
+    const announce = (personId: string | null, tell = onArrival): void => {
+      if (personId && tell) {
+        tell(personId).catch((error: unknown) => captureException(error));
       }
     };
 
@@ -341,6 +343,7 @@ export const peopleRoutes =
           if (!done) {
             throw new Refusal(409, 'taken');
           }
+          announce(request.params.id, onClaim);
           return reply.code(204).send();
         }),
     );

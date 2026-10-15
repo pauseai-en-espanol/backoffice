@@ -205,6 +205,8 @@ export const authOptions = ({
         await pool.query('DELETE FROM verifications WHERE value = $1', [user.id]);
         // Better Auth ends them next, outside any transaction: ended here first, so a failure there leaves none.
         await pool.query('DELETE FROM sessions WHERE user_id = $1', [user.id]);
+        // A new password unlinks Telegram too (ADR-0004): whoever reset it links again from a signed-in session.
+        await pool.query('DELETE FROM telegram_links WHERE user_id = $1', [user.id]);
         if (passwordMail) {
           inBackground(() =>
             passwordMail.changed({ email: user.email, enrolled: hasSecondFactor(user) }),

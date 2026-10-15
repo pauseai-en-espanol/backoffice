@@ -84,6 +84,8 @@ export const resetAuthenticator = async (pool: AuthPool, userId: string): Promis
       [userId],
     );
     await client.query('DELETE FROM two_factors WHERE user_id = $1', [userId]);
+    // Its Telegram link goes with the factor it was made behind (ADR-0004).
+    await client.query('DELETE FROM telegram_links WHERE user_id = $1', [userId]);
     await client.query(
       'UPDATE users SET two_factor_enabled = false, updated_at = now() WHERE id = $1',
       [userId],
