@@ -2,8 +2,8 @@
   {
     "name": "a contact needs no source",
     "file": "db/migrations/20261016030000_outreach.sql",
-    "old": "  CHECK (needs_review OR (btrim(coalesce(reason, '')) <> '' AND cardinality(sources) > 0))",
-    "new": "  CHECK (needs_review OR btrim(coalesce(reason, '')) <> '')",
+    "old": "    CHECK (needs_review OR (btrim(coalesce(reason, '')) <> '' AND cardinality(sources) > 0))",
+    "new": "    CHECK (needs_review OR btrim(coalesce(reason, '')) <> '')",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },

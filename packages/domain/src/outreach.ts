@@ -193,6 +193,8 @@ export interface LetterTemplate {
 export interface LetterContact extends Addressee {
   /** The organisation's short name, `{{org}}`. */
   org: string;
+  /** Which of the campaign's templates they get. */
+  tier: Tier;
   sector?: string | null;
   role?: string | null;
   /** The key of the evidence paragraph for them, `{{anchor}}`. */
@@ -210,6 +212,7 @@ export interface LetterAnchor {
 export type LetterProblem =
   | { kind: 'needsReview' }
   | { kind: 'held' }
+  | { kind: 'noTemplate'; tier: Tier }
   | { kind: 'unknownAnchor'; anchor: string }
   | { kind: 'unresolved'; fields: string[] }
   | { kind: 'prose'; issue: ProseIssue };
@@ -237,7 +240,8 @@ export const renderLetter = ({
   anchors,
   signature,
 }: {
-  template: LetterTemplate;
+  /** The campaign's template for the contact's tier, if it has one. */
+  template: LetterTemplate | undefined;
   contact: LetterContact;
   anchors: Readonly<Record<string, LetterAnchor>>;
   signature: string;
@@ -253,6 +257,10 @@ export const renderLetter = ({
     contact.anchor && Object.hasOwn(anchors, contact.anchor) ? anchors[contact.anchor] : undefined;
   if (contact.anchor && !anchor) {
     problems.push({ kind: 'unknownAnchor', anchor: contact.anchor });
+  }
+  if (!template) {
+    problems.push({ kind: 'noTemplate', tier: contact.tier });
+    return { ok: false, problems };
   }
   const fields: Record<MergeField, string | null | undefined> = {
     saludo: salutation(contact),

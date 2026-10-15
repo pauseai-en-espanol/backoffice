@@ -2340,7 +2340,6 @@ CREATE TABLE app.contacts (
     updated_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT contacts_anchor_check CHECK ((anchor ~ '^[a-z0-9_-]{1,60}$'::text)),
-    CONSTRAINT contacts_check CHECK ((needs_review OR ((btrim(COALESCE(reason, ''::text)) <> ''::text) AND (cardinality(sources) > 0)))),
     CONSTRAINT contacts_email_check CHECK (((email = lower(email)) AND (email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'::text))),
     CONSTRAINT contacts_emails_extra_check CHECK ((cardinality(emails_extra) <= 10)),
     CONSTRAINT contacts_external_ref_check CHECK ((length(external_ref) <= 200)),
@@ -2351,6 +2350,7 @@ CREATE TABLE app.contacts (
     CONSTRAINT contacts_person_name_check CHECK ((length(person_name) <= 200)),
     CONSTRAINT contacts_phone_check CHECK ((phone ~ '^\+[1-9][0-9]{6,14}$'::text)),
     CONSTRAINT contacts_reason_check CHECK ((length(reason) <= 2000)),
+    CONSTRAINT contacts_reason_sources_check CHECK ((needs_review OR ((btrim(COALESCE(reason, ''::text)) <> ''::text) AND (cardinality(sources) > 0)))),
     CONSTRAINT contacts_role_check CHECK ((length(role) <= 200)),
     CONSTRAINT contacts_scope_check CHECK ((length(scope) <= 50)),
     CONSTRAINT contacts_sector_check CHECK ((length(sector) <= 100)),
@@ -4806,6 +4806,13 @@ CREATE POLICY onboarding_update ON app.people FOR UPDATE TO pauseai_backoffice_a
 ALTER TABLE app.organisations ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: campaign_anchors outreach_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_delete ON app.campaign_anchors FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: campaign_targets outreach_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5465,7 +5472,7 @@ GRANT SELECT ON TABLE app.audit_log TO pauseai_backoffice_app;
 -- Name: TABLE campaign_anchors; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-GRANT SELECT ON TABLE app.campaign_anchors TO pauseai_backoffice_app;
+GRANT SELECT,DELETE ON TABLE app.campaign_anchors TO pauseai_backoffice_app;
 
 
 --

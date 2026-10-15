@@ -85,6 +85,7 @@ describe('bySendOrder', () => {
 
 const berta: LetterContact = {
   org: 'Asociación Ejemplo',
+  tier: 'A',
   orgDisplay: 'Asociación Ejemplo — Aragón',
   territory: 'Aragón',
   personName: 'Berta Ejemplo',
@@ -150,6 +151,17 @@ describe('renderLetter', () => {
         { kind: 'prose', issue: expect.objectContaining({ rule: 'emDash' }) },
       ],
     });
+  });
+
+  it("says when the campaign has no template for the contact's tier", () => {
+    expect(
+      renderLetter({
+        template: undefined,
+        contact: { ...berta, tier: 'B', hold: true },
+        anchors,
+        signature: 'Firma',
+      }),
+    ).toEqual({ ok: false, problems: [{ kind: 'held' }, { kind: 'noTemplate', tier: 'B' }] });
   });
 
   it('asks for an anchor when the letter uses one and the contact has none', () => {

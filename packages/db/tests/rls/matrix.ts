@@ -484,7 +484,7 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         where: `campaign_id = ${quote(OUTREACH.campaign)} AND key = 'empleo'`,
         select: OUTREACH_STAFF,
         update: { set: "label = 'Trabajo'", rule: OUTREACH_STAFF },
-        delete: NOBODY,
+        delete: OUTREACH_STAFF,
       },
     ],
     inserts: [

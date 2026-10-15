@@ -76,7 +76,8 @@ CREATE TABLE app.contacts (
   created_at       timestamptz NOT NULL DEFAULT now(),
   updated_by       uuid,
   updated_at       timestamptz NOT NULL DEFAULT now(),
-  CHECK (needs_review OR (btrim(coalesce(reason, '')) <> '' AND cardinality(sources) > 0))
+  CONSTRAINT contacts_reason_sources_check
+    CHECK (needs_review OR (btrim(coalesce(reason, '')) <> '' AND cardinality(sources) > 0))
 );
 COMMENT ON COLUMN app.contacts.person_name IS 'personal data';
 COMMENT ON COLUMN app.contacts.greeting_name IS 'personal data';
@@ -365,7 +366,7 @@ CREATE POLICY outreach_update ON app.campaign_templates FOR UPDATE TO pauseai_ba
   USING ((SELECT private.staff_can('admin', 'outreach')))
   WITH CHECK ((SELECT private.staff_can('admin', 'outreach')));
 
-GRANT SELECT, INSERT (campaign_id, key, label, text, sources), UPDATE (label, text, sources)
+GRANT SELECT, DELETE, INSERT (campaign_id, key, label, text, sources), UPDATE (label, text, sources)
   ON app.campaign_anchors TO pauseai_backoffice_app;
 CREATE POLICY outreach_read ON app.campaign_anchors FOR SELECT TO pauseai_backoffice_app
   USING ((SELECT private.staff_can('admin', 'outreach')));
@@ -374,6 +375,8 @@ CREATE POLICY outreach_insert ON app.campaign_anchors FOR INSERT TO pauseai_back
 CREATE POLICY outreach_update ON app.campaign_anchors FOR UPDATE TO pauseai_backoffice_app
   USING ((SELECT private.staff_can('admin', 'outreach')))
   WITH CHECK ((SELECT private.staff_can('admin', 'outreach')));
+CREATE POLICY outreach_delete ON app.campaign_anchors FOR DELETE TO pauseai_backoffice_app
+  USING ((SELECT private.staff_can('admin', 'outreach')));
 
 GRANT SELECT, DELETE,
       INSERT (campaign_id, contact_id, status, owner_id, priority, anchor, next_action, next_action_due, sent_at,
