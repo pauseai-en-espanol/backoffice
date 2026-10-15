@@ -238,6 +238,12 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   would do, with no second implementation to drift.
 - **R18. The admin's CSV export defuses formula-looking cells** (a leading `=`, `+`, `-` or `@` gets a `'`), so an
   exported name can't run as a formula in a spreadsheet.
+- **R19. The team group's posts are read without an actor.** The bot posts every arrival to the team group,
+  including those of the hourly Airtable sync, which has no person behind it. Options: post only arrivals someone
+  reported; read the posts' facts without an actor, narrowly. **Chose the narrow read:** `private.team_card` returns
+  only what a post shows (name, province, sources, stage, owner, never contact details), only for arrivals of the
+  last 48 hours or people already posted; `private.team_unposted` returns ids. Both are in the catalog allowlists and
+  ADR-0002 §4.
 
 ## Tracking
 
