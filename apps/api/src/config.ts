@@ -1,0 +1,159 @@
+import { type Dsn, readDsn } from '@backoffice/observability/dsn';
+
+export interface ApiConfig {
+  host: string;
+  port: number;
+  logLevel: string;
+  /** GlitchTip project for the API (in-cluster Service); undefined turns error tracking off. */
+  sentryDsn: Dsn | undefined;
+  /** Sign-in (Better Auth, ADR-0003); undefined leaves /api answering 503. */
+  auth: AuthConfig | undefined;
+  /**
+   * The pauseai_backoffice_app role's connection, for everything a signed-in staff member does (withActor, ADR-0002).
+   * Undefined leaves the signed-in data routes unavailable (503).
+   */
+  appDatabaseUrl: string | undefined;
+  /** The backoffice's mail sender. Undefined: nothing sends mail, so no invitation or password link goes out. */
+  mail: MailConfig | undefined;
+}
+
+export interface MailConfig {
+  /**
+   * Mailu's SMTP submission with the sender account's credentials: `smtps://user:password@host:465`, or `smtp://…`
+   * with STARTTLS. Never logged.
+   */
+  smtpUrl: string;
+  /** The sending address, for the envelope and the From header; the From name is the product's. */
+  from: string;
+}
+
+export interface AuthConfig {
+  /**
+   * The staff host's origin (ADR-0001), such as `https://backoffice.example.org`: Better Auth's base URL, the only
+   * origin it trusts, and the only host `/api/*` answers on.
+   */
+  staffOrigin: string;
+  /** Better Auth's own role, pauseai_backoffice_auth (ADR-0002). */
+  databaseUrl: string;
+  /** Signs cookies and encrypts TOTP secrets and backup codes. */
+  secret: string;
+  /** The product's name, from PRODUCT_NAME: what authenticator apps file accounts under, and the mail's sender name. */
+  totpIssuer: string;
+}
+
+const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'];
+
+/** Shorter than this, a secret is guessable; Better Auth itself asks for 32 characters. */
+const MIN_SECRET_LENGTH = 32;
+
+/**
+ * Hosts a browser treats as secure over plain http, so `Secure` and `__Host-` cookies work there: local development
+ * and the end-to-end tests only.
+ */
+const isLoopback = (hostname: string): boolean =>
+  hostname === 'localhost' ||
+  hostname.endsWith('.localhost') ||
+  hostname === '127.0.0.1' ||
+  hostname === '[::1]';
+
+/**
+ * An origin and nothing else: https (or http on a loopback host), with no path, query, fragment or credentials. Errors
+ * don't echo the value, which could hold credentials.
+ */
+const readOrigin = (value: string, name: string): string => {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`${name} must be an origin such as https://backoffice.example.org`);
+  }
+  const secure =
+    url.protocol === 'https:' || (url.protocol === 'http:' && isLoopback(url.hostname));
+  if (!secure || url.origin !== value.replace(/\/$/, '')) {
+    throw new Error(
+      `${name} must be an https origin (http only on a loopback host) with no path or credentials`,
+    );
+  }
+  return url.origin;
+};
+
+/**
+ * Sign-in needs all of its settings or none: some without the others is a deployment mistake, which fails here rather
+ * than at the first sign-in. Errors never echo a secret or a connection string.
+ */
+const readAuth = (env: NodeJS.ProcessEnv): AuthConfig | undefined => {
+  const settings = {
+    STAFF_ORIGIN: env.STAFF_ORIGIN || undefined,
+    AUTH_DATABASE_URL: env.AUTH_DATABASE_URL || undefined,
+    BETTER_AUTH_SECRET: env.BETTER_AUTH_SECRET || undefined,
+    PRODUCT_NAME: env.PRODUCT_NAME || undefined,
+  };
+  const {
+    STAFF_ORIGIN: staffOrigin,
+    AUTH_DATABASE_URL: databaseUrl,
+    BETTER_AUTH_SECRET: secret,
+    PRODUCT_NAME: totpIssuer,
+  } = settings;
+  if (!staffOrigin && !databaseUrl && !secret) {
+    return undefined;
+  }
+  if (!staffOrigin || !databaseUrl || !secret || !totpIssuer) {
+    const missing = Object.entries(settings)
+      .filter(([, value]) => !value)
+      .map(([name]) => name);
+    throw new Error(`Sign-in is half configured: ${missing.join(', ')} not set`);
+  }
+  if (secret.length < MIN_SECRET_LENGTH) {
+    throw new Error(`BETTER_AUTH_SECRET must have at least ${MIN_SECRET_LENGTH} characters`);
+  }
+  return { staffOrigin: readOrigin(staffOrigin, 'STAFF_ORIGIN'), databaseUrl, secret, totpIssuer };
+};
+
+/** A plain address, as the sender: no display name, no spaces, one `@`. */
+const ADDRESS = /^[^\s@<>"]+@[^\s@<>".]+(?:\.[^\s@<>".]+)+$/u;
+
+/** Mail needs both settings or neither. Errors never echo the URL, which holds a password. */
+const readMail = (env: NodeJS.ProcessEnv): MailConfig | undefined => {
+  const smtpUrl = env.SMTP_URL || undefined;
+  const from = env.MAIL_FROM || undefined;
+  if (!smtpUrl && !from) {
+    return undefined;
+  }
+  if (!smtpUrl || !from) {
+    throw new Error(`Mail is half configured: ${smtpUrl ? 'MAIL_FROM' : 'SMTP_URL'} not set`);
+  }
+  let protocol: string;
+  try {
+    ({ protocol } = new URL(smtpUrl));
+  } catch {
+    throw new Error('SMTP_URL must be a URL such as smtps://user:password@mail.example.org:465');
+  }
+  if (protocol !== 'smtp:' && protocol !== 'smtps:') {
+    throw new Error('SMTP_URL must start with smtp:// or smtps://');
+  }
+  if (!ADDRESS.test(from)) {
+    throw new Error('MAIL_FROM must be a plain address, such as avisos@example.org');
+  }
+  return { smtpUrl, from };
+};
+
+/** Reads the API configuration from the environment, failing fast on invalid values. */
+export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
+  const port = Number(env.PORT ?? 3001);
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) {
+    throw new Error(`PORT must be an integer between 1 and 65535, got "${env.PORT}"`);
+  }
+  const logLevel = env.LOG_LEVEL ?? 'info';
+  if (!LOG_LEVELS.includes(logLevel)) {
+    throw new Error(`LOG_LEVEL must be one of ${LOG_LEVELS.join(', ')}, got "${logLevel}"`);
+  }
+  return {
+    host: env.HOST ?? '0.0.0.0',
+    port,
+    logLevel,
+    sentryDsn: readDsn(env),
+    auth: readAuth(env),
+    appDatabaseUrl: env.APP_DATABASE_URL || undefined,
+    mail: readMail(env),
+  };
+};
