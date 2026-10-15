@@ -289,6 +289,88 @@ importers:
         specifier: 5.0.3
         version: 5.0.3(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(@vitest/coverage-v8@5.0.3)(@vitest/ui@5.0.3)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))
 
+  apps/forms:
+    dependencies:
+      '@backoffice/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@backoffice/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
+      '@backoffice/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@sentry/nextjs':
+        specifier: 11.6.0
+        version: 11.6.0(next@16.4.0(@opentelemetry/api@1.9.1)(@playwright/test@1.64.0)(@types/node@26.6.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react@19.3.0)
+      next:
+        specifier: 16.4.0
+        version: 16.4.0(@opentelemetry/api@1.9.1)(@playwright/test@1.64.0)(@types/node@26.6.5)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
+    devDependencies:
+      '@backoffice/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@pandacss/dev':
+        specifier: 2.2.0
+        version: 2.2.0(@emnapi/core@1.11.3)(@emnapi/runtime@1.11.3)(postcss@8.5.29)
+      '@pandacss/preset-base':
+        specifier: 2.2.0
+        version: 2.2.0
+      '@pandacss/preset-panda':
+        specifier: 2.2.0
+        version: 2.2.0
+      '@slango.configs/lint-staged':
+        specifier: 2.0.8
+        version: 2.0.8(lint-staged@17.6.0)
+      '@slango.configs/oxlint':
+        specifier: 0.1.13
+        version: 0.1.13(eslint@10.12.0(supports-color@7.2.0))(oxlint-tsgolint@7.0.2004)(oxlint@1.87.0(oxlint-tsgolint@7.0.2004))(supports-color@7.2.0)(typescript@7.0.2)
+      '@slango.configs/typescript':
+        specifier: 3.0.0
+        version: 3.0.0(typescript@7.0.2)
+      '@slango.configs/vitest':
+        specifier: 2.1.2
+        version: 2.1.2(@noble/hashes@2.4.0)(@swc/helpers@0.5.23)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vitest/coverage-v8@5.0.3)(@vitest/ui@5.0.3)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(rolldown@1.2.13)(rollup@4.64.5)(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))(vitest@5.0.3)
+      '@types/node':
+        specifier: 26.6.5
+        version: 26.6.5
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: 19.3.0
+        version: 19.3.0(@types/react@19.3.0)
+      '@vitest/coverage-v8':
+        specifier: 5.0.3
+        version: 5.0.3(vitest@5.0.3)
+      '@vitest/ui':
+        specifier: 5.0.3
+        version: 5.0.3(vitest@5.0.3)
+      concurrently:
+        specifier: 10.0.6
+        version: 10.0.6
+      oxlint:
+        specifier: 1.87.0
+        version: 1.87.0(oxlint-tsgolint@7.0.2004)
+      oxlint-tsgolint:
+        specifier: 7.0.2004
+        version: 7.0.2004
+      postcss:
+        specifier: 8.5.29
+        version: 8.5.29
+      typescript:
+        specifier: 7.0.2
+        version: 7.0.2
+      vitest:
+        specifier: 5.0.3
+        version: 5.0.3(@opentelemetry/api@1.9.1)(@types/node@26.6.5)(@vitest/coverage-v8@5.0.3)(@vitest/ui@5.0.3)(jsdom@30.1.2(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@26.6.5)(yaml@2.9.1))
+
   apps/web:
     dependencies:
       '@ark-ui/react':
