@@ -181,7 +181,7 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
   AS $$
   DECLARE
     payload jsonb := intake.payload;
-    found app.people;
+    subject app.people;
     conflicts jsonb := '{}';
     identity record;
     holder uuid;
@@ -190,7 +190,7 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
     held text;
     taken text[] := '{}';
   BEGIN
-    SELECT p.* INTO found FROM app.people p WHERE p.id = person FOR UPDATE;
+    SELECT p.* INTO subject FROM app.people p WHERE p.id = person FOR UPDATE;
     FOR identity IN SELECT * FROM private.intake_identities(payload) LOOP
       SELECT private.survivor(i.person_id) INTO holder FROM app.identities i
        WHERE i.kind = identity.kind AND i.value = identity.value;
@@ -209,13 +209,13 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
     ON CONFLICT DO NOTHING;
 
     IF coalesce(btrim(payload ->> 'name'), '') <> ''
-       AND private.fold_name(payload ->> 'name') <> found.name_folded THEN
+       AND private.fold_name(payload ->> 'name') <> subject.name_folded THEN
       conflicts := conflicts || jsonb_build_object('full_name',
-        jsonb_build_object('current', found.full_name, 'proposed', btrim(payload ->> 'name')));
+        jsonb_build_object('current', subject.full_name, 'proposed', btrim(payload ->> 'name')));
     END IF;
     FOREACH field IN ARRAY ARRAY['preferred_name', 'province', 'town', 'how_heard'] LOOP
       proposed := nullif(btrim(payload ->> field), '');
-      held := to_jsonb(found) ->> field;
+      held := to_jsonb(subject) ->> field;
       IF proposed IS NULL THEN
         CONTINUE;
       ELSIF held IS NULL THEN

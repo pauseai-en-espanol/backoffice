@@ -17,7 +17,7 @@
   },
   {
     "name": "the bot resolves the Bandeja",
-    "file": "db/migrations/20261016000200_intake.sql",
+    "file": "db/migrations/20261016020000_census.sql",
     "old": "  BEGIN\n    IF NOT private.staff_can('admin', 'onboarding') THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    SELECT i.* INTO intake FROM app.intake_records i WHERE i.id = intake_id FOR UPDATE;\n    IF NOT FOUND THEN",
     "new": "  BEGIN\n    SELECT i.* INTO intake FROM app.intake_records i WHERE i.id = intake_id FOR UPDATE;\n    IF NOT FOUND THEN",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",

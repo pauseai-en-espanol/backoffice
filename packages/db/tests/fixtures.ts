@@ -70,6 +70,9 @@ export const ANA_PHONE = '+34600000001';
 export const IMPORT_ID = '0190f8c4-0000-7000-8000-0000000004a1';
 export const INTAKE_ID = '0190f8c4-0000-7000-8000-0000000004b1';
 export const EXPORT_ID = '0190f8c4-0000-7000-8000-0000000004c1';
+export const CENSUS_LINK_ID = '0190f8c4-0000-7000-8000-0000000004d1';
+/** Ana's personal census link's token; only its hash is stored. */
+export const CENSUS_TOKEN = 'token-de-censo-de-ana';
 
 /** Loads the fixtures as superuser, through the same triggers the app runs. */
 export const loadFixtures = async (client: pg.Client): Promise<void> => {
@@ -150,6 +153,21 @@ export const loadFixtures = async (client: pg.Client): Promise<void> => {
     await client.query(
       `INSERT INTO app.exports (id, kind, row_count) VALUES ($1, 'people_csv', 1)`,
       [EXPORT_ID],
+    );
+    await client.query(
+      `INSERT INTO app.person_options (person_id, option_id)
+       SELECT $1, id FROM app.census_options WHERE kind = 'skill' AND label = 'Diseño'`,
+      [PEOPLE.ana],
+    );
+    await client.query(
+      `INSERT INTO app.consents (person_id, kind, granted, wording_version, source)
+       VALUES ($1, 'privacy', true, 'v1', 'census')`,
+      [PEOPLE.ana],
+    );
+    await client.query(
+      `INSERT INTO app.census_links (id, person_id, token_hash, expires_at)
+       VALUES ($1, $2, $3, now() + interval '30 days')`,
+      [CENSUS_LINK_ID, PEOPLE.ana, tokenHash(CENSUS_TOKEN)],
     );
     // An expired one can only be made in the past, past the stamp trigger: as superuser, with triggers off.
     await client.query("SET LOCAL session_replication_role = 'replica'");

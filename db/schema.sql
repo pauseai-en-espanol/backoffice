@@ -272,6 +272,46 @@ CREATE FUNCTION private.accept_invitation(token_hash text) RETURNS boolean
 ALTER FUNCTION private.accept_invitation(token_hash text) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: anonymise_person(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.anonymise_person(person uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    subject app.people;
+  BEGIN
+    IF NOT private.staff_can('admin') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    SELECT p.* INTO subject FROM app.people p WHERE p.id = person FOR UPDATE;
+    IF NOT FOUND OR subject.anonymised_at IS NOT NULL THEN
+      RETURN false;
+    END IF;
+    PERFORM set_config('app.redact', 'on', true);
+    UPDATE app.person_events e SET body = NULL, data = '{}'
+     WHERE e.person_id = person OR e.person_id IN (SELECT t.id FROM app.people t WHERE t.merged_into = person);
+    PERFORM set_config('app.redact', '', true);
+    DELETE FROM app.identities i WHERE i.person_id = person;
+    DELETE FROM app.person_options o WHERE o.person_id = person;
+    DELETE FROM app.census_links l WHERE l.person_id = person;
+    UPDATE app.community_presence c SET chat = NULL WHERE c.person_id = person;
+    UPDATE app.intake_records r SET payload = '{}', conflicts = '{}', candidates = '{}'
+     WHERE r.person_id = person OR person = ANY (r.candidates);
+    UPDATE app.people p
+       SET full_name = 'Persona anonimizada', preferred_name = NULL, province = NULL, town = NULL, languages = '{}',
+           pronouns = NULL, availability = NULL, how_heard = NULL, next_action = NULL, next_action_due = NULL,
+           skills_other = NULL, interests_other = NULL, owner_id = NULL, anonymised_at = now()
+     WHERE p.id = person;
+    RETURN true;
+  END
+  $$;
+
+
+ALTER FUNCTION private.anonymise_person(person uuid) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: audit(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -458,6 +498,134 @@ CREATE FUNCTION private.bot_summary() RETURNS TABLE(unassigned integer, arrived_
 
 
 ALTER FUNCTION private.bot_summary() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: census_apply(uuid, jsonb, text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.census_apply(person uuid, answer jsonb, link text) RETURNS void
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    UPDATE app.people p
+       SET full_name = left(btrim(answer ->> 'name'), 200),
+           preferred_name = nullif(left(btrim(answer ->> 'preferred_name'), 100), ''),
+           province = nullif(left(btrim(answer ->> 'province'), 100), ''),
+           town = nullif(left(btrim(answer ->> 'town'), 100), ''),
+           languages = coalesce(ARRAY(SELECT left(btrim(l), 50)
+                                        FROM jsonb_array_elements_text(coalesce(answer -> 'languages', '[]')) l
+                                       WHERE btrim(l) <> '' LIMIT 20), '{}'),
+           availability = (answer ->> 'availability')::app.availability,
+           how_heard = nullif(left(btrim(answer ->> 'how_heard'), 500), ''),
+           pronouns = nullif(left(btrim(answer ->> 'pronouns'), 50), ''),
+           skills_other = nullif(left(btrim(answer ->> 'skills_other'), 300), ''),
+           interests_other = nullif(left(btrim(answer ->> 'interests_other'), 300), ''),
+           profile_completed_at = now()
+     WHERE p.id = person;
+    DELETE FROM app.person_options o WHERE o.person_id = person;
+    INSERT INTO app.person_options (person_id, option_id)
+    SELECT person, o.id FROM app.census_options o
+     WHERE o.active AND o.id::text IN (SELECT jsonb_array_elements_text(coalesce(answer -> 'options', '[]')));
+    INSERT INTO app.consents (person_id, kind, granted, wording_version, source)
+    SELECT person, k.kind, coalesce((answer ->> ('consent_' || k.kind))::boolean, false), answer ->> 'wording_version',
+           'census'
+      FROM unnest(ARRAY['email', 'whatsapp', 'privacy']) AS k(kind);
+    INSERT INTO app.person_events (person_id, kind, data)
+    VALUES (person, 'form_submitted', jsonb_build_object('link', link));
+  END
+  $$;
+
+
+ALTER FUNCTION private.census_apply(person uuid, answer jsonb, link text) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: census_form(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.census_form(token_hash text DEFAULT NULL::text) RETURNS TABLE(options jsonb, greeting text, link text)
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+    SELECT (SELECT coalesce(jsonb_agg(jsonb_build_object('id', o.id, 'kind', o.kind, 'label', o.label)
+                                      ORDER BY o.kind, o.position, o.label), '[]')
+              FROM app.census_options o WHERE o.active),
+           (SELECT coalesce(p.preferred_name, split_part(p.full_name, ' ', 1))
+              FROM app.census_links l JOIN app.people p ON p.id = l.person_id
+             WHERE l.token_hash = census_form.token_hash AND l.expires_at > now()
+               AND p.merged_into IS NULL AND p.anonymised_at IS NULL),
+           CASE WHEN census_form.token_hash IS NULL THEN 'generic'
+                WHEN EXISTS (SELECT 1 FROM app.census_links l
+                              WHERE l.token_hash = census_form.token_hash AND l.expires_at > now()) THEN 'personal'
+                ELSE 'invalid' END
+  $$;
+
+
+ALTER FUNCTION private.census_form(token_hash text) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: census_link_sent(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.census_link_sent() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF (to_jsonb(NEW) - ARRAY['sent_at', 'sent_by', 'used_at']) IS DISTINCT FROM
+       (to_jsonb(OLD) - ARRAY['sent_at', 'sent_by', 'used_at']) THEN
+      RAISE EXCEPTION 'a census link changes only when it is sent or used' USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF NEW.sent_at IS DISTINCT FROM OLD.sent_at THEN
+      IF OLD.sent_at IS NOT NULL THEN
+        RAISE EXCEPTION 'census link % was sent already', OLD.id USING ERRCODE = 'restrict_violation';
+      END IF;
+      NEW.sent_at := now();
+      NEW.sent_by := private.current_user_id();
+    ELSE
+      NEW.sent_by := OLD.sent_by;
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.census_link_sent() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: check_census(jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.check_census(answer jsonb) RETURNS void
+    LANGUAGE plpgsql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    extra text;
+  BEGIN
+    IF jsonb_typeof(answer) IS DISTINCT FROM 'object' THEN
+      RAISE EXCEPTION 'a census answer is an object' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    SELECT string_agg(k, ', ') INTO extra FROM jsonb_object_keys(answer) k
+     WHERE k NOT IN ('name', 'preferred_name', 'email', 'phone', 'province', 'town', 'languages', 'options',
+                     'skills_other', 'interests_other', 'availability', 'how_heard', 'pronouns', 'consent_email',
+                     'consent_whatsapp', 'consent_privacy', 'age_ok', 'wording_version');
+    IF extra IS NOT NULL THEN
+      RAISE EXCEPTION 'a census answer takes no %', extra USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    -- Under 14, consent must come from a parent or guardian (LOPDGDD art. 7): the form refuses them before this.
+    IF (answer ->> 'age_ok') IS DISTINCT FROM 'true' OR (answer ->> 'consent_privacy') IS DISTINCT FROM 'true' THEN
+      RAISE EXCEPTION 'the census needs the age confirmed and the privacy notice accepted'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    IF coalesce(btrim(answer ->> 'name'), '') = '' OR answer ->> 'wording_version' IS NULL THEN
+      RAISE EXCEPTION 'the census needs a name and the wording version' USING ERRCODE = 'check_violation';
+    END IF;
+  END
+  $$;
+
+
+ALTER FUNCTION private.check_census(answer jsonb) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: check_payload(jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -794,7 +962,7 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
     AS $_$
   DECLARE
     payload jsonb := intake.payload;
-    found app.people;
+    subject app.people;
     conflicts jsonb := '{}';
     identity record;
     holder uuid;
@@ -803,7 +971,7 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
     held text;
     taken text[] := '{}';
   BEGIN
-    SELECT p.* INTO found FROM app.people p WHERE p.id = person FOR UPDATE;
+    SELECT p.* INTO subject FROM app.people p WHERE p.id = person FOR UPDATE;
     FOR identity IN SELECT * FROM private.intake_identities(payload) LOOP
       SELECT private.survivor(i.person_id) INTO holder FROM app.identities i
        WHERE i.kind = identity.kind AND i.value = identity.value;
@@ -822,13 +990,13 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
     ON CONFLICT DO NOTHING;
 
     IF coalesce(btrim(payload ->> 'name'), '') <> ''
-       AND private.fold_name(payload ->> 'name') <> found.name_folded THEN
+       AND private.fold_name(payload ->> 'name') <> subject.name_folded THEN
       conflicts := conflicts || jsonb_build_object('full_name',
-        jsonb_build_object('current', found.full_name, 'proposed', btrim(payload ->> 'name')));
+        jsonb_build_object('current', subject.full_name, 'proposed', btrim(payload ->> 'name')));
     END IF;
     FOREACH field IN ARRAY ARRAY['preferred_name', 'province', 'town', 'how_heard'] LOOP
       proposed := nullif(btrim(payload ->> field), '');
-      held := to_jsonb(found) ->> field;
+      held := to_jsonb(subject) ->> field;
       IF proposed IS NULL THEN
         CONTINUE;
       ELSIF held IS NULL THEN
@@ -1263,6 +1431,8 @@ CREATE FUNCTION private.resolve_intake(intake_id uuid, decision text, target uui
   DECLARE
     intake app.intake_records;
     field text;
+    census jsonb;
+    outcome app.intake_status;
   BEGIN
     IF NOT private.staff_can('admin', 'onboarding') THEN
       RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
@@ -1271,20 +1441,32 @@ CREATE FUNCTION private.resolve_intake(intake_id uuid, decision text, target uui
     IF NOT FOUND THEN
       RAISE EXCEPTION 'no intake record %', intake_id USING ERRCODE = 'no_data_found';
     END IF;
+    census := intake.conflicts -> 'census';
     IF intake.status = 'review' AND decision IN ('attach', 'new', 'discard') THEN
       IF decision = 'attach' AND NOT (target = ANY (intake.candidates)) THEN
         RAISE EXCEPTION 'attach to one of the candidates' USING ERRCODE = 'invalid_parameter_value';
       END IF;
-      RETURN private.intake_process(intake_id, decision, target);
+      outcome := private.intake_process(intake_id, decision, target);
+      IF census IS NOT NULL AND outcome IN ('attached', 'conflict', 'created') THEN
+        UPDATE app.intake_records i
+           SET status = 'conflict', conflicts = i.conflicts || jsonb_build_object('census', census),
+               decided_at = NULL, decided_by = NULL
+         WHERE i.id = intake_id;
+        RETURN 'conflict';
+      END IF;
+      RETURN outcome;
     END IF;
     IF intake.status = 'conflict' AND decision IN ('apply', 'keep') THEN
       IF decision = 'apply' THEN
-        FOR field IN SELECT k FROM jsonb_object_keys(intake.conflicts) k WHERE k <> 'identities' LOOP
+        FOR field IN SELECT k FROM jsonb_object_keys(intake.conflicts) k WHERE k NOT IN ('identities', 'census') LOOP
           EXECUTE format('UPDATE app.people SET %I = $1 WHERE id = $2', field)
             USING intake.conflicts -> field ->> 'proposed', intake.person_id;
         END LOOP;
+        IF census IS NOT NULL THEN
+          PERFORM private.census_apply(intake.person_id, census, 'generic');
+        END IF;
       END IF;
-      UPDATE app.intake_records i SET status = 'attached', decided_at = now(),
+      UPDATE app.intake_records i SET status = 'attached', conflicts = '{}', decided_at = now(),
              decided_by = private.current_user_id() WHERE i.id = intake_id;
       RETURN 'attached';
     END IF;
@@ -1442,6 +1624,88 @@ CREATE FUNCTION private.stamp_channel() RETURNS trigger
 ALTER FUNCTION private.stamp_channel() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: submit_census(text, jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.submit_census(token_hash text, answer jsonb) RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    link app.census_links;
+    person uuid;
+    intake uuid;
+    outcome app.intake_status;
+    identity record;
+    matched uuid[];
+  BEGIN
+    PERFORM private.check_census(answer);
+    IF submit_census.token_hash IS NOT NULL THEN
+      SELECT l.* INTO link FROM app.census_links l
+        JOIN app.people p ON p.id = l.person_id
+       WHERE l.token_hash = submit_census.token_hash AND l.expires_at > now()
+         AND p.merged_into IS NULL AND p.anonymised_at IS NULL
+       FOR UPDATE OF l;
+      IF NOT FOUND THEN
+        RETURN 'invalid';
+      END IF;
+      person := link.person_id;
+      PERFORM private.census_apply(person, answer, 'personal');
+      FOR identity IN
+        SELECT 'email'::app.identity_kind AS kind, answer ->> 'email' AS value WHERE coalesce(answer ->> 'email', '') <> ''
+        UNION ALL
+        SELECT 'phone', answer ->> 'phone' WHERE coalesce(answer ->> 'phone', '') <> ''
+      LOOP
+        INSERT INTO app.identities (person_id, kind, value, verified, source)
+        VALUES (person, identity.kind, identity.value, false, 'census')
+        ON CONFLICT (kind, value) DO NOTHING;
+      END LOOP;
+      INSERT INTO app.person_sources (person_id, source) VALUES (person, 'census') ON CONFLICT DO NOTHING;
+      UPDATE app.census_links l SET used_at = coalesce(l.used_at, now()) WHERE l.id = link.id;
+      RETURN 'updated';
+    END IF;
+
+    INSERT INTO app.intake_records (source, external_id, payload, reported_by)
+    VALUES ('census', 'censo:' || pg_catalog.gen_random_uuid()::text,
+            jsonb_strip_nulls(jsonb_build_object(
+              'name', btrim(answer ->> 'name'),
+              'preferred_name', nullif(btrim(answer ->> 'preferred_name'), ''),
+              'emails', CASE WHEN coalesce(answer ->> 'email', '') <> '' THEN jsonb_build_array(answer ->> 'email') END,
+              'phones', CASE WHEN coalesce(answer ->> 'phone', '') <> '' THEN jsonb_build_array(answer ->> 'phone') END,
+              'province', nullif(btrim(answer ->> 'province'), ''),
+              'town', nullif(btrim(answer ->> 'town'), ''),
+              'stage', 'to_triage')),
+            NULL)
+    RETURNING id INTO intake;
+    -- Anyone can type anyone's number: an answer that matches someone never applies itself, and waits in the Bandeja
+    -- (a conflict to apply, or, matching two people, a duplicate to decide first); one that matches nobody makes a new
+    -- person.
+    SELECT coalesce(array_agg(DISTINCT private.survivor(i.person_id)), '{}') INTO matched
+      FROM app.identities i
+     WHERE (i.kind = 'email' AND i.value = answer ->> 'email') OR (i.kind = 'phone' AND i.value = answer ->> 'phone');
+    IF cardinality(matched) > 0 THEN
+      UPDATE app.intake_records r
+         SET status = CASE WHEN cardinality(matched) = 1 THEN 'conflict'::app.intake_status ELSE 'review' END,
+             person_id = CASE WHEN cardinality(matched) = 1 THEN matched[1] END,
+             candidates = CASE WHEN cardinality(matched) > 1 THEN matched ELSE '{}' END,
+             conflicts = jsonb_build_object('census', answer - 'age_ok')
+       WHERE r.id = intake;
+      RETURN 'review';
+    END IF;
+    outcome := private.intake_process(intake, 'new', NULL);
+    SELECT r.person_id INTO person FROM app.intake_records r WHERE r.id = intake;
+    IF outcome = 'created' AND person IS NOT NULL THEN
+      PERFORM private.census_apply(person, answer, 'generic');
+      RETURN 'created';
+    END IF;
+    RETURN 'review';
+  END
+  $$;
+
+
+ALTER FUNCTION private.submit_census(token_hash text, answer jsonb) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: submit_intake(app.source_kind, text, jsonb, text, uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1578,6 +1842,48 @@ ALTER TABLE app.audit_log ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: census_links; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.census_links (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    person_id uuid NOT NULL,
+    token_hash text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    created_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    sent_at timestamp with time zone,
+    sent_by uuid,
+    used_at timestamp with time zone,
+    CONSTRAINT census_links_check CHECK (((expires_at > created_at) AND (expires_at <= (created_at + '30 days'::interval)))),
+    CONSTRAINT census_links_token_hash_check CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))
+);
+
+
+ALTER TABLE app.census_links OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: census_options; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.census_options (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    kind text NOT NULL,
+    label text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT census_options_kind_check CHECK ((kind = ANY (ARRAY['skill'::text, 'interest'::text]))),
+    CONSTRAINT census_options_label_check CHECK (((btrim(label) <> ''::text) AND (length(label) <= 80)))
+);
+
+
+ALTER TABLE app.census_options OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: community_presence; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -1603,6 +1909,25 @@ ALTER TABLE app.community_presence OWNER TO pauseai_backoffice_owner;
 
 COMMENT ON COLUMN app.community_presence.chat IS 'personal data';
 
+
+--
+-- Name: consents; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.consents (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    person_id uuid NOT NULL,
+    kind text NOT NULL,
+    granted boolean NOT NULL,
+    wording_version text NOT NULL,
+    source app.source_kind NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT consents_kind_check CHECK ((kind = ANY (ARRAY['email'::text, 'whatsapp'::text, 'privacy'::text]))),
+    CONSTRAINT consents_wording_version_check CHECK ((wording_version ~ '^[a-z0-9][a-z0-9.-]{0,39}$'::text))
+);
+
+
+ALTER TABLE app.consents OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: exports; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -1741,15 +2066,19 @@ CREATE TABLE app.people (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    skills_other text,
+    interests_other text,
     CONSTRAINT people_check CHECK ((merged_into IS DISTINCT FROM id)),
     CONSTRAINT people_check1 CHECK (((next_action_due IS NULL) OR (next_action IS NOT NULL))),
     CONSTRAINT people_full_name_check CHECK (((btrim(full_name) <> ''::text) AND (length(full_name) <= 200))),
     CONSTRAINT people_how_heard_check CHECK ((length(how_heard) <= 500)),
+    CONSTRAINT people_interests_other_check CHECK ((length(interests_other) <= 300)),
     CONSTRAINT people_languages_check CHECK ((cardinality(languages) <= 20)),
     CONSTRAINT people_next_action_check CHECK (((btrim(next_action) <> ''::text) AND (length(next_action) <= 300))),
     CONSTRAINT people_preferred_name_check CHECK ((length(preferred_name) <= 100)),
     CONSTRAINT people_pronouns_check CHECK ((length(pronouns) <= 50)),
     CONSTRAINT people_province_check CHECK ((length(province) <= 100)),
+    CONSTRAINT people_skills_other_check CHECK ((length(skills_other) <= 300)),
     CONSTRAINT people_town_check CHECK ((length(town) <= 100))
 );
 
@@ -1824,6 +2153,20 @@ COMMENT ON COLUMN app.people.next_action IS 'personal data';
 --
 
 COMMENT ON COLUMN app.people.name_folded IS 'personal data';
+
+
+--
+-- Name: COLUMN people.skills_other; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.skills_other IS 'personal data';
+
+
+--
+-- Name: COLUMN people.interests_other; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.interests_other IS 'personal data';
 
 
 --
@@ -1933,6 +2276,19 @@ CREATE VIEW app.people_attention WITH (security_invoker='true') AS
 
 
 ALTER VIEW app.people_attention OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: person_options; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.person_options (
+    person_id uuid NOT NULL,
+    option_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+ALTER TABLE app.person_options OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: person_sources; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -2251,11 +2607,51 @@ ALTER TABLE ONLY app.audit_log
 
 
 --
+-- Name: census_links census_links_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.census_links
+    ADD CONSTRAINT census_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: census_links census_links_token_hash_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.census_links
+    ADD CONSTRAINT census_links_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: census_options census_options_kind_label_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.census_options
+    ADD CONSTRAINT census_options_kind_label_key UNIQUE (kind, label);
+
+
+--
+-- Name: census_options census_options_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.census_options
+    ADD CONSTRAINT census_options_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: community_presence community_presence_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 ALTER TABLE ONLY app.community_presence
     ADD CONSTRAINT community_presence_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: consents consents_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.consents
+    ADD CONSTRAINT consents_pkey PRIMARY KEY (id);
 
 
 --
@@ -2336,6 +2732,14 @@ ALTER TABLE ONLY app.people
 
 ALTER TABLE ONLY app.person_events
     ADD CONSTRAINT person_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: person_options person_options_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.person_options
+    ADD CONSTRAINT person_options_pkey PRIMARY KEY (person_id, option_id);
 
 
 --
@@ -2513,6 +2917,13 @@ CREATE INDEX audit_log_row_idx ON app.audit_log USING btree (table_name, row_id)
 
 
 --
+-- Name: census_links_person_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX census_links_person_id_idx ON app.census_links USING btree (person_id);
+
+
+--
 -- Name: community_presence_open_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -2524,6 +2935,13 @@ CREATE UNIQUE INDEX community_presence_open_idx ON app.community_presence USING 
 --
 
 CREATE INDEX community_presence_person_id_idx ON app.community_presence USING btree (person_id);
+
+
+--
+-- Name: consents_person_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX consents_person_id_idx ON app.consents USING btree (person_id, kind, created_at DESC);
 
 
 --
@@ -2632,10 +3050,31 @@ CREATE TRIGGER activation BEFORE INSERT OR UPDATE ON app.staff FOR EACH ROW EXEC
 
 
 --
+-- Name: census_links audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.census_links FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: census_options audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.census_options FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
 -- Name: community_presence audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.community_presence FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: consents audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.consents FOR EACH ROW EXECUTE FUNCTION private.audit();
 
 
 --
@@ -2688,6 +3127,13 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.person_events FOR E
 
 
 --
+-- Name: person_options audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.person_options FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
 -- Name: person_sources audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -2730,6 +3176,13 @@ CREATE TRIGGER forbid_mutation BEFORE DELETE OR UPDATE ON app.audit_log FOR EACH
 
 
 --
+-- Name: consents forbid_mutation; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER forbid_mutation BEFORE DELETE OR UPDATE ON app.consents FOR EACH ROW EXECUTE FUNCTION private.forbid_mutation();
+
+
+--
 -- Name: person_events forbid_mutation; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -2741,6 +3194,13 @@ CREATE TRIGGER forbid_mutation BEFORE DELETE OR UPDATE ON app.person_events FOR 
 --
 
 CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.audit_log FOR EACH STATEMENT EXECUTE FUNCTION private.forbid_mutation();
+
+
+--
+-- Name: consents forbid_truncate; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.consents FOR EACH STATEMENT EXECUTE FUNCTION private.forbid_mutation();
 
 
 --
@@ -2772,6 +3232,13 @@ CREATE TRIGGER rules BEFORE UPDATE ON app.people FOR EACH ROW EXECUTE FUNCTION p
 
 
 --
+-- Name: census_links sent; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER sent BEFORE UPDATE ON app.census_links FOR EACH ROW EXECUTE FUNCTION private.census_link_sent();
+
+
+--
 -- Name: audit_log stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -2779,10 +3246,31 @@ CREATE TRIGGER stamp BEFORE INSERT ON app.audit_log FOR EACH ROW EXECUTE FUNCTIO
 
 
 --
+-- Name: census_links stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.census_links FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: census_options stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.census_options FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
+
+
+--
 -- Name: community_presence stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.community_presence FOR EACH ROW EXECUTE FUNCTION private.stamp('created_at');
+
+
+--
+-- Name: consents stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT ON app.consents FOR EACH ROW EXECUTE FUNCTION private.stamp('created_at');
 
 
 --
@@ -2825,6 +3313,13 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.people FOR EACH ROW EXECUTE 
 --
 
 CREATE TRIGGER stamp BEFORE INSERT ON app.person_events FOR EACH ROW EXECUTE FUNCTION private.stamp('actor_id', 'created_at');
+
+
+--
+-- Name: person_options stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.person_options FOR EACH ROW EXECUTE FUNCTION private.stamp('created_at');
 
 
 --
@@ -2884,6 +3379,14 @@ CREATE TRIGGER aal2_needs_second_factor BEFORE INSERT OR UPDATE OF aal ON auth.s
 
 
 --
+-- Name: census_links census_links_person_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.census_links
+    ADD CONSTRAINT census_links_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
 -- Name: community_presence community_presence_joined_reported_by_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -2905,6 +3408,14 @@ ALTER TABLE ONLY app.community_presence
 
 ALTER TABLE ONLY app.community_presence
     ADD CONSTRAINT community_presence_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
+-- Name: consents consents_person_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.consents
+    ADD CONSTRAINT consents_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
 
 
 --
@@ -2985,6 +3496,22 @@ ALTER TABLE ONLY app.people
 
 ALTER TABLE ONLY app.person_events
     ADD CONSTRAINT person_events_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
+-- Name: person_options person_options_option_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.person_options
+    ADD CONSTRAINT person_options_option_id_fkey FOREIGN KEY (option_id) REFERENCES app.census_options(id);
+
+
+--
+-- Name: person_options person_options_person_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.person_options
+    ADD CONSTRAINT person_options_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
 
 
 --
@@ -3090,6 +3617,13 @@ CREATE POLICY admin_delete ON app.staff_roles FOR DELETE TO pauseai_backoffice_a
 
 
 --
+-- Name: census_options admin_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY admin_insert ON app.census_options FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: exports admin_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3139,6 +3673,13 @@ CREATE POLICY admin_revoke ON app.invitations FOR UPDATE TO pauseai_backoffice_a
 
 
 --
+-- Name: census_options admin_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY admin_update ON app.census_options FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: settings admin_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3159,10 +3700,28 @@ CREATE POLICY admin_update ON app.staff FOR UPDATE TO pauseai_backoffice_app USI
 ALTER TABLE app.audit_log ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: census_links; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.census_links ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: census_options; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.census_options ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: community_presence; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 ALTER TABLE app.community_presence ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: consents; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.consents ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: exports; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
@@ -3202,6 +3761,20 @@ CREATE POLICY onboarding_delete ON app.identities FOR DELETE TO pauseai_backoffi
 
 
 --
+-- Name: person_options onboarding_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_delete ON app.person_options FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: census_links onboarding_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_insert ON app.census_links FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: community_presence onboarding_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3223,10 +3796,31 @@ CREATE POLICY onboarding_insert ON app.person_events FOR INSERT TO pauseai_backo
 
 
 --
+-- Name: person_options onboarding_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_insert ON app.person_options FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: census_links onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.census_links FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: community_presence onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE POLICY onboarding_read ON app.community_presence FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: consents onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.consents FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
 
 
 --
@@ -3265,10 +3859,24 @@ CREATE POLICY onboarding_read ON app.person_events FOR SELECT TO pauseai_backoff
 
 
 --
+-- Name: person_options onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.person_options FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: person_sources onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE POLICY onboarding_read ON app.person_sources FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: census_links onboarding_send; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_send ON app.census_links FOR UPDATE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can) AND (sent_at IS NULL))) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
 
 
 --
@@ -3305,6 +3913,12 @@ ALTER TABLE app.people ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app.person_events ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: person_options; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.person_options ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: person_sources; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3321,6 +3935,13 @@ ALTER TABLE app.settings ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE app.staff ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: census_options staff_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY staff_read ON app.census_options FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
 
 --
 -- Name: settings staff_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
@@ -3376,6 +3997,7 @@ GRANT USAGE ON SCHEMA extensions TO pauseai_backoffice_app;
 
 GRANT USAGE ON SCHEMA private TO pauseai_backoffice_app;
 GRANT USAGE ON SCHEMA private TO pauseai_backoffice_ingest;
+GRANT USAGE ON SCHEMA private TO pauseai_backoffice_public;
 
 
 --
@@ -3391,6 +4013,14 @@ REVOKE USAGE ON SCHEMA public FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION private.accept_invitation(token_hash text) FROM PUBLIC;
 GRANT ALL ON FUNCTION private.accept_invitation(token_hash text) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION anonymise_person(person uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.anonymise_person(person uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.anonymise_person(person uuid) TO pauseai_backoffice_app;
 
 
 --
@@ -3430,6 +4060,35 @@ GRANT ALL ON FUNCTION private.bot_people(scope text, query text, phones text[], 
 
 REVOKE ALL ON FUNCTION private.bot_summary() FROM PUBLIC;
 GRANT ALL ON FUNCTION private.bot_summary() TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION census_apply(person uuid, answer jsonb, link text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.census_apply(person uuid, answer jsonb, link text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION census_form(token_hash text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.census_form(token_hash text) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.census_form(token_hash text) TO pauseai_backoffice_public;
+
+
+--
+-- Name: FUNCTION census_link_sent(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.census_link_sent() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION check_census(answer jsonb); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.check_census(answer jsonb) FROM PUBLIC;
 
 
 --
@@ -3669,6 +4328,14 @@ REVOKE ALL ON FUNCTION private.stamp_channel() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION submit_census(token_hash text, answer jsonb); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.submit_census(token_hash text, answer jsonb) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.submit_census(token_hash text, answer jsonb) TO pauseai_backoffice_public;
+
+
+--
 -- Name: FUNCTION submit_intake(source app.source_kind, external_id text, payload jsonb, decision text, target uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -3704,6 +4371,104 @@ GRANT ALL ON FUNCTION private.team_unposted(chat bigint) TO pauseai_backoffice_a
 --
 
 GRANT SELECT ON TABLE app.audit_log TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(id) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.person_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(person_id),INSERT(person_id) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.token_hash; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(token_hash) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.expires_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(expires_at),INSERT(expires_at) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.created_by; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(created_by) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.created_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(created_at) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.sent_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(sent_at),UPDATE(sent_at) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.sent_by; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(sent_by) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.used_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(used_at) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE census_options; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.census_options TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_options.kind; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(kind) ON TABLE app.census_options TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_options.label; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(label),UPDATE(label) ON TABLE app.census_options TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_options.active; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(active),UPDATE(active) ON TABLE app.census_options TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_options."position"; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT("position"),UPDATE("position") ON TABLE app.census_options TO pauseai_backoffice_app;
 
 
 --
@@ -3753,6 +4518,13 @@ GRANT INSERT(joined_reported_by) ON TABLE app.community_presence TO pauseai_back
 --
 
 GRANT INSERT(left_reported_by),UPDATE(left_reported_by) ON TABLE app.community_presence TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE consents; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.consents TO pauseai_backoffice_app;
 
 
 --
@@ -3966,6 +4738,20 @@ GRANT UPDATE(next_action_due) ON TABLE app.people TO pauseai_backoffice_app;
 
 
 --
+-- Name: COLUMN people.skills_other; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(skills_other) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.interests_other; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(interests_other) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
 -- Name: TABLE person_events; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4054,6 +4840,27 @@ GRANT UPDATE(community_chats) ON TABLE app.settings TO pauseai_backoffice_app;
 --
 
 GRANT SELECT ON TABLE app.people_attention TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE person_options; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.person_options TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN person_options.person_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(person_id) ON TABLE app.person_options TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN person_options.option_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(option_id) ON TABLE app.person_options TO pauseai_backoffice_app;
 
 
 --

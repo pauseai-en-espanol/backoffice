@@ -82,6 +82,30 @@ export interface AppAuditLog {
   table_name: string;
 }
 
+export interface AppCensusLinks {
+  created_at: Generated<Timestamp>;
+  created_by: string;
+  expires_at: Timestamp;
+  id: Generated<string>;
+  person_id: string;
+  sent_at: Timestamp | null;
+  sent_by: string | null;
+  token_hash: string;
+  used_at: Timestamp | null;
+}
+
+export interface AppCensusOptions {
+  active: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  kind: string;
+  label: string;
+  position: Generated<number>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
 export interface AppCommunityPresence {
   /**
    * personal data
@@ -94,6 +118,16 @@ export interface AppCommunityPresence {
   left_on: Timestamp | null;
   left_reported_by: string | null;
   person_id: string;
+}
+
+export interface AppConsents {
+  created_at: Generated<Timestamp>;
+  granted: boolean;
+  id: Generated<string>;
+  kind: string;
+  person_id: string;
+  source: AppSourceKind;
+  wording_version: string;
 }
 
 export interface AppExports {
@@ -190,6 +224,10 @@ export interface AppPeople {
   /**
    * personal data
    */
+  interests_other: string | null;
+  /**
+   * personal data
+   */
   languages: Generated<string[]>;
   merged_into: string | null;
   /**
@@ -215,6 +253,10 @@ export interface AppPeople {
    * personal data
    */
   province: string | null;
+  /**
+   * personal data
+   */
+  skills_other: string | null;
   stage: Generated<AppStage>;
   /**
    * personal data
@@ -243,6 +285,12 @@ export interface AppPersonEvents {
   data: Generated<Json>;
   id: Generated<string>;
   kind: AppEventKind;
+  person_id: string;
+}
+
+export interface AppPersonOptions {
+  created_at: Generated<Timestamp>;
+  option_id: string;
   person_id: string;
 }
 
@@ -287,7 +335,10 @@ export interface AppStaffRoles {
 
 export interface DB {
   'app.audit_log': AppAuditLog;
+  'app.census_links': AppCensusLinks;
+  'app.census_options': AppCensusOptions;
   'app.community_presence': AppCommunityPresence;
+  'app.consents': AppConsents;
   'app.exports': AppExports;
   'app.identities': AppIdentities;
   'app.imports': AppImports;
@@ -296,6 +347,7 @@ export interface DB {
   'app.people': AppPeople;
   'app.people_attention': AppPeopleAttention;
   'app.person_events': AppPersonEvents;
+  'app.person_options': AppPersonOptions;
   'app.person_sources': AppPersonSources;
   'app.settings': AppSettings;
   'app.staff': AppStaff;

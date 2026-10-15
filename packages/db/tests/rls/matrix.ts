@@ -2,6 +2,7 @@ import type { Principal } from './harness.js';
 
 import {
   ANA_PHONE,
+  CENSUS_LINK_ID,
   EXPORT_ID,
   IMPORT_ID,
   INTAKE_ID,
@@ -323,6 +324,81 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
   'app.people_attention': {
     rows: [{ id: "a person's reasons", where: `person_id = ${ana}`, select: ONBOARDING }],
     inserts: [],
+  },
+  'app.census_options': {
+    rows: [
+      {
+        id: 'a skill',
+        where: "kind = 'skill' AND label = 'Diseño'",
+        select: { web: ANY_STAFF },
+        update: { set: 'position = 9', rule: ADMIN },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'an area to help in',
+        sql: "INSERT INTO app.census_options (kind, label) VALUES ('interest', 'Área de la matriz')",
+        rule: ADMIN,
+      },
+    ],
+  },
+  'app.person_options': {
+    rows: [
+      {
+        id: "a person's skill",
+        where: `person_id = ${ana}`,
+        select: ONBOARDING,
+        update: { set: 'created_at = now()', rule: NOBODY },
+        delete: ONBOARDING,
+      },
+    ],
+    inserts: [
+      {
+        id: 'an area for a person',
+        sql: `INSERT INTO app.person_options (person_id, option_id)
+              SELECT ${ana}, id FROM app.census_options WHERE kind = 'interest' AND label = 'Eventos'`,
+        rule: ONBOARDING,
+      },
+    ],
+  },
+  'app.consents': {
+    rows: [
+      {
+        id: "a person's consent",
+        where: `person_id = ${ana} AND kind = 'privacy'`,
+        select: ONBOARDING,
+        update: { set: 'granted = false', rule: NOBODY },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a consent given by staff',
+        sql: `INSERT INTO app.consents (person_id, kind, granted, wording_version, source)
+              VALUES (${ana}, 'email', true, 'v1', 'manual')`,
+        rule: NOBODY,
+      },
+    ],
+  },
+  'app.census_links': {
+    rows: [
+      {
+        id: "a person's link",
+        where: `id = '${CENSUS_LINK_ID}'`,
+        select: ONBOARDING,
+        update: { set: 'sent_at = now()', rule: ONBOARDING },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a link',
+        sql: `INSERT INTO app.census_links (person_id, token_hash, expires_at)
+              VALUES (${ana}, '${'c'.repeat(64)}', now() + interval '30 days')`,
+        rule: ONBOARDING,
+      },
+    ],
   },
 };
 

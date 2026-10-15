@@ -1,0 +1,294 @@
+import type pg from 'pg';
+
+import { describe, expect, it } from 'vitest';
+
+import { actAs, errorCode, inRolledBackTransaction } from './db.js';
+import { ANA_PHONE, CENSUS_TOKEN, PEOPLE, tokenHash, USERS } from './fixtures.js';
+
+/** A census answer as the form sends it, fictional, with everything it needs. */
+const answer = (fields: Record<string, unknown> = {}) => ({
+  name: 'Censo Ejemplo',
+  email: 'censo.ejemplo@ejemplo.test',
+  province: 'Provincia de ejemplo',
+  languages: ['Castellano'],
+  availability: 'under_2h',
+  consent_email: true,
+  consent_whatsapp: false,
+  consent_privacy: true,
+  age_ok: true,
+  wording_version: 'v1',
+  ...fields,
+});
+
+/** Submits as the public role, as the census form's routes do. */
+const submit = async (
+  client: pg.Client,
+  token: string | null,
+  fields: Record<string, unknown> = {},
+) => {
+  await client.query('SET LOCAL ROLE pauseai_backoffice_public');
+  try {
+    const { rows } = await client.query<{ outcome: string }>(
+      'SELECT private.submit_census($1, $2) AS outcome',
+      [token === null ? null : tokenHash(token), JSON.stringify(answer(fields))],
+    );
+    return rows[0]?.outcome;
+  } finally {
+    await client.query('RESET ROLE');
+  }
+};
+
+const optionId = async (client: pg.Client, label: string): Promise<string> =>
+  (
+    await client.query<{ id: string }>('SELECT id FROM app.census_options WHERE label = $1', [
+      label,
+    ])
+  ).rows[0]?.id ?? '';
+
+describe('the census form', () => {
+  it('shows the lists to anyone, and greets a personal link’s person by first name only', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await client.query('SET LOCAL ROLE pauseai_backoffice_public');
+      const generic = await client.query('SELECT * FROM private.census_form()');
+      expect(generic.rows[0]).toMatchObject({ greeting: null, link: 'generic' });
+      expect(generic.rows[0]?.options.map((o: { label: string }) => o.label)).toContain('Diseño');
+      const personal = await client.query('SELECT greeting, link FROM private.census_form($1)', [
+        tokenHash(CENSUS_TOKEN),
+      ]);
+      expect(personal.rows[0]).toEqual({ greeting: 'Ana', link: 'personal' });
+      const wrong = await client.query('SELECT greeting, link FROM private.census_form($1)', [
+        tokenHash('otro'),
+      ]);
+      expect(wrong.rows[0]).toEqual({ greeting: null, link: 'invalid' });
+      // Nothing else: no table, no other function.
+      expect(await errorCode(client, 'SELECT 1 FROM app.people')).toBe('42501');
+      expect(await errorCode(client, "SELECT * FROM private.bot_people('unassigned')")).toBe(
+        '42501',
+      );
+    });
+  });
+
+  it('through the generic link, makes someone new in Por clasificar, with their answers', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const design = await optionId(client, 'Diseño');
+      expect(await submit(client, null, { options: [design], skills_other: 'Fotografía' })).toBe(
+        'created',
+      );
+      const { rows } = await client.query(
+        `SELECT p.id, p.stage::text, p.availability::text, p.skills_other, p.profile_completed_at IS NOT NULL AS done
+           FROM app.people p JOIN app.identities i ON i.person_id = p.id WHERE i.value = 'censo.ejemplo@ejemplo.test'`,
+      );
+      expect(rows[0]).toMatchObject({
+        stage: 'to_triage',
+        availability: 'under_2h',
+        skills_other: 'Fotografía',
+        done: true,
+      });
+      const person = rows[0]?.id as string;
+      const consents = await client.query(
+        'SELECT kind, granted, wording_version FROM app.consents WHERE person_id = $1 ORDER BY kind',
+        [person],
+      );
+      expect(consents.rows).toEqual([
+        { kind: 'email', granted: true, wording_version: 'v1' },
+        { kind: 'privacy', granted: true, wording_version: 'v1' },
+        { kind: 'whatsapp', granted: false, wording_version: 'v1' },
+      ]);
+      const options = await client.query(
+        'SELECT option_id FROM app.person_options WHERE person_id = $1',
+        [person],
+      );
+      expect(options.rows).toEqual([{ option_id: design }]);
+    });
+  });
+
+  it('through the generic link, never overwrites someone it matches: the answer waits in the Bandeja', async () => {
+    await inRolledBackTransaction(async (client) => {
+      expect(
+        await submit(client, null, { name: 'Alguien Distinto', phone: ANA_PHONE, email: '' }),
+      ).toBe('review');
+      const [person] = (
+        await client.query('SELECT full_name, profile_completed_at FROM app.people WHERE id = $1', [
+          PEOPLE.ana,
+        ])
+      ).rows;
+      expect(person).toEqual({ full_name: 'Ana Ejemplo Uno', profile_completed_at: null });
+      const [intake] = (
+        await client.query(
+          "SELECT id, status::text, person_id FROM app.intake_records WHERE source = 'census' ORDER BY created_at DESC LIMIT 1",
+        )
+      ).rows;
+      expect(intake).toMatchObject({ status: 'conflict', person_id: PEOPLE.ana });
+      // A person who checked it's Ana's applies it, as her own answer would.
+      await actAs(client, 'pauseai_backoffice_app', {
+        userId: USERS.onboarder,
+        aal: 2,
+        channel: 'web',
+      });
+      await client.query("SELECT private.resolve_intake($1, 'apply')", [intake?.id]);
+      await client.query('RESET ROLE');
+      const [applied] = (
+        await client.query('SELECT full_name, availability::text FROM app.people WHERE id = $1', [
+          PEOPLE.ana,
+        ])
+      ).rows;
+      expect(applied).toEqual({ full_name: 'Alguien Distinto', availability: 'under_2h' });
+    });
+  });
+
+  it('through a personal link, updates the person directly, adding contact details nobody holds', async () => {
+    await inRolledBackTransaction(async (client) => {
+      expect(
+        await submit(client, CENSUS_TOKEN, { name: 'Ana Ejemplo Uno', preferred_name: 'Anita' }),
+      ).toBe('updated');
+      const [person] = (
+        await client.query(
+          'SELECT preferred_name, province, profile_completed_at IS NOT NULL AS done FROM app.people WHERE id = $1',
+          [PEOPLE.ana],
+        )
+      ).rows;
+      expect(person).toEqual({
+        preferred_name: 'Anita',
+        province: 'Provincia de ejemplo',
+        done: true,
+      });
+      const emails = await client.query(
+        "SELECT value FROM app.identities WHERE person_id = $1 AND kind = 'email'",
+        [PEOPLE.ana],
+      );
+      expect(emails.rows).toEqual([{ value: 'censo.ejemplo@ejemplo.test' }]);
+      const [link] = (
+        await client.query(
+          'SELECT used_at IS NOT NULL AS used FROM app.census_links WHERE person_id = $1',
+          [PEOPLE.ana],
+        )
+      ).rows;
+      expect(link).toEqual({ used: true });
+      expect(
+        (
+          await client.query(
+            "SELECT kind FROM app.person_events WHERE person_id = $1 AND kind = 'form_submitted'",
+            [PEOPLE.ana],
+          )
+        ).rows,
+      ).toHaveLength(1);
+    });
+  });
+
+  it('refuses an expired or unknown link, a missing age or privacy confirmation, and fields it doesn’t take', async () => {
+    await inRolledBackTransaction(async (client) => {
+      expect(await submit(client, 'no-existe')).toBe('invalid');
+      await client.query("SET LOCAL session_replication_role = 'replica'");
+      await client.query(
+        "UPDATE app.census_links SET created_at = now() - interval '31 days', expires_at = now() - interval '1 day'",
+      );
+      await client.query("SET LOCAL session_replication_role = 'origin'");
+      expect(await submit(client, CENSUS_TOKEN)).toBe('invalid');
+      await client.query('SET LOCAL ROLE pauseai_backoffice_public');
+      for (const [fields, code] of [
+        [{ age_ok: false }, '23514'],
+        [{ consent_privacy: false }, '23514'],
+        [{ name: ' ' }, '23514'],
+        [{ notas: 'x' }, '22023'],
+      ] as const) {
+        expect(
+          await errorCode(client, 'SELECT private.submit_census(NULL, $1)', [
+            JSON.stringify(answer(fields)),
+          ]),
+          JSON.stringify(fields),
+        ).toBe(code);
+      }
+    });
+  });
+});
+
+describe('personal links', () => {
+  it('are made and marked sent by onboarding staff, once, and never show their hash', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await actAs(client, 'pauseai_backoffice_app', {
+        userId: USERS.onboarder,
+        aal: 2,
+        channel: 'web',
+      });
+      expect(await errorCode(client, 'SELECT token_hash FROM app.census_links')).toBe('42501');
+      await client.query('UPDATE app.census_links SET sent_at = now() WHERE person_id = $1', [
+        PEOPLE.ana,
+      ]);
+      const { rowCount } = await client.query(
+        'UPDATE app.census_links SET sent_at = now() WHERE person_id = $1',
+        [PEOPLE.ana],
+      );
+      expect(rowCount).toBe(0);
+      await client.query('RESET ROLE');
+      const [link] = (
+        await client.query('SELECT sent_by FROM app.census_links WHERE person_id = $1', [
+          PEOPLE.ana,
+        ])
+      ).rows;
+      expect(link).toEqual({ sent_by: USERS.onboarder });
+    });
+  });
+});
+
+describe('erasure', () => {
+  it('anonymises a person for admins only: profile, identities and the timeline’s words go, the counts stay', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await client.query(
+        "INSERT INTO app.person_events (person_id, kind, body) VALUES ($1, 'note', 'Algo personal')",
+        [PEOPLE.ana],
+      );
+      await actAs(client, 'pauseai_backoffice_app', {
+        userId: USERS.onboarder,
+        aal: 2,
+        channel: 'web',
+      });
+      expect(await errorCode(client, 'SELECT private.anonymise_person($1)', [PEOPLE.ana])).toBe(
+        '42501',
+      );
+      await client.query('RESET ROLE');
+      await actAs(client, 'pauseai_backoffice_app', {
+        userId: USERS.adminA,
+        aal: 2,
+        channel: 'web',
+      });
+      const { rows } = await client.query<{ done: boolean }>(
+        'SELECT private.anonymise_person($1) AS done',
+        [PEOPLE.ana],
+      );
+      expect(rows[0]?.done).toBe(true);
+      await client.query('RESET ROLE');
+      const [person] = (
+        await client.query(
+          'SELECT full_name, province, stage::text, anonymised_at IS NOT NULL AS gone FROM app.people WHERE id = $1',
+          [PEOPLE.ana],
+        )
+      ).rows;
+      expect(person).toEqual({
+        full_name: 'Persona anonimizada',
+        province: null,
+        stage: 'new',
+        gone: true,
+      });
+      expect(
+        (await client.query('SELECT 1 FROM app.identities WHERE person_id = $1', [PEOPLE.ana]))
+          .rows,
+      ).toEqual([]);
+      const notes = await client.query(
+        "SELECT body FROM app.person_events WHERE person_id = $1 AND kind = 'note'",
+        [PEOPLE.ana],
+      );
+      expect(notes.rows).toEqual([{ body: null }]);
+      // The timeline stays append-only for everyone else.
+      expect(
+        await errorCode(client, "UPDATE app.person_events SET body = 'x' WHERE person_id = $1", [
+          PEOPLE.ana,
+        ]),
+      ).toBe('23001');
+      const audit = await client.query(
+        "SELECT diff::text FROM app.audit_log WHERE table_name = 'people' AND row_id = $1 ORDER BY id DESC LIMIT 1",
+        [PEOPLE.ana],
+      );
+      expect(audit.rows[0]?.diff).not.toContain('Ana');
+    });
+  });
+});

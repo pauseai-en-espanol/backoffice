@@ -180,12 +180,16 @@ describe('catalog: closed by default', () => {
     }
   });
 
-  it('keeps the ingest role to its one function (ADR-0005), and gives the public role nothing until M2', async () => {
+  it('keeps the ingest role to its one function (ADR-0005), and the public role to the census form’s two', async () => {
     expect(await reachable('pauseai_backoffice_ingest', SCHEMAS)).toEqual([
       'private USAGE',
       'private.ingest_airtable EXECUTE',
     ]);
-    expect(await reachable('pauseai_backoffice_public', SCHEMAS)).toEqual([]);
+    expect(await reachable('pauseai_backoffice_public', SCHEMAS)).toEqual([
+      'private USAGE',
+      'private.census_form EXECUTE',
+      'private.submit_census EXECUTE',
+    ]);
   });
 
   it("lets only the app role look in the extensions schema, which holds pg_trgm's functions and nothing else", async () => {
@@ -460,7 +464,7 @@ const NOT_AUDITED: Readonly<Record<string, string>> = {
 };
 
 /** Tables in app whose rows are never updated or deleted, except by anonymisation (data model spec). */
-const APPEND_ONLY = ['audit_log', 'person_events'];
+const APPEND_ONLY = ['audit_log', 'consents', 'person_events'];
 
 /** Columns commented `personal data` (data model spec, conventions), as `table.column`: never copied to the log. */
 const PERSONAL_DATA: readonly string[] = [
@@ -473,12 +477,14 @@ const PERSONAL_DATA: readonly string[] = [
   'people.availability',
   'people.full_name',
   'people.how_heard',
+  'people.interests_other',
   'people.languages',
   'people.name_folded',
   'people.next_action',
   'people.preferred_name',
   'people.pronouns',
   'people.province',
+  'people.skills_other',
   'people.town',
   'person_events.body',
   'person_events.data',
