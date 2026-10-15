@@ -48,6 +48,23 @@ export interface PersonSource {
   reportedBy: StaffRef | string | null;
 }
 
+/** A skill or an area to help in that the person chose in the census (M2). */
+export interface PersonOption {
+  id: string;
+  kind: 'skill' | 'interest';
+  label: string;
+}
+
+/** A consent's latest answer: given or refused, when, and the version of the wording the person saw. */
+export interface Consent {
+  granted: boolean;
+  at: string;
+  wordingVersion: string;
+}
+
+export const CONSENT_KINDS = ['email', 'whatsapp', 'privacy'] as const;
+export type ConsentKind = (typeof CONSENT_KINDS)[number];
+
 export interface PersonDetail extends Omit<PersonSummary, 'sources'> {
   preferredName: string | null;
   town: string | null;
@@ -62,6 +79,13 @@ export interface PersonDetail extends Omit<PersonSummary, 'sources'> {
   sources: PersonSource[];
   /** The API's WhatsApp handover link or number, if the person has a phone. */
   whatsapp: string | null;
+  /** The census's answers (M2): an older API leaves them out, which reads as "not answered". */
+  options: PersonOption[];
+  skillsOther: string | null;
+  interestsOther: string | null;
+  consents: Record<ConsentKind, Consent | null>;
+  /** When the person's data was erased, if the API says; the record then stays only for the counts. */
+  anonymisedAt: string | null;
 }
 
 export interface TimelineEvent {
@@ -274,6 +298,41 @@ const parseSource = (value: unknown): PersonSource | undefined => {
     : { source: value.source, firstSeenAt, reportedBy };
 };
 
+const parsePersonOption = (value: unknown): PersonOption | undefined =>
+  isRecord(value) &&
+  str(value.id) &&
+  (value.kind === 'skill' || value.kind === 'interest') &&
+  str(value.label)
+    ? { id: value.id, kind: value.kind, label: value.label }
+    : undefined;
+
+const parseConsent = (value: unknown): Consent | null | undefined => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  return isRecord(value) && typeof value.granted === 'boolean' && str(value.at)
+    ? {
+        granted: value.granted,
+        at: value.at,
+        wordingVersion: str(value.wordingVersion) ? value.wordingVersion : '',
+      }
+    : undefined;
+};
+
+/** The latest consent of each kind, or null for one never asked; undefined for an answer that isn't one. */
+export const parseConsents = (value: unknown): Record<ConsentKind, Consent | null> | undefined => {
+  const source = isRecord(value) ? value : {};
+  if (value !== undefined && value !== null && !isRecord(value)) {
+    return undefined;
+  }
+  const email = parseConsent(source.email);
+  const whatsapp = parseConsent(source.whatsapp);
+  const privacy = parseConsent(source.privacy);
+  return email === undefined || whatsapp === undefined || privacy === undefined
+    ? undefined
+    : { email, whatsapp, privacy };
+};
+
 export const parseDetail = (value: unknown): PersonDetail | undefined => {
   if (!isRecord(value)) {
     return undefined;
@@ -291,6 +350,20 @@ export const parseDetail = (value: unknown): PersonDetail | undefined => {
   const presence = value.presence === undefined ? [] : every(value.presence, parsePresence);
   const sources = value.sources === undefined ? [] : every(value.sources, parseSource);
   const whatsapp = nullable(value.whatsapp);
+  const options = value.options === undefined ? [] : every(value.options, parsePersonOption);
+  const skillsOther = nullable(value.skillsOther);
+  const interestsOther = nullable(value.interestsOther);
+  const consents = parseConsents(value.consents);
+  const anonymisedAt = nullable(value.anonymisedAt);
+  if (
+    options === undefined ||
+    skillsOther === undefined ||
+    interestsOther === undefined ||
+    consents === undefined ||
+    anonymisedAt === undefined
+  ) {
+    return undefined;
+  }
   if (
     !fields ||
     preferredName === undefined ||
@@ -322,6 +395,11 @@ export const parseDetail = (value: unknown): PersonDetail | undefined => {
     presence,
     sources,
     whatsapp,
+    options,
+    skillsOther,
+    interestsOther,
+    consents,
+    anonymisedAt,
   };
 };
 
