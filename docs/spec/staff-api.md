@@ -171,7 +171,8 @@ A **letter**, as `renderLetter` writes it (`packages/domain/outreach`):
 }
 ```
 
-or `{ "ok": false, "problems": [...] }`, each problem one of `{ kind: 'needsReview' }`, `{ kind: 'held' }`, `{ kind: 'noTemplate', tier }` (the campaign has no template for the contact's tier),
+or `{ "ok": false, "problems": [...] }`, each problem one of `{ kind: 'needsReview' }`, `{ kind: 'held' }`,
+`{ kind: 'noTemplate', tier }` (the campaign has no template for the contact's tier),
 `{ kind: 'unknownAnchor', anchor }`, `{ kind: 'unresolved', fields }`, `{ kind: 'prose', issue }`; and a warning
 `{ kind: 'long', words, maxWords }` as well as `prose`. A letter is sent **with** its handover:
 `{ letter, to: [email], cc: [email], mailto: string | null, whatsapp: string | null, templateVersion: number | null }`
