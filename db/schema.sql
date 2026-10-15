@@ -623,7 +623,7 @@ CREATE FUNCTION private.import_batch(kind text, source app.source_kind, file_sha
     made uuid;
     existing app.intake_records;
     outcome app.intake_status;
-    counts jsonb := jsonb_build_object('received', 0, 'unchanged', 0, 'created', 0, 'attached', 0, 'review', 0,
+    tally jsonb := jsonb_build_object('received', 0, 'unchanged', 0, 'created', 0, 'attached', 0, 'review', 0,
                                        'conflict', 0, 'updated', 0);
   BEGIN
     IF jsonb_typeof(records) IS DISTINCT FROM 'array' THEN
@@ -633,16 +633,16 @@ CREATE FUNCTION private.import_batch(kind text, source app.source_kind, file_sha
     VALUES (import_batch.kind, private.current_user_id(), import_batch.file_sha256)
     RETURNING id INTO run;
     FOR item IN SELECT * FROM jsonb_array_elements(records) LOOP
-      counts := jsonb_set(counts, '{received}', to_jsonb((counts ->> 'received')::int + 1));
+      tally := jsonb_set(tally, '{received}', to_jsonb((tally ->> 'received')::int + 1));
       PERFORM private.check_payload(item -> 'payload');
       SELECT i.* INTO existing FROM app.intake_records i
        WHERE i.source = import_batch.source AND i.external_id = item ->> 'external_id' FOR UPDATE;
       IF FOUND AND existing.payload = item -> 'payload' THEN
-        counts := jsonb_set(counts, '{unchanged}', to_jsonb((counts ->> 'unchanged')::int + 1));
+        tally := jsonb_set(tally, '{unchanged}', to_jsonb((tally ->> 'unchanged')::int + 1));
         CONTINUE;
       ELSIF FOUND THEN
         UPDATE app.intake_records i SET payload = item -> 'payload', import_id = run WHERE i.id = existing.id;
-        counts := jsonb_set(counts, '{updated}', to_jsonb((counts ->> 'updated')::int + 1));
+        tally := jsonb_set(tally, '{updated}', to_jsonb((tally ->> 'updated')::int + 1));
         IF existing.person_id IS NOT NULL THEN
           SELECT i.* INTO existing FROM app.intake_records i WHERE i.id = existing.id;
           IF private.intake_attach(existing, existing.person_id) <> '{}' THEN
@@ -655,10 +655,10 @@ CREATE FUNCTION private.import_batch(kind text, source app.source_kind, file_sha
       VALUES (import_batch.source, item ->> 'external_id', item -> 'payload', run, private.current_user_id())
       RETURNING id INTO made;
       outcome := private.intake_process(made, NULL, NULL);
-      counts := jsonb_set(counts, ARRAY[outcome::text], to_jsonb(coalesce((counts ->> outcome::text)::int, 0) + 1));
+      tally := jsonb_set(tally, ARRAY[outcome::text], to_jsonb(coalesce((tally ->> outcome::text)::int, 0) + 1));
     END LOOP;
-    UPDATE app.imports i SET finished_at = now(), counts = import_batch.counts WHERE i.id = run;
-    RETURN counts || jsonb_build_object('import_id', run);
+    UPDATE app.imports i SET finished_at = now(), counts = tally WHERE i.id = run;
+    RETURN tally || jsonb_build_object('import_id', run);
   END
   $$;
 
@@ -824,8 +824,6 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
       INSERT INTO app.community_presence (person_id, joined_on, chat, joined_reported_by)
       VALUES (person, coalesce((payload ->> 'joined_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date),
               nullif(btrim(payload ->> 'chat'), ''), intake.reported_by);
-      INSERT INTO app.person_events (person_id, kind, data)
-      VALUES (person, 'joined', jsonb_build_object('chat', nullif(btrim(payload ->> 'chat'), '')));
     END IF;
     INSERT INTO app.person_events (person_id, kind, data)
     VALUES (person, CASE intake.source WHEN 'telegram' THEN 'reported'::app.event_kind
@@ -901,7 +899,7 @@ CREATE FUNCTION private.intake_process(intake_id uuid, decision text, target uui
     exact uuid[];
     alike uuid[];
     person uuid;
-    conflicts jsonb;
+    found_conflicts jsonb;
     outcome app.intake_status;
   BEGIN
     SELECT i.* INTO intake FROM app.intake_records i WHERE i.id = intake_id FOR UPDATE;
@@ -939,13 +937,13 @@ CREATE FUNCTION private.intake_process(intake_id uuid, decision text, target uui
     IF person IS NULL THEN
       person := private.intake_create(intake);
       outcome := 'created';
-      conflicts := '{}';
+      found_conflicts := '{}';
     ELSE
-      conflicts := private.intake_attach(intake, person);
-      outcome := CASE WHEN conflicts = '{}' THEN 'attached' ELSE 'conflict' END;
+      found_conflicts := private.intake_attach(intake, person);
+      outcome := CASE WHEN found_conflicts = '{}' THEN 'attached' ELSE 'conflict' END;
     END IF;
     UPDATE app.intake_records i
-       SET status = outcome, person_id = person, candidates = '{}', conflicts = intake_process.conflicts,
+       SET status = outcome, person_id = person, candidates = '{}', conflicts = found_conflicts,
            decided_at = CASE WHEN outcome = 'conflict' THEN NULL ELSE now() END,
            decided_by = CASE WHEN outcome = 'conflict' THEN NULL ELSE private.current_user_id() END
      WHERE i.id = intake_id;
@@ -1174,6 +1172,30 @@ CREATE FUNCTION private.person_timeline() RETURNS trigger
 ALTER FUNCTION private.person_timeline() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: presence_timeline(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.presence_timeline() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF TG_OP = 'INSERT' AND NEW.joined_on IS NOT NULL THEN
+      INSERT INTO app.person_events (person_id, kind, data)
+      VALUES (NEW.person_id, 'joined', jsonb_build_object('on', NEW.joined_on, 'chat', NEW.chat));
+    END IF;
+    IF NEW.left_on IS NOT NULL AND (TG_OP = 'INSERT' OR OLD.left_on IS NULL) THEN
+      INSERT INTO app.person_events (person_id, kind, data)
+      VALUES (NEW.person_id, 'left', jsonb_build_object('on', NEW.left_on));
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.presence_timeline() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: report_leave(uuid, date); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1198,7 +1220,6 @@ CREATE FUNCTION private.report_leave(person uuid, left_on date DEFAULT NULL::dat
       INSERT INTO app.community_presence (person_id, left_on, left_reported_by)
       VALUES (person, day, private.current_user_id());
     END IF;
-    INSERT INTO app.person_events (person_id, kind, data) VALUES (person, 'left', jsonb_build_object('on', day));
     RETURN true;
   END
   $$;
@@ -2628,6 +2649,13 @@ CREATE TRIGGER stamp_channel BEFORE INSERT ON app.person_events FOR EACH ROW EXE
 
 
 --
+-- Name: community_presence timeline; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER timeline AFTER INSERT OR UPDATE OF left_on ON app.community_presence FOR EACH ROW EXECUTE FUNCTION private.presence_timeline();
+
+
+--
 -- Name: people timeline; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3333,6 +3361,13 @@ REVOKE ALL ON FUNCTION private.person_rules() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION private.person_timeline() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION presence_timeline(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.presence_timeline() FROM PUBLIC;
 
 
 --

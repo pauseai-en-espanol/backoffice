@@ -209,6 +209,24 @@ CREATE FUNCTION private.contact_attempt_rules() RETURNS trigger
   END
   $$;
 
+-- A join or a leave writes its timeline event, whoever records it (the staff app, the bot, an import).
+CREATE FUNCTION private.presence_timeline() RETURNS trigger
+  LANGUAGE plpgsql
+  SET search_path = ''
+  AS $$
+  BEGIN
+    IF TG_OP = 'INSERT' AND NEW.joined_on IS NOT NULL THEN
+      INSERT INTO app.person_events (person_id, kind, data)
+      VALUES (NEW.person_id, 'joined', jsonb_build_object('on', NEW.joined_on, 'chat', NEW.chat));
+    END IF;
+    IF NEW.left_on IS NOT NULL AND (TG_OP = 'INSERT' OR OLD.left_on IS NULL) THEN
+      INSERT INTO app.person_events (person_id, kind, data)
+      VALUES (NEW.person_id, 'left', jsonb_build_object('on', NEW.left_on));
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
 -- Triggers --------------------------------------------------------------------------------------------------------
 
 CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.people
@@ -230,6 +248,8 @@ CREATE TRIGGER audit AFTER INSERT OR UPDATE OR DELETE ON app.person_sources
 
 CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.community_presence
   FOR EACH ROW EXECUTE FUNCTION private.stamp('created_at');
+CREATE TRIGGER timeline AFTER INSERT OR UPDATE OF left_on ON app.community_presence
+  FOR EACH ROW EXECUTE FUNCTION private.presence_timeline();
 CREATE TRIGGER audit AFTER INSERT OR UPDATE OR DELETE ON app.community_presence
   FOR EACH ROW EXECUTE FUNCTION private.audit();
 

@@ -419,6 +419,8 @@ describe('the bot', () => {
       );
       expect(presence.rows).toEqual([{ closed: true, left_reported_by: USERS.onboarder }]);
       expect(await reasonsOf(client, PEOPLE.ana)).toContain('left_community');
+      const left = (await eventsOf(client, PEOPLE.ana)).filter((e) => e.kind === 'left');
+      expect(left).toMatchObject([{ actor_id: USERS.onboarder, channel: 'bot' }]);
     });
   });
 });
@@ -443,7 +445,7 @@ describe('stages and the timeline', () => {
       ).rows;
       expect(person).toEqual({ next_action: null, next_action_due: null });
       const events = (await eventsOf(client, PEOPLE.ana)).filter(
-        (e) => e.actor_id === USERS.adminA && e.kind !== 'created',
+        (e) => e.actor_id === USERS.adminA && !['created', 'joined'].includes(e.kind),
       );
       expect(events.map((e) => [e.kind, e.data])).toEqual([
         ['stage_changed', { from: 'new', to: 'talking' }],

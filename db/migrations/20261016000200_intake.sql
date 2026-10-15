@@ -236,8 +236,6 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
       INSERT INTO app.community_presence (person_id, joined_on, chat, joined_reported_by)
       VALUES (person, coalesce((payload ->> 'joined_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date),
               nullif(btrim(payload ->> 'chat'), ''), intake.reported_by);
-      INSERT INTO app.person_events (person_id, kind, data)
-      VALUES (person, 'joined', jsonb_build_object('chat', nullif(btrim(payload ->> 'chat'), '')));
     END IF;
     INSERT INTO app.person_events (person_id, kind, data)
     VALUES (person, CASE intake.source WHEN 'telegram' THEN 'reported'::app.event_kind
@@ -588,7 +586,6 @@ CREATE FUNCTION private.report_leave(person uuid, left_on date DEFAULT NULL) RET
       INSERT INTO app.community_presence (person_id, left_on, left_reported_by)
       VALUES (person, day, private.current_user_id());
     END IF;
-    INSERT INTO app.person_events (person_id, kind, data) VALUES (person, 'left', jsonb_build_object('on', day));
     RETURN true;
   END
   $$;
