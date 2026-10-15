@@ -188,7 +188,7 @@ export const answerRows = (
   return rows;
 };
 
-/** A list as shown: by position, then label, inactive ones last within the same position. */
+/** A list as shown: by position, then by label (and id) where positions tie. */
 export const sortOptions = (options: readonly CensusOption[]): CensusOption[] =>
   [...options].sort(
     (a, b) =>
