@@ -1046,7 +1046,7 @@
       "campaignField": "Falta «{field}» en campaign.yaml, o no es válido.",
       "slugTaken": "Ya hay una campaña con el identificador «{slug}»: cada campaña se importa una sola vez.",
       "noContacts": "No hay ningún contacto en «contacts».",
-      "contactId": "Hay un contacto sin «id», o con uno repetido.",
+      "contactId": "Hay un contacto sin «id», con uno repetido o con uno de más de 110 caracteres.",
       "contactOrg": "El contacto {id} no tiene organización («org»).",
       "contactEmail": "El correo de {id} no es válido.",
       "contactEmailsExtra": "Uno de los correos adicionales de {id} no es válido.",
@@ -1062,7 +1062,8 @@
       "trackingColumns": "Faltan columnas en tracking.csv: {columns}.",
       "trackingUnreadable": "No se puede leer tracking.csv como CSV.",
       "trackingStatus": "Estado desconocido en la fila de {id}: «{status}».",
-      "trackingDate": "Fecha no válida en la fila de {id}: «{value}»."
+      "trackingDate": "Fecha no válida en la fila de {id}: «{value}».",
+      "tooMany": "Hay más de {max} contactos: divide la campaña antes de importarla."
     },
     "warnings": {
       "phoneDropped": "El teléfono de {id} no se entiende: no se importa.",
@@ -1293,7 +1294,11 @@
     "skipHint": "Esta carta no se puede enviar hasta que se corrija. Puedes corregirla ahora o pasar a la siguiente.",
     "logged": "Anotada como enviada.",
     "alreadySent": "Ya estaba anotada como enviada.",
-    "skipped": "La dejas para luego."
+    "skipped": "La dejas para luego.",
+    "claimIntro": "Nadie se ha quedado todavía este contacto. Quédatelo antes de escribir: así no le llega la misma carta dos veces, de dos personas.",
+    "claim": "Me lo quedo",
+    "claimed": "Ahora es tuyo: ya puedes abrir la carta en tu correo.",
+    "taken": "Otra persona se lo acaba de quedar. Pasamos al siguiente."
   },
   "campaigns": {
     "title": "Campañas",

@@ -208,9 +208,12 @@ const assignments = <F extends Readonly<Record<string, readonly [string, string]
   Object.entries(input)
     .filter(([key, value]) => Object.hasOwn(fields, key) && value !== undefined)
     .map(([key, value]) => {
-      const [column, cast] = fields[key as keyof F] ?? ['', 'text'];
+      const [column, type] = fields[key as keyof F] ?? ['', 'text'];
+      // `text!`: a text that is never null, emptied as ''.
+      const required = type.endsWith('!');
+      const cast = required ? type.slice(0, -1) : type;
       const array = cast.endsWith('[]');
-      const cleared = typeof value === 'string' && value.trim() === '' ? null : value;
+      const cleared = typeof value === 'string' && value.trim() === '' && !required ? null : value;
       return {
         column: sql.ref(column),
         value: sql`${array ? (cleared ?? []) : cleared}::${sql.raw(cast)}`,
@@ -478,7 +481,7 @@ export const CAMPAIGN_FIELDS = {
   language: ['language', 'text'],
   fromName: ['from_name', 'text'],
   fromEmail: ['from_email', 'text'],
-  signature: ['signature', 'text'],
+  signature: ['signature', 'text!'],
   status: ['status', 'text'],
   ownerId: ['owner_id', 'uuid'],
 } as const;
@@ -815,25 +818,57 @@ export const deleteTarget = async (
     : 'notFound';
 };
 
-/** "Sí, enviado": the target becomes sent, dated by the database, and mine if it was nobody's. */
+/**
+ * "Sí, enviado": the target becomes sent, dated by the database, by whoever holds it (mine, or nobody's, which makes
+ * it mine). The template version is the one the letter was written from, kept only if the campaign's template for
+ * the contact's tier has reached it.
+ */
 export const markSent = async (
   trx: Transaction<DB>,
   id: string,
   me: string,
   templateVersion: number | null,
-): Promise<'sent' | 'stale' | 'notFound'> => {
+): Promise<'sent' | 'stale' | 'taken' | 'notFound'> => {
   const { rows } = await sql<{ id: string }>`
-    UPDATE app.campaign_targets
-       SET status = 'sent', template_version = ${templateVersion}, owner_id = coalesce(owner_id, ${me}::uuid)
-     WHERE id = ${id} AND status IN ('pending', 'ready')
-    RETURNING id`.execute(trx);
+    UPDATE app.campaign_targets t
+       SET status = 'sent', owner_id = coalesce(t.owner_id, ${me}::uuid),
+           template_version = (SELECT ${templateVersion}::int FROM app.campaign_templates ct
+                                 JOIN app.contacts c ON c.id = t.contact_id
+                                WHERE ct.campaign_id = t.campaign_id AND ct.tier = c.tier
+                                  AND ${templateVersion}::int BETWEEN 1 AND ct.version)
+     WHERE t.id = ${id} AND t.status IN ('pending', 'ready') AND (t.owner_id IS NULL OR t.owner_id = ${me})
+    RETURNING t.id`.execute(trx);
   if (rows.length === 1) {
     return 'sent';
   }
-  return (await sql`SELECT 1 FROM app.campaign_targets WHERE id = ${id}`.execute(trx)).rows
-    .length === 1
-    ? 'stale'
-    : 'notFound';
+  const [target] = (
+    await sql<{ status: string }>`
+      SELECT status::text AS status FROM app.campaign_targets WHERE id = ${id}`.execute(trx)
+  ).rows;
+  if (!target) {
+    return 'notFound';
+  }
+  return ['pending', 'ready'].includes(target.status) ? 'taken' : 'stale';
+};
+
+/**
+ * "Me lo quedo": a target becomes mine, if it was nobody's (or mine already), so nobody else is offered it while I
+ * write. `taken` when someone else holds it.
+ */
+export const claimTarget = async (
+  trx: Transaction<DB>,
+  id: string,
+  me: string,
+): Promise<'claimed' | 'taken' | 'notFound'> => {
+  const { rows } = await sql<{ id: string }>`
+    UPDATE app.campaign_targets t SET owner_id = ${me}
+     WHERE t.id = ${id} AND (t.owner_id IS NULL OR t.owner_id = ${me})
+    RETURNING t.id`.execute(trx);
+  if (rows.length === 1) {
+    return 'claimed';
+  }
+  const exists = await sql`SELECT 1 FROM app.campaign_targets WHERE id = ${id}`.execute(trx);
+  return exists.rows.length === 1 ? 'taken' : 'notFound';
 };
 
 // Letters -----------------------------------------------------------------------------------------------------------
@@ -968,7 +1003,8 @@ export const nextTarget = async (
     await sql<TargetRow & { blocked: boolean }>`
       SELECT ${TARGET_COLUMNS}, (c.needs_review OR c.hold OR c.anonymised_at IS NOT NULL) AS blocked
         FROM ${TARGET_FROM} JOIN app.campaigns ca ON ca.id = t.campaign_id
-       WHERE t.status IN ('pending', 'ready') AND (t.owner_id IS NULL OR t.owner_id = ${me})
+       WHERE t.status IN ('pending', 'ready') AND t.sent_at IS NULL
+         AND (t.owner_id IS NULL OR t.owner_id = ${me})
          AND ${campaign ? sql`t.campaign_id = ${campaign}` : sql`ca.status = 'active'`}`.execute(
       trx,
     )

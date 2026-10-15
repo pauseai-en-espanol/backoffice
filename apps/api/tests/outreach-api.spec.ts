@@ -458,6 +458,73 @@ describe('campaigns, letters and Siguiente (M3)', () => {
     expect((await onboarder.who.send('GET', '/api/outreach/campaigns')).statusCode).toBe(403);
   });
 
+  it('let one person take a target, so Siguiente offers it to nobody else, and keep its history', async () => {
+    const campaign = (
+      await outreacher.who.send('POST', '/api/outreach/campaigns', {
+        slug: slugOf(),
+        name: 'Prueba de reparto',
+        status: 'active',
+        signature: 'Firma',
+      })
+    ).json<{ id: string }>().id;
+    // An empty signature stays empty, never null.
+    expect(
+      (await outreacher.who.send('PATCH', `/api/outreach/campaigns/${campaign}`, { signature: '' }))
+        .statusCode,
+    ).toBe(204);
+    await outreacher.who.send('PUT', `/api/outreach/campaigns/${campaign}/templates/A`, {
+      subject: 'Asunto',
+      body: '{{saludo}}',
+      sources: [],
+    });
+    const contact = await newContact();
+    await outreacher.who.send('POST', `/api/outreach/campaigns/${campaign}/targets`, {
+      contactIds: [contact],
+    });
+    const colleague = await staffMember('outreach');
+    const next = (who: typeof outreacher) =>
+      who.who
+        .send('GET', `/api/outreach/next?campaign=${campaign}`)
+        .then((answer) => answer.json<{ target: { id: string } | null }>());
+    const offered = (await next(outreacher)).target?.id ?? '';
+    expect((await next(colleague)).target?.id).toBe(offered);
+
+    // Taken by one: the other isn't offered it, can't take it, and can't record it as sent.
+    expect(
+      (await outreacher.who.send('POST', `/api/outreach/targets/${offered}/claim`)).statusCode,
+    ).toBe(204);
+    expect((await next(colleague)).target).toBeNull();
+    expect(
+      (await colleague.who.send('POST', `/api/outreach/targets/${offered}/claim`)).json(),
+    ).toEqual({ error: 'taken' });
+    expect(
+      (await colleague.who.send('POST', `/api/outreach/targets/${offered}/sent`, {})).json(),
+    ).toEqual({ error: 'taken' });
+
+    // Sent, with a template version the campaign never had: the send is kept, the version isn't.
+    expect(
+      (
+        await outreacher.who.send('POST', `/api/outreach/targets/${offered}/sent`, {
+          templateVersion: 99,
+        })
+      ).statusCode,
+    ).toBe(204);
+    const kept = await superuser.query(
+      'SELECT status::text, template_version FROM app.campaign_targets WHERE id = $1',
+      [offered],
+    );
+    expect(kept.rows[0]).toEqual({ status: 'sent', template_version: null });
+    // Written to: it never goes back to the queue.
+    expect(
+      (
+        await outreacher.who.send('PATCH', `/api/outreach/targets/${offered}`, {
+          status: 'pending',
+        })
+      ).json(),
+    ).toEqual({ error: 'sent' });
+    expect((await next(outreacher)).target).toBeNull();
+  });
+
   it('refuse a slug already taken', async () => {
     const slug = slugOf();
     expect(
@@ -626,6 +693,30 @@ describe('importing from the outreach repo (M3)', () => {
     });
     expect(dry.statusCode).toBe(200);
     expect(dry.json<{ counts: { contacts: number } }>().counts.contacts).toBe(500);
+  });
+
+  it('refuses a body from someone not signed in before reading it', async () => {
+    const anonymous = await app.inject({
+      method: 'POST',
+      url: '/api/outreach/import',
+      headers: {
+        host: new URL(STAFF_ORIGIN).host,
+        origin: STAFF_ORIGIN,
+        'content-type': 'application/json',
+      },
+      payload: JSON.stringify({
+        dryRun: true,
+        files: { campaign: 'x'.repeat(1024 * 1024), contacts: '' },
+      }),
+    });
+    expect(anonymous.statusCode).toBe(401);
+    const elsewhere = await admin.who.send(
+      'POST',
+      '/api/outreach/import',
+      { dryRun: true, files: files(slugOf()) },
+      { origin: 'https://otro.example.test' },
+    );
+    expect(elsewhere.statusCode).toBe(403);
   });
 
   it('lists every problem with its file and line, and writes nothing', async () => {

@@ -362,15 +362,18 @@ CREATE FUNCTION private.anonymise_contact(contact uuid) RETURNS boolean
     IF NOT FOUND OR subject.anonymised_at IS NOT NULL THEN
       RETURN false;
     END IF;
-    PERFORM set_config('app.redact', 'on', true);
-    UPDATE app.contact_events e SET body = NULL WHERE e.contact_id = contact;
-    PERFORM set_config('app.redact', '', true);
     UPDATE app.campaign_targets t SET notes = NULL, next_action = NULL, next_action_due = NULL
      WHERE t.contact_id = contact;
     UPDATE app.contacts c
        SET person_name = NULL, greeting_name = NULL, treatment = 'neutral', email = NULL, emails_extra = '{}',
-           phone = NULL, notes = NULL, hold = true, hold_reason = NULL, owner_id = NULL, anonymised_at = now()
+           phone = NULL, notes = NULL, role = NULL, website = NULL, reason = NULL, sources = '{}', tags = '{}',
+           external_ref = NULL, needs_review = true, hold = true, hold_reason = NULL, owner_id = NULL,
+           anonymised_at = now()
      WHERE c.id = contact;
+    -- Last, so the events the update above just wrote are redacted too.
+    PERFORM set_config('app.redact', 'on', true);
+    UPDATE app.contact_events e SET body = NULL WHERE e.contact_id = contact;
+    PERFORM set_config('app.redact', '', true);
     RETURN true;
   END
   $$;
@@ -2039,6 +2042,10 @@ CREATE FUNCTION private.target_rules() RETURNS trigger
                     WHERE c.id = NEW.contact_id AND (c.needs_review OR c.hold OR c.anonymised_at IS NOT NULL)) THEN
       RAISE EXCEPTION 'contact not ready' USING ERRCODE = 'check_violation', HINT = 'needsReview';
     END IF;
+    -- Someone wrote to them: that stays.
+    IF TG_OP = 'UPDATE' AND OLD.sent_at IS NOT NULL AND NEW.status IN ('pending', 'ready', 'skip') THEN
+      RAISE EXCEPTION 'target % was written to already', OLD.id USING ERRCODE = 'check_violation', HINT = 'sent';
+    END IF;
     IF TG_OP = 'UPDATE' AND NEW.status IS DISTINCT FROM OLD.status THEN
       CASE NEW.status
         WHEN 'sent' THEN NEW.sent_at := coalesce(NEW.sent_at, now());
@@ -2490,6 +2497,13 @@ COMMENT ON COLUMN app.contacts.person_name IS 'personal data';
 
 
 --
+-- Name: COLUMN contacts.role; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.role IS 'personal data';
+
+
+--
 -- Name: COLUMN contacts.greeting_name; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -2518,10 +2532,52 @@ COMMENT ON COLUMN app.contacts.phone IS 'personal data';
 
 
 --
+-- Name: COLUMN contacts.website; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.website IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.tags; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.tags IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.reason; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.reason IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.sources; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.sources IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.hold_reason; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.hold_reason IS 'personal data';
+
+
+--
 -- Name: COLUMN contacts.notes; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 COMMENT ON COLUMN app.contacts.notes IS 'personal data';
+
+
+--
+-- Name: COLUMN contacts.external_ref; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.contacts.external_ref IS 'personal data';
 
 
 --
@@ -4982,7 +5038,7 @@ CREATE POLICY outreach_delete ON app.campaign_anchors FOR DELETE TO pauseai_back
 -- Name: campaign_targets outreach_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_delete ON app.campaign_targets FOR DELETE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (status = ANY (ARRAY['pending'::app.target_status, 'ready'::app.target_status, 'skip'::app.target_status]))));
+CREATE POLICY outreach_delete ON app.campaign_targets FOR DELETE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (status = ANY (ARRAY['pending'::app.target_status, 'ready'::app.target_status, 'skip'::app.target_status])) AND (sent_at IS NULL)));
 
 
 --

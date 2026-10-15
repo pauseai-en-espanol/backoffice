@@ -183,7 +183,7 @@ export const panel = async (trx: Transaction<DB>, weeks: number) => {
     (
       await sql<{ stage: string; n: number }>`
         SELECT stage::text AS stage, count(*)::int AS n FROM app.people
-         WHERE merged_into IS NULL AND anonymised_at IS NULL GROUP BY 1`.execute(trx)
+         WHERE merged_into IS NULL GROUP BY 1`.execute(trx)
     ).rows.map((row) => [row.stage, row.n]),
   );
   const since = sql`(date_trunc('week', now() AT TIME ZONE 'Europe/Madrid') - make_interval(weeks => ${weeks - 1}))

@@ -56,13 +56,13 @@ name and hostnames still come from config.
 
 ### 2. Database roles
 
-| Role (prefix `pauseai_backoffice_`) | Used by                                               | May                                                                      |
-| ----------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
-| `owner`                             | The migration Job only                                | Own the schemas. Never used at run time                                  |
-| `app`                               | The API's staff and bot routes, via `withActor`       | Read and write `app` under RLS                                           |
-| `auth`                              | Better Auth and the Telegram links, in the API        | Only the `auth` schema                                                   |
-| `ingest`                            | The Airtable sync (CronJob, and on demand in the API) | Insert intake records and import runs; execute the matcher; nothing else |
-| `public`                            | The API's census form routes                          | Execute `private.submit_census`; no table grants                         |
+| Role (prefix `pauseai_backoffice_`) | Used by                                               | May                                                                        |
+| ----------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------- |
+| `owner`                             | The migration Job only                                | Own the schemas. Never used at run time                                    |
+| `app`                               | The API's staff and bot routes, via `withActor`       | Read and write `app` under RLS                                             |
+| `auth`                              | Better Auth and the Telegram links, in the API        | Only the `auth` schema                                                     |
+| `ingest`                            | The Airtable sync (CronJob, and on demand in the API) | Insert intake records and import runs; execute the matcher; nothing else   |
+| `public`                            | The API's census form routes                          | Execute `private.census_form` and `private.submit_census`; no table grants |
 
 - Every runtime role is `NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB` and owns nothing. A catalog test keeps it
   that way.

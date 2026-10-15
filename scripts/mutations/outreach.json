@@ -9,7 +9,7 @@
   },
   {
     "name": "a held contact can be sent to",
-    "file": "db/migrations/20261016030000_outreach.sql",
+    "file": "db/migrations/20261016040100_outreach_fixes.sql",
     "old": "AND (c.needs_review OR c.hold OR c.anonymised_at IS NOT NULL)) THEN",
     "new": "AND (c.needs_review OR c.anonymised_at IS NOT NULL)) THEN",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -17,7 +17,7 @@
   },
   {
     "name": "an unreviewed contact can be inserted as ready",
-    "file": "db/migrations/20261016030000_outreach.sql",
+    "file": "db/migrations/20261016040100_outreach_fixes.sql",
     "old": "AND (TG_OP = 'UPDATE' OR NEW.status = 'ready')",
     "new": "AND TG_OP = 'UPDATE'",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -33,7 +33,7 @@
   },
   {
     "name": "a bounce re-dates a send",
-    "file": "db/migrations/20261016030000_outreach.sql",
+    "file": "db/migrations/20261016040100_outreach_fixes.sql",
     "old": "WHEN 'sent' THEN NEW.sent_at := coalesce(NEW.sent_at, now());",
     "new": "WHEN 'sent' THEN NEW.sent_at := now();",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -49,9 +49,9 @@
   },
   {
     "name": "a sent target can be deleted",
-    "file": "db/migrations/20261016030000_outreach.sql",
-    "old": "USING ((SELECT private.staff_can('admin', 'outreach')) AND status IN ('pending', 'ready', 'skip'));",
-    "new": "USING ((SELECT private.staff_can('admin', 'outreach')));",
+    "file": "db/migrations/20261016040100_outreach_fixes.sql",
+    "old": "  USING ((SELECT private.staff_can('admin', 'outreach')) AND status IN ('pending', 'ready', 'skip')\n         AND sent_at IS NULL);",
+    "new": "  USING ((SELECT private.staff_can('admin', 'outreach')));",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
@@ -65,7 +65,7 @@
   },
   {
     "name": "outreach staff erase contacts",
-    "file": "db/migrations/20261016030000_outreach.sql",
+    "file": "db/migrations/20261016040100_outreach_fixes.sql",
     "old": "    IF NOT private.staff_can('admin') THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    SELECT c.* INTO subject",
     "new": "    SELECT c.* INTO subject",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -81,7 +81,7 @@
   },
   {
     "name": "erasure keeps the timeline's words",
-    "file": "db/migrations/20261016030000_outreach.sql",
+    "file": "db/migrations/20261016040100_outreach_fixes.sql",
     "old": "    UPDATE app.contact_events e SET body = NULL WHERE e.contact_id = contact;\n",
     "new": "",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -92,6 +92,30 @@
     "file": "db/migrations/20261016030000_outreach.sql",
     "old": "CREATE POLICY outreach_read ON app.contacts FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach')));",
     "new": "CREATE POLICY outreach_read ON app.contacts FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach', 'onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a sent target goes back to the queue",
+    "file": "db/migrations/20261016040100_outreach_fixes.sql",
+    "old": "    IF TG_OP = 'UPDATE' AND OLD.sent_at IS NOT NULL AND NEW.status IN ('pending', 'ready', 'skip') THEN",
+    "new": "    IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a bounced target can be taken out of the campaign",
+    "file": "db/migrations/20261016040100_outreach_fixes.sql",
+    "old": "  USING ((SELECT private.staff_can('admin', 'outreach')) AND status IN ('pending', 'ready', 'skip')\n         AND sent_at IS NULL);",
+    "new": "  USING ((SELECT private.staff_can('admin', 'outreach')) AND status IN ('pending', 'ready', 'skip', 'bounced'));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "contact erasure keeps their role and sources",
+    "file": "db/migrations/20261016040100_outreach_fixes.sql",
+    "old": "phone = NULL, notes = NULL, role = NULL, website = NULL, reason = NULL, sources = '{}', tags = '{}',",
+    "new": "phone = NULL, notes = NULL,",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   }

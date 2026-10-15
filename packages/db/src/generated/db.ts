@@ -263,12 +263,18 @@ export interface AppContacts {
    * personal data
    */
   emails_extra: Generated<string[]>;
+  /**
+   * personal data
+   */
   external_ref: string | null;
   /**
    * personal data
    */
   greeting_name: string | null;
   hold: Generated<boolean>;
+  /**
+   * personal data
+   */
   hold_reason: string | null;
   id: Generated<string>;
   needs_review: Generated<boolean>;
@@ -287,18 +293,33 @@ export interface AppContacts {
    * personal data
    */
   phone: string | null;
+  /**
+   * personal data
+   */
   reason: string | null;
+  /**
+   * personal data
+   */
   role: string | null;
   scope: string | null;
   sector: string | null;
+  /**
+   * personal data
+   */
   sources: Generated<string[]>;
   stage: Generated<AppRelationshipStage>;
+  /**
+   * personal data
+   */
   tags: Generated<string[]>;
   territory: string | null;
   tier: Generated<string>;
   treatment: Generated<string>;
   updated_at: Generated<Timestamp>;
   updated_by: string | null;
+  /**
+   * personal data
+   */
   website: string | null;
 }
 

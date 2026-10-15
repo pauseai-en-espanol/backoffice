@@ -19,6 +19,7 @@ import {
   addTargets,
   campaignExists,
   type CampaignInput,
+  claimTarget,
   type ContactInput,
   createCampaign,
   createContact,
@@ -160,6 +161,9 @@ const outreachRefusal = (error: unknown): Refusal | undefined => {
   };
   if (code === '23514' && hint === 'needsReview') {
     return new Refusal(409, 'needsReview');
+  }
+  if (code === '23514' && hint === 'sent') {
+    return new Refusal(409, 'sent');
   }
   if (code === '23514' && constraint === 'contacts_reason_sources_check') {
     return new Refusal(400, 'invalid', { field: 'reason' });
@@ -798,10 +802,26 @@ export const outreachRoutes =
           const outcome = await outreach(db, actor, (trx) =>
             markSent(trx, request.params.id, actor.userId, request.body?.templateVersion ?? null),
           );
-          if (outcome === 'stale') {
-            throw new Refusal(409, 'stale');
+          if (outcome === 'stale' || outcome === 'taken') {
+            throw new Refusal(409, outcome);
           }
           found(outcome === 'sent');
+          return reply.code(204).send();
+        }),
+    );
+
+    scope.post<{ Params: { id: string } }>(
+      '/outreach/targets/:id/claim',
+      { schema: { params: ID_PARAMS } },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const outcome = await outreach(db, actor, (trx) =>
+            claimTarget(trx, request.params.id, actor.userId),
+          );
+          if (outcome === 'taken') {
+            throw new Refusal(409, 'taken');
+          }
+          found(outcome === 'claimed');
           return reply.code(204).send();
         }),
     );
@@ -845,6 +865,19 @@ export const outreachRoutes =
       '/outreach/import',
       {
         bodyLimit: IMPORT_BODY_LIMIT,
+        // Up to 5 MB: refused before it is read, parsed or checked unless it comes through the staff app from someone
+        // signed in (signedIn checks again, with the role).
+        onRequest: async (request, reply) => {
+          if (request.headers.origin !== staffOrigin) {
+            return reply.code(403).send({ error: 'forbidden' });
+          }
+          if (!app) {
+            return reply.code(503).send({ error: 'unavailable' });
+          }
+          if (!(await actorFor(request))) {
+            return reply.code(401).send({ error: 'signIn' });
+          }
+        },
         schema: {
           body: {
             type: 'object',

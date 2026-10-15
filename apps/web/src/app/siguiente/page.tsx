@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { isUnavailable } from '@/data';
 import { NextAction } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
+import { ClaimTarget } from '@/outreach/ClaimTarget';
 import { ContactFlags } from '@/outreach/ContactItem';
 import { getCampaigns, getNext } from '@/outreach/data';
 import { nextFiltersFromPage, nextPageQuery } from '@/outreach/filters';
@@ -33,8 +34,9 @@ export const metadata: Metadata = { title: t('siguiente.title') };
 /**
  * Siguiente (outreach spec §3, §5): the owner's next target, theirs or nobody's, in send order, in one campaign or all
  * active ones. The letter as the API wrote it, its sources to check and what to look at; the sender's own mail
- * (`mailto:`), copy buttons or WhatsApp to send it; then "¿La has enviado?". "Ahora no" leaves the target for later in
- * this visit, which the page's address keeps (`saltar`). A person always sends: nothing on this page sends anything.
+ * (`mailto:`), copy buttons or WhatsApp to send it; then "¿La has enviado?". A target nobody holds is taken first ("Me
+ * lo quedo"), so two people never write the same letter. "Ahora no" leaves the target for later in this visit, which
+ * the page's address keeps (`saltar`). A person always sends: nothing on this page sends anything.
  */
 const NextPage = async ({
   searchParams,
@@ -206,31 +208,51 @@ const NextPage = async ({
                       contact: `/contactos/${encodeURIComponent(next.target.contact.id)}`,
                       campaign: `/campanas/${encodeURIComponent(next.campaign.id)}`,
                     }}
-                    sending
+                    sending={next.target.owner?.userId === me.user.id}
                   />
                 )}
-                <SentQuestion
-                  targetId={next.target.id}
-                  templateVersion={next.handover?.templateVersion ?? null}
-                  sendable={next.handover?.letter.ok === true}
-                  skipHref={`/siguiente${nextPageQuery({
-                    campaign: filters.campaign,
-                    skip: [...filters.skip, next.target.id],
-                  })}`}
-                  text={{
-                    sentQuestion: t('siguiente.sentQuestion'),
-                    sentHint: t('siguiente.sentHint'),
-                    yes: t('siguiente.yes'),
-                    notNow: t('siguiente.notNow'),
-                    notNowHint: t('siguiente.notNowHint'),
-                    skip: t('siguiente.skip'),
-                    skipHint: t('siguiente.skipHint'),
-                    logged: t('siguiente.logged'),
-                    alreadySent: t('siguiente.alreadySent'),
-                    skipped: t('siguiente.skipped'),
-                    errors: outreachErrors(t),
-                  }}
-                />
+                {next.target.owner?.userId === me.user.id ? null : (
+                  <ClaimTarget
+                    targetId={next.target.id}
+                    skipHref={`/siguiente${nextPageQuery({
+                      campaign: filters.campaign,
+                      skip: [...filters.skip, next.target.id],
+                    })}`}
+                    text={{
+                      intro: t('siguiente.claimIntro'),
+                      claim: t('siguiente.claim'),
+                      claimed: t('siguiente.claimed'),
+                      taken: t('siguiente.taken'),
+                      notNow: t('siguiente.notNow'),
+                      skipped: t('siguiente.skipped'),
+                      errors: outreachErrors(t),
+                    }}
+                  />
+                )}
+                {next.target.owner?.userId !== me.user.id ? null : (
+                  <SentQuestion
+                    targetId={next.target.id}
+                    templateVersion={next.handover?.templateVersion ?? null}
+                    sendable={next.handover?.letter.ok === true}
+                    skipHref={`/siguiente${nextPageQuery({
+                      campaign: filters.campaign,
+                      skip: [...filters.skip, next.target.id],
+                    })}`}
+                    text={{
+                      sentQuestion: t('siguiente.sentQuestion'),
+                      sentHint: t('siguiente.sentHint'),
+                      yes: t('siguiente.yes'),
+                      notNow: t('siguiente.notNow'),
+                      notNowHint: t('siguiente.notNowHint'),
+                      skip: t('siguiente.skip'),
+                      skipHint: t('siguiente.skipHint'),
+                      logged: t('siguiente.logged'),
+                      alreadySent: t('siguiente.alreadySent'),
+                      skipped: t('siguiente.skipped'),
+                      errors: outreachErrors(t),
+                    }}
+                  />
+                )}
               </section>
             )}
           </>

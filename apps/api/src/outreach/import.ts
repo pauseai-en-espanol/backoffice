@@ -177,6 +177,9 @@ const websiteOf = (value: string): string | undefined => {
   return /^[\w-]+(?:\.[\w-]+)+(?:\/\S*)?$/u.test(value) ? `https://${value}` : undefined;
 };
 
+/** A campaign's contacts at most: as many as a CSV import's rows. */
+const MAX_CONTACTS = 5000;
+
 const LIMITS = {
   org: 200,
   orgDisplay: 300,
@@ -249,6 +252,8 @@ export const importCampaign = async (
       ['name', name !== undefined && name.length <= 200],
       ['language', /^[a-z]{2}$/u.test(language)],
       ['fromEmail', fromEmail !== undefined],
+      ['fromName', (text(field(config, 'fromName')) ?? '').length <= 200],
+      ['signature', (text(field(config, 'signature')) ?? '').length <= 2000],
     ] as const) {
       if (!ok) {
         problems.push({
@@ -292,6 +297,7 @@ export const importCampaign = async (
           !label ||
           !body ||
           sources.length === 0 ||
+          sources.length > 30 ||
           label.length > 200 ||
           body.length > 4000 ||
           sources.some((source) => source.length > 500)
@@ -334,6 +340,21 @@ export const importCampaign = async (
       });
       continue;
     }
+    const tooLong = (
+      [
+        ['subject', template.subject.length > 300],
+        ['body', template.body.length > 40_000],
+        ['notes', (template.notes ?? '').length > 4000],
+        ['sources', template.sources.length > 50 || template.sources.some((s) => s.length > 500)],
+      ] as const
+    ).find(([, over]) => over);
+    if (tooLong) {
+      problems.push({
+        file: FILES[tier],
+        message: t('outreachImport.problems.tooLong', { id: FILES[tier], field: tooLong[0] }),
+      });
+      continue;
+    }
     templates.push({ tier, template });
   }
 
@@ -345,133 +366,153 @@ export const importCampaign = async (
   if (contactsFile && (!Array.isArray(list) || list.length === 0)) {
     problems.push({ file: FILES.contacts, message: t('outreachImport.problems.noContacts') });
   }
+  if (Array.isArray(list) && list.length > MAX_CONTACTS) {
+    problems.push({
+      file: FILES.contacts,
+      message: t('outreachImport.problems.tooMany', { max: MAX_CONTACTS }),
+    });
+  }
   const seen = new Set<string>();
-  (Array.isArray(list) ? list : []).forEach((entry: unknown, index) => {
-    const line = contactLines[index];
-    const problem = (key: string, values: Record<string, string> = {}) =>
-      problems.push({
-        file: FILES.contacts,
+  (Array.isArray(list) && list.length <= MAX_CONTACTS ? list : []).forEach(
+    (entry: unknown, index) => {
+      const line = contactLines[index];
+      const problem = (key: string, values: Record<string, string> = {}) =>
+        problems.push({
+          file: FILES.contacts,
+          line,
+          message: t(
+            `outreachImport.problems.${key}` as 'outreachImport.problems.contactId',
+            values,
+          ),
+        });
+      const warn = (key: string, values: Record<string, string> = {}) =>
+        warnings.push({
+          file: FILES.contacts,
+          line,
+          message: t(
+            `outreachImport.warnings.${key}` as 'outreachImport.warnings.noSource',
+            values,
+          ),
+        });
+      const id = text(field(entry, 'id'));
+      // Its reference here is `outreach:<slug>:<id>`, at most 200 characters.
+      if (!id || seen.has(id) || id.length > 110) {
+        problem('contactId');
+        return;
+      }
+      seen.add(id);
+      const org = text(field(entry, 'org'));
+      if (!org) {
+        problem('contactOrg', { id });
+        return;
+      }
+      const person = field(entry, 'person');
+      const plan: ContactPlan = {
+        id,
         line,
-        message: t(`outreachImport.problems.${key}` as 'outreachImport.problems.contactId', values),
-      });
-    const warn = (key: string, values: Record<string, string> = {}) =>
-      warnings.push({
-        file: FILES.contacts,
-        line,
-        message: t(`outreachImport.warnings.${key}` as 'outreachImport.warnings.noSource', values),
-      });
-    const id = text(field(entry, 'id'));
-    if (!id || seen.has(id) || id.length > 150) {
-      problem('contactId');
-      return;
-    }
-    seen.add(id);
-    const org = text(field(entry, 'org'));
-    if (!org) {
-      problem('contactOrg', { id });
-      return;
-    }
-    const person = field(entry, 'person');
-    const plan: ContactPlan = {
-      id,
-      line,
-      org,
-      orgDisplay: text(field(entry, 'orgDisplay')) ?? org,
-      personName: text(field(person, 'name')) ?? null,
-      role: text(field(person, 'role')) ?? null,
-      treatment: text(field(person, 'treatment')) ?? 'neutral',
-      greetingName: text(field(person, 'greetingName')) ?? null,
-      email: null,
-      emailsExtra: [],
-      phone: null,
-      website: null,
-      territory: text(field(entry, 'territory')) ?? null,
-      scope: text(field(entry, 'scope')) ?? null,
-      sector: text(field(entry, 'sector')) ?? null,
-      tier: 'B',
-      anchor: text(field(entry, 'anchor')) ?? null,
-      priority: null,
-      source: text(field(entry, 'source')),
-      notes: text(field(entry, 'notes')) ?? null,
-      needsReview: field(entry, 'needsReview') === true,
-      hold: field(entry, 'hold') === true,
-      holdReason: text(field(entry, 'holdReason')) ?? null,
-    };
-    const email = text(field(entry, 'email'));
-    if (email) {
-      plan.email = normalizeEmail(email) ?? null;
-      if (!plan.email) {
-        problem('contactEmail', { id });
+        org,
+        orgDisplay: text(field(entry, 'orgDisplay')) ?? org,
+        personName: text(field(person, 'name')) ?? null,
+        role: text(field(person, 'role')) ?? null,
+        treatment: text(field(person, 'treatment')) ?? 'neutral',
+        greetingName: text(field(person, 'greetingName')) ?? null,
+        email: null,
+        emailsExtra: [],
+        phone: null,
+        website: null,
+        territory: text(field(entry, 'territory')) ?? null,
+        scope: text(field(entry, 'scope')) ?? null,
+        sector: text(field(entry, 'sector')) ?? null,
+        tier: 'B',
+        anchor: text(field(entry, 'anchor')) ?? null,
+        priority: null,
+        source: text(field(entry, 'source')),
+        notes: text(field(entry, 'notes')) ?? null,
+        needsReview: field(entry, 'needsReview') === true,
+        hold: field(entry, 'hold') === true,
+        holdReason: text(field(entry, 'holdReason')) ?? null,
+      };
+      const email = text(field(entry, 'email'));
+      if (email) {
+        plan.email = normalizeEmail(email) ?? null;
+        if (!plan.email) {
+          problem('contactEmail', { id });
+        }
       }
-    }
-    const extra = texts(field(entry, 'emailsExtra')).map((value) => normalizeEmail(value));
-    if (extra.some((value) => value === undefined)) {
-      problem('contactEmailsExtra', { id });
-    }
-    plan.emailsExtra = [
-      ...new Set(extra.filter((value): value is string => value !== undefined)),
-    ].slice(0, 10);
-    const phone = text(field(entry, 'phone'));
-    if (phone) {
-      plan.phone = normalizePhone(phone) ?? null;
-      if (!plan.phone) {
-        warn('phoneDropped', { id });
+      const extra = texts(field(entry, 'emailsExtra')).map((value) => normalizeEmail(value));
+      if (extra.some((value) => value === undefined)) {
+        problem('contactEmailsExtra', { id });
       }
-    }
-    const website = text(field(entry, 'web'));
-    if (website) {
-      plan.website = websiteOf(website) ?? null;
-      if (!plan.website || plan.website.length > 500) {
-        plan.website = null;
-        warn('websiteDropped', { id });
+      plan.emailsExtra = [
+        ...new Set(extra.filter((value): value is string => value !== undefined)),
+      ].slice(0, 10);
+      const phone = text(field(entry, 'phone'));
+      if (phone) {
+        plan.phone = normalizePhone(phone) ?? null;
+        if (!plan.phone) {
+          warn('phoneDropped', { id });
+        }
       }
-    }
-    const tier = text(field(entry, 'tier')) ?? 'B';
-    if (tier === 'A' || tier === 'B') {
-      plan.tier = tier;
-    } else {
-      problem('contactTier', { id });
-    }
-    if (plan.anchor && !KEY.test(plan.anchor)) {
-      problem('contactAnchor', { id });
-    } else if (plan.anchor && files.anchors !== undefined && !anchorKeys.has(plan.anchor)) {
-      warn('anchorUnknown', { id, anchor: plan.anchor });
-    }
-    const priority = field(entry, 'priority');
-    if (priority !== undefined && priority !== null) {
-      if (typeof priority === 'number' && Number.isInteger(priority) && priority > 0) {
-        plan.priority = priority;
+      const website = text(field(entry, 'web'));
+      if (website) {
+        plan.website = websiteOf(website) ?? null;
+        if (!plan.website || plan.website.length > 500) {
+          plan.website = null;
+          warn('websiteDropped', { id });
+        }
+      }
+      const tier = text(field(entry, 'tier')) ?? 'B';
+      if (tier === 'A' || tier === 'B') {
+        plan.tier = tier;
       } else {
-        problem('contactPriority', { id });
+        problem('contactTier', { id });
       }
-    }
-    if (!['neutral', 'masculino', 'femenino'].includes(plan.treatment)) {
-      problem('contactTreatment', { id });
-    }
-    for (const [key, value] of [
-      ['org', plan.org],
-      ['orgDisplay', plan.orgDisplay],
-      ['name', plan.personName],
-      ['role', plan.role],
-      ['greetingName', plan.greetingName],
-      ['territory', plan.territory],
-      ['scope', plan.scope],
-      ['sector', plan.sector],
-      ['holdReason', plan.holdReason],
-      ['notes', plan.notes],
-    ] as const) {
-      if (value && value.length > LIMITS[key]) {
-        problem('tooLong', { id, field: key });
+      if (plan.anchor && !KEY.test(plan.anchor)) {
+        problem('contactAnchor', { id });
+      } else if (plan.anchor && files.anchors !== undefined && !anchorKeys.has(plan.anchor)) {
+        warn('anchorUnknown', { id, anchor: plan.anchor });
       }
-    }
-    if (plan.source && plan.source.length > 500) {
-      problem('tooLong', { id, field: 'source' });
-    }
-    if (!plan.source && !plan.needsReview) {
-      warn('noSource', { id });
-    }
-    contacts.push(plan);
-  });
+      const priority = field(entry, 'priority');
+      if (priority !== undefined && priority !== null) {
+        if (
+          typeof priority === 'number' &&
+          Number.isInteger(priority) &&
+          priority > 0 &&
+          priority <= 1_000_000
+        ) {
+          plan.priority = priority;
+        } else {
+          problem('contactPriority', { id });
+        }
+      }
+      if (!['neutral', 'masculino', 'femenino'].includes(plan.treatment)) {
+        problem('contactTreatment', { id });
+      }
+      for (const [key, value] of [
+        ['org', plan.org],
+        ['orgDisplay', plan.orgDisplay],
+        ['name', plan.personName],
+        ['role', plan.role],
+        ['greetingName', plan.greetingName],
+        ['territory', plan.territory],
+        ['scope', plan.scope],
+        ['sector', plan.sector],
+        ['holdReason', plan.holdReason],
+        ['notes', plan.notes],
+      ] as const) {
+        if (value && value.length > LIMITS[key]) {
+          problem('tooLong', { id, field: key });
+        }
+      }
+      if (plan.source && plan.source.length > 500) {
+        problem('tooLong', { id, field: 'source' });
+      }
+      if (!plan.source && !plan.needsReview) {
+        warn('noSource', { id });
+      }
+      contacts.push(plan);
+    },
+  );
 
   // tracking.csv
   const tracking = new Map<string, TrackingRow>();
@@ -588,17 +629,18 @@ export const importCampaign = async (
   for (const contact of contacts) {
     let organisation = organisations.get(contact.org);
     if (!organisation) {
-      const ref = `outreach-org:${contact.org}`;
+      // Reused by name, across campaigns: the oldest of that name, if there are several.
       organisation = (
-        await sql<{
-          id: string;
-        }>`SELECT id FROM app.organisations WHERE external_ref = ${ref}`.execute(trx)
+        await sql<{ id: string }>`
+          SELECT id FROM app.organisations WHERE lower(name) = lower(${contact.org})
+           ORDER BY created_at, id LIMIT 1`.execute(trx)
       ).rows[0]?.id;
       if (!organisation) {
         organisation = (
           await sql<{ id: string }>`
-            INSERT INTO app.organisations (name, kind, external_ref) VALUES (${contact.org}, 'other', ${ref})
-            RETURNING id`.execute(trx)
+            INSERT INTO app.organisations (name, kind) VALUES (${contact.org}, 'other') RETURNING id`.execute(
+            trx,
+          )
         ).rows[0]?.id;
         counts.organisations += 1;
       }
@@ -624,7 +666,7 @@ export const importCampaign = async (
     counts.contacts += 1;
     // A held contact isn't put in the campaign, unless someone already wrote to them: that history is kept, and the
     // hold still keeps them out of every queue.
-    const history = row !== undefined && !['pending', 'skip'].includes(row.status);
+    const history = row !== undefined && !['pending', 'ready', 'skip'].includes(row.status);
     if (!contactId || (contact.hold && !history)) {
       continue;
     }

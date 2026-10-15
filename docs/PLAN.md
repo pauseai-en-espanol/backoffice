@@ -273,6 +273,26 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   notes, since they aren't accounts.
 - **R29. Siguiente offers my targets and nobody's**, in send order, in one campaign or every active one, and counts
   (doesn't offer) those blocked by review or hold. "Sí, enviado" makes an unowned target mine.
+- **R30. Erasure holds against every way data comes back.** An outside review (2026-10-16) found the hourly Airtable
+  sync would re-attach Global's record to an erased person. Options: delete the intake records (the next sync then
+  makes a new person); keep them and skip them. **Chose to keep them with only a hash of their external id**, which a
+  sync or a re-import recognises and counts as `erased`; Global's record id is no longer kept in clear. An erased
+  person is frozen in the database, and erasure covers every duplicate merged into them.
+- **R31. The generic census form answers "received" whatever happened** to the answer, since "created" or "review"
+  told anyone who typed a phone number whether its owner was known (art. 9 data). A personal link still answers
+  "updated".
+- **R32. Consents keep the time the person gave them** (`given_at`), not the time staff applied a Bandeja answer,
+  as proof of consent.
+- **R33. A personal link is the person's latest only**: making a new one replaces the old (the way to undo one sent
+  to the wrong number), and links follow a merge to the survivor.
+- **R34. Siguiente's targets are taken before they're written to** ("Me lo quedo"), so two volunteers never send the
+  same letter; "Sí, enviado" is recorded only by whoever holds the target. Options: a lease that expires; an explicit
+  claim. **Chose the claim**, as onboarding's "Me lo quedo": owners show in the campaign and can be changed there.
+- **R35. Once someone wrote to a target, that stays**: it never goes back to the queue, nor out of the campaign.
+- **Open from the review** (low, for later): the team group's Telegram posts about an erased person aren't edited;
+  two simultaneous generic answers with the same new email can make the second fail; the census link travels in the
+  wa.me message (by design: the person sends it); the forms host's error relay has no Origin check; the app role may
+  insert a target already dated (only the importer does).
 
 ## Tracking
 
@@ -281,5 +301,5 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 | M0        | Built, not deployed | Sign-in with TOTP, invitations by email, the team, the audit log; Helm chart, CI and release workflows, gitops branch prepared (not pushed). Locally: `pnpm db:reset`, `pnpm build`, `pnpm test:e2e` (sign-in, invitation, access, axe). Deploying waits on Dani's steps in [deploying](runbooks/deploying.md).                                                                                                                      |
 | M1        | Built, not deployed | Hoy, Personas, Persona, Embudo, Añadir rápido, Bandeja, Importar (CSV, and the Airtable sync, checked against the real view's structure), Ajustes; the Telegram bot (linking, /alta, /baja, /mios, /libres, /buscar, /sincronizar, the team group, the digest). E2E covers the web flows; the bot is covered by API tests against a fake Bot API.                                                                                    |
 | M2        | Built, not deployed | The forms app at `unete.pauseai.es` (generic and personal links, honeypot and timing, consents with their wording version, the privacy notice as a draft); Censo, the person's census side, the Bandeja's census answers, the option lists in Ajustes; export and erasure. E2E covers a personal link end to end and the generic link. Deploying waits on the M2 steps in [deploying](runbooks/deploying.md) and the privacy notice. |
-| M3        | In progress         | Schema (organisations, contacts, campaigns, templates, anchors, targets, the timeline, erasure), the renderer (`packages/domain/outreach`), the API (staff API spec, M3) and the repo import are done and tested; the staff pages are being built.                                                                                                                                                                                   |
-| M4        | Not started         | —                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| M3        | Built, not deployed | Campañas (board by status, templates with a preview per contact, evidence paragraphs, targets), Contactos, Organizaciones, Siguiente (take the next target, open the letter in your own mail or WhatsApp, copy buttons, "Sí, enviada"), and the one-off import from the `outreach` repo, checked against the real campaign locally (counts only). Nothing sends. E2E covers Siguiente end to end.                                    |
+| M4        | In progress         | The Panel (stages, weekly arrivals by source, time to first contact, the unassigned) is built. Retention (D9) and the MCP server (D10) wait on Dani's decisions.                                                                                                                                                                                                                                                                     |

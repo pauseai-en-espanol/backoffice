@@ -77,6 +77,9 @@ export const updateTarget = (id: string, change: TargetChange) =>
 export const removeTarget = (id: string) => send('DELETE', at(TARGETS, id));
 
 /** "Sí, enviado": the sender sent it from their own mail; this records it, with the template's version. */
+/** "Me lo quedo": the target becomes mine, so nobody else is offered it while I write. */
+export const claimTarget = (id: string) => send('POST', `${at(TARGETS, id)}/claim`);
+
 export const markSent = (id: string, templateVersion: number | null) =>
   send('POST', `${at(TARGETS, id)}/sent`, templateVersion === null ? {} : { templateVersion });
 

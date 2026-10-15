@@ -197,6 +197,30 @@ describe('campaign targets', () => {
   });
 });
 
+describe('history', () => {
+  it('stays once someone wrote to a target: it never goes back to the queue, nor out of the campaign', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      for (const status of ['pending', 'ready', 'skip']) {
+        expect(
+          await errorCode(client, 'UPDATE app.campaign_targets SET status = $2 WHERE id = $1', [
+            OUTREACH.sentTarget,
+            status,
+          ]),
+        ).toBe('23514');
+      }
+      // Moving on is fine: a bounce, a reply.
+      await client.query("UPDATE app.campaign_targets SET status = 'bounced' WHERE id = $1", [
+        OUTREACH.sentTarget,
+      ]);
+      const deleted = await client.query('DELETE FROM app.campaign_targets WHERE id = $1', [
+        OUTREACH.sentTarget,
+      ]);
+      expect(deleted.rowCount).toBe(0);
+    });
+  });
+});
+
 describe('templates', () => {
   it('count a version for every change to the subject or body, and only those', async () => {
     await inRolledBackTransaction(async (client) => {
@@ -275,7 +299,8 @@ describe('erasure of a contact', () => {
       expect(await done()).toBe(true);
       expect(await done()).toBe(false);
       const { rows } = await client.query(
-        `SELECT person_name, email, notes, hold, owner_id, org_display, anonymised_at IS NOT NULL AS gone
+        `SELECT person_name, email, notes, role, reason, sources, hold, owner_id, org_display,
+                anonymised_at IS NOT NULL AS gone
            FROM app.contacts WHERE id = $1`,
         [OUTREACH.berta],
       );
@@ -283,6 +308,9 @@ describe('erasure of a contact', () => {
         person_name: null,
         email: null,
         notes: null,
+        role: null,
+        reason: null,
+        sources: [],
         hold: true,
         owner_id: null,
         org_display: 'Asociación Ejemplo',
