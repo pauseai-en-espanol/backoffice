@@ -60,6 +60,21 @@ once saved, never repeats contact details, and posts none in the team group
 - **Rights:** admins can export a person's data (JSON) and erase a person. Erasure anonymises: it removes
   identities, profile and note bodies, and keeps stage counts for statistics. Both actions are audited.
 
+## 8a. Outreach contacts (M3)
+
+Outreach holds people who aren't members: politicians, journalists, academics, people at organisations. What is
+kept is professional (role, organisation, a work address or the organisation's inbox) and mostly public, with the
+source it came from; their basis would be the association's legitimate interest (art. 6(1)(f)), not art. 9.
+**That basis, and whether to tell them where their details came from (art. 14) in the first letter, are Dani's
+calls.** Meanwhile the app:
+
+- keeps their contact details off every list (only their own page shows them), and out of the audit log;
+- greets them neutrally unless someone has checked how they are addressed, never inferring it from a name;
+- lets an admin erase one (`private.anonymise_contact`): name, addresses, phone, notes and timeline words go, the
+  organisation and the campaign rows stay for the counts, and they are held for good, so no queue offers them again
+  (an objection under art. 21 ends there too);
+- sends nothing itself: every letter goes from a person's own mail client.
+
 ## 9. Retention (D9)
 
 Proposed: 12 months after leaving or after last contact for `left`, `unresponsive` and `discarded`, then
