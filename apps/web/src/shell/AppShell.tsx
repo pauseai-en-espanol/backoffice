@@ -65,6 +65,9 @@ export const AppShell = ({
                 />
               </li>
               <li>
+                <NavLink href="/censo" label={t('web.nav.census')} />
+              </li>
+              <li>
                 <NavLink href="/importar" label={t('web.nav.imports')} />
               </li>
             </>
