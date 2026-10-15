@@ -277,5 +277,66 @@
       "staff_roles": "Permisos",
       "invitations": "Invitaciones"
     }
-  }
+  },
+  "stages": {
+    "to_triage": "Por clasificar",
+    "new": "Nuevo",
+    "contacting": "Contactando",
+    "talking": "En conversación",
+    "welcomed": "Bienvenida hecha",
+    "active": "Activo",
+    "dormant": "Inactivo",
+    "unresponsive": "Sin respuesta",
+    "left": "Baja",
+    "discarded": "Descartado"
+  },
+  "stageHints": {
+    "to_triage": "Ya estaba en la comunidad antes del backoffice; sin revisar",
+    "new": "Ha llegado; nadie le ha escrito aún",
+    "contacting": "Al menos un intento, sin respuesta todavía",
+    "talking": "Ha respondido; falta la bienvenida",
+    "welcomed": "Primera conversación hecha; tiene equipo o primera tarea",
+    "active": "Colabora",
+    "dormant": "Estuvo activo o con bienvenida, lleva tiempo sin aparecer",
+    "unresponsive": "Varios intentos durante días sin respuesta",
+    "left": "Salió de la comunidad o pidió irse",
+    "discarded": "Spam, duplicado o no encaja"
+  },
+  "attention": {
+    "unassigned": "Sin asignar",
+    "action_due": "Acción pendiente",
+    "no_next_step": "Sin siguiente paso",
+    "follow_up": "Toca seguimiento",
+    "left_community": "Ha salido de la comunidad",
+    "possible_duplicate": "Posible duplicado"
+  },
+  "contactChannels": {
+    "whatsapp": "WhatsApp",
+    "phone": "Teléfono",
+    "email": "Correo",
+    "telegram": "Telegram",
+    "in_person": "En persona",
+    "other": "Otro"
+  },
+  "contactOutcomes": {
+    "no_answer": "Sin respuesta",
+    "replied": "Ha respondido",
+    "left_message": "Mensaje dejado",
+    "wrong_number": "Número equivocado",
+    "declined": "No le interesa"
+  },
+  "sources": {
+    "airtable": "Formulario de PauseAI Global",
+    "telegram": "Bot de Telegram",
+    "census": "Censo",
+    "manual": "Añadido a mano",
+    "csv": "Importación CSV"
+  },
+  "availability": {
+    "occasional": "De vez en cuando",
+    "under_2h": "Menos de 2 h a la semana",
+    "from_2_to_5h": "De 2 a 5 h a la semana",
+    "over_5h": "Más de 5 h a la semana"
+  },
+  "bot": {}
 }
