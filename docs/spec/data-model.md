@@ -66,10 +66,11 @@ specified in the M1 and M3 migrations.
 | `campaign_anchors`         | Evidence paragraphs and their sources                                                    | Outreach   |
 | `campaign_targets`         | Contact × campaign: status, owner, priority, dates, next action                          | Outreach   |
 | `contact_events`           | The outreach timeline                                                                    | Outreach   |
-| `private.telegram_updates` | Each processed `update_id`, so redeliveries are harmless                                 | Bot        |
+| `private.telegram_updates` | Each processed `update_id`, so redeliveries are harmless; kept a week                    | Bot        |
 | `private.telegram_dialogs` | A conversation in progress; deleted after an hour                                        | Bot        |
 | `private.telegram_posts`   | Team-group messages per person, so a claim can edit them                                 | Bot        |
-| `auth.telegram_links`      | Telegram user ID ↔ staff, linked at, unlinked at; link codes as hashes                   | Auth       |
+| `auth.telegram_links`      | Telegram user ID ↔ staff account, one each way, and when they were linked                | Auth       |
+| `auth.telegram_link_codes` | One-time link codes as SHA-256 hashes: ten minutes, used once                            | Auth       |
 | `auth.*`                   | Better Auth's tables (users, accounts, sessions, two-factor); member tokens in M4        | Auth       |
 
 Tables are in `app` unless their schema is named.
@@ -156,6 +157,27 @@ data is copied elsewhere.
 - `sessions.aal` is 2 only for a session that a TOTP or backup code created; every other session stays 1 for life.
 - A trigger refuses an aal2 session for an account without a second factor.
 - Expired sessions, verification values and day-old rate-limit rows are deleted daily (the session clean-up job).
+
+### Bot tables (M1)
+
+Migration `telegram` ([ADR-0004](../adr/0004-telegram-bot.md)):
+
+- **`auth.telegram_links`:** `user_id` (primary key, the Better Auth account, deleted with it), `telegram_user_id`
+  (unique; personal data), `linked_at`. The auth role selects, inserts and deletes: a link is replaced, never
+  edited. Deleted when the staff member is deactivated, their password is reset, or the owner resets their
+  authenticator.
+- **`auth.telegram_link_codes`:** `code_hash` (hex SHA-256 of the code; the code itself is never stored), `user_id`,
+  `created_at`, `expires_at` (at most ten minutes later, checked), `used_at` (the only column the auth role may
+  update). Spent codes are deleted daily with the session clean-up.
+- **`private.telegram_updates`:** `update_id` (primary key), `received_at`. Deleted after a week (dialog clean-up).
+- **`private.telegram_dialogs`:** `telegram_user_id` (primary key), `user_id`, `state` (what the bot read so far,
+  which may hold a phone or email: personal data), `expires_at` (an hour after its last step). Deleted hourly once
+  expired.
+- **`private.telegram_posts`:** (`person_id`, `chat_id`) primary key, `message_id` (empty while the post is being
+  sent: the row is the claim to send it), `posted_at`.
+
+The `private` tables have no RLS and no audit trigger: nothing but the app role reaches them, with exactly the
+privileges the bot uses (a catalog test lists them), and they hold the bot's working state, not records.
 
 ## 5. Rules in the database, not the UI
 

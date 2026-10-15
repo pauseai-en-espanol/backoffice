@@ -115,6 +115,13 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 - **pg_trgm** lives in an `extensions` schema of its own: only the app role may look in it (for names' similarity).
   A trusted extension's functions belong to the bootstrap superuser, executable by PUBLIC, so the schema is what's
   closed; a catalog test keeps it so.
+- **Two exceptions without an actor**, for the team group's posts (ADR-0004 §8): `private.team_card(person)`
+  returns only what a post in the group shows (name, province, sources, stage, owner), and only for someone who
+  arrived in the last 48 hours or already has a post; `private.team_unposted(chat)` returns ids. The bot posts
+  arrivals from every source, the hourly Airtable sync's included, which has no person behind it.
+- **The bot's own state** is in `private` (`telegram_updates`, `telegram_dialogs`, `telegram_posts`), outside `app`
+  and its policies: only the app role reaches it, with exactly the privileges the bot uses, and a catalog test keeps
+  that list. Its links and their codes are credentials, in `auth`, for the auth role alone.
 - **Tests:** an RLS matrix (role × channel × table × operation) runs in CI against Postgres 18, as
   `packages/db/tests/rls` does in aiontheballot, and is updated with every new table.
 

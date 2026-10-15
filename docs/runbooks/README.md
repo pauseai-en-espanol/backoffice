@@ -7,6 +7,6 @@ should see.
   secrets.
 - [The first admin](first-admin.md): the owner's account creation, once, after the first deploy.
 - [A lost authenticator](lost-authenticator.md): checking who asks, then the owner's reset.
+- [Rotating the bot's token](rotating-the-bot-token.md): the Telegram bot's token and webhook secret, together.
 
-To come: rotating the Telegram bot token and webhook secret in detail (M1), and restoring the database (once Dani's
-gitops backups run).
+To come: restoring the database (once Dani's gitops backups run).

@@ -110,6 +110,33 @@ never logged.
 Create the bot with BotFather and keep its token for the gitops secret ([PLAN, this week](../PLAN.md#this-week)).
 Agree the reporting rule with the community's admins: whoever approves or sees a join or a leave reports it.
 
+### 8. As built (M1)
+
+- **Linking:** `POST /api/telegram/link` makes a code of 32 random bytes (base64url), kept only as its SHA-256 in
+  `auth.telegram_link_codes` for ten minutes; `/start <code>` uses it once and writes `auth.telegram_links` (one
+  Telegram account per staff member, and the other way round). Deactivating a staff member, a password reset and the
+  owner's reset of an authenticator delete the link. Spent codes go with the daily session clean-up.
+- **The webhook** answers only on the staff host, and is registered by the API on every start (same address and
+  secret, so a restart changes nothing); `node dist/telegram-webhook.js` registers it by hand
+  ([rotating the bot's token](../runbooks/rotating-the-bot-token.md)). An update is recorded before it is handled, and
+  acknowledged with 200 even when handling it failed, which is reported (by its kind, never with what anyone wrote)
+  and told to the person.
+- **Who it listens to:** unlinked accounts and deactivated staff get no answer; staff without `onboarding` or
+  `admin` are told they may not. Every call runs as the linked staff member through the bot channel, and reaches
+  people only through `private.bot_people`, `bot_candidates`, `bot_summary`, `submit_intake`, `claim_person` and
+  `report_leave`.
+- **Contact details:** an `/alta` is saved only after the reporter confirms; its external id is
+  `tg:<chat>:<first message>`, so a repeated confirmation saves once. Then every message of the conversation that
+  held a phone or email is deleted, and the bot says whether it could. A `/baja` or `/buscar` by phone deletes its
+  message too.
+- **The team group:** posts are claimed by inserting their row first (`private.telegram_posts`, message id empty
+  until sent), so two senders never post one arrival twice. Arrivals the bot or the staff app made are posted at
+  once; the API sweeps the last 48 hours' arrivals every five minutes for the rest (the hourly Airtable sync, CSV
+  imports), through `private.team_card` and `private.team_unposted`, the two functions that run without an actor
+  ([ADR-0002 §4](0002-authorization-and-data-protection.md#4-row-level-security-by-module-and-channel)).
+- **The digest** reads who gets one as the auth role, and each digest as that staff member through the bot's
+  functions, so it holds exactly what their own `/mios` would; it goes by Telegram if they linked it, else by mail.
+
 ## Consequences
 
 - **Easier:** no WhatsApp integration to keep alive or get banned; reporting takes seconds from a phone; the team
