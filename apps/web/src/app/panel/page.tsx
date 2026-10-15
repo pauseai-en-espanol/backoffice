@@ -124,7 +124,9 @@ const PanelPage = async ({
           {t('panel.arrivals')}
         </h2>
         <p className={styles.hint}>{t('panel.arrivalsIntro')}</p>
-        <div className={styles.tableWrap}>
+        {/* Wider than a phone with every source: it scrolls in its own frame, which takes the keyboard's focus. */}
+        {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be focusable */}
+        <div className={styles.tableWrap} tabIndex={0} role="region" aria-labelledby="llegadas">
           <table className={styles.table}>
             <caption className={styles.srOnly}>{t('panel.arrivals')}</caption>
             <thead>
