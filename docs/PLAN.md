@@ -302,9 +302,10 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   the commands in english or better yet both spanish and english"). `/joined` (`/alta`), `/left` (`/baja`), `/mine`
   (`/mios`), `/unassigned` (`/libres`), `/search` (`/buscar`), `/sync` (`/sincronizar`), `/help` (`/ayuda`),
   `/cancel` (`/cancelar`). Options for the menu: one list; one per Telegram language. **Chose one per language**: the
-  API sets the menu on every start with the English names by default and the Spanish ones for people whose Telegram
-  is in Spanish, described in Spanish in both (D6); the sealing script no longer sets it. Replies name a command by
-  both names, English first: "/joined (/alta)".
+  API sets the menu on every start with the Spanish names by default and the English ones for people whose Telegram
+  is in English, described in Spanish in both (D6); the sealing script no longer sets it. Spanish by default so that
+  Catalan, Galician or Basque Telegram sees the Spanish names too (Dani, 2026-10-16). Replies name a command by both
+  names, English first: "/joined (/alta)".
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

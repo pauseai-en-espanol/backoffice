@@ -63,8 +63,9 @@ The commands (`/joined`, `/left`, `/mine`, `/unassigned`, `/search`, `/sync`, `/
 Spanish name: `/alta`, `/baja`, `/mios`, `/libres`, `/buscar`, `/sincronizar`, `/ayuda`, `/cancelar`; PLAN R38) and
 their replies are in the [onboarding spec §5.2](../spec/onboarding.md#52-the-telegram-bot-m1). They work in a
 private chat with the bot; replies are in Spanish, and name a command by both names, English first: "/joined
-(/alta)". The API sets Telegram's command menu on every start (`setMyCommands`): the English names by default, the
-Spanish ones for people whose Telegram is in Spanish (`language_code: es`), described in Spanish in both.
+(/alta)". The API sets Telegram's command menu on every start (`setMyCommands`): the Spanish names by default, so
+Catalan, Galician or Basque Telegram sees them too, and the English ones for people whose Telegram is in English
+(`language_code: en`), described in Spanish in both.
 
 - A message that isn't a command but contains a phone number or email is taken as a draft `/joined`, and is only
   saved after confirmation.

@@ -111,8 +111,8 @@ This is how WhatsApp arrivals and leaves enter the system, and how the team hear
 an account, the webhook and what the bot may do are in [ADR-0004](../adr/0004-telegram-bot.md).
 
 **Commands.** These work in a private chat with the bot, by their English name or their Spanish one, exactly the
-same (PLAN R38); Telegram's menu shows the Spanish names to people whose Telegram is in Spanish, the English ones to
-everyone else. Replies are in Spanish, and name a command by both names, English first: "/joined (/alta)".
+same (PLAN R38); Telegram's menu shows the English names to people whose Telegram is in English, the Spanish ones
+to everyone else. Replies are in Spanish, and name a command by both names, English first: "/joined (/alta)".
 
 | Command                        | Does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

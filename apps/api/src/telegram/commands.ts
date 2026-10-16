@@ -5,20 +5,21 @@ import type { BotCommand, TelegramClient } from './client.js';
 import { commandDescription, MENU_COMMANDS } from './replies.js';
 
 /**
- * Telegram's command menu (PLAN R38): by the English names for everyone, by the Spanish ones for people whose Telegram
- * is in Spanish; both work whichever the menu shows. What each does is in Spanish in both (D6).
+ * Telegram's command menu (PLAN R38): by the Spanish names for everyone, Catalan, Galician or Basque Telegram
+ * included, and by the English ones for people whose Telegram is in English; both work whichever the menu shows.
+ * What each does is in Spanish in both (D6).
  */
 export const commandMenus = (): { languageCode?: string; commands: BotCommand[] }[] => [
   {
     commands: MENU_COMMANDS.map((command) => ({
-      command,
+      command: SPANISH_NAMES[command],
       description: commandDescription(command),
     })),
   },
   {
-    languageCode: 'es',
+    languageCode: 'en',
     commands: MENU_COMMANDS.map((command) => ({
-      command: SPANISH_NAMES[command],
+      command,
       description: commandDescription(command),
     })),
   },

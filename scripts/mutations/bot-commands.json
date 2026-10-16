@@ -16,7 +16,7 @@
     "cwd": "packages/domain"
   },
   {
-    "name": "the Spanish menu shows the English names",
+    "name": "the default menu shows the English names",
     "file": "apps/api/src/telegram/commands.ts",
     "old": "      command: SPANISH_NAMES[command],",
     "new": "      command,",
@@ -24,10 +24,10 @@
     "cwd": "apps/api"
   },
   {
-    "name": "the Spanish menu is not for Spanish Telegram",
+    "name": "the English menu is not for English Telegram",
     "file": "apps/api/src/telegram/commands.ts",
-    "old": "    languageCode: 'es',",
-    "new": "    languageCode: 'en',",
+    "old": "    languageCode: 'en',",
+    "new": "    languageCode: 'es',",
     "cmd": "pnpm exec vitest run src/telegram",
     "cwd": "apps/api"
   },
