@@ -135,7 +135,11 @@ Agree the reporting rule with the community's admins: whoever approves or sees a
 - **Contact details:** a `/joined` is saved only after the reporter confirms; its external id is
   `tg:<chat>:<first message>`, so a repeated confirmation saves once. Then every message of the conversation that
   held a phone or email is deleted, and the bot says whether it could. A `/left` or `/search` by phone deletes its
-  message too.
+  message too. So does a conversation that ends without saving (`/cancel`, "Cancelar", "No", or another command),
+  and one that expires: the API forgets expired conversations every ten minutes and deletes their messages, within
+  Telegram's 48 hours (security review, 2026-10-16).
+- **`/sync`** runs at most ten times an hour per person, as the staff app's button, and one sync at a time: a request
+  while one runs gets its result instead of reading Global's view again.
 - **The team group:** posts are claimed by inserting their row first (`private.telegram_posts`, message id empty
   until sent), so two senders never post one arrival twice. Arrivals the bot or the staff app made are posted at
   once; the API sweeps the last 48 hours' arrivals every five minutes for the rest (the hourly Airtable sync, CSV

@@ -453,6 +453,7 @@
     "sync": {
       "notConfigured": "La sincronización con el formulario de PauseAI Global no está configurada.",
       "running": "Ya hay una sincronización en marcha; prueba en un momento.",
+      "limit": "Ya has sincronizado muchas veces en la última hora; prueba más tarde.",
       "done": "Sincronizado: {created} nuevas, {attached} ya estaban, {review} en la Bandeja.",
       "failed": "No he podido leer el formulario de PauseAI Global. Avisa a quien administra el backoffice."
     },

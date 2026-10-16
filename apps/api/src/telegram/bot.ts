@@ -38,6 +38,8 @@ export interface BotDeps {
   notifier: Notifier;
   /** Runs the Airtable sync now (ADR-0005), for /sync (/sincronizar); without it, the bot says it isn't configured. */
   sync?: (() => Promise<Record<string, unknown>>) | undefined;
+  /** Whether this staff member may run the sync now (a few times an hour, as the staff app's button); all, without. */
+  allowSync?: ((userId: string) => boolean) | undefined;
   /** Where a failure is reported: never with what anyone wrote. */
   onError?: ((error: unknown) => void) | undefined;
 }
@@ -104,6 +106,35 @@ const deleteContactMessages = async (
     }
   }
   await ctx.say(all ? t('bot.alta.deleted') : t('bot.alta.notDeleted'));
+};
+
+/**
+ * Ends the conversation without saving it (cancelled, declined, or replaced by another command), and deletes the
+ * reporter's messages in it that held contact details: they were kept only until the arrival or leave was saved.
+ */
+const dropDialog = async (ctx: Context): Promise<Dialog | undefined> => {
+  const ended = await ctx.deps.store.endDialog(ctx.telegramUserId);
+  if (ended) {
+    await deleteContactMessages(ctx, ended.chatId, ended.contactMessages);
+  }
+  return ended;
+};
+
+/**
+ * Forgets the conversations past their hour, deleting the messages in them that held contact details while Telegram
+ * still lets the bot (48 hours); the API runs it every few minutes. How many it forgot.
+ */
+export const forgetExpiredDialogs = async (deps: BotDeps): Promise<number> => {
+  const dialogs = await deps.store.takeExpiredDialogs();
+  for (const dialog of dialogs) {
+    for (const id of unique(dialog.contactMessages.map(String)).map(Number)) {
+      await deps.client.deleteMessage(dialog.chatId, id).catch((error: unknown) => {
+        report(deps, error);
+        return false;
+      });
+    }
+  }
+  return dialogs.length;
 };
 
 // /joined (/alta) ---------------------------------------------------------------------------------------------------
@@ -265,17 +296,16 @@ const runCommand = async (command: ParsedCommand, ctx: Context): Promise<void> =
       await ctx.say(helpText());
       return;
     case 'cancel': {
-      const dialog = await store.dialog(ctx.telegramUserId);
-      await store.endDialog(ctx.telegramUserId);
+      const dialog = await dropDialog(ctx);
       await ctx.say(dialog ? t('bot.cancelled') : t('bot.nothingToCancel'));
       return;
     }
     case 'joined':
-      await store.endDialog(ctx.telegramUserId);
+      await dropDialog(ctx);
       await startAlta(parseArrival(command.args), ctx);
       return;
     case 'left': {
-      await store.endDialog(ctx.telegramUserId);
+      await dropDialog(ctx);
       const dialog: BajaDialog = {
         kind: 'baja',
         chatId: ctx.chatId,
@@ -316,6 +346,10 @@ const runCommand = async (command: ParsedCommand, ctx: Context): Promise<void> =
     case 'sync': {
       if (!sync) {
         await ctx.say(t('bot.sync.notConfigured'));
+        return;
+      }
+      if (ctx.deps.allowSync && !ctx.deps.allowSync(ctx.userId)) {
+        await ctx.say(t('bot.sync.limit'));
         return;
       }
       let counts: Record<string, unknown>;
@@ -462,7 +496,7 @@ const handleCallback = async (query: TelegramCallbackQuery, deps: BotDeps): Prom
     }
     await answer();
     if (data === 'alta:cancel') {
-      await store.endDialog(query.from.id);
+      await dropDialog(ctx);
       await edit(t('bot.cancelled'));
       return;
     }
@@ -495,7 +529,7 @@ const handleCallback = async (query: TelegramCallbackQuery, deps: BotDeps): Prom
     }
     await answer();
     if (data === 'baja:no') {
-      await store.endDialog(query.from.id);
+      await dropDialog(ctx);
       await edit(t('bot.baja.kept'));
       return;
     }

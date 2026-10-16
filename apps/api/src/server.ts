@@ -13,6 +13,7 @@ import { logsInAs } from './database-roles.js';
 import { initErrorTracking } from './error-tracking.js';
 import { runAirtableSync } from './imports/airtable-sync.js';
 import { createMailer, mailFailure } from './mail/mailer.js';
+import { singleFlight } from './single-flight.js';
 import { createInvitationSender } from './staff/invitations.js';
 import { registerCommands } from './telegram/commands.js';
 import { botFailure } from './telegram/failure.js';
@@ -100,15 +101,17 @@ const reportBotFailure = (error: unknown): void => {
   console.error(failure.message);
   captureException(failure);
 };
-// The Airtable sync on demand, from Importar and /sync (/sincronizar) (ADR-0005), as the ingest role.
+// The Airtable sync on demand, from Importar and /sync (/sincronizar) (ADR-0005), as the ingest role. One at a time:
+// a request while one runs gets its result, rather than reading Global's view again.
 const syncAirtable =
   config.airtable && ingest
-    ? () =>
+    ? singleFlight(() =>
         runAirtableSync({
           ingest,
           link: config.airtable?.sharedViewUrl ?? '',
           requirePermission: config.airtable?.requirePermission ?? false,
-        })
+        }),
+      )
     : undefined;
 const bot =
   config.telegram && config.auth && authPool && app
@@ -216,4 +219,8 @@ if (bot && config.telegram && config.auth) {
     sweep();
     setInterval(sweep, 5 * 60_000).unref();
   }
+  // Conversations past their hour: their messages with a phone or an email are deleted while Telegram allows it.
+  setInterval(() => {
+    bot.forgetExpired().catch(reportBotFailure);
+  }, 10 * 60_000).unref();
 }

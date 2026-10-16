@@ -54,5 +54,45 @@
     "new": "    message: redactText(error.message),\n    detail: (error as { detail?: unknown }).detail,\n",
     "cmd": "pnpm exec vitest run src/app.spec.ts",
     "cwd": "apps/api"
+  },
+  {
+    "name": "a dropped conversation keeps its contact messages",
+    "file": "apps/api/src/telegram/bot.ts",
+    "old": "    await deleteContactMessages(ctx, ended.chatId, ended.contactMessages);\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/telegram/bot.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "/cancel keeps the contact messages",
+    "file": "apps/api/src/telegram/bot.ts",
+    "old": "      const dialog = await dropDialog(ctx);\n",
+    "new": "      const dialog = await ctx.deps.store.endDialog(ctx.telegramUserId);\n",
+    "cmd": "pnpm exec vitest run src/telegram/bot.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an expired conversation keeps its contact messages",
+    "file": "apps/api/src/telegram/bot.ts",
+    "old": "await deps.client.deleteMessage(dialog.chatId, id).catch(",
+    "new": "await Promise.resolve(false).catch(",
+    "cmd": "pnpm exec vitest run src/telegram/bot.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "/sync has no limit",
+    "file": "apps/api/src/telegram/bot.ts",
+    "old": "if (ctx.deps.allowSync && !ctx.deps.allowSync(ctx.userId)) {",
+    "new": "if (ctx.deps.allowSync === undefined && false) {",
+    "cmd": "pnpm exec vitest run src/telegram/bot.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "two syncs at once read the view twice",
+    "file": "apps/api/src/single-flight.ts",
+    "old": "current ??= run()",
+    "new": "current = run()",
+    "cmd": "pnpm exec vitest run src/single-flight.spec.ts",
+    "cwd": "apps/api"
   }
 ]

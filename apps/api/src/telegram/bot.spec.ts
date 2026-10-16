@@ -6,7 +6,8 @@ import type { Notifier } from './notify.js';
 import type { Arrival, BotAccess, BotStore, Candidate, PersonLine, Submitted } from './store.js';
 import type { TelegramUpdate } from './updates.js';
 
-import { type BotDeps, handleUpdate } from './bot.js';
+import { createRateLimiter } from '../rate-limit.js';
+import { type BotDeps, forgetExpiredDialogs, handleUpdate } from './bot.js';
 
 /** Fictional people and contact details only. */
 const PHONE = '+34600111222';
@@ -68,6 +69,8 @@ const fakeClient = () => {
 /** A store in memory: one onboarder and one outreach member linked, Ana in the database. */
 const fakeStore = (candidates: Candidate[] = []) => {
   const dialogs = new Map<number, Dialog>();
+  /** Conversations past their hour, as the store hands them over once. */
+  const expired: Dialog[] = [];
   const submitted: { externalId: string; arrival: Arrival; decision: unknown }[] = [];
   const claimed: string[] = [];
   const left: string[] = [];
@@ -117,8 +120,11 @@ const fakeStore = (candidates: Candidate[] = []) => {
       dialogs.set(id, structuredClone(dialog));
     },
     endDialog: async (id) => {
+      const ended = dialogs.get(id);
       dialogs.delete(id);
+      return ended;
     },
+    takeExpiredDialogs: async () => expired.splice(0),
     teamCard: async () => undefined,
     teamUnposted: async () => [],
     reservePost: async () => true,
@@ -127,10 +133,10 @@ const fakeStore = (candidates: Candidate[] = []) => {
     forgetPosts: async () => undefined,
     posts: async () => [],
   };
-  return { store, dialogs, submitted, claimed, left };
+  return { store, dialogs, expired, submitted, claimed, left };
 };
 
-const setup = (candidates: Candidate[] = []) => {
+const setup = (candidates: Candidate[] = [], extra: Partial<BotDeps> = {}) => {
   const telegram = fakeClient();
   const data = fakeStore(candidates);
   const told = { arrivals: [] as string[], claims: [] as string[] };
@@ -146,6 +152,7 @@ const setup = (candidates: Candidate[] = []) => {
     staffOrigin: ORIGIN,
     notifier,
     onError: (error) => errors.push(error),
+    ...extra,
   };
   let updateId = 0;
   let messageId = 0;
@@ -189,7 +196,7 @@ const setup = (candidates: Candidate[] = []) => {
     [...telegram.sent, ...telegram.edited]
       .flatMap((m) => [m.text, ...(m.keyboard ?? []).flat().map((b) => b.text)])
       .join('\n');
-  return { ...telegram, ...data, told, errors, say, press, everything };
+  return { ...telegram, ...data, deps, told, errors, say, press, everything };
 };
 
 const buttons = (message: Sent | undefined) => (message?.keyboard ?? []).flat();
@@ -420,6 +427,66 @@ describe('both names (PLAN R38)', () => {
     await inSpanish.say(`/${spanish}`);
     expect(inEnglish.sent.length).toBeGreaterThan(0);
     expect(inSpanish.sent).toEqual(inEnglish.sent);
+  });
+});
+
+describe('a conversation that ends without saving (security review)', () => {
+  it('deletes the messages that held contact details: cancelled, dropped, or replaced', async () => {
+    const bot = setup();
+    const cancelled = await bot.say(`/joined ${PHONE_AS_TYPED}`);
+    await bot.say('/cancel');
+    expect(bot.deleted).toEqual([{ chatId: TG, messageId: cancelled }]);
+
+    const dropped = await bot.say(`/alta ${EMAIL}`);
+    await bot.press('alta:cancel');
+    expect(bot.deleted.at(-1)).toEqual({ chatId: TG, messageId: dropped });
+
+    const replaced = await bot.say(`/joined ${PHONE_AS_TYPED}`);
+    await bot.say('/left Ana');
+    expect(bot.deleted.at(-1)).toEqual({ chatId: TG, messageId: replaced });
+    await bot.press('baja:no');
+
+    const declined = await bot.say(`/left ${PHONE_AS_TYPED}`);
+    await bot.press(`baja:pick:${ANA}`);
+    await bot.press('baja:no');
+    expect(bot.deleted.at(-1)).toEqual({ chatId: TG, messageId: declined });
+    expect(bot.left).toEqual([]);
+    expect(bot.submitted).toEqual([]);
+  });
+
+  it('deletes them once the conversation expires, too', async () => {
+    const bot = setup();
+    bot.expired.push({
+      kind: 'baja',
+      chatId: TG,
+      step: 'search',
+      contactMessages: [41, 42],
+    });
+    expect(await forgetExpiredDialogs(bot.deps)).toBe(1);
+    expect(bot.deleted).toEqual([
+      { chatId: TG, messageId: 41 },
+      { chatId: TG, messageId: 42 },
+    ]);
+    expect(await forgetExpiredDialogs(bot.deps)).toBe(0);
+  });
+});
+
+describe('/sync (/sincronizar)', () => {
+  it('runs a few times an hour per person, as the staff app’s button (security review)', async () => {
+    let runs = 0;
+    const bot = setup([], {
+      sync: async () => {
+        runs += 1;
+        return { created: 0, attached: 0, review: 0 };
+      },
+      allowSync: createRateLimiter({ limit: 2, windowMs: 60 * 60_000 }),
+    });
+    await bot.say('/sync');
+    await bot.say('/sincronizar');
+    expect(bot.sent.at(-1)?.text).toMatch(/^Sincronizado/u);
+    await bot.say('/sync');
+    expect(runs).toBe(2);
+    expect(bot.sent.at(-1)?.text).toMatch(/muchas veces/u);
   });
 });
 

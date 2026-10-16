@@ -1,11 +1,12 @@
 import type { createAuthPool } from '@backoffice/db/auth-pool';
 import type { Database } from '@backoffice/db/client';
 
-import type { BotDeps } from './bot.js';
 import type { TelegramConfig } from './config.js';
 import type { TelegramLinking } from './linking.js';
 import type { WebhookOptions } from './webhook.js';
 
+import { createRateLimiter } from '../rate-limit.js';
+import { type BotDeps, forgetExpiredDialogs } from './bot.js';
 import { createTelegramClient, type TelegramClient } from './client.js';
 import { createTeamNotifier, noopNotifier, type TeamNotifier } from './notify.js';
 import { createBotStore } from './store.js';
@@ -21,6 +22,8 @@ export interface Bot {
   linking: TelegramLinking;
   /** The team group, when one is configured; the API sweeps it every few minutes. */
   team: TeamNotifier | undefined;
+  /** Forgets the conversations past their hour and deletes their contact messages; the API runs it every few minutes. */
+  forgetExpired: () => Promise<number>;
 }
 
 /**
@@ -49,14 +52,21 @@ export const createBot = ({
     config.teamChatId === undefined
       ? undefined
       : createTeamNotifier({ store, client, chatId: config.teamChatId, staffOrigin, onError });
+  const deps: BotDeps = {
+    store,
+    client,
+    staffOrigin,
+    notifier: team ?? noopNotifier,
+    sync,
+    // As the staff app's button: enough for a person, too few to hammer Airtable with the shared view's link.
+    allowSync: createRateLimiter({ limit: 10, windowMs: 60 * 60_000 }),
+    onError,
+  };
   return {
     client,
-    webhook: {
-      staffOrigin,
-      secret: config.webhookSecret,
-      deps: { store, client, staffOrigin, notifier: team ?? noopNotifier, sync, onError },
-    },
+    webhook: { staffOrigin, secret: config.webhookSecret, deps },
     linking: { botUsername: config.botUsername, pool: auth },
     team,
+    forgetExpired: () => forgetExpiredDialogs(deps),
   };
 };

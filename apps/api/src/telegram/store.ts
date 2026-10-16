@@ -90,7 +90,10 @@ export interface BotStore {
   claimUpdate(updateId: number): Promise<boolean>;
   dialog(telegramUserId: number): Promise<Dialog | undefined>;
   saveDialog(telegramUserId: number, userId: string, dialog: Dialog): Promise<void>;
-  endDialog(telegramUserId: number): Promise<void>;
+  /** Ends the conversation, and hands it back (to delete the messages in it that held contact details). */
+  endDialog(telegramUserId: number): Promise<Dialog | undefined>;
+  /** Ends every conversation past its hour, and hands them back, each once. */
+  takeExpiredDialogs(): Promise<Dialog[]>;
   teamCard(personId: string): Promise<TeamCard | undefined>;
   teamUnposted(chatId: number): Promise<string[]>;
   /** Claims the right to post a person to a chat; false if someone already did. */
@@ -269,9 +272,18 @@ export const createBotStore = ({ app, auth }: { app: Database; auth: AuthPool })
     );
   },
   endDialog: async (telegramUserId) => {
-    await sql`DELETE FROM private.telegram_dialogs WHERE telegram_user_id = ${telegramUserId}`.execute(
-      app,
-    );
+    const { rows } = await sql<{ state: unknown }>`
+      DELETE FROM private.telegram_dialogs WHERE telegram_user_id = ${telegramUserId}
+      RETURNING state`.execute(app);
+    return rows[0] ? readDialog(rows[0].state) : undefined;
+  },
+  takeExpiredDialogs: async () => {
+    const { rows } = await sql<{ state: unknown }>`
+      DELETE FROM private.telegram_dialogs WHERE expires_at < now() RETURNING state`.execute(app);
+    return rows.flatMap((row) => {
+      const dialog = readDialog(row.state);
+      return dialog ? [dialog] : [];
+    });
   },
   teamCard: async (personId) => {
     const { rows } = await sql<{
