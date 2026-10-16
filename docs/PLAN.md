@@ -163,8 +163,10 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
 6. **Private contacts and organisations:** "Solo yo" or "Equipo" on each contact, organisation and note; admins
    don't see others' private records in the app (rights requests still cover them); an admin chooses who inherits
    them when someone leaves; a private contact neither blocks nor reveals a team one, and sharing offers a merge;
-   campaigns target shared contacts only. Waits on the outreach contacts' legal basis for notes quoting
-   conversations.
+   campaigns target shared contacts only. Organisations get the same timeline of dated notes as contacts (today
+   they have one notes field), and notes on both take an optional date for when the conversation happened (as in
+   step 3), so extracts from past conversations can be kept, privately or for the team (Dani, 2026-10-16). Waits on
+   the outreach contacts' legal basis for notes quoting conversations.
 
 ## Decided
 
