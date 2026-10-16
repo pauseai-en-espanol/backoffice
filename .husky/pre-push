@@ -1,3 +1,8 @@
+# The first push finds no main on origin to compare with: nothing has been released yet, so there is nothing to
+# check, as CI's own push run skips these checks then (ci.yml).
+if ! git rev-parse --verify --quiet origin/main > /dev/null; then
+  exit 0
+fi
 if ! pnpm release:check; then
   echo "⚠️  No changeset detected, but they are expected — please run 'pnpm release:note'"
   exit 1
