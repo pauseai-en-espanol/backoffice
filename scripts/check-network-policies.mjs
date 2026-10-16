@@ -8,6 +8,8 @@
 //   API;
 // - the forms app's pods are admitted to the API's forms port alone, which is the one the forms app calls, and nobody
 //   else is admitted to it (ADR-0002 §7): a forms pod taken over reaches neither sign-in nor the staff routes;
+// - the web and forms apps' own policies let their pods out to the API's pods on the port each calls (their egress is
+//   otherwise only DNS and error tracking), or every page would hang;
 // - every job's pods are selected by the jobs' policy, and none carries the API's selector labels, which would let the
 //   API's Service send them requests;
 // - the bot can't be turned on without sign-in and the app role, nor the forms app's routes with half their settings.
@@ -182,6 +184,22 @@ if (rules.some((rule) => rule !== formsRules[0] && rule.ports.includes(formsPort
 const jobsPolicy = named('NetworkPolicy', 'backoffice-api-jobs');
 const components = /values: \[([^\]]+)\]/.exec(jobsPolicy ?? '')?.[1]?.split(/,\s*/) ?? [];
 const apiPods = podLabels(api);
+for (const [what, deployment] of [
+  ['web', web],
+  ['forms', forms],
+]) {
+  const policy = named('NetworkPolicy', `backoffice-${what}`) ?? '';
+  const egress = policy.slice(policy.indexOf('  egress:'));
+  const toApi = /app\.kubernetes\.io\/name: (\S+)\n\s+ports:\n\s+- port: (\d+)/.exec(egress);
+  const calls = /value: "http:\/\/[^:"]+:(\d+)"/.exec(
+    deployment.slice(deployment.indexOf('name: API_URL')),
+  )?.[1];
+  if (!policy.includes('  egress:') || toApi?.[1] !== apiPods.name || toApi?.[2] !== calls) {
+    fail(
+      `the ${what} app's policy lets its pods out to ${toApi?.[1]}:${toApi?.[2]}, but the API's are ${apiPods.name} and it calls port ${calls}`,
+    );
+  }
+}
 const cronJobs = documents.filter((doc) => /kind: CronJob\n/.test(doc));
 if (cronJobs.length !== 4) {
   fail(`the CI values render ${cronJobs.length} CronJobs, not the 4 they turn on`);

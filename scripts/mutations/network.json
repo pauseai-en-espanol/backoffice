@@ -2,7 +2,7 @@
   {
     "name": "the forms app calls the staff port",
     "file": "apps/forms/helm-chart/values.yaml",
-    "old": "  servicePort: 3002",
+    "old": "  servicePort: 3003",
     "new": "  servicePort: 3001",
     "cmd": "helm dependency build helm-charts/backoffice >/dev/null && node scripts/check-network-policies.mjs",
     "cwd": "."
@@ -20,6 +20,22 @@
     "file": "apps/api/helm-chart/templates/networkpolicy.yaml",
     "old": "      ports:\n        - port: {{ .Values.service.port }}\n          protocol: TCP\n    - from:",
     "new": "      ports:\n        - port: {{ .Values.service.port }}\n          protocol: TCP\n        - port: {{ .Values.service.formsPort }}\n          protocol: TCP\n    - from:",
+    "cmd": "helm dependency build helm-charts/backoffice >/dev/null && node scripts/check-network-policies.mjs",
+    "cwd": "."
+  },
+  {
+    "name": "the web app's pods can't reach the API",
+    "file": "apps/web/helm-chart/values.yaml",
+    "old": "  apiName: api",
+    "new": "  apiName: backend",
+    "cmd": "helm dependency build helm-charts/backoffice >/dev/null && node scripts/check-network-policies.mjs",
+    "cwd": "."
+  },
+  {
+    "name": "the forms app's pods are let out to the wrong port",
+    "file": "apps/forms/helm-chart/templates/networkpolicy.yaml",
+    "old": "        - port: {{ .Values.api.servicePort }}",
+    "new": "        - port: {{ .Values.service.port }}",
     "cmd": "helm dependency build helm-charts/backoffice >/dev/null && node scripts/check-network-policies.mjs",
     "cwd": "."
   }

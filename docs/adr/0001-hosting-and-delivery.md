@@ -94,8 +94,10 @@ Following gitops `docs/app-onboarding.md` and aiontheballot ADR-0001:
 - **Sync order:** Secrets and the ServiceAccount patch (wave -2), the migration Job (Sync hook, wave -1), the rest.
 - **Pods:** requests and limits, a restrictive securityContext (non-root, read-only root filesystem, no
   capabilities, `RuntimeDefault` seccomp), no service-account token, `/healthz` probes.
-- **NetworkPolicies:** web and forms accept only the gateway. The API accepts the gateway, the web and forms pods
-  and the CronJobs, and reaches Postgres, GlitchTip, Mailu, DNS, and the internet on 443 for Telegram and Airtable.
+- **NetworkPolicies:** web and forms accept only the gateway, and reach only the API, DNS and GlitchTip. The API
+  accepts the gateway and the web pods on its staff port (3001), and the forms pods on its forms port (3003) alone
+  (ADR-0002 §7); it reaches Postgres, GlitchTip, Mailu, DNS, and the internet on 443 for Telegram and Airtable.
+  `scripts/check-network-policies.mjs` checks in CI that each side's rules match the other's.
 
 ### 6. Routes and mail
 

@@ -66,6 +66,10 @@ backoffice-web:
     gateways:
       - namespace: envoy-gateway-system
         podLabels: { gateway.envoyproxy.io/owning-gateway-name: gateway-public }
+    errorTracking:
+      namespace: example-glitchtip
+      podLabels: { app.kubernetes.io/name: glitchtip, app.kubernetes.io/component: web }
+      port: 8000
 backoffice-forms:
   image: { repository: registry.example/backoffice/forms, tag: 0.1.0.abc1234 }
   productName: Censo de ejemplo
@@ -85,3 +89,7 @@ backoffice-forms:
     gateways:
       - namespace: envoy-gateway-system
         podLabels: { gateway.envoyproxy.io/owning-gateway-name: gateway-public }
+    errorTracking:
+      namespace: example-glitchtip
+      podLabels: { app.kubernetes.io/name: glitchtip, app.kubernetes.io/component: web }
+      port: 8000

@@ -10,7 +10,7 @@ builds and pushes images, and holds no cluster credentials.
 
 - **This repository:** the umbrella chart (`helm-charts/backoffice`), CI and the release workflow, and the sealing
   scripts. Nothing has been pushed.
-- **gitops:** a local branch `backoffice`, not pushed, with four commits:
+- **gitops:** a local branch `backoffice`, not pushed, with five commits:
   1. _Onboard backoffice on danilupion-com_: the ApplicationSet, the `apps` project's repository and namespace, the
      default ServiceAccount (pulling with `backoffice-harbor-pull`), the `pauseai_backoffice` database with its owner
      and four extra roles, and, sealed by `scripts/seal-gitops-secrets.sh`, the five database passwords, their
@@ -22,6 +22,8 @@ builds and pushes images, and holds no cluster credentials.
      `backoffice-forms-token`, sealed by `scripts/seal-forms-token.sh` against the cluster's certificate; the API's
      census settings. The privacy notice address is a TODO: until it is set, the form links its own draft.
   4. _Backoffice: Censo shows the census form's generic link_: the web app's `censusUrl`.
+  5. _Backoffice: the web and forms pods reach GlitchTip through their network policies' egress_: the same GlitchTip
+     pods as the API's, now that the web and forms pods may reach only the API, DNS and error tracking.
 
 ## First deploy (M0)
 
@@ -83,7 +85,7 @@ Do these in order. Each step says how to check it.
 
 The form is its own app (`apps/forms`) on its own host, `unete.pauseai.es` by default, on gateway-public: no cookies,
 no sessions, nothing third-party. Its server calls the API's `/public/census` routes inside the cluster, on the API's
-forms port (3002, the only one the network policy lets the forms pods reach), with a shared secret; the browser never
+forms port (3003, the only one the network policy lets the forms pods reach), with a shared secret; the browser never
 reaches the API, and the host routes nothing to it (ADR-0002 §7).
 
 1. **The release:** the first release after this lands builds `backoffice/forms` with the others and writes its tag

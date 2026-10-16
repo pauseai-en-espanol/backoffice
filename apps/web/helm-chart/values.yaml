@@ -69,7 +69,8 @@ route:
       errorRelay: 0
 
 # Who may connect to the web app's pods (ADR-0001, network policies): off by default. On, only the gateways' Envoy pods
-# listed here; nothing else in the cluster. Ingress only. Gitops turns it on with the gateways of its environment.
+# listed here; nothing else in the cluster. Out, only the API, DNS and error tracking. Gitops turns it on with the
+# gateways and error tracking of its environment.
 networkPolicy:
   enabled: false
   # Each gateway whose Envoy pods bring visitors: their namespace and their pods' labels, e.g.
@@ -78,6 +79,14 @@ networkPolicy:
   #       gateway.envoyproxy.io/owning-gateway-name: gateway-public
   #       gateway.envoyproxy.io/owning-gateway-namespace: gateway-public
   gateways: []
+  # The API's pods, which this app's server calls: the API chart's nameOverride in the umbrella.
+  apiName: api
+  # Error tracking's pods, when SENTRY_DSN points at an in-cluster GlitchTip: their namespace, labels and port, e.g.
+  #   namespace: glitchtip
+  #   podLabels: { app.kubernetes.io/name: glitchtip, app.kubernetes.io/component: web }
+  #   port: 8000
+  # Without it, nothing reaches error tracking.
+  errorTracking: {}
 
 # The API service: the web app's server calls it (API_URL), and the route sends /api to it.
 api:

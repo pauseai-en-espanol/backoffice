@@ -36,5 +36,5 @@ COPY --from=build --chown=node:node /prod/api/node_modules ./node_modules
 COPY --from=build --chown=node:node /prod/api/dist ./dist
 USER node
 # The staff host's API and webhook; the forms app's routes alone (ADR-0002 §7).
-EXPOSE 3001 3002
+EXPOSE 3001 3003
 CMD ["node", "dist/server.js"]

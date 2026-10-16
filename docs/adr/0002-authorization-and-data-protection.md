@@ -158,7 +158,7 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 
 - **The census forms app (M2)** has no sessions, no cookies and no database credentials. It posts to the API's
   public routes, which run as `public` and can only call the submit function. They are served on a port of their own
-  (`FORMS_PORT`, 3002), the only one the forms app's pods are admitted to, and the staff port doesn't serve them: a
+  (`FORMS_PORT`, 3003), the only one the forms app's pods are admitted to, and the staff port doesn't serve them: a
   forms pod taken over reaches neither sign-in nor the staff routes, where it could write any `X-Forwarded-For` and
   dodge the per-address limits (security review, 2026-10-16; `scripts/check-network-policies.mjs` keeps it so).
 - **The Telegram webhook** ([ADR-0004](0004-telegram-bot.md)).

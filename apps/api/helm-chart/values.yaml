@@ -9,7 +9,7 @@ service:
   port: 3001
   # The forms app's routes alone (/public/census): only the forms app's pods reach it (ADR-0002 §7). The forms chart's
   # api.servicePort names it.
-  formsPort: 3002
+  formsPort: 3003
 resources:
   requests:
     cpu: 100m

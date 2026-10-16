@@ -10,9 +10,13 @@
 {{- fail "networkPolicy.gateways[] needs a namespace and podLabels: without labels it would admit every pod there" }}
 {{- end }}
 {{- end }}
+{{- if and $policy.errorTracking.namespace (or (not $policy.errorTracking.podLabels) (not $policy.errorTracking.port)) }}
+{{- fail "networkPolicy.errorTracking needs podLabels and port with its namespace: without labels every pod there is reachable" }}
+{{- end }}
 # Who may open a connection to the census form's pods (ADR-0001, network policies): the gateways' Envoy pods, which bring
-# every visitor; nothing else in the cluster. Ingress only: what the form reaches (the API) is the API's policy's
-# business. The kubelet's probes come from the node, which Cilium always admits.
+# every visitor; nothing else in the cluster. And where they may connect: the API's pods, on the port this app
+# calls, DNS, and error tracking when set, nothing else (security review, 2026-10-16: a server taken over, or tricked
+# into fetching an address, reaches nothing more). The kubelet's probes come from the node, which Cilium always admits.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -23,7 +27,7 @@ spec:
   podSelector:
     matchLabels:
       {{- include "backoffice-forms.selectorLabels" . | nindent 6 }}
-  policyTypes: [Ingress]
+  policyTypes: [Ingress, Egress]
   ingress:
     - from:
         {{- range $gateway := $policy.gateways }}
@@ -37,4 +41,43 @@ spec:
       ports:
         - port: {{ .Values.service.port }}
           protocol: TCP
+  egress:
+    # The API's pods, in this namespace. The name is the API chart's nameOverride in the umbrella
+    # (helm-charts/backoffice/values.yaml): rename one, rename both (CI checks they match).
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/name: {{ $policy.apiName | default "api" }}
+      ports:
+        - port: {{ .Values.api.servicePort }}
+          protocol: TCP
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    {{- with $policy.errorTracking }}
+    {{- if .namespace }}
+    # Error tracking's in-cluster Service (the server's own errors, and the browser's through the relay): the port is
+    # its pods'.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .namespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .podLabels | nindent 14 }}
+      ports:
+        - port: {{ .port }}
+          protocol: TCP
+    {{- end }}
+    {{- end }}
 {{- end }}
