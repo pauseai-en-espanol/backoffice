@@ -91,7 +91,7 @@ packages/domain         Pure logic: normalisation, matching, stage and attention
 packages/ui             Panda preset, Ark components
 packages/i18n           Spanish messages (web and bot)
 packages/observability  Sentry privacy options, error relay
-packages/mcp            MCP server (M4, if D10)
+packages/mcp            MCP server: not built (D10, not now)
 db/migrations           dbmate SQL, forward-only; db/schema.sql generated
 helm-charts/backoffice  Umbrella chart: one subchart per deployable, migration Job, CronJobs
 e2e                     Playwright against production builds, with a fake Bot API

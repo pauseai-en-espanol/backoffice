@@ -133,7 +133,7 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 
 - **Funnel metrics:** the Panel (counts by stage, arrivals per week by source, time to first contact, unassigned
   for more than 48 hours).
-- **An MCP server with member tokens**, if D10 says so.
+- ~~**An MCP server with member tokens**~~ Not now (D10).
 - ~~**Retention automation**~~ Not built: D9 decided no automatic erasure.
 
 ## Decided
@@ -145,6 +145,7 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 | **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                | Dani, 2026-10-15 |
 | **D4**  | The staff UI is on `gateway-public` with mandatory two-factor (no VPN)                                                                | Dani, 2026-10-15 |
 | **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                          | Dani, 2026-10-16 |
+| **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                   | Dani, 2026-10-16 |
 | **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                           | Dani, 2026-10-15 |
 | —       | Backups are handled in gitops, separately from this plan                                                                              | Dani, 2026-10-15 |
 | —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                 | Dani, 2026-10-15 |
@@ -153,14 +154,13 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 
 Each has a recommendation. Unless Dani objects, the recommendation is what gets built.
 
-| ID      | Decision                                   | Options                                                                       | Recommendation                                                                                                                                       |
-| ------- | ------------------------------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D5**  | Tenancy                                    | Single organisation, or tenant-ready from day one                             | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away))      |
-| **D6**  | UI language                                | Spanish only, or English source with mandatory Spanish                        | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                      |
-| **D7**  | Access granularity                         | Module roles, or "a volunteer sees only their own people"                     | **Module roles** for v1; revisit when the team grows past about 8                                                                                    |
-| **D8**  | Outreach sending                           | A person sends (handover), or the app sends through Mailu per explicit click  | **A person sends**, as the outreach repo already does                                                                                                |
-| **D10** | LLM tools (MCP)                            | None; read-only member tokens; tokens that also draft                         | Decide at M4. If yes, as aiontheballot ADR-0008: a person's token, drafts only, and personal data to Anthropic only with the association's agreement |
-| **D12** | Telegram as a channel for names and phones | Accept, with the bot deleting messages after saving; or names only in the bot | **Accept**, as designed in [ADR-0004](adr/0004-telegram-bot.md); Dani to confirm                                                                     |
+| ID      | Decision                                   | Options                                                                       | Recommendation                                                                                                                                  |
+| ------- | ------------------------------------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D5**  | Tenancy                                    | Single organisation, or tenant-ready from day one                             | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away)) |
+| **D6**  | UI language                                | Spanish only, or English source with mandatory Spanish                        | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                 |
+| **D7**  | Access granularity                         | Module roles, or "a volunteer sees only their own people"                     | **Module roles** for v1; revisit when the team grows past about 8                                                                               |
+| **D8**  | Outreach sending                           | A person sends (handover), or the app sends through Mailu per explicit click  | **A person sends**, as the outreach repo already does                                                                                           |
+| **D12** | Telegram as a channel for names and phones | Accept, with the bot deleting messages after saving; or names only in the bot | **Accept**, as designed in [ADR-0004](adr/0004-telegram-bot.md); Dani to confirm                                                                |
 
 ## Open questions
 
@@ -303,4 +303,4 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 | M1        | Built, not deployed | Hoy, Personas, Persona, Embudo, Añadir rápido, Bandeja, Importar (CSV, and the Airtable sync, checked against the real view's structure), Ajustes; the Telegram bot (linking, /alta, /baja, /mios, /libres, /buscar, /sincronizar, the team group, the digest). E2E covers the web flows; the bot is covered by API tests against a fake Bot API.                                                                                    |
 | M2        | Built, not deployed | The forms app at `unete.pauseai.es` (generic and personal links, honeypot and timing, consents with their wording version, the privacy notice as a draft); Censo, the person's census side, the Bandeja's census answers, the option lists in Ajustes; export and erasure. E2E covers a personal link end to end and the generic link. Deploying waits on the M2 steps in [deploying](runbooks/deploying.md) and the privacy notice. |
 | M3        | Built, not deployed | Campañas (board by status, templates with a preview per contact, evidence paragraphs, targets), Contactos, Organizaciones, Siguiente (take the next target, open the letter in your own mail or WhatsApp, copy buttons, "Sí, enviada"), and the one-off import from the `outreach` repo, checked against the real campaign locally (counts only). Nothing sends. E2E covers Siguiente end to end.                                    |
-| M4        | In progress         | The Panel (stages, weekly arrivals by source, time to first contact, the unassigned) is built. No retention job (D9: no automatic erasure). The MCP server waits on D10.                                                                                                                                                                                                                                                             |
+| M4        | Built, not deployed | The Panel (people by stage, weekly arrivals by source, time to first contact, the unassigned for more than 48 hours). No retention job (D9) and no MCP server for now (D10). E2E covers the Panel.                                                                                                                                                                                                                                   |

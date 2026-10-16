@@ -130,7 +130,7 @@ that fixes the immediate problem. What each milestone ships is in [PLAN.md](PLAN
 | **M1 Onboarding MVP**    | People, identities, stages, owners, next actions, timeline, Hoy / Sin asignar / Embudo views, quick-add, matching and merge, Airtable import, the Telegram bot, notifications |
 | **M2 Census**            | Public forms app, census form (generic link and personal links), WhatsApp handover links, skills, interests and teams, consent                                                |
 | **M3 Outreach**          | Organisations, contacts, campaigns, templates, the outreach queue and handover; import from the `outreach` repo                                                               |
-| **M4 Tools and insight** | Funnel metrics, MCP server with member tokens (if D10 says so); no retention automation (D9)                                                                                  |
+| **M4 Tools and insight** | Funnel metrics, no MCP server for now (D10) and no retention automation (D9)                                                                                                  |
 
 Backups are Dani's, in gitops, separately from this plan ([personal data spec](spec/personal-data.md#11-backups)).
 

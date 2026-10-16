@@ -84,7 +84,7 @@ say how long data is kept, or the criteria for it (art. 13.2.a): that wording is
 ## 10. Processors
 
 Everything else runs on our cluster (Hetzner, EU). No third-party analytics in the staff app. Sending personal
-data to an LLM (the MCP server, M4) is a separate decision (D10).
+data to an LLM is a separate decision: D10 decided no MCP server for now.
 
 ## 11. Backups
 
