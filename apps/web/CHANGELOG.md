@@ -1,5 +1,12 @@
 # @backoffice/web
 
+## 0.1.2
+
+### Patch Changes
+
+- 1ebe0b8: The repository is public, so it names nothing of the infrastructure: the charts' examples are fictional, and the
+  deploy scripts read the cluster's settings from the gitops checkout. No change in behaviour.
+
 ## 0.1.1
 
 ### Patch Changes
