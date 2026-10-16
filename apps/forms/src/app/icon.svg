@@ -1,1 +1,37 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="6" fill="#FF9416"/><rect x="9" y="8" width="5" height="16" rx="1" fill="#111111"/><rect x="18" y="8" width="5" height="16" rx="1" fill="#111111"/></svg>
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PauseAI en Español — circular brand mark, chapter version (no wordmark).
+
+  Clean orange circle (radius 452.5, centered in the chapter's natural
+  905 x 929 canvas) with the chapter's signature ñ-tilde decoration on
+  top — a horizontal curvy white shape near the top of the mark that
+  hints at the "ñ" of "Español". The two white rects underneath show
+  the P-stem counterforms.
+
+  Differs from `pauseai-global-mark.svg`:
+    - Uses a clean `<circle>` + explicit white overlays (chapter
+      construction style), rather than the global's evenodd-cutout
+      compound path + backing ellipse.
+    - Includes the ñ-tilde decoration unique to the Spanish chapter.
+
+  Path 1 (the ñ-tilde) is the original chapter element extracted from
+  `pauseai-es-on-light.svg`. The P-stem rects are the chapter's
+  counterforms, also from the source. The orange circle is new — it
+  replaces the chapter's compound mark path, which had a notch on the
+  right where the wordmark normally attaches in the full lockup.
+
+  Colors:
+    #FF9416  PauseAI orange — the outer circle
+    #FFFFFF  paper white — ñ-tilde decoration + the two P-stem
+             counterforms
+
+  DO NOT edit colors or paths in this file. To add new variants, copy
+  to a new file and document it in `brand/logos/README.md`.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 905 929" fill="none" role="img" aria-label="PauseAI en Español mark">
+  <title>PauseAI en Español mark</title>
+  <circle cx="452.5" cy="464.5" r="452.5" fill="#FF9416"/>
+  <path fill="#FFFFFF" d="M 542.42 186.22 A 0.32 0.31 -76.6 0 1 542.83 185.96 L 585.37 200.27 A 0.70 0.69 -77.1 0 1 585.84 201.03 C 581.81 230.98 563.22 258.02 533.94 267.94 C 523.52 271.47 512.87 271.20 501.97 269.39 Q 487.03 266.90 473.10 257.93 C 461.28 250.32 454.11 245.45 440.80 237.97 C 433.35 233.79 420.34 230.80 411.51 233.12 C 398.63 236.50 391.50 247.18 389.91 259.94 A 0.32 0.32 0.0 0 1 389.49 260.20 L 346.88 245.87 A 0.53 0.52 -76.6 0 1 346.53 245.30 C 350.25 216.96 368.24 189.40 395.55 178.78 C 411.33 172.65 430.23 174.07 445.15 181.62 Q 459.09 188.68 465.77 193.00 C 473.23 197.81 484.38 205.36 493.30 208.95 C 501.34 212.18 512.37 214.79 520.70 212.66 C 533.23 209.46 540.93 198.61 542.42 186.22 Z"/>
+  <rect fill="#FFFFFF" x="317.63" y="308.56" width="103.96" height="363.58" rx="0.41"/>
+  <rect fill="#FFFFFF" x="507.17" y="308.54" width="103.96" height="363.60" rx="0.56"/>
+</svg>
