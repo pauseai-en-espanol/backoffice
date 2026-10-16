@@ -109,7 +109,7 @@ jobs:
           use: true
 
       # Tags are <version>.<short sha>, pushed to the runner's DOCKER_REGISTRY (harbor.danilupion.com), into the
-      # Harbor project `backoffice`. The build runs under emulation when the runner's architecture differs from the
+      # Harbor project `pauseai-es`. The build runs under emulation when the runner's architecture differs from the
       # cluster's, so images are built one at a time.
       - name: Build and push images
         if: steps.plan.outputs.due == 'true'

@@ -1,7 +1,7 @@
 # One replica (ADR-0001): an internal tool, where a short restart is acceptable. The rate limiters count per process.
 replicaCount: 1
 image:
-  repository: backoffice/api
+  repository: pauseai-es/backoffice-api
   tag: ''
   pullPolicy: IfNotPresent
 service:

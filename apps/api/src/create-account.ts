@@ -9,7 +9,7 @@ import { loadConfig } from './config.js';
  * before invitations exist. Run inside an API pod, which has sign-in's settings, and never with `kubectl run` (whose
  * output the pod's log would keep):
  *
- *   kubectl exec -it -n backoffice deploy/backoffice-api -- node dist/create-account.js
+ *   kubectl exec -it -n pauseai-es-backoffice deploy/backoffice-api -- node dist/create-account.js
  *
  * It asks for the email address, and the name of a new account, so neither appears in the command line (nor in the
  * cluster's audit log of it). It prints a single-use link, valid for an hour, to set the password, and the SQL that

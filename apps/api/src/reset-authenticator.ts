@@ -9,7 +9,7 @@ import { loadConfig } from './config.js';
  * has lost their authenticator and their backup codes. Run inside an API pod, and never with `kubectl run` (whose
  * output the pod's log would keep):
  *
- *   kubectl exec -it -n backoffice deploy/backoffice-api -- node dist/reset-authenticator.js
+ *   kubectl exec -it -n pauseai-es-backoffice deploy/backoffice-api -- node dist/reset-authenticator.js
  *
  * It asks for the account's email address twice, so it never appears in the command line (nor in the cluster's audit
  * log of it) and a slip in it is caught, shows the account's id, whether it has an authenticator and how many sessions

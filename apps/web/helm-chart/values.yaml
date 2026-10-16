@@ -1,7 +1,7 @@
 # One replica (ADR-0001): an internal tool, where a short restart is acceptable.
 replicaCount: 1
 image:
-  repository: backoffice/web
+  repository: pauseai-es/backoffice-web
   tag: ''
   pullPolicy: IfNotPresent
 service:

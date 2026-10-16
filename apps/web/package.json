@@ -14,8 +14,8 @@
     "test": "vitest --run",
     "test:watch": "vitest",
     "prepare": "[ \"$PACKAGED\" = true ] && echo 'Skipping prepare for packaged production dependencies install' || panda codegen",
-    "docker:build": "docker buildx build ${DOCKER_PLATFORM:+--platform=$DOCKER_PLATFORM} -t \"${DOCKER_REGISTRY:+${DOCKER_REGISTRY}/}backoffice/web:${npm_package_version}${DOCKER_TAG_SUFFIX:+.${DOCKER_TAG_SUFFIX}}\" -f Dockerfile ../..",
-    "docker:push": "docker push \"${DOCKER_REGISTRY:+${DOCKER_REGISTRY}/}backoffice/web:${npm_package_version}${DOCKER_TAG_SUFFIX:+.${DOCKER_TAG_SUFFIX}}\""
+    "docker:build": "docker buildx build ${DOCKER_PLATFORM:+--platform=$DOCKER_PLATFORM} -t \"${DOCKER_REGISTRY:+${DOCKER_REGISTRY}/}pauseai-es/backoffice-web:${npm_package_version}${DOCKER_TAG_SUFFIX:+.${DOCKER_TAG_SUFFIX}}\" -f Dockerfile ../..",
+    "docker:push": "docker push \"${DOCKER_REGISTRY:+${DOCKER_REGISTRY}/}pauseai-es/backoffice-web:${npm_package_version}${DOCKER_TAG_SUFFIX:+.${DOCKER_TAG_SUFFIX}}\""
   },
   "dependencies": {
     "@ark-ui/react": "5.39.3",

@@ -12,14 +12,14 @@ do anything ([ADR-0004](../adr/0004-telegram-bot.md)). Neither is ever logged.
 1. **A new token**, if the token leaked: in Telegram, BotFather → `/mybots` → the bot → **API Token** → **Revoke
    current token**. The old token stops working at once, so the bot is deaf until step 4.
 2. **Seal the new values:** delete the sealed file `backoffice-telegram.yaml` in the gitops checkout
-   (`clusters/danilupion-com/resources/apps/backoffice/secrets/`), then run
+   (`clusters/danilupion-com/resources/apps/pauseai-es-backoffice/secrets/`), then run
    `scripts/seal-telegram-secret.sh ~/Workspace/gitops`. It asks for the token (input hidden), checks it with
    Telegram, and seals it with a new webhook secret: both rotate together.
 3. **Deploy:** commit and push gitops. The API's pods restart with the new values and register the webhook with the
    new secret on start.
 4. **Check:** in the API's log, `Telegram webhook registered` and `Telegram commands registered`; or run
-   `kubectl exec -n backoffice deploy/backoffice-api -- node dist/telegram-webhook.js`, which prints `ok`. Then send
-   `/help` (or `/ayuda`) to the bot: it answers.
+   `kubectl exec -n pauseai-es-backoffice deploy/backoffice-api -- node dist/telegram-webhook.js`, which prints
+   `ok`. Then send `/help` (or `/ayuda`) to the bot: it answers.
 
 ## What doesn't change
 

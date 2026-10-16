@@ -17,7 +17,7 @@ GITOPS="${1:?usage: $0 <path-to-gitops>}"
 read -r -a KUBESEAL_ARGS <<<"${KUBESEAL_ARGS:---context danilupion.com --controller-namespace sealed-secrets --controller-name sealed-secrets}"
 
 PG_DIR="$GITOPS/clusters/danilupion-com/resources/data/postgresql"
-APP_DIR="$GITOPS/clusters/danilupion-com/resources/apps/backoffice/secrets"
+APP_DIR="$GITOPS/clusters/danilupion-com/resources/apps/pauseai-es-backoffice/secrets"
 DB_HOST="postgresql.postgresql.svc.cluster.local:5432"
 DB_NAME="pauseai_backoffice"
 ROLES=(owner app auth ingest public)
@@ -92,13 +92,13 @@ for role in "${ROLES[@]}"; do
   upper="$(printf %s "$role" | tr '[:lower:]' '[:upper:]')"
   seal "$APP_DIR/backoffice-$role-db.yaml" \
     "# DATABASE_URL for pauseai_backoffice_$role ($(describe "$role")): $(url "$role" "<${upper}_PASSWORD>")" -2 \
-    generic "backoffice-$role-db" -n backoffice --from-file=DATABASE_URL=<(url "$role" "$(password "$role")")
+    generic "backoffice-$role-db" -n pauseai-es-backoffice --from-file=DATABASE_URL=<(url "$role" "$(password "$role")")
 done
 
 seal "$APP_DIR/backoffice-better-auth.yaml" \
   "# BETTER_AUTH_SECRET: the key Better Auth signs sessions with and encrypts TOTP secrets with (openssl rand -hex 32).
 # Set once: changing it signs everyone out and makes every enrolled authenticator unreadable." -2 \
-  generic backoffice-better-auth -n backoffice --from-file=BETTER_AUTH_SECRET=<(printf %s "$auth_secret")
+  generic backoffice-better-auth -n pauseai-es-backoffice --from-file=BETTER_AUTH_SECRET=<(printf %s "$auth_secret")
 
 unset pw_owner pw_app pw_auth pw_ingest pw_public auth_secret
 echo "Done. Review with: git -C \"$GITOPS\" status"

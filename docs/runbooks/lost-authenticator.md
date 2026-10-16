@@ -21,7 +21,8 @@ Do this before touching anything. Someone who has taken over the person's email 
 Inside the API pod (never `kubectl run`); it asks for the email, and confirms before changing anything:
 
 ```sh
-kubectl --context danilupion.com -n backoffice exec -it deploy/backoffice-api -- node dist/reset-authenticator.js
+kubectl --context danilupion.com -n pauseai-es-backoffice exec -it deploy/backoffice-api -- \
+  node dist/reset-authenticator.js
 ```
 
 It deletes the account's second factor and backup codes and ends every session it has, in one transaction, and the

@@ -9,21 +9,24 @@ builds and pushes images, and holds no cluster credentials.
 ## What is ready
 
 - **This repository:** the umbrella chart (`helm-charts/backoffice`), CI and the release workflow, and the sealing
-  scripts. Nothing has been pushed.
-- **gitops:** a local branch `backoffice`, not pushed, with five commits:
+  scripts. `main` is on GitHub (2026-10-16).
+- **gitops:** a local branch `backoffice`, not pushed, with six commits:
   1. _Onboard backoffice on danilupion-com_: the ApplicationSet, the `apps` project's repository and namespace, the
      default ServiceAccount (pulling with `backoffice-harbor-pull`), the `pauseai_backoffice` database with its owner
      and four extra roles, and, sealed by `scripts/seal-gitops-secrets.sh`, the five database passwords, their
      connection strings and Better Auth's secret.
-  2. _Deploy backoffice on danilupion-com_: `clusters/danilupion-com/values/apps/backoffice.yaml`, which makes the
-     Application appear. Staff host `backoffice.pauseai.es`, network policies on, rate limits set, GlitchTip
-     optional, mail commented out until sealed.
+  2. _Deploy backoffice on danilupion-com_: the cluster's values, which make the Application appear. Staff host
+     `backoffice.pauseai.es`, network policies on, rate limits set, GlitchTip optional, mail commented out until
+     sealed.
   3. _Backoffice: the census form at unete.pauseai.es_: the forms app's values (M2) and its shared secret
      `backoffice-forms-token`, sealed by `scripts/seal-forms-token.sh` against the cluster's certificate; the API's
      census settings. The privacy notice address is a TODO: until it is set, the form links its own draft.
   4. _Backoffice: Censo shows the census form's generic link_: the web app's `censusUrl`.
   5. _Backoffice: the web and forms pods reach GlitchTip through their network policies' egress_: the same GlitchTip
      pods as the API's, now that the web and forms pods may reach only the API, DNS and error tracking.
+  6. _Backoffice as pauseai-es-backoffice, its images from Harbor's pauseai-es_: the namespace, the Application and
+     the gitops paths renamed (the Helm release stays `backoffice`), the ServiceAccount pulling with
+     `pauseai-es-harbor-pull`, and every secret sealed again for the new namespace, with new passwords.
 
 ## First deploy (M0)
 
@@ -33,27 +36,28 @@ Do these in order. Each step says how to check it.
    that the organisation's runner group lets this repository use the juggernaut runner (it is organisation-wide for
    aiontheballot). Push `main`: CI runs, then the release workflow, which fails at "Build and push images" until
    step 2 is done; that is expected and harmless.
-2. **Harbor project and robots** (on the tailnet, Harbor's UI):
-   - Create the project `backoffice`, private.
-   - The runner pushes as the robot that `DOCKER_REGISTRY` credentials on juggernaut belong to (as for
-     aiontheballot): give it push rights on `backoffice` too, or the release can't push.
-   - Create a pull-only robot `backoffice-pull` (Harbor names it `robot$backoffice+backoffice-pull`).
-   - Seal its secret: `scripts/seal-harbor-pull-secret.sh ~/Workspace/gitops` (it checks the secret with Harbor
-     first). Commit it on the `backoffice` branch.
+2. **Harbor** (on the tailnet): the images go in the `pauseai-es` project, with PauseAI España's other apps, as
+   `pauseai-es/backoffice-api`, `-web`, `-forms` and `-migrations`.
+   - The runner pushes as the robot that `DOCKER_REGISTRY` credentials on juggernaut belong to: check it may push
+     to `pauseai-es`, or the release can't push.
+   - Seal the `pauseai-es` pull robot's secret once more, for this namespace (a sealed secret opens only in the
+     namespace it was sealed for): `scripts/seal-harbor-pull-secret.sh ~/Workspace/gitops`. The robot is
+     `robot$pauseai-es-pull` by default (`HARBOR_ROBOT=… scripts/…` if it's named otherwise); the script checks the
+     secret with Harbor first. Commit it on the `backoffice` branch.
    - Re-run the release workflow (`gh workflow run release.yml`): it builds the four images and commits their tags
      into `helm-charts/backoffice/values.yaml` ("Release: update image tags").
 3. **GlitchTip projects** (optional for the first deploy): create `backoffice-api`, `backoffice-web` and
    `backoffice-forms`, then `scripts/seal-glitchtip-dsns.sh ~/Workspace/gitops` (or name the apps to seal only
    some: `… ~/Workspace/gitops forms`). The values already reference the three secrets as optional.
-4. **Push gitops** (`git push origin backoffice:main` after rebasing it on `main`, or merge it your usual way). Argo
+4. **Push gitops** (the `backoffice` branch on `main`, rebased or fast-forwarded: `git push origin main`). Argo
    CD then:
    - provisions the database and roles (the postgresql Application's hook);
-   - creates the `backoffice` namespace, the secrets (wave -2), runs the migration Job (wave -1), then the API, the
-     web app and the session-cleanup CronJob. The ApplicationSet retries while the database doesn't exist yet.
+   - creates the `pauseai-es-backoffice` namespace, the secrets (wave -2), runs the migration Job (wave -1), then
+     the API, the web app and the session-cleanup CronJob. The ApplicationSet retries while the database doesn't exist yet.
 
-   Check: `kubectl --context danilupion.com -n backoffice get pods` shows `backoffice-api` and `backoffice-web`
-   Ready; `https://backoffice.pauseai.es/healthz` answers 200 (external-dns publishes the record under the
-   `*.pauseai.es` wildcard; allow a few minutes). `scripts/watch-release.sh` follows a release end to end.
+   Check: `kubectl --context danilupion.com -n pauseai-es-backoffice get pods` shows `backoffice-api` and
+   `backoffice-web` Ready; `https://backoffice.pauseai.es/healthz` answers 200 (external-dns publishes the record
+   under the `*.pauseai.es` wildcard; allow a few minutes). `scripts/watch-release.sh` follows a release end to end.
 
 5. **The first admin and the second:** [first admin](first-admin.md).
 6. **Mail** (needed for invitations and password links): create the `avisos@pauseai.es` mailbox in Mailu's admin,
@@ -74,8 +78,8 @@ Do these in order. Each step says how to check it.
    `telegram.teamChatId`. Check: in the staff app, **Ajustes → Telegram → Conectar**; the bot answers "Listo";
    `/joined` (or `/alta`) with a fictional name and number saves it and deletes your message; Telegram's menu lists
    the commands. To register the webhook by hand (after a rotation, say):
-   `kubectl exec -n backoffice deploy/backoffice-api -- node dist/telegram-webhook.js`, which prints `ok` or
-   Telegram's reason ([rotating the bot's token](rotating-the-bot-token.md)).
+   `kubectl exec -n pauseai-es-backoffice deploy/backoffice-api -- node dist/telegram-webhook.js`, which prints
+   `ok` or Telegram's reason ([rotating the bot's token](rotating-the-bot-token.md)).
 2. **The Airtable sync**, once its spike says the shared view can be read without a browser (ADR-0005):
    `scripts/seal-airtable-link.sh ~/Workspace/gitops` (input hidden; the link is a credential, never paste it
    anywhere else), then turn on `airtableSync` with `ingestDatabaseUrlSecret: { name: backoffice-ingest-db }` and

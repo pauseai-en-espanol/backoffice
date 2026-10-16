@@ -16,8 +16,8 @@
     "test:watch": "vitest",
     "test:db": "vitest --run --config vitest.db.config.ts",
     "test:coverage": "vitest --run --coverage",
-    "docker:build": "docker buildx build ${DOCKER_PLATFORM:+--platform=$DOCKER_PLATFORM} -t \"${DOCKER_REGISTRY:+${DOCKER_REGISTRY}/}backoffice/api:${npm_package_version}${DOCKER_TAG_SUFFIX:+.${DOCKER_TAG_SUFFIX}}\" -f Dockerfile ../..",
-    "docker:push": "docker push \"${DOCKER_REGISTRY:+${DOCKER_REGISTRY}/}backoffice/api:${npm_package_version}${DOCKER_TAG_SUFFIX:+.${DOCKER_TAG_SUFFIX}}\""
+    "docker:build": "docker buildx build ${DOCKER_PLATFORM:+--platform=$DOCKER_PLATFORM} -t \"${DOCKER_REGISTRY:+${DOCKER_REGISTRY}/}pauseai-es/backoffice-api:${npm_package_version}${DOCKER_TAG_SUFFIX:+.${DOCKER_TAG_SUFFIX}}\" -f Dockerfile ../..",
+    "docker:push": "docker push \"${DOCKER_REGISTRY:+${DOCKER_REGISTRY}/}pauseai-es/backoffice-api:${npm_package_version}${DOCKER_TAG_SUFFIX:+.${DOCKER_TAG_SUFFIX}}\""
   },
   "dependencies": {
     "@backoffice/db": "workspace:*",

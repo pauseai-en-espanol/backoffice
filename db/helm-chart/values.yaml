@@ -1,6 +1,6 @@
 enabled: true
 image:
-  repository: backoffice/migrations
+  repository: pauseai-es/backoffice-migrations
   tag: ''
   pullPolicy: IfNotPresent
 # The owner's connection string (pauseai_backoffice_owner), sealed in gitops: migrations only, never the apps.

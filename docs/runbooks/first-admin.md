@@ -17,7 +17,8 @@ never depends on one person (BRIEF, roles), are made by the owner, once, after t
    pod's log would keep; the command asks for the email and name, so neither appears in the command line:
 
    ```sh
-   kubectl --context danilupion.com -n backoffice exec -it deploy/backoffice-api -- node dist/create-account.js
+   kubectl --context danilupion.com -n pauseai-es-backoffice exec -it deploy/backoffice-api -- \
+     node dist/create-account.js
    ```
 
    It prints the account's id, a link that sets its password (once, within the hour), and the SQL of step 4.

@@ -8,7 +8,7 @@ import { webhookUrl } from './telegram/setup.js';
  * docs/runbooks/rotating-the-bot-token.md). The API does both on every start; this is for doing it by hand, after
  * rotating the secret or the token. Run inside an API pod, which has the bot's settings:
  *
- *   kubectl exec -n backoffice deploy/backoffice-api -- node dist/telegram-webhook.js
+ *   kubectl exec -n pauseai-es-backoffice deploy/backoffice-api -- node dist/telegram-webhook.js
  *
  * It prints whether it worked, and Telegram's reason if not: never the token or the secret.
  */

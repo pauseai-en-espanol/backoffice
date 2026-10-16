@@ -1,7 +1,7 @@
 # One replica (ADR-0001): a form people fill in now and then, where a short restart is acceptable.
 replicaCount: 1
 image:
-  repository: backoffice/forms
+  repository: pauseai-es/backoffice-forms
   tag: ''
   pullPolicy: IfNotPresent
 service:

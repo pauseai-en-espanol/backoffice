@@ -73,16 +73,19 @@ credentials only (there is no retention job: D9 decided no automatic erasure):
 
 Following gitops `docs/app-onboarding.md` and aiontheballot ADR-0001:
 
-- `catalog/apps/backoffice/applicationset.yaml`, `clusters/danilupion-com/values/apps/backoffice.yaml`,
-  SealedSecrets under `clusters/danilupion-com/resources/apps/backoffice/`, the repo and namespace in
-  `projects/apps.yaml`.
+- `catalog/apps/pauseai-es-backoffice/applicationset.yaml`,
+  `clusters/danilupion-com/values/apps/pauseai-es-backoffice.yaml`, SealedSecrets under
+  `clusters/danilupion-com/resources/apps/pauseai-es-backoffice/`, the repo and namespace in `projects/apps.yaml`.
+  The namespace and the Application are `pauseai-es-backoffice`, as PauseAI España's other apps (Dani, 2026-10-16);
+  the Helm release stays `backoffice`, so the resources inside keep their names (`backoffice-api`, …).
 - **Database:** a `pauseai_backoffice` database on the shared `postgresql` instance, its owner and the runtime
   roles through the halyard chart's `extraRoles`. All five roles are created from the start (PLAN R1).
 
 ### 4. Images and CI
 
-- **Images:** Harbor project `backoffice`, tags `harbor.danilupion.com/backoffice/<component>:<version>.<sha>`,
-  never `:latest`; base images pinned by digest.
+- **Images:** Harbor project `pauseai-es`, shared with PauseAI España's other apps and pulled with its robot (Dani,
+  2026-10-16), tags `harbor.danilupion.com/pauseai-es/backoffice-<component>:<version>.<sha>`, never `:latest`;
+  base images pinned by digest. The pods still run in their own namespace, `pauseai-es-backoffice`.
 - **CI:** pull requests on GitHub-hosted runners; `main` and releases on the `pauseai-en-espanol` self-hosted
   runner, which alone pushes to Harbor. Actions pinned by SHA. No `pull_request_target`. CI holds no cluster
   credentials.
