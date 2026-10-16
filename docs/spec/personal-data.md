@@ -1,7 +1,7 @@
 # Personal data
 
 - **Status:** Drafted from the specification (v3). Legal and privacy calls (D9, D12, the privacy notice) are
-  Dani's, for the association. D9 is decided.
+  Dani's, for the association. D9 and D12 are decided.
 - **Relates to:** [BRIEF](../BRIEF.md) G5 and §5; [ADR-0002](../adr/0002-authorization-and-data-protection.md);
   [ADR-0004](../adr/0004-telegram-bot.md); [ADR-0005](../adr/0005-airtable-intake.md);
   [data model](data-model.md)
@@ -45,7 +45,7 @@ Global's privacy notice says signups may be shared with the national chapter (`p
 
 A name and a phone number typed into the bot pass through Telegram's servers. The bot deletes those messages
 once saved, never repeats contact details, and posts none in the team group
-([ADR-0004](../adr/0004-telegram-bot.md)). Dani decides on this use (D12).
+([ADR-0004](../adr/0004-telegram-bot.md)). Dani accepted this use (D12, 2026-10-16).
 
 ## 7. Minimisation
 

@@ -28,12 +28,12 @@ Before any code, and not blocked by it:
 
 Each spec is reviewed by Dani before the milestone that builds it starts:
 
-| Spec                                   | Ready before                    | Status                                     |
-| -------------------------------------- | ------------------------------- | ------------------------------------------ |
-| [Data model](spec/data-model.md)       | M0 (its M0 tables), then M1, M3 | M0 tables drafted; awaits review           |
-| [Onboarding](spec/onboarding.md)       | M1                              | Drafted from the specification             |
-| [Personal data](spec/personal-data.md) | M2                              | Drafted; D9, D12 and the notice are Dani's |
-| [Outreach](spec/outreach.md)           | M3                              | Drafted from the specification             |
+| Spec                                   | Ready before                    | Status                                            |
+| -------------------------------------- | ------------------------------- | ------------------------------------------------- |
+| [Data model](spec/data-model.md)       | M0 (its M0 tables), then M1, M3 | M0 tables drafted; awaits review                  |
+| [Onboarding](spec/onboarding.md)       | M1                              | Drafted from the specification                    |
+| [Personal data](spec/personal-data.md) | M2                              | Drafted; D9 and D12 decided; the notice is Dani's |
+| [Outreach](spec/outreach.md)           | M3                              | Drafted from the specification                    |
 
 ## Milestones
 
@@ -147,6 +147,7 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 | **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                          | Dani, 2026-10-16 |
 | **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                   | Dani, 2026-10-16 |
 | **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                           | Dani, 2026-10-15 |
+| **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                             | Dani, 2026-10-16 |
 | —       | Backups are handled in gitops, separately from this plan                                                                              | Dani, 2026-10-15 |
 | —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                 | Dani, 2026-10-15 |
 
@@ -154,13 +155,12 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 
 Each has a recommendation. Unless Dani objects, the recommendation is what gets built.
 
-| ID      | Decision                                   | Options                                                                       | Recommendation                                                                                                                                  |
-| ------- | ------------------------------------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D5**  | Tenancy                                    | Single organisation, or tenant-ready from day one                             | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away)) |
-| **D6**  | UI language                                | Spanish only, or English source with mandatory Spanish                        | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                 |
-| **D7**  | Access granularity                         | Module roles, or "a volunteer sees only their own people"                     | **Module roles** for v1; revisit when the team grows past about 8                                                                               |
-| **D8**  | Outreach sending                           | A person sends (handover), or the app sends through Mailu per explicit click  | **A person sends**, as the outreach repo already does                                                                                           |
-| **D12** | Telegram as a channel for names and phones | Accept, with the bot deleting messages after saving; or names only in the bot | **Accept**, as designed in [ADR-0004](adr/0004-telegram-bot.md); Dani to confirm                                                                |
+| ID     | Decision           | Options                                                                      | Recommendation                                                                                                                                  |
+| ------ | ------------------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D5** | Tenancy            | Single organisation, or tenant-ready from day one                            | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away)) |
+| **D6** | UI language        | Spanish only, or English source with mandatory Spanish                       | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                 |
+| **D7** | Access granularity | Module roles, or "a volunteer sees only their own people"                    | **Module roles** for v1; revisit when the team grows past about 8                                                                               |
+| **D8** | Outreach sending   | A person sends (handover), or the app sends through Mailu per explicit click | **A person sends**, as the outreach repo already does                                                                                           |
 
 ## Open questions
 

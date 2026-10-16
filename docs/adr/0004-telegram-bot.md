@@ -1,8 +1,8 @@
 # ADR-0004: Arrivals and leaves through a Telegram bot
 
 - **Status:** Accepted for D1 and D11 (Dani, 2026-10-15: "a telegram bot where people with the information can feed
-  in the event should be enough"; "not needed as long as I can trigger the pipeline"). D12 is pending Dani:
-  Claude's recommendation (accept) is what gets built unless Dani objects.
+  in the event should be enough"; "not needed as long as I can trigger the pipeline"), and for D12 (Dani,
+  2026-10-16: accept, as built).
 - **Date:** 2026-10-15
 - **Deciders:** Dani; drafted by Claude
 - **Relates to:** [BRIEF](../BRIEF.md) G1, G2, §5; [ADR-0002](0002-authorization-and-data-protection.md) §3, §4;
@@ -43,7 +43,7 @@
 5. **Names and phone numbers through Telegram (D12).** (a) **Accept, with the bot deleting the messages after
    saving** and never repeating contact details. (b) Names only in the bot; contact details only in the web app.
 
-Dani chose 1d (D1) and 4b (D11). 2b and 3b are Claude's, as aisafety-newsroom. 5a is recommended; Dani decides
+Dani chose 1d (D1) and 4b (D11). 2b and 3b are Claude's, as aisafety-newsroom. Dani chose 5a
 (D12). Revisit 1 only if reports are regularly missed.
 
 ## Decision
