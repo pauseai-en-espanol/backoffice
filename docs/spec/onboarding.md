@@ -108,7 +108,8 @@ deactivated account keeps it without the badge.
 - **Bandeja:** records awaiting a decision: possible duplicates and conflicting values.
 - **Importar:** "Sincronizar Airtable ahora" with the last run's result; upload a CSV, preview, dry-run diff,
   apply ([§5.3](#53-web-and-csv-m1)).
-- **Censo:** progress of the census, and the queue of personal links still to send ([§7](#7-the-census)).
+- **Censo:** progress of the census, and the queue of personal links still to send ([§7](#7-the-census)), oldest
+  first, 50 at a time, searchable as Personas is (PLAN R47).
 - **Ajustes → Telegram:** link or unlink my Telegram account.
 - **Panel:** counts by stage, arrivals per week (by "Llegó el") by source and by "Llegó por", time to first
   contact, unassigned for more than 48 hours; people with no arrival day are left out of the weeks and the waits, and

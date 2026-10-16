@@ -4,7 +4,7 @@ import type { DB } from '@backoffice/db/generated/db';
 import { sql, type Transaction } from 'kysely';
 import { createHash, randomBytes } from 'node:crypto';
 
-import { type PersonSummary, summariesOf } from '../people/people.js';
+import { listPeople } from '../people/people.js';
 
 /**
  * The census (onboarding spec §7, M2): its progress and the queue of personal links to send, the links themselves,
@@ -30,30 +30,48 @@ export interface LinkState {
   usedAt: string | null;
 }
 
-/** Censo: the counts, and the people whose profile isn't completed yet, with their latest link. */
-export const censusProgress = async (trx: Transaction<DB>) => {
+/**
+ * Censo: the counts, and a page of the people whose profile isn't completed yet (50 unless told), oldest first, each
+ * with their latest link; `q` searches them as Personas does, `cursor` is the page after the one that gave it.
+ */
+export const censusProgress = async (
+  trx: Transaction<DB>,
+  me: string,
+  {
+    q,
+    cursor,
+    limit = 50,
+  }: { q?: string | undefined; cursor?: string | undefined; limit?: number | undefined } = {},
+) => {
   const [counts] = (
-    await sql<{ people: number; completed: number; links_sent: number; links_used: number }>`
+    await sql<{
+      people: number;
+      completed: number;
+      waiting: number;
+      links_sent: number;
+      links_used: number;
+    }>`
       SELECT (SELECT count(*)::int FROM app.people p
                WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL
                  AND p.stage NOT IN ('left', 'discarded')) AS people,
              (SELECT count(*)::int FROM app.people p
                WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.profile_completed_at IS NOT NULL
                  AND p.stage NOT IN ('left', 'discarded')) AS completed,
+             (SELECT count(*)::int FROM app.people p
+               WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.profile_completed_at IS NULL
+                 AND p.stage IN ('new', 'contacting', 'welcomed', 'active')) AS waiting,
              (SELECT count(DISTINCT person_id)::int FROM app.census_links WHERE sent_at IS NOT NULL) AS links_sent,
              (SELECT count(DISTINCT person_id)::int FROM app.census_links WHERE used_at IS NOT NULL) AS links_used`.execute(
       trx,
     )
   ).rows;
-  const waiting = (
-    await sql<{ id: string }>`
-      SELECT p.id FROM app.people p
-       WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.profile_completed_at IS NULL
-         AND p.stage IN ('new', 'contacting', 'welcomed', 'active')
-       ORDER BY p.created_at
-       LIMIT 200`.execute(trx)
-  ).rows.map((row) => row.id);
-  const summaries = new Map((await summariesOf(trx, waiting)).map((person) => [person.id, person]));
+  const page = await listPeople(
+    trx,
+    me,
+    { q, censusPending: true },
+    { limit, cursor, oldestFirst: true },
+  );
+  const waiting = page.people.map((person) => person.id);
   const links = (
     await sql<{
       person_id: string;
@@ -85,13 +103,12 @@ export const censusProgress = async (trx: Transaction<DB>) => {
     counts: {
       people: counts?.people ?? 0,
       completed: counts?.completed ?? 0,
+      waiting: counts?.waiting ?? 0,
       linksSent: counts?.links_sent ?? 0,
       linksUsed: counts?.links_used ?? 0,
     },
-    queue: waiting.flatMap((id) => {
-      const person: PersonSummary | undefined = summaries.get(id);
-      return person ? [{ person, link: linkOf.get(id) ?? null }] : [];
-    }),
+    queue: page.people.map((person) => ({ person, link: linkOf.get(person.id) ?? null })),
+    next: page.next,
   };
 };
 

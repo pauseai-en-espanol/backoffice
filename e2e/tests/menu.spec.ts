@@ -39,7 +39,9 @@ test('outreach staff see Relaciones externas, and not the Onboarding group', asy
   await expectAccessible(page);
 });
 
-test('an admin sees every group, Registro included', async ({ page }) => {
+test('an admin sees every group, Registro included, all of it on a laptop’s screen', async ({
+  page,
+}) => {
   await signedInStaff(page, ['admin']);
   await page.goto('/equipo');
   const menu = page.getByRole('navigation', { name: 'Secciones' });
@@ -50,4 +52,8 @@ test('an admin sees every group, Registro included', async ({ page }) => {
     'Equipo',
     'Registro',
   ]);
+  // The longest menu there is (every group, Censo too) fits 1280×720 without scrolling, Ajustes and Salir included.
+  expect(page.viewportSize()).toEqual({ width: 1280, height: 720 });
+  await expect(menu.getByRole('link', { name: 'Ajustes' })).toBeInViewport({ ratio: 1 });
+  await expect(menu.getByRole('button', { name: 'Salir' })).toBeInViewport({ ratio: 1 });
 });

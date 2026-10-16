@@ -114,13 +114,27 @@ export const censusRoutes =
       }
     };
 
-    scope.get('/census', async (request, reply) =>
-      signedIn(request, reply, async (db, actor) =>
-        withActor(db, actor, async (trx) => {
-          await require(trx, ONBOARDING);
-          return censusProgress(trx);
-        }),
-      ),
+    scope.get<{ Querystring: { q?: string; cursor?: string; limit?: number } }>(
+      '/census',
+      {
+        schema: {
+          querystring: {
+            type: 'object',
+            properties: {
+              q: { type: 'string', maxLength: 200 },
+              cursor: { type: 'string', maxLength: 200 },
+              limit: { type: 'integer', minimum: 1, maximum: 200 },
+            },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) =>
+          withActor(db, actor, async (trx) => {
+            await require(trx, ONBOARDING);
+            return censusProgress(trx, actor.userId, request.query);
+          }),
+        ),
     );
 
     scope.post<{ Params: { id: string }; Body: { templateId?: string } }>(

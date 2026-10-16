@@ -138,6 +138,8 @@ export interface PeopleFilter {
   /** One attention reason: Hoy's "Ver los N sin asignar" is `unassigned`. */
   reason?: AttentionReason | undefined;
   province?: string | undefined;
+  /** Censo's queue: still in onboarding, profile not completed yet. Not a Personas filter. */
+  censusPending?: boolean | undefined;
 }
 
 /**
@@ -198,10 +200,14 @@ const conditions = (filter: PeopleFilter, me: string): RawBuilder<unknown>[] => 
   if (filter.province?.trim()) {
     where.push(sql`private.fold_name(p.province) = private.fold_name(${filter.province})`);
   }
+  if (filter.censusPending) {
+    where.push(sql`p.profile_completed_at IS NULL
+                   AND p.stage IN ('new', 'contacting', 'welcomed', 'active')`);
+  }
   return where;
 };
 
-/** A cursor over (created_at, id), newest first: opaque to the staff app. */
+/** A cursor over (created_at, id), either way: opaque to the staff app. */
 const readCursor = (cursor: string | undefined): { at: string; id: string } | undefined => {
   if (!cursor) {
     return undefined;
@@ -215,22 +221,30 @@ const readCursor = (cursor: string | undefined): { at: string; id: string } | un
 const writeCursor = (row: { created_at: string; id: string }): string =>
   Buffer.from(`${row.created_at}|${row.id}`, 'utf8').toString('base64url');
 
-/** Personas: the people a filter finds, newest first, a page at a time. */
+/** Personas: the people a filter finds, newest first (Censo: oldest first), a page at a time. */
 export const listPeople = async (
   trx: Transaction<DB>,
   me: string,
   filter: PeopleFilter,
-  { limit = 50, cursor }: { limit?: number; cursor?: string | undefined } = {},
+  {
+    limit = 50,
+    cursor,
+    oldestFirst = false,
+  }: { limit?: number; cursor?: string | undefined; oldestFirst?: boolean } = {},
 ): Promise<{ people: PersonSummary[]; next: string | null }> => {
   const where = conditions(filter, me);
   const after = readCursor(cursor);
   if (after) {
-    where.push(sql`(p.created_at, p.id) < (${after.at}::timestamptz, ${after.id}::uuid)`);
+    where.push(
+      oldestFirst
+        ? sql`(p.created_at, p.id) > (${after.at}::timestamptz, ${after.id}::uuid)`
+        : sql`(p.created_at, p.id) < (${after.at}::timestamptz, ${after.id}::uuid)`,
+    );
   }
   const { rows } = await sql<SummaryRow>`
     SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
      WHERE ${sql.join(where, sql` AND `)}
-     ORDER BY p.created_at DESC, p.id DESC
+     ORDER BY ${oldestFirst ? sql`p.created_at, p.id` : sql`p.created_at DESC, p.id DESC`}
      LIMIT ${limit + 1}`.execute(trx);
   const page = rows.slice(0, limit);
   const last = page.at(-1);

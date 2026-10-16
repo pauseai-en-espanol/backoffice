@@ -31,8 +31,17 @@ export interface CensusQueueItem {
 }
 
 export interface Census {
-  counts: { people: number; completed: number; linksSent: number; linksUsed: number };
+  /** `waiting`: everyone still to answer, whatever the search; the queue is a page of them. */
+  counts: {
+    people: number;
+    completed: number;
+    waiting: number;
+    linksSent: number;
+    linksUsed: number;
+  };
   queue: CensusQueueItem[];
+  /** The cursor of the page after this one, or null on the last. */
+  next: string | null;
 }
 
 /** A new personal link, as `POST /api/people/:id/census-link` answers once: its URL is never shown again. */
@@ -116,15 +125,18 @@ export const parseCensus = (body: unknown): Census | undefined => {
     return undefined;
   }
   const queue = every(body.queue, parseQueueItem);
-  return queue
+  const next = nullable(body.next);
+  return queue && next !== undefined
     ? {
         counts: {
           people: count(body.counts.people),
           completed: count(body.counts.completed),
+          waiting: count(body.counts.waiting),
           linksSent: count(body.counts.linksSent),
           linksUsed: count(body.counts.linksUsed),
         },
         queue,
+        next,
       }
     : undefined;
 };

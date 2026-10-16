@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { getTranslator } from '@backoffice/i18n/messages';
+import Link from 'next/link';
 
 import { isUnavailable } from '@/data';
 import { CensusLinkPanel, type CensusLinkText } from '@/onboarding/census/CensusLinkPanel';
@@ -22,11 +23,32 @@ const t = getTranslator();
 
 export const metadata: Metadata = { title: t('censo.title') };
 
+/** Censo's address for a search and a page: `buscar` as in Personas, `desde` the API's cursor. */
+const censoHref = (q: string, cursor?: string): string => {
+  const query = new URLSearchParams();
+  if (q !== '') {
+    query.set('buscar', q);
+  }
+  if (cursor) {
+    query.set('desde', cursor);
+  }
+  const search = query.toString();
+  return `/censo${search === '' ? '' : `?${search}`}#por-censar`;
+};
+
+const one = (value: string | string[] | undefined): string =>
+  (Array.isArray(value) ? value[0] : value)?.trim().slice(0, 200) ?? '';
+
 /**
  * Censo (census spec): how many people have completed their profile, the generic link to publish, and the people
- * still to answer, oldest first, each with a personal link to make and send from the onboarder's own WhatsApp.
+ * still to answer, oldest first, 50 at a time and searchable (PLAN R47), each with a personal link to make and send
+ * from the onboarder's own WhatsApp.
  */
-const CensusPage = async () => {
+const CensusPage = async ({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) => {
   const me = await requireStaff();
   if (!canOnboard(me)) {
     return (
@@ -35,7 +57,10 @@ const CensusPage = async () => {
       </AppShell>
     );
   }
-  const [census, templates] = await Promise.all([getCensus(), getMessageTemplates()]);
+  const params = await searchParams;
+  const q = one(params.buscar);
+  const cursor = one(params.desde);
+  const [census, templates] = await Promise.all([getCensus({ q, cursor }), getMessageTemplates()]);
   // The team's census link messages in use, in their order (Mensajes, PLAN M5); none: the code's own.
   const messages = isUnavailable(templates)
     ? []
@@ -143,37 +168,94 @@ const CensusPage = async () => {
           <p className={styles.hint}>{t('censo.queueIntro')}</p>
           {isUnavailable(census) ? (
             <p className={styles.notice}>{t('web.unavailable.body')}</p>
-          ) : census.queue.length === 0 ? (
-            <p className={styles.text}>{t('censo.queueNone')}</p>
           ) : (
-            <ul className={onboarding.personList}>
-              {census.queue.map(({ person, link }) => {
-                const state = link === null ? undefined : linkState(link);
-                return (
-                  <PersonItem
-                    key={person.id}
-                    person={person}
-                    labels={labels}
-                    action={
-                      <CensusLinkPanel
-                        personId={person.id}
-                        name={personName(person.name, labels.noName)}
-                        link={
-                          link === null
-                            ? null
-                            : {
-                                line: linkText(link, linkWords),
-                                serves: state === 'new' || state === 'sent',
-                              }
+            <>
+              <p className={styles.text}>{t('censo.waiting', { count: census.counts.waiting })}</p>
+              {census.counts.waiting > 0 || q !== '' ? (
+                <form
+                  method="get"
+                  action="/censo#por-censar"
+                  className={onboarding.filters}
+                  role="search"
+                >
+                  <div className={styles.field} data-wide="">
+                    <label className={styles.label} htmlFor="buscar">
+                      {t('censo.search')}
+                    </label>
+                    <input
+                      id="buscar"
+                      className={styles.input}
+                      type="search"
+                      name="buscar"
+                      defaultValue={q}
+                      maxLength={200}
+                      aria-describedby="buscar-hint"
+                    />
+                    <span id="buscar-hint" className={styles.hint}>
+                      {t('censo.searchHint')}
+                    </span>
+                  </div>
+                  <div className={styles.rowActions} data-wide="">
+                    <button type="submit" className={styles.button}>
+                      {t('censo.searchButton')}
+                    </button>
+                    {q === '' ? null : (
+                      <Link className={styles.secondaryButton} href={censoHref('')}>
+                        {t('censo.searchClear')}
+                      </Link>
+                    )}
+                  </div>
+                </form>
+              ) : null}
+              {census.queue.length === 0 ? (
+                <p className={styles.text}>
+                  {q === '' ? t('censo.queueNone') : t('censo.searchNone', { q })}
+                </p>
+              ) : (
+                <ul className={onboarding.personList}>
+                  {census.queue.map(({ person, link }) => {
+                    const state = link === null ? undefined : linkState(link);
+                    return (
+                      <PersonItem
+                        key={person.id}
+                        person={person}
+                        labels={labels}
+                        action={
+                          <CensusLinkPanel
+                            personId={person.id}
+                            name={personName(person.name, labels.noName)}
+                            link={
+                              link === null
+                                ? null
+                                : {
+                                    line: linkText(link, linkWords),
+                                    serves: state === 'new' || state === 'sent',
+                                  }
+                            }
+                            messages={messages}
+                            text={text}
+                          />
                         }
-                        messages={messages}
-                        text={text}
                       />
-                    }
-                  />
-                );
-              })}
-            </ul>
+                    );
+                  })}
+                </ul>
+              )}
+              {census.next === null && cursor === '' ? null : (
+                <p className={styles.rowActions}>
+                  {cursor === '' ? null : (
+                    <Link className={styles.secondaryButton} href={censoHref(q)}>
+                      {t('censo.firstPage')}
+                    </Link>
+                  )}
+                  {census.next === null ? null : (
+                    <Link className={styles.secondaryButton} href={censoHref(q, census.next)}>
+                      {t('censo.nextPage')}
+                    </Link>
+                  )}
+                </p>
+              )}
+            </>
           )}
         </section>
       </Announcer>

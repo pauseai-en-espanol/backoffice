@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Censo's queue stops at its first page, so the newest never show",
+    "file": "apps/api/src/people/people.ts",
+    "old": "        ? sql`(p.created_at, p.id) > (${after.at}::timestamptz, ${after.id}::uuid)`",
+    "new": "        ? sql`(p.created_at, p.id) < (${after.at}::timestamptz, ${after.id}::uuid)`",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Censo's queue comes newest first",
+    "file": "apps/api/src/people/people.ts",
+    "old": "${oldestFirst ? sql`p.created_at, p.id` : sql`p.created_at DESC, p.id DESC`}",
+    "new": "${sql`p.created_at DESC, p.id DESC`}",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Censo's queue lists someone whose profile is completed",
+    "file": "apps/api/src/people/people.ts",
+    "old": "    where.push(sql`p.profile_completed_at IS NULL\n",
+    "new": "    where.push(sql`true\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Censo's search is ignored",
+    "file": "apps/api/src/census/census.ts",
+    "old": "    { q, censusPending: true },",
+    "new": "    { censusPending: true },",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Censo's page size is fixed, whatever the request says",
+    "file": "apps/api/src/census/census.ts",
+    "old": "    { limit, cursor, oldestFirst: true },",
+    "new": "    { limit: 200, cursor, oldestFirst: true },",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the sidebar keeps a phone's 44px rows on a computer, and Ajustes and Salir fall off a 720px screen",
+    "file": "apps/web/src/ui/styles.ts",
+    "old": "  minHeight: { base: '11', lg: '7' },",
+    "new": "  minHeight: '11',",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/menu.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  }
+]

@@ -68,13 +68,14 @@ export const nav = css({
 
 /**
  * The sections' groups: on a phone they open under the menu's button (NavMenu), one section a line; on a computer they
- * are always shown, and stay in view as the page scrolls.
+ * are always shown, and stay in view as the page scrolls, tighter: the longest menu (an admin's, Censo included) fits
+ * a 1280×720 screen, Ajustes and Salir too (e2e menu.spec.ts).
  */
 export const navPanel = css({
   display: { base: 'none', lg: 'flex' },
   flexDirection: 'column',
-  gap: '5',
-  paddingBlock: { base: '2', lg: '6' },
+  gap: { base: '5', lg: '3' },
+  paddingBlock: { base: '2', lg: '3' },
   '&[data-open="true"]': { display: 'flex' },
   lg: { position: 'sticky', insetBlockStart: '0', maxHeight: '100vh', overflowY: 'auto' },
 });
@@ -92,7 +93,7 @@ export const navGroupLabel = css({
 export const navList = css({
   display: 'flex',
   flexDirection: 'column',
-  gap: '1',
+  gap: { base: '1', lg: '0' },
   listStyle: 'none',
 });
 
@@ -110,12 +111,15 @@ export const menuButton = css({
   _focusVisible: focusRing,
 });
 
-/** A section's link, one a line. The current one is bold with a thick bar at its start, besides aria-current. */
+/**
+ * A section's link, one a line: 44px tall for a finger, 28px for a mouse on a computer (above WCAG 2.2's 24px). The
+ * current one is bold with a thick bar at its start, besides aria-current.
+ */
 export const navLink = css({
   display: 'flex',
   width: '100%',
   alignItems: 'center',
-  minHeight: '11',
+  minHeight: { base: '11', lg: '7' },
   paddingInline: '3',
   color: 'fg.default',
   textAlign: 'start',

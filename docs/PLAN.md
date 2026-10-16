@@ -405,6 +405,14 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   its link, said on the person's page as "(desactivada)". Only someone still there is linked; a merge moves the link
   to the survivor and refuses two records each linked to an account (an admin unlinks one first, so a person with
   two accounts is a decision, not an accident); erasure unlinks, so the account no longer names who they were.
+- **R47. Censo's queue, past 200 people** (Dani, 2026-10-17: "do it i guess"). It showed the 200 oldest waiting, so
+  with more the newest never appeared. Options: newest first; pages; a search. **Chose pages and a search, oldest
+  first as the spec says:** 50 at a time with "Ver las siguientes" and "Volver a las primeras" (the API's cursor, in
+  the address as `desde`), a search by name, phone, email or Discord as in Personas (`buscar`), and the count of
+  everyone waiting ("N personas por censar"), whatever the search. Mutation list `census-queue`.
+- **R48. The sidebar on a short screen** (PLAN M5, step 2). On a computer its rows are 28px tall, not a phone's 44px
+  (WCAG 2.2 AA asks 24px), with less space between groups, so an admin's menu, the longest, fits 1280×720 with
+  Ajustes and Salir; the phone's menu keeps 44px for a finger. The menu's end-to-end test checks it.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

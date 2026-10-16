@@ -324,6 +324,48 @@ describe('the census’s staff side (M2)', () => {
     ).toBe(409);
   });
 
+  it('lists everyone still to answer a page at a time, oldest first, and finds them by name', async () => {
+    // With more people waiting than a page, the newest used to never show (PLAN R47).
+    const tag = crypto.randomUUID().slice(0, 6);
+    const added: string[] = [];
+    for (const n of [1, 2, 3]) {
+      const { personId } = (
+        await onboarder.who.send('POST', '/api/intake', {
+          name: `Censo Página ${tag} ${n}`,
+          decision: 'new',
+        })
+      ).json<{ personId: string }>();
+      people.push(personId);
+      added.push(personId);
+    }
+    // Someone who completed their profile isn't waiting.
+    await superuser.query('UPDATE app.people SET profile_completed_at = now() WHERE id = $1', [
+      added[1],
+    ]);
+    type Page = {
+      counts: { waiting: number };
+      queue: { person: { id: string } }[];
+      next: string | null;
+    };
+    const read = async (query: Record<string, string>) =>
+      (
+        await onboarder.who.send('GET', `/api/census?${new URLSearchParams(query).toString()}`)
+      ).json<Page>();
+
+    const first = await read({ q: `Censo Página ${tag}`, limit: '1' });
+    expect(first.queue.map((entry) => entry.person.id)).toEqual([added[0]]);
+    expect(first.next).not.toBeNull();
+    const second = await read({ q: `Censo Página ${tag}`, limit: '1', cursor: first.next ?? '' });
+    expect(second.queue.map((entry) => entry.person.id)).toEqual([added[2]]);
+    expect(second.next).toBeNull();
+
+    // The count is everyone waiting, whatever the search.
+    const all = await read({});
+    expect(first.counts.waiting).toBe(all.counts.waiting);
+    expect(all.counts.waiting).toBeGreaterThanOrEqual(2);
+    expect((await onboarder.who.send('GET', '/api/census?limit=201')).statusCode).toBe(400);
+  });
+
   it('makes a personal link, greets its person, takes their answer directly, and shows it on their page', async () => {
     const phone = `61${Math.floor(Math.random() * 1e7)
       .toString()

@@ -23,6 +23,12 @@ test('a personal census link: made in Censo, answered in the form, shown on the 
   await page.goto('/censo');
   await expectAccessible(page);
   await expect(page.getByRole('textbox', { name: 'Enlace general' })).toHaveValue(FORMS_URL);
+  await expect(page.getByText(/^\d+ personas? por censar\.$/u)).toBeVisible();
+  // Found by name, however many are waiting before them (PLAN R47).
+  await page.getByRole('searchbox', { name: 'Buscar por censar' }).fill(name);
+  await page.getByRole('button', { name: 'Buscar', exact: true }).click();
+  await expect(page).toHaveURL(/\/censo\?buscar=/u);
+  await expect(page.getByRole('link', { name: 'Ver a todo el mundo' })).toBeVisible();
   const row = page.getByRole('listitem').filter({ hasText: name });
   await row.getByRole('button', { name: `Crear enlace para ${name}` }).click();
   await expect(row.getByText('Enlace creado.', { exact: false })).toBeVisible();
