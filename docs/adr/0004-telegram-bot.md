@@ -115,7 +115,10 @@ Agree the reporting rule with the community's admins: whoever approves or sees a
 - **Linking:** `POST /api/telegram/link` makes a code of 32 random bytes (base64url), kept only as its SHA-256 in
   `auth.telegram_link_codes` for ten minutes; `/start <code>` uses it once and writes `auth.telegram_links` (one
   Telegram account per staff member, and the other way round). Deactivating a staff member, a password reset and the
-  owner's reset of an authenticator delete the link. Spent codes go with the daily session clean-up.
+  owner's reset of an authenticator delete the link. A code belongs to the signed-in session that made it and goes
+  when that session ends (each of those ends them, as does signing out), and the database links only an account with
+  its second factor, so no code kept from before a reset links the bot after it. Spent codes go with the daily
+  session clean-up.
 - **The webhook** answers only on the staff host, and is registered by the API on every start (same address and
   secret, so a restart changes nothing); `node dist/telegram-webhook.js` registers it by hand
   ([rotating the bot's token](../runbooks/rotating-the-bot-token.md)). An update is recorded before it is handled, and

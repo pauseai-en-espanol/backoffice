@@ -279,7 +279,11 @@ export const staffApiRoutes =
         linking: telegram,
         app,
         staffOrigin,
-        actorFor: async (request) => actorOf(await findSession(request)),
+        signedIn: async (request) => {
+          const found = await findSession(request);
+          const actor = actorOf(found);
+          return actor && found ? { actor, sessionId: found.session.id } : undefined;
+        },
       }),
     );
   };

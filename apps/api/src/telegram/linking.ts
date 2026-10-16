@@ -27,8 +27,11 @@ export interface LinkRoutesOptions {
   linking: TelegramLinking | undefined;
   app: Database | undefined;
   staffOrigin: string;
-  /** Who the request acts for: the signed-in staff member at aal2, through the web, or nobody. */
-  actorFor: (request: FastifyRequest) => Promise<Actor | undefined>;
+  /**
+   * Who the request acts for (the signed-in staff member at aal2, through the web) and their session, or nothing: a
+   * code belongs to the session that made it, and goes when it ends (a reset, a deactivation, signing out).
+   */
+  signedIn: (request: FastifyRequest) => Promise<{ actor: Actor; sessionId: string } | undefined>;
 }
 
 /** A code: 256 random bits, base64url (43 characters), so `/start <code>` fits Telegram's 64-character limit. */
@@ -40,13 +43,13 @@ export const makeLinkCode = (): string => randomBytes(32).toString('base64url');
  * bot with `/start <code>`; and unlinking. Only active staff get a code.
  */
 export const telegramLinkRoutes =
-  ({ linking, app, staffOrigin, actorFor }: LinkRoutesOptions) =>
+  ({ linking, app, staffOrigin, signedIn }: LinkRoutesOptions) =>
   async (scope: FastifyInstance): Promise<void> => {
     // A few codes an hour per staff member: enough to try again, not to fill a table.
     const allowCode = createRateLimiter({ limit: 10, windowMs: 60 * 60_000 });
 
     scope.get('/telegram/link', async (request, reply) => {
-      const actor = await actorFor(request);
+      const actor = (await signedIn(request))?.actor;
       if (!actor) {
         return reply.code(401).send({ error: 'signIn' });
       }
@@ -60,10 +63,11 @@ export const telegramLinkRoutes =
     });
 
     scope.post('/telegram/link', async (request, reply) => {
-      const actor = await actorFor(request);
-      if (!actor) {
+      const signed = await signedIn(request);
+      if (!signed) {
         return reply.code(401).send({ error: 'signIn' });
       }
+      const { actor, sessionId } = signed;
       if (request.headers.origin !== staffOrigin) {
         return reply.code(403).send({ error: 'forbidden' });
       }
@@ -78,10 +82,10 @@ export const telegramLinkRoutes =
       }
       const code = makeLinkCode();
       const { rows } = await linking.pool.query<{ expires_at: Date }>(
-        `INSERT INTO telegram_link_codes (code_hash, user_id, expires_at)
-         VALUES ($1, $2, now() + make_interval(mins => $3))
+        `INSERT INTO telegram_link_codes (code_hash, user_id, session_id, expires_at)
+         VALUES ($1, $2, $3, now() + make_interval(mins => $4))
          RETURNING expires_at`,
-        [hashLinkCode(code), actor.userId, LINK_CODE_MINUTES],
+        [hashLinkCode(code), actor.userId, sessionId, LINK_CODE_MINUTES],
       );
       return reply.code(201).send({
         url: `https://t.me/${linking.botUsername}?start=${code}`,
@@ -90,7 +94,7 @@ export const telegramLinkRoutes =
     });
 
     scope.delete('/telegram/link', async (request, reply) => {
-      const actor = await actorFor(request);
+      const actor = (await signedIn(request))?.actor;
       if (!actor) {
         return reply.code(401).send({ error: 'signIn' });
       }

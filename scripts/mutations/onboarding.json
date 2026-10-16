@@ -142,5 +142,37 @@
     "new": "    IF false THEN",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
+  },
+  {
+    "name": "a link code outlives its session",
+    "file": "db/migrations/20261016064030_telegram_codes_follow_their_session.sql",
+    "old": "REFERENCES auth.sessions (id) ON DELETE CASCADE;",
+    "new": "REFERENCES auth.sessions (id) ON DELETE SET NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a link code from someone else's session",
+    "file": "db/migrations/20261016064030_telegram_codes_follow_their_session.sql",
+    "old": "WHERE s.id = NEW.session_id AND s.user_id = NEW.user_id AND s.aal = 2",
+    "new": "WHERE s.id = NEW.session_id AND s.aal = 2",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a link code from a session without the second factor",
+    "file": "db/migrations/20261016064030_telegram_codes_follow_their_session.sql",
+    "old": "AND s.user_id = NEW.user_id AND s.aal = 2 AND",
+    "new": "AND s.user_id = NEW.user_id AND",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a Telegram link without the second factor",
+    "file": "db/migrations/20261016064030_telegram_codes_follow_their_session.sql",
+    "old": "WHERE u.id = NEW.user_id AND u.two_factor_enabled FOR SHARE;",
+    "new": "WHERE u.id = NEW.user_id FOR SHARE;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
   }
 ]

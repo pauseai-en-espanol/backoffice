@@ -1,3 +1,5 @@
+import type pg from 'pg';
+
 import { describe, expect, it } from 'vitest';
 
 import { actAs, errorCode, inRolledBackTransaction } from './db.js';
@@ -5,30 +7,47 @@ import { PEOPLE, USERS } from './fixtures.js';
 
 const CODE = 'a'.repeat(64);
 
+/** A session of `userId`, as Better Auth writes one: at aal2 only behind a second factor. Superuser only. */
+const sessionOf = async (client: pg.Client, userId: string, aal: 1 | 2 = 2): Promise<string> => {
+  if (aal === 2) {
+    await client.query(
+      `INSERT INTO auth.two_factors (secret, backup_codes, user_id) VALUES ('secreto-de-ejemplo', '[]', $1)`,
+      [userId],
+    );
+  }
+  const { rows } = await client.query<{ id: string }>(
+    `INSERT INTO auth.sessions (expires_at, token, updated_at, user_id, aal)
+     VALUES (now() + interval '12 hours', gen_random_uuid()::text, now(), $1, $2) RETURNING id`,
+    [userId, aal],
+  );
+  return rows[0]?.id ?? '';
+};
+
 describe('Telegram links and their codes (ADR-0004)', () => {
   it('keep a code ten minutes at most, used once, only as Better Auth’s role', async () => {
     await inRolledBackTransaction(async (client) => {
+      const session = await sessionOf(client, USERS.onboarder);
       await client.query('SET LOCAL ROLE pauseai_backoffice_auth');
       expect(
         await errorCode(
           client,
-          `INSERT INTO auth.telegram_link_codes (code_hash, user_id, expires_at)
-           VALUES ($1, $2, now() + interval '11 minutes')`,
-          [CODE, USERS.onboarder],
+          `INSERT INTO auth.telegram_link_codes (code_hash, user_id, session_id, expires_at)
+           VALUES ($1, $2, $3, now() + interval '11 minutes')`,
+          [CODE, USERS.onboarder, session],
         ),
       ).toBe('23514');
       expect(
         await errorCode(
           client,
-          `INSERT INTO auth.telegram_link_codes (code_hash, user_id, expires_at)
-           VALUES ('not-a-hash', $1, now() + interval '5 minutes')`,
-          [USERS.onboarder],
+          `INSERT INTO auth.telegram_link_codes (code_hash, user_id, session_id, expires_at)
+           VALUES ('not-a-hash', $1, $2, now() + interval '5 minutes')`,
+          [USERS.onboarder, session],
         ),
       ).toBe('23514');
       await client.query(
-        `INSERT INTO auth.telegram_link_codes (code_hash, user_id, expires_at)
-         VALUES ($1, $2, now() + interval '10 minutes')`,
-        [CODE, USERS.onboarder],
+        `INSERT INTO auth.telegram_link_codes (code_hash, user_id, session_id, expires_at)
+         VALUES ($1, $2, $3, now() + interval '10 minutes')`,
+        [CODE, USERS.onboarder, session],
       );
       expect(
         await errorCode(client, 'UPDATE auth.telegram_link_codes SET user_id = $1', [USERS.adminA]),
@@ -39,6 +58,32 @@ describe('Telegram links and their codes (ADR-0004)', () => {
       await client.query('RESET ROLE');
       await client.query('SET LOCAL ROLE pauseai_backoffice_app');
       expect(await errorCode(client, 'SELECT 1 FROM auth.telegram_link_codes')).toBe('42501');
+    });
+  });
+
+  it('make a code only from its own account’s signed-in session, and lose it when that session ends', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const theirs = await sessionOf(client, USERS.adminA);
+      const halfway = await sessionOf(client, USERS.onboarder, 1);
+      const own = await sessionOf(client, USERS.onboarder);
+      await client.query('SET LOCAL ROLE pauseai_backoffice_auth');
+      const make = (session: string, hash: string) =>
+        errorCode(
+          client,
+          `INSERT INTO auth.telegram_link_codes (code_hash, user_id, session_id, expires_at)
+           VALUES ($1, $2, $3, now() + interval '10 minutes')`,
+          [hash, USERS.onboarder, session],
+        );
+      expect(await make(theirs, 'b'.repeat(64))).toBe('42501');
+      expect(await make(halfway, 'c'.repeat(64))).toBe('42501');
+      expect(await make(own, CODE)).toBeNull();
+      // A password reset, the owner's authenticator reset and deactivation all end the sessions: the codes go with them.
+      await client.query('DELETE FROM auth.sessions WHERE user_id = $1', [USERS.onboarder]);
+      const { rows } = await client.query(
+        'SELECT 1 FROM auth.telegram_link_codes WHERE code_hash = $1',
+        [CODE],
+      );
+      expect(rows).toEqual([]);
     });
   });
 
@@ -65,6 +110,23 @@ describe('Telegram links and their codes (ADR-0004)', () => {
       ).toBe('23505');
       expect(
         await errorCode(client, 'UPDATE auth.telegram_links SET telegram_user_id = 1003'),
+      ).toBe('42501');
+    });
+  });
+
+  it('link only an account with its second factor (as an aal2 session)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      // The owner's authenticator reset leaves the account without one.
+      await client.query('UPDATE auth.users SET two_factor_enabled = false WHERE id = $1', [
+        USERS.onboarder,
+      ]);
+      await client.query('SET LOCAL ROLE pauseai_backoffice_auth');
+      expect(
+        await errorCode(
+          client,
+          'INSERT INTO auth.telegram_links (user_id, telegram_user_id) VALUES ($1, 1001)',
+          [USERS.onboarder],
+        ),
       ).toBe('42501');
     });
   });

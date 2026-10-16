@@ -1429,6 +1429,48 @@ CREATE FUNCTION private.keep_an_admin() RETURNS trigger
 ALTER FUNCTION private.keep_an_admin() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: link_code_needs_session(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.link_code_needs_session() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    PERFORM 1 FROM auth.sessions s
+     WHERE s.id = NEW.session_id AND s.user_id = NEW.user_id AND s.aal = 2 AND s.expires_at > now()
+       FOR KEY SHARE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'a link code needs its account''s signed-in session' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.link_code_needs_session() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: link_needs_second_factor(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.link_needs_second_factor() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    PERFORM 1 FROM auth.users u WHERE u.id = NEW.user_id AND u.two_factor_enabled FOR SHARE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'a Telegram link needs its account''s second factor' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.link_needs_second_factor() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: may_intake(boolean); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -3132,6 +3174,7 @@ CREATE TABLE auth.telegram_link_codes (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     used_at timestamp with time zone,
+    session_id uuid NOT NULL,
     CONSTRAINT telegram_link_codes_check CHECK (((expires_at > created_at) AND (expires_at <= (created_at + '00:10:00'::interval)))),
     CONSTRAINT telegram_link_codes_check1 CHECK (((used_at IS NULL) OR (used_at <= expires_at))),
     CONSTRAINT telegram_link_codes_code_hash_check CHECK ((code_hash ~ '^[0-9a-f]{64}$'::text))
@@ -3834,6 +3877,13 @@ CREATE INDEX sessions_user_id_idx ON auth.sessions USING btree (user_id);
 
 
 --
+-- Name: telegram_link_codes_session_id_idx; Type: INDEX; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX telegram_link_codes_session_id_idx ON auth.telegram_link_codes USING btree (session_id);
+
+
+--
 -- Name: telegram_link_codes_user_id_idx; Type: INDEX; Schema: auth; Owner: pauseai_backoffice_owner
 --
 
@@ -4394,6 +4444,20 @@ CREATE TRIGGER aal2_needs_second_factor BEFORE INSERT OR UPDATE OF aal ON auth.s
 
 
 --
+-- Name: telegram_links needs_second_factor; Type: TRIGGER; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER needs_second_factor BEFORE INSERT ON auth.telegram_links FOR EACH ROW EXECUTE FUNCTION private.link_needs_second_factor();
+
+
+--
+-- Name: telegram_link_codes needs_session; Type: TRIGGER; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER needs_session BEFORE INSERT ON auth.telegram_link_codes FOR EACH ROW EXECUTE FUNCTION private.link_code_needs_session();
+
+
+--
 -- Name: campaign_anchors campaign_anchors_campaign_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4663,6 +4727,14 @@ ALTER TABLE ONLY auth.accounts
 
 ALTER TABLE ONLY auth.sessions
     ADD CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: telegram_link_codes telegram_link_codes_session_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY auth.telegram_link_codes
+    ADD CONSTRAINT telegram_link_codes_session_id_fkey FOREIGN KEY (session_id) REFERENCES auth.sessions(id) ON DELETE CASCADE;
 
 
 --
@@ -5542,6 +5614,20 @@ REVOKE ALL ON FUNCTION private.invitation_transition() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION private.keep_an_admin() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION link_code_needs_session(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.link_code_needs_session() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION link_needs_second_factor(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.link_needs_second_factor() FROM PUBLIC;
 
 
 --
