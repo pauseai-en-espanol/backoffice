@@ -1,5 +1,11 @@
 # @backoffice/api
 
+## 0.5.1
+
+### Patch Changes
+
+- cfa6c82: The admins' CSV export of Personas has a "resumen" column: each person's one-line internal summary, as on their card.
+
 ## 0.5.0
 
 ### Minor Changes
