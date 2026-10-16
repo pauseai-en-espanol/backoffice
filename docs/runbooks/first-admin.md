@@ -3,7 +3,8 @@
 Staff accounts are invite-only, and only an admin invites (ADR-0002 §6). The first admin, and a second one so access
 never depends on one person (BRIEF, roles), are made by the owner, once, after the first deploy.
 
-**Who acts:** Dani, with `kubectl` access to `danilupion-com`. **Takes:** ten minutes.
+**Who acts:** Dani, with `kubectl` access to the cluster (`$KUBE_CONTEXT`, from the gitops checkout's
+`backoffice-deploy.env`). **Takes:** ten minutes.
 
 ## Before
 
@@ -17,7 +18,7 @@ never depends on one person (BRIEF, roles), are made by the owner, once, after t
    pod's log would keep; the command asks for the email and name, so neither appears in the command line:
 
    ```sh
-   kubectl --context danilupion.com -n pauseai-es-backoffice exec -it deploy/backoffice-api -- \
+   kubectl --context "$KUBE_CONTEXT" -n pauseai-es-backoffice exec -it deploy/backoffice-api -- \
      node dist/create-account.js
    ```
 

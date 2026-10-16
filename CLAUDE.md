@@ -18,6 +18,11 @@ PauseAI España's backoffice: the onboarding and outreach pipelines, for a singl
   gitops. Never commit, log, print, paste or show it, not even in a test or an error message.
 - **No hardcoded names or hosts.** The product name and hostnames come from config. Only the database and role names
   are fixed in the migrations (PLAN R13).
+- **This repository is public: nothing about the infrastructure.** No hosts, cluster or kubectl context names,
+  provider, in-cluster service names, gateway names, runner names, other projects, or the gitops repository's
+  identity or layout, in code, docs, comments, tests or commit messages. They live in the private gitops repository:
+  the deploy scripts read them from its `backoffice-deploy.env` (`scripts/deploy-settings.example.env`), CI from
+  repository variables. Examples are fictional (`example.org`, `.test`, documentation IP ranges).
 - **Access lives in Postgres (ADR-0002).** Every new `app` table needs RLS through `private.staff_can` (and
   `private.bot_can` only on purpose), explicit grants, the audit trigger, stamps, `personal data` comments and an
   entry in `packages/db/tests/rls/matrix.ts` (checklist in CONTRIBUTING.md).
@@ -30,7 +35,7 @@ PauseAI España's backoffice: the onboarding and outreach pipelines, for a singl
   (BRIEF, non-goals).
 - **Accessibility:** WCAG 2.2 AA; stages and states are never shown by colour alone.
 - **Git:** commits are allowed; keep history flat (rebase, never merge commits). Never push, to this repository or
-  gitops, without being asked: pushing `main` releases to Harbor, and pushing gitops deploys.
+  gitops, without being asked: pushing `main` releases to the registry, and pushing gitops deploys.
 
 ## Layout
 
@@ -70,8 +75,8 @@ Copy `.env.example` to `.env` for local database URLs.
 - **Tests:** next to the code as `*.spec.ts`; database tests in `packages/db/tests`. Every new invariant or policy
   gets its test first, and a mutation in `scripts/mutations/` for each way to break it.
 - **i18n:** every UI, email and bot string in `packages/i18n` (Spanish only, D6).
-- **Deployment (ADR-0001):** Helm chart in `helm-charts/backoffice`, deployed by Argo CD on `danilupion-com`. Never
-  tag images `:latest`. Every pod sets resource requests and limits and a restrictive securityContext.
+- **Deployment (ADR-0001):** Helm chart in `helm-charts/backoffice`, deployed by Argo CD from the gitops repository.
+  Never tag images `:latest`. Every pod sets resource requests and limits and a restrictive securityContext.
 - **Docs:** Markdown lines under 120 characters. Any change to the stack or the security model needs an ADR (copy
   `docs/adr/0000-template.md`).
 - **Milestones:** each one ends with green CI and a short demo note in `docs/PLAN.md` (Tracking).

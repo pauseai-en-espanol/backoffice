@@ -6,7 +6,7 @@
 - **Deciders:** Dani; drafted by Claude
 - **Relates to:** [BRIEF](../BRIEF.md) G5, §3, §5; [ADR-0001](0001-hosting-and-delivery.md),
   [ADR-0003](0003-application-stack.md), [ADR-0004](0004-telegram-bot.md); [data model](../spec/data-model.md),
-  [personal data](../spec/personal-data.md); aiontheballot ADR-0002 and ADR-0008
+  [personal data](../spec/personal-data.md)
 
 ## Context
 
@@ -15,16 +15,17 @@
   webhook secret; the Airtable shared view link; outreach notes.
 - **Who uses it:** a handful of volunteers with three roles (`admin`, `onboarding`, `outreach`) that combine, on a
   public host (D4), from their phones, plus a Telegram bot acting for them (ADR-0004).
-- **What aiontheballot already proved:** least privilege enforced in Postgres (non-owner runtime roles, RLS,
-  explicit grants, closed by default), the actor set per transaction by `withActor`, the second factor checked in
-  the database (`app.aal`), and a narrower channel for tools (its ADR-0008, `private.needs_a_person`). Its tenancy
+- **What an earlier project already proved** ([ADR-0003](0003-application-stack.md)): least privilege enforced in
+  Postgres (non-owner runtime roles, RLS, explicit grants, closed by default), the actor set per transaction by
+  `withActor`, the second factor checked in the database (`app.aal`), and a narrower channel for tools
+  (`private.needs_a_person`). Its tenancy
   (`tenant_id` everywhere) and editorial rules (four-eyes, immutable snapshots) don't apply here.
 
 ## Options considered
 
 1. **Tenancy (D5).**
    - (a) Tenant-ready from day one: `tenant_id`, composite keys and tenant policies on every table, as
-     aiontheballot. Every table and test pays for a second chapter that may never come.
+     the earlier project. Every table and test pays for a second chapter that may never come.
    - (b) **Single organisation.** Another chapter runs its own instance, on its own Postgres server.
 2. **Access granularity (D7).**
    - (a) Per row: "a volunteer sees only the people assigned to them". Safer in principle, but onboarding is a
@@ -33,11 +34,11 @@
      `admin`. Revisit when the team grows past about 8.
 3. **How the bot is limited.**
    - (a) In the API only: a list of routes the bot may call.
-   - (b) **In the database too**, as aiontheballot ADR-0008 does for tokens: a channel setting the policies read, so
+   - (b) **In the database too**, as the earlier project does for tokens: a channel setting the policies read, so
      a new table is closed to the bot until opened on purpose.
 4. **What the audit log keeps.**
    - (a) Each write's row before and after, personal data included (the specification's first draft).
-   - (b) **What changed, without personal data**, as aiontheballot: columns commented `personal data` are never
+   - (b) **What changed, without personal data**, as the earlier project: columns commented `personal data` are never
      copied. Erasure then never has to rewrite the log, and an admin reading the log doesn't see members' data.
 
 Recommended and taken unless Dani objects: 1b, 2b, 3b, 4b (PLAN R2, R5).
@@ -49,7 +50,7 @@ Recommended and taken unless Dani objects: 1b, 2b, 3b, 4b (PLAN R2, R5).
 One operator, PauseAI España. No `tenant_id`. Another chapter runs its own instance on its own Postgres server.
 
 **Names are fixed in the migrations** (PLAN R13): the database is `pauseai_backoffice` and the roles are
-`pauseai_backoffice_*`, written into every `GRANT` and `POLICY`, as aiontheballot does. dbmate has no variables,
+`pauseai_backoffice_*`, written into every `GRANT` and `POLICY`, as the earlier project does. dbmate has no variables,
 and building every grant and policy with dynamic SQL would make the security review harder. So another chapter's
 instance needs its own Postgres server (role names are global to a server), or a renaming migration. The product
 name and hostnames still come from config.
@@ -129,7 +130,7 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   and its policies: only the app role reaches it, with exactly the privileges the bot uses, and a catalog test keeps
   that list. Its links and their codes are credentials, in `auth`, for the auth role alone.
 - **Tests:** an RLS matrix (role × channel × table × operation) runs in CI against Postgres 18, as
-  `packages/db/tests/rls` does in aiontheballot, and is updated with every new table.
+  `packages/db/tests/rls` does in the earlier project, and is updated with every new table.
 
 ### 5. Rules in the database and the audit log
 
@@ -169,7 +170,7 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 
 ### 8. Logs and errors
 
-- GlitchTip through the Sentry SDKs, with aiontheballot's privacy options: no cookies, headers, bodies or query
+- GlitchTip through the Sentry SDKs, with the earlier project's privacy options: no cookies, headers, bodies or query
   strings; users dropped; emails redacted.
 - pino redaction for phone numbers, emails and tokens. Request bodies, Telegram messages included, are never
   logged. As built: requests log their method and path only; errors their kind, code and constraint, with message and

@@ -77,7 +77,7 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 - **Helm umbrella chart:** the migrations Job; the API, with the session clean-up CronJob and its NetworkPolicy;
   the web app, with its HTTPRoute and NetworkPolicy.
 - **CI:** lint, formatting, type check, unit tests, database tests, Helm lint, an E2E smoke; and the release
-  workflow to Harbor.
+  workflow to the registry.
 - **Playwright E2E smoke:** sign-in with TOTP, an invitation, axe.
 - **Gitops entries** prepared, not pushed ([R10](#decisions-to-review-taken-by-claude-while-dani-was-away)).
 - **Runbooks:** the first admin, and a lost authenticator.
@@ -143,7 +143,7 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 | **D1**  | WhatsApp joins and leaves are reported to a Telegram bot by whoever sees them. No WhatsApp integration for now                        | Dani, 2026-10-15 |
 | **D2**  | Airtable is read through Global's shared view link, kept as configuration (a sealed secret) ([ADR-0005](adr/0005-airtable-intake.md)) | Dani, 2026-10-15 |
 | **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                | Dani, 2026-10-15 |
-| **D4**  | The staff UI is on `gateway-public` with mandatory two-factor (no VPN)                                                                | Dani, 2026-10-15 |
+| **D4**  | The staff UI is on the public gateway with mandatory two-factor (no VPN)                                                              | Dani, 2026-10-15 |
 | **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                          | Dani, 2026-10-16 |
 | **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                   | Dani, 2026-10-16 |
 | **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                           | Dani, 2026-10-15 |
@@ -155,12 +155,12 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 
 Each has a recommendation. Unless Dani objects, the recommendation is what gets built.
 
-| ID     | Decision           | Options                                                                      | Recommendation                                                                                                                                  |
-| ------ | ------------------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D5** | Tenancy            | Single organisation, or tenant-ready from day one                            | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away)) |
-| **D6** | UI language        | Spanish only, or English source with mandatory Spanish                       | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                 |
-| **D7** | Access granularity | Module roles, or "a volunteer sees only their own people"                    | **Module roles** for v1; revisit when the team grows past about 8                                                                               |
-| **D8** | Outreach sending   | A person sends (handover), or the app sends through Mailu per explicit click | **A person sends**, as the outreach repo already does                                                                                           |
+| ID     | Decision           | Options                                                                                | Recommendation                                                                                                                                  |
+| ------ | ------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D5** | Tenancy            | Single organisation, or tenant-ready from day one                                      | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away)) |
+| **D6** | UI language        | Spanish only, or English source with mandatory Spanish                                 | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                 |
+| **D7** | Access granularity | Module roles, or "a volunteer sees only their own people"                              | **Module roles** for v1; revisit when the team grows past about 8                                                                               |
+| **D8** | Outreach sending   | A person sends (handover), or the app sends through the mail server per explicit click | **A person sends**, as the outreach repo already does                                                                                           |
 
 ## Open questions
 
@@ -185,7 +185,7 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   `pauseai_backoffice_owner`, `_app`, `_auth`, `_ingest` and `_public`. All five roles are created now, locally
   and in gitops, so later milestones need no gitops role change; M0's migrations grant only to `_app` and `_auth`.
 - **R2. The audit log keeps no personal data.** Options: each write's row before and after (the specification's
-  §8); what changed without personal data (aiontheballot). **Chose aiontheballot's rule:** columns commented
+  §8); what changed without personal data (an earlier project's). **Chose the earlier project's rule:** columns commented
   `personal data` are never copied into `audit_log`, and an update to one is logged with the column's name only.
   Erasure never has to rewrite the log, and an admin reading the log doesn't see members' data. A catalog test
   keeps the list honest.
@@ -193,7 +193,7 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   id** as `app.staff`'s key, with roles in `app.staff_roles`. An invitation carries a set of roles; accepting it
   creates the staff row.
 - **R4. The first admin.** Options: a sign-up open until the first account; a seeded account; the owner's command.
-  **Chose the owner's command**, as aiontheballot (A1): `create-account` in an API pod prints a one-hour
+  **Chose the owner's command**, as the earlier project: `create-account` in an API pod prints a one-hour
   set-password link and the owner SQL that makes the account an admin once it has enrolled TOTP. A lost
   authenticator: the owner's `reset-authenticator` command. Nothing is open to the internet before an admin exists.
 - **R5. The bot channel is closed by default, in RLS.** Options: limit the bot in the API only; in the database
@@ -204,21 +204,20 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 - **R6. Passkeys later.** The specification allowed them from M0 as an extra. **Chose to defer them** until after
   M1: scope first, and TOTP is already mandatory.
 - **R7. Password recovery in M0.** Options: only the owner's command; email recovery. **Chose email recovery**
-  ("He olvidado mi contraseña"), as aiontheballot: only for accounts with a second factor (so the mailbox alone
+  ("He olvidado mi contraseña"), as the earlier project: only for accounts with a second factor (so the mailbox alone
   gets nothing), one link per 15 minutes per account.
-- **R8. No licence file yet.** Whether the repository is public, and under which licence, is Dani's call
-  (aiontheballot is AGPL-3.0-or-later). Nothing is published meanwhile.
-- **R9. Local Postgres on port 5434**, container `backoffice-postgres` (aiontheballot uses 5432,
-  aisafety-newsroom 5433), so all three run side by side.
+- **R8. No licence file yet.** The repository is public (2026-10-16); under which licence is Dani's call.
+- **R9. Local Postgres on port 5434**, container `backoffice-postgres`, so it runs beside other projects' local
+  databases on 5432 and 5433.
 - **R10. Nothing pushed.** Commits stay local on `main`, and gitops changes on a local branch in the gitops repo,
-  until Dani says so: pushing `main` starts the release workflow, which pushes images to Harbor, and pushing gitops
+  until Dani says so: pushing `main` starts the release workflow, which pushes images to the registry, and pushing gitops
   deploys.
 - **R11. Hosts.** The staff host `backoffice.pauseai.es` stays the default in docs and values (D4 says
   configuration); the census host is chosen in M2.
 - **R12. Sessions** last 12 hours, are never refreshed, and offer no "remember me" or "trust this device", as
-  aiontheballot.
+  the earlier project.
 - **R13. Database names are fixed in the migrations.** Options: role and database names from config; fixed.
-  **Chose fixed** (`pauseai_backoffice_*`), as aiontheballot: dbmate has no variables, and building every `GRANT`
+  **Chose fixed** (`pauseai_backoffice_*`), as the earlier project: dbmate has no variables, and building every `GRANT`
   and `POLICY` with dynamic SQL would make the security review harder. Consequence: another chapter's instance
   needs its own Postgres server, or a renaming migration (D5). The product name and hostnames still come from
   config.
@@ -247,7 +246,7 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 - **R20. The forms app reaches the API inside the cluster only, with a shared secret.** The gateway sends nothing of
   the forms host to the API; the API's census routes also want `X-Backoffice-Forms-Token` (compared in constant time),
   so a gateway route added by mistake still reaches nothing. Options: network isolation alone; plus the secret.
-  **Chose both** (defence in depth, as aiontheballot's preview token). Since the security review of 2026-10-16 the
+  **Chose both** (defence in depth, as the earlier project's preview token). Since the security review of 2026-10-16 the
   census routes have their own API port, the only one the forms app's pods may reach.
 - **R21. A filled honeypot is answered as a success and dropped**, so a bot learns nothing; an answer sent less than
   3 seconds after the form loaded is refused in words (a person can send it again).

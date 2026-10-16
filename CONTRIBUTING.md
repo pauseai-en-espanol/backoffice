@@ -59,6 +59,13 @@ above, or add it to the running database by hand with the same `CREATE ROLE` and
 - **Fixtures and seeds are obviously fictional:** "Persona de ejemplo", `@ejemplo.test`, phone numbers from the
   ranges reserved for fiction.
 
+## Public repository rules
+
+- **Nothing about the infrastructure** (CLAUDE.md): no hosts, cluster or context names, provider, in-cluster
+  services, gateways, runners, other projects, or the gitops repository's identity or layout. Cluster settings live
+  in the gitops checkout's `backoffice-deploy.env` (`scripts/deploy-settings.example.env` lists them, with fictional
+  values); CI's runner labels in the repository variable `SELF_HOSTED_RUNS_ON`.
+
 ## Database rules
 
 - Migrations are plain SQL in `db/migrations/`, run by dbmate. They are **forward-only**: never edit a migration that

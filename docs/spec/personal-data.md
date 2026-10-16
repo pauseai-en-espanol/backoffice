@@ -83,10 +83,10 @@ say how long data is kept, or the criteria for it (art. 13.2.a): that wording is
 
 ## 10. Processors
 
-Everything else runs on our cluster (Hetzner, EU). No third-party analytics in the staff app. Sending personal
+Everything else runs on our own cluster, in the EU. No third-party analytics in the staff app. Sending personal
 data to an LLM is a separate decision: D10 decided no MCP server for now.
 
 ## 11. Backups
 
-Dani handles them in gitops (`docs/backup-policy-plan.md`), separately from this plan. Until they run, the census
+Dani handles them in the gitops repository, separately from this plan. Until they run, the census
 answers exist only in this database.

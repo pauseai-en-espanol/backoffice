@@ -6,7 +6,8 @@
 - **Date:** 2026-10-15
 - **Owner:** Dani, who leads onboarding for Spain. Drafted by Claude.
 - **Operator and data controller:** PauseAI España (Asociación Pausemos La IA).
-- **Repository:** `pauseai-en-espanol/backoffice`. Deployed on `danilupion-com` through `danilupion/gitops`.
+- **Repository:** `pauseai-en-espanol/backoffice`, public. Deployed on Dani's cluster through a private gitops
+  repository.
 
 "Backoffice" is a working name. It lives in config, never in code.
 
@@ -40,8 +41,8 @@
   them, contact them, record what happened.
 - **G5. Safe with personal data.** Least privilege enforced in Postgres, mandatory second factor, audit log,
   retention and erasure, EU hosting.
-- **G6. Extensible by Claude Code.** The same conventions as aiontheballot, so new modules follow known
-  patterns.
+- **G6. Extensible by Claude Code.** The same conventions as an earlier project of Dani's, so new modules follow
+  known patterns.
 
 ### Non-goals (v1)
 
@@ -88,7 +89,7 @@
 - **One organisation, one country.** The backoffice serves PauseAI España only. Another chapter runs its own
   instance, on its own Postgres server (D5): role and database names are fixed in the migrations.
 - **Spain only.** Arrivals, members and outreach are Spanish. The UI is in Spanish (D6).
-- **Self-hosted in the EU.** Everything runs on the `danilupion-com` cluster (Hetzner, EU), deployed through gitops
+- **Self-hosted in the EU.** Everything runs on Dani's cluster, in the EU, deployed through gitops
   ([ADR-0001](adr/0001-hosting-and-delivery.md)). No third-party analytics in the staff app.
 - **The app never reads WhatsApp.** Arrivals and leaves seen in the community are reported to a Telegram bot
   (D1).
@@ -98,7 +99,7 @@
   and a credential ([ADR-0005](adr/0005-airtable-intake.md)).
 - **No hardcoded names, domains or dates.** The product name, hostnames, bot name and sender address come from
   config. Database role and database names are the one exception: fixed in the migrations (D5).
-- **Same stack and conventions as aiontheballot**, reassessed for security and quality
+- **Same stack and conventions as an earlier project of Dani's**, reassessed for security and quality
   ([ADR-0003](adr/0003-application-stack.md)).
 - **Personal data is handled as the GDPR and Spain's LOPDGDD require**
   ([personal data spec](spec/personal-data.md)). Legal and privacy calls are Dani's, for the association.

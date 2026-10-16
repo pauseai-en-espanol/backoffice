@@ -4,7 +4,8 @@ A staff member lost the phone with their authenticator and their backup codes (w
 enrol again themselves). Without the second factor, nobody, admins included, can get them in: the reset is the
 owner's, and it starts with checking who is asking, because whoever gets the reset gets the account (ADR-0002 §6).
 
-**Who acts:** Dani, with `kubectl` access to `danilupion-com`. **Takes:** fifteen minutes, plus the identity check.
+**Who acts:** Dani, with `kubectl` access to the cluster (`$KUBE_CONTEXT`, from the gitops checkout's
+`backoffice-deploy.env`). **Takes:** fifteen minutes, plus the identity check.
 
 ## 1. Check who is asking
 
@@ -21,7 +22,7 @@ Do this before touching anything. Someone who has taken over the person's email 
 Inside the API pod (never `kubectl run`); it asks for the email, and confirms before changing anything:
 
 ```sh
-kubectl --context danilupion.com -n pauseai-es-backoffice exec -it deploy/backoffice-api -- \
+kubectl --context "$KUBE_CONTEXT" -n pauseai-es-backoffice exec -it deploy/backoffice-api -- \
   node dist/reset-authenticator.js
 ```
 

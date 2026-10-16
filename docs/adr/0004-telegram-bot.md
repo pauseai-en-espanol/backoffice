@@ -7,7 +7,7 @@
 - **Deciders:** Dani; drafted by Claude
 - **Relates to:** [BRIEF](../BRIEF.md) G1, G2, §5; [ADR-0002](0002-authorization-and-data-protection.md) §3, §4;
   [onboarding spec §5.2](../spec/onboarding.md#52-the-telegram-bot-m1), [§8](../spec/onboarding.md#8-notifications);
-  [personal data §6](../spec/personal-data.md#6-telegram-carries-some-personal-data); aisafety-newsroom `SPEC.md`
+  [personal data §6](../spec/personal-data.md#6-telegram-carries-some-personal-data)
   (R-CAP-1, R-CAP-2)
 
 ## Context
@@ -24,7 +24,7 @@
   ([Bot API, `setWebhook`](https://core.telegram.org/bots/api#setwebhook)), and delete incoming messages in a
   private chat within 48 hours
   ([`deleteMessage`, as mirrored by aiogram](https://docs.aiogram.dev/en/latest/api/methods/delete_message.html)).
-- aisafety-newsroom already runs a Telegram bot on the same cluster: a webhook route in its Fastify API, a small
+- Another project already runs a Telegram bot on the same cluster: a webhook route in its Fastify API, a small
   hand-written Bot API client, and unlinked users ignored without a reply.
 
 ## Options considered
@@ -35,15 +35,15 @@
      session that can read every chat.
    - (c) Importing chat exports: manual, late, and full of everyone's messages.
    - (d) **People who see a join or a leave report it to a Telegram bot**, in a few seconds, from their phone.
-2. **Updates.** (a) Long polling from a worker. (b) **A webhook** on the staff host, as aisafety-newsroom.
-3. **Client.** (a) A bot framework. (b) **A small hand-written Bot API client**, as aisafety-newsroom: a few
+2. **Updates.** (a) Long polling from a worker. (b) **A webhook** on the staff host, as that bot.
+3. **Client.** (a) A bot framework. (b) **A small hand-written Bot API client**, as that bot: a few
    methods, no framework's dependencies.
 4. **The team group (D11).** (a) Required. (b) **Optional**: the bot works for one person; posting to a team group
    turns on when one is configured.
 5. **Names and phone numbers through Telegram (D12).** (a) **Accept, with the bot deleting the messages after
    saving** and never repeating contact details. (b) Names only in the bot; contact details only in the web app.
 
-Dani chose 1d (D1) and 4b (D11). 2b and 3b are Claude's, as aisafety-newsroom. Dani chose 5a
+Dani chose 1d (D1) and 4b (D11). 2b and 3b are Claude's, as that bot. Dani chose 5a
 (D12). Revisit 1 only if reports are regularly missed.
 
 ## Decision
@@ -53,7 +53,7 @@ Dani chose 1d (D1) and 4b (D11). 2b and 3b are Claude's, as aisafety-newsroom. D
 - In the web app, signed in with the second factor, a staff member taps "Conectar Telegram". The app makes a
   one-time code (valid 10 minutes, stored as a hash) and opens `https://t.me/<bot>?start=<code>`.
 - The bot receives `/start <code>` and links that Telegram user ID to the staff member (`auth.telegram_links`).
-- Messages from Telegram users who aren't linked are ignored without a reply, as in aisafety-newsroom.
+- Messages from Telegram users who aren't linked are ignored without a reply, as by that bot.
 - An account is unlinked from the web app, by an admin, or automatically when the staff member is deactivated or
   their password or second factor is reset.
 
@@ -88,8 +88,8 @@ Catalan, Galician or Basque Telegram sees them too, and the English ones for peo
 - An update from a linked Telegram user runs through `withActor` as that staff member, with `app.channel = 'bot'`.
   It counts as second-factor level, because the link was made from a session that had the second factor, and
   holding the Telegram account is the factor after that.
-- **What the database allows through the bot** (as `private.needs_a_person` does for tokens in aiontheballot
-  ADR-0008): reporting an arrival (intake record), reporting a leave (presence), claiming a person for oneself, and
+- **What the database allows through the bot** (as an earlier project's `private.needs_a_person` does for its
+  tokens): reporting an arrival (intake record), reporting a leave (presence), claiming a person for oneself, and
   the reads the bot's commands need. Everything else is refused when `app.channel = 'bot'`, whatever the member's
   roles: no edits to profiles, no stage changes beyond claiming, no exports, no erasure. A new table is closed to
   the bot until listed on purpose ([ADR-0002 §4](0002-authorization-and-data-protection.md#4-row-level-security-by-module-and-channel)).
@@ -107,7 +107,7 @@ Catalan, Galician or Basque Telegram sees them too, and the English ones for peo
 
 ### 6. Secrets
 
-The bot token and the webhook secret are sealed in gitops, rotatable by a runbook (as aisafety-newsroom), and
+The bot token and the webhook secret are sealed in gitops, rotatable by a runbook, and
 never logged.
 
 ### 7. Before M1

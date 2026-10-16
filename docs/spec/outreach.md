@@ -44,7 +44,7 @@ The outreach repo's rule carries over: **nothing in this app sends outreach mail
   is never inferred from a name.
 - Every figure in a template must come from an anchor with a source.
 
-Sending through Mailu from the app is a later decision (D8 in [PLAN](../PLAN.md#open-decisions)).
+Sending through the mail server from the app is a later decision (D8 in [PLAN](../PLAN.md#open-decisions)).
 
 ## 4. Import from the outreach repo
 

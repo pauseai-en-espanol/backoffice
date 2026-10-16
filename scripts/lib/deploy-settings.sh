@@ -9,7 +9,7 @@
 # scratch directory with its own settings file (KUBESEAL_ARGS=--cert <throwaway certificate>).
 
 DEPLOY_SETTINGS_FILE=backoffice-deploy.env
-DEPLOY_SETTINGS=(APP_DIR VALUES_FILE PG_DIR PG_NAMESPACE NAMESPACE KUBESEAL_ARGS HARBOR_URL HARBOR_ROBOT
+DEPLOY_SETTINGS=(APP_DIR VALUES_FILE PG_DIR PG_NAMESPACE NAMESPACE KUBESEAL_ARGS KUBE_CONTEXT HARBOR_URL HARBOR_ROBOT
   HARBOR_REPOSITORY DB_HOST GLITCHTIP_HOST SMTP_HOST SMTP_PORT TLS_SERVERNAME)
 
 # load_deploy_settings <path-to-gitops> <required name>...: reads the settings file, then fails naming every required

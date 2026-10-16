@@ -33,8 +33,8 @@ pnpm build:check
 
 ## Deployment
 
-Argo CD deploys `helm-charts/backoffice` on the `danilupion-com` cluster from the gitops repository; images come
-from the release workflow, through Harbor ([ADR-0001](docs/adr/0001-hosting-and-delivery.md),
+Argo CD deploys `helm-charts/backoffice` on Dani's cluster from a private gitops repository; images come from the
+release workflow, through the registry ([ADR-0001](docs/adr/0001-hosting-and-delivery.md),
 [deploying](docs/runbooks/deploying.md)).
 
 ## Personal data
