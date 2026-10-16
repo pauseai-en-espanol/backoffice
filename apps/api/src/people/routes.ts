@@ -22,6 +22,7 @@ import type { SyncCounts } from '../imports/airtable-sync.js';
 
 import { censusOfPerson } from '../census/census.js';
 import { databaseRefusal } from '../database-errors.js';
+import { fromAnotherSite } from '../fetch-site.js';
 import { AirtableError } from '../imports/airtable.js';
 import {
   CSV_FIELDS,
@@ -863,63 +864,65 @@ export const peopleRoutes =
       '/export/people.csv',
       { schema: { querystring: FILTER_QUERY } },
       async (request, reply) =>
-        signedIn(request, reply, async (db, actor) => {
-          const filter = filterOf(request.query);
-          const csv = await withActor(db, actor, async (trx) => {
-            await require(trx, ADMIN);
-            const { people } = await listPeople(trx, actor.userId, filter, { limit: 5000 });
-            const ids = people.map((person) => person.id);
-            const identities = (
-              await sql<{ person_id: string; kind: string; value: string }>`
+        fromAnotherSite(request)
+          ? reply.code(403).send({ error: 'forbidden' })
+          : signedIn(request, reply, async (db, actor) => {
+              const filter = filterOf(request.query);
+              const csv = await withActor(db, actor, async (trx) => {
+                await require(trx, ADMIN);
+                const { people } = await listPeople(trx, actor.userId, filter, { limit: 5000 });
+                const ids = people.map((person) => person.id);
+                const identities = (
+                  await sql<{ person_id: string; kind: string; value: string }>`
                 SELECT person_id, kind::text AS kind, value FROM app.identities
                  WHERE person_id = ANY (${ids}::uuid[]) ORDER BY created_at`.execute(trx)
-            ).rows;
-            await sql`INSERT INTO app.exports (kind, filter, row_count)
+                ).rows;
+                await sql`INSERT INTO app.exports (kind, filter, row_count)
                       VALUES ('people_csv', ${JSON.stringify(filter)}::jsonb, ${people.length})`.execute(
-              trx,
-            );
-            const header = [
-              'id',
-              'nombre',
-              'estado',
-              'responsable',
-              'provincia',
-              'emails',
-              'telefonos',
-              'en_comunidad',
-              'fuentes',
-              'siguiente_paso',
-              'fecha',
-              'alta',
-            ];
-            const lines = people.map((person) =>
-              [
-                person.id,
-                person.fullName,
-                person.stage,
-                person.owner?.displayName ?? '',
-                person.province,
-                identities
-                  .filter((i) => i.person_id === person.id && i.kind === 'email')
-                  .map((i) => i.value),
-                identities
-                  .filter((i) => i.person_id === person.id && i.kind === 'phone')
-                  .map((i) => i.value),
-                person.inCommunity ? 'sí' : 'no',
-                person.sources,
-                person.nextAction,
-                person.nextActionDue,
-                person.createdAt,
-              ]
-                .map(csvCell)
-                .join(','),
-            );
-            return `﻿${[header.map(csvCell).join(','), ...lines].join('\r\n')}\r\n`;
-          });
-          return reply
-            .header('content-type', 'text/csv; charset=utf-8')
-            .header('content-disposition', 'attachment; filename="personas.csv"')
-            .send(csv);
-        }),
+                  trx,
+                );
+                const header = [
+                  'id',
+                  'nombre',
+                  'estado',
+                  'responsable',
+                  'provincia',
+                  'emails',
+                  'telefonos',
+                  'en_comunidad',
+                  'fuentes',
+                  'siguiente_paso',
+                  'fecha',
+                  'alta',
+                ];
+                const lines = people.map((person) =>
+                  [
+                    person.id,
+                    person.fullName,
+                    person.stage,
+                    person.owner?.displayName ?? '',
+                    person.province,
+                    identities
+                      .filter((i) => i.person_id === person.id && i.kind === 'email')
+                      .map((i) => i.value),
+                    identities
+                      .filter((i) => i.person_id === person.id && i.kind === 'phone')
+                      .map((i) => i.value),
+                    person.inCommunity ? 'sí' : 'no',
+                    person.sources,
+                    person.nextAction,
+                    person.nextActionDue,
+                    person.createdAt,
+                  ]
+                    .map(csvCell)
+                    .join(','),
+                );
+                return `﻿${[header.map(csvCell).join(','), ...lines].join('\r\n')}\r\n`;
+              });
+              return reply
+                .header('content-type', 'text/csv; charset=utf-8')
+                .header('content-disposition', 'attachment; filename="personas.csv"')
+                .send(csv);
+            }),
     );
   };

@@ -425,7 +425,19 @@ describe('the census’s staff side (M2)', () => {
     expect(
       (await onboarder.who.send('GET', `/api/people/${added.personId}/export`)).statusCode,
     ).toBe(403);
-    const exported = await admin.who.send('GET', `/api/people/${added.personId}/export`);
+    // Not for a navigation another site started.
+    const pushed = await admin.who.send('GET', `/api/people/${added.personId}/export`, undefined, {
+      'sec-fetch-site': 'cross-site',
+    });
+    expect(pushed.statusCode).toBe(403);
+    const exported = await admin.who.send(
+      'GET',
+      `/api/people/${added.personId}/export`,
+      undefined,
+      {
+        'sec-fetch-site': 'same-origin',
+      },
+    );
     expect(exported.statusCode).toBe(200);
     expect(exported.headers['content-disposition']).toContain('attachment');
     expect(exported.json<{ identities: { value: string }[] }>().identities[0]?.value).toMatch(

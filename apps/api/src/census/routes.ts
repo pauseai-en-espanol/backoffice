@@ -13,6 +13,7 @@ import { sql } from 'kysely';
 import type { CensusConfig } from '../config.js';
 
 import { databaseRefusal } from '../database-errors.js';
+import { fromAnotherSite } from '../fetch-site.js';
 import { createRateLimiter } from '../rate-limit.js';
 import { schemaRefusal } from '../schema-refusal.js';
 import {
@@ -267,22 +268,24 @@ export const censusRoutes =
       '/people/:id/export',
       { schema: { params: ID_PARAMS } },
       async (request, reply) =>
-        signedIn(request, reply, async (db, actor) => {
-          const data = await withActor(db, actor, async (trx) => {
-            await require(trx, ADMIN);
-            return exportPerson(trx, request.params.id);
-          });
-          if (!data) {
-            throw new Refusal(404, 'notFound');
-          }
-          return reply
-            .header('content-type', 'application/json; charset=utf-8')
-            .header(
-              'content-disposition',
-              `attachment; filename="persona-${request.params.id}.json"`,
-            )
-            .send(JSON.stringify(data, null, 2));
-        }),
+        fromAnotherSite(request)
+          ? reply.code(403).send({ error: 'forbidden' })
+          : signedIn(request, reply, async (db, actor) => {
+              const data = await withActor(db, actor, async (trx) => {
+                await require(trx, ADMIN);
+                return exportPerson(trx, request.params.id);
+              });
+              if (!data) {
+                throw new Refusal(404, 'notFound');
+              }
+              return reply
+                .header('content-type', 'application/json; charset=utf-8')
+                .header(
+                  'content-disposition',
+                  `attachment; filename="persona-${request.params.id}.json"`,
+                )
+                .send(JSON.stringify(data, null, 2));
+            }),
     );
 
     scope.post<{ Params: { id: string } }>(

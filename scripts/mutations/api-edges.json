@@ -1,0 +1,26 @@
+[
+  {
+    "name": "an export follows a same-site navigation",
+    "file": "apps/api/src/fetch-site.ts",
+    "old": "return site === 'cross-site' || site === 'same-site';",
+    "new": "return site === 'cross-site';",
+    "cmd": "pnpm exec vitest run src/fetch-site.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the people export follows another site's navigation",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "        fromAnotherSite(request)\n",
+    "new": "        false\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a person's export follows another site's navigation",
+    "file": "apps/api/src/census/routes.ts",
+    "old": "        fromAnotherSite(request)\n",
+    "new": "        false\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  }
+]

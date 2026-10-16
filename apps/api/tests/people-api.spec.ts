@@ -506,6 +506,13 @@ describe('onboarding through the staff API (M1)', () => {
       communityChats: ['Madrid', 'Online'],
     });
     expect((await onboarder.who.send('GET', '/api/export/people.csv')).statusCode).toBe(403);
+    // Another site can't make an admin's browser download it, nor log an export in their name.
+    for (const site of ['cross-site', 'same-site']) {
+      const sent = await admin.who.send('GET', '/api/export/people.csv', undefined, {
+        'sec-fetch-site': site,
+      });
+      expect(sent.statusCode).toBe(403);
+    }
     const exported = await admin.who.send('GET', '/api/export/people.csv?owner=none');
     expect(exported.statusCode).toBe(200);
     expect(exported.headers['content-type']).toContain('text/csv');
