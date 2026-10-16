@@ -878,6 +878,14 @@ describe('cards that say who someone is (PLAN M5, step 4)', () => {
       summary: 'Diseñadora, quiere ayudar con redes',
       missing: ['email'],
     });
+    // So does the admins' CSV export (PLAN R44).
+    const exported = (
+      await admin.who.send('GET', `/api/export/people.csv?q=${encodeURIComponent(name)}`)
+    ).body.split('\r\n');
+    expect(exported[0]).toContain('"nombre","resumen"');
+    expect(exported.find((line) => line.startsWith(`"${personId}"`))).toContain(
+      '"Diseñadora, quiere ayudar con redes"',
+    );
 
     for (const summary of ['Una línea\nY otra', 'x'.repeat(201)]) {
       expect(

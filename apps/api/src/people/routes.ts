@@ -1144,6 +1144,7 @@ export const peopleRoutes =
                 const header = [
                   'id',
                   'nombre',
+                  'resumen',
                   'estado',
                   'responsable',
                   'provincia',
@@ -1162,6 +1163,7 @@ export const peopleRoutes =
                   [
                     person.id,
                     person.fullName,
+                    person.summary,
                     person.stage,
                     person.owner?.displayName ?? '',
                     person.province,

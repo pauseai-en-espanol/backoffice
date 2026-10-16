@@ -390,15 +390,16 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   who may come back. The person's page shows the same line under the name; its heading stays the name alone.
 - **R44. The one-line internal summary** (PLAN M5, step 4). Options: a note pinned from the timeline; a field of its
   own. **Chose a field** (`people.summary`), edited with the profile as "Resumen interno": one line, at most 200
-  characters, personal data. It stays in the staff app: no bot function returns it, so it never reaches Telegram,
-  and the CSV export leaves it out, while a person's export (a rights request) includes it and erasure clears it. A
-  merge keeps the survivor's, else takes the duplicate's. Its hint asks for no health, ideology or other sensitive
-  details, as notes do.
-- **R45. Linking a team account to its person** (PLAN M5, step 5). Options: the person links themselves; an admin
-  links. **Chose an admin**, as the plan says: from the person's page ("Cuenta del equipo": the accounts not linked
-  yet, the one whose sign-in email is one of the person's emails first, chosen already) or from Equipo ("Posible
-  ficha", with a "Vincular" asked about in place). The suggestion is an exact match of emails, computed in the
-  database for admins alone, returning ids, never the email (ADR-0002). One account, one person.
+  characters, personal data. It stays in the staff app: no bot function returns it, so it never reaches Telegram.
+  The admins' CSV export of Personas includes it (first left out; Dani, 2026-10-16: "onboarding is fine"), as does a
+  person's export (a rights request), and erasure clears it. A merge keeps the survivor's, else takes the
+  duplicate's. Its hint asks for no health, ideology or other sensitive details, as notes do.
+- **R45. Linking a team account to its person** (PLAN M5, step 5; Dani, 2026-10-16: "fine", and the team is told their
+  account is linked to their record). Options: the person links themselves; an admin links. **Chose an admin**, as the
+  plan says: from the person's page ("Cuenta del equipo": the accounts not linked yet, the one whose sign-in email is
+  one of the person's emails first, chosen already) or from Equipo ("Posible ficha", with a "Vincular" asked about in
+  place). The suggestion is an exact match of emails, computed in the database for admins alone, returning ids, never
+  the email (ADR-0002). One account, one person.
 - **R46. What a link does** (PLAN M5, step 5). It grants nothing (no policy reads it), and the bot never sees it.
   "Equipo" shows only while the account is active, and "Del equipo" counts only those; a deactivated account keeps
   its link, said on the person's page as "(desactivada)". Only someone still there is linked; a merge moves the link

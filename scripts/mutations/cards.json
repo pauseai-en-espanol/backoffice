@@ -126,5 +126,13 @@
     "new": "\nCREATE OR REPLACE FUNCTION private.team_card(person uuid) RETURNS TABLE (person_id uuid, name text, province text, sources text[], stage app.stage, owner_name text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$ SELECT p.id, p.full_name, coalesce(p.summary, p.province), '{}'::text[], p.stage, NULL::text FROM app.people p WHERE p.id = team_card.person $$;\n\n-- migrate:down",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
     "cwd": "packages/db"
+  },
+  {
+    "name": "the CSV export leaves the summary out",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "                    person.summary,\n",
+    "new": "                    '',\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
   }
 ]

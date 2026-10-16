@@ -84,10 +84,10 @@ A **person summary**, as lists show one:
 
 ### Admin
 
-| Route                                                                                                                                                                             | Does                                                                                       |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `GET /api/settings` · `PATCH /api/settings` `{ followUpDays?, unresponsiveAttempts?, unresponsiveDays?, unassignedAlertHours?, matchThreshold?, teamPostDays?, communityChats? }` | Everyone reads; admins change                                                              |
-| `GET /api/export/people.csv?…` (the Personas filters)                                                                                                                             | Admins: a CSV of the people listed, with their emails and phones. Every export is recorded |
+| Route                                                                                                                                                                             | Does                                                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `GET /api/settings` · `PATCH /api/settings` `{ followUpDays?, unresponsiveAttempts?, unresponsiveDays?, unassignedAlertHours?, matchThreshold?, teamPostDays?, communityChats? }` | Everyone reads; admins change                                                                                |
+| `GET /api/export/people.csv?…` (the Personas filters)                                                                                                                             | Admins: a CSV of the people listed, with their emails, phones and internal summary. Every export is recorded |
 
 ### Telegram
 
@@ -192,7 +192,7 @@ Step 4, cards that say who someone is:
   is missing, in order, from `phone`, `email`, `province` and `interests` (an area from the census's list, or in
   their own words); empty for someone who left or was discarded.
 - **`PATCH /api/people/:id`** also takes `summary` (one line, at most 200 characters; empty or null clears it;
-  `400 invalid` otherwise). A person's export (`GET /api/people/:id/export`) includes it; the CSV export doesn't.
+  `400 invalid` otherwise). A person's export (`GET /api/people/:id/export`) and the CSV export include it.
 
 Step 5, team accounts linked to their person:
 
