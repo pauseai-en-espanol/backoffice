@@ -137,7 +137,7 @@ export const censusRoutes =
           const made = await withActor(db, actor, async (trx) => {
             await require(trx, ONBOARDING);
             const person = (
-              await sql<{ name: string; phone: string | null }>`
+              await sql<{ name: string | null; phone: string | null }>`
                 SELECT coalesce(p.preferred_name, split_part(p.full_name, ' ', 1)) AS name,
                        (SELECT i.value FROM app.identities i WHERE i.person_id = p.id AND i.kind = 'phone'
                          ORDER BY i.created_at LIMIT 1) AS phone
@@ -152,7 +152,10 @@ export const censusRoutes =
             const link = await createCensusLink(trx, request.params.id, token);
             return { ...link, person };
           });
-          const message = t('censusLink.whatsapp', { name: made.person.name, url });
+          // Someone saved with only a phone (PLAN R37) is greeted without a name.
+          const message = made.person.name
+            ? t('censusLink.whatsapp', { name: made.person.name, url })
+            : t('censusLink.whatsappNameless', { url });
           return reply.code(201).send({
             id: made.id,
             url,

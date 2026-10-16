@@ -428,7 +428,7 @@ export interface AppPeople {
   /**
    * personal data
    */
-  full_name: string;
+  full_name: string | null;
   /**
    * personal data
    */

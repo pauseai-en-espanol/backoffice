@@ -10,11 +10,14 @@ export interface StaffRef {
   displayName: string;
 }
 
-/** A person as lists show one. `name` is the preferred name, else the full name. */
+/**
+ * A person as lists show one. `name` is the preferred name, else the full name; both are null for someone saved with
+ * only a phone or an email (PLAN R37), shown as "Sin nombre" (`personName`).
+ */
 export interface PersonSummary {
   id: string;
-  name: string;
-  fullName: string;
+  name: string | null;
+  fullName: string | null;
   stage: Stage;
   owner: StaffRef | null;
   province: string | null;
@@ -119,7 +122,7 @@ export type Board = Partial<Record<Stage, { count: number; people: PersonSummary
 
 export interface Candidate {
   personId: string;
-  name: string;
+  name: string | null;
   stage: Stage | null;
   owner: string | null;
   exact: boolean;
@@ -215,8 +218,9 @@ const refOrId = (value: unknown): StaffRef | string | null | undefined =>
   value === undefined || value === null ? null : str(value) ? value : parseStaffRef(value);
 
 const summaryFields = (value: Record<string, unknown>) => {
-  const fullName = str(value.fullName) ? value.fullName : str(value.name) ? value.name : undefined;
-  const name = str(value.name) ? value.name : fullName;
+  // Null for someone without a name; an older API sent only `name`.
+  const fullName = nullable(value.fullName === undefined ? value.name : value.fullName);
+  const name = value.name === undefined ? fullName : nullable(value.name);
   const owner = nullableRef(value.owner);
   const province = nullable(value.province);
   const nextAction = nullable(value.nextAction);
@@ -494,7 +498,7 @@ const ownerName = (value: unknown): string | null =>
   str(value) ? value : (parseStaffRef(value)?.displayName ?? null);
 
 const parseCandidate = (value: unknown): Candidate | undefined =>
-  isRecord(value) && str(value.personId) && str(value.name)
+  isRecord(value) && str(value.personId) && (str(value.name) || value.name === null)
     ? {
         personId: value.personId,
         name: value.name,

@@ -19,6 +19,13 @@ describe('the WhatsApp handover', () => {
   it('greets the person by their preferred name, else their first name', () => {
     expect(greetingName({ preferredName: 'Pepa', fullName: 'Josefa García' })).toBe('Pepa');
     expect(greetingName({ preferredName: null, fullName: '  María José Núñez ' })).toBe('María');
+    expect(greetingName({ preferredName: null, fullName: null })).toBeUndefined();
+  });
+
+  it('greets someone without a name without one (PLAN R37)', () => {
+    expect(whatsappMessage(String(t.raw('person.whatsappMessageNameless')), { me: 'Luis' })).toBe(
+      'Hola: soy Luis, de PauseAI España. Te escribo para darte la bienvenida y contarte cómo puedes participar. ¿Te viene bien que hablemos?',
+    );
   });
 
   it('prepares the message with both names', () => {

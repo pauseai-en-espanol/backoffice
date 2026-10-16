@@ -10,7 +10,8 @@ import { sql, type Transaction } from 'kysely';
 
 export interface Candidate {
   personId: string;
-  name: string;
+  /** Null for someone saved without a name (PLAN R37). */
+  name: string | null;
   stage: Stage;
   owner: string | null;
   exact: boolean;
@@ -23,7 +24,7 @@ export const findCandidates = async (
 ): Promise<Candidate[]> => {
   const { rows } = await sql<{
     person_id: string;
-    name: string;
+    name: string | null;
     stage: Stage;
     owner_name: string | null;
     exact: boolean;

@@ -1213,8 +1213,11 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
     VALUES (person, intake.source, intake.reported_by)
     ON CONFLICT DO NOTHING;
 
-    IF coalesce(btrim(payload ->> 'name'), '') <> ''
-       AND private.fold_name(payload ->> 'name') <> subject.name_folded THEN
+    IF coalesce(btrim(payload ->> 'name'), '') = '' THEN
+      NULL;
+    ELSIF subject.full_name IS NULL THEN
+      UPDATE app.people p SET full_name = left(btrim(payload ->> 'name'), 200) WHERE p.id = person;
+    ELSIF private.fold_name(payload ->> 'name') <> subject.name_folded THEN
       conflicts := conflicts || jsonb_build_object('full_name',
         jsonb_build_object('current', subject.full_name, 'proposed', btrim(payload ->> 'name')));
     END IF;
@@ -1268,12 +1271,16 @@ CREATE FUNCTION private.intake_create(intake app.intake_records) RETURNS uuid
     AS $$
   DECLARE
     person uuid;
+    named boolean := coalesce(btrim(intake.payload ->> 'name'), '') <> '';
   BEGIN
-    IF coalesce(btrim(intake.payload ->> 'name'), '') = '' THEN
-      RAISE EXCEPTION 'a new person needs a name' USING ERRCODE = 'check_violation';
+    IF NOT named
+       AND NOT (intake.source IN ('telegram', 'manual')
+                AND EXISTS (SELECT 1 FROM private.intake_identities(intake.payload) x
+                             WHERE x.kind IN ('phone', 'email') AND btrim(x.value) <> '')) THEN
+      RAISE EXCEPTION 'a new person needs a name, or a phone or an email' USING ERRCODE = 'check_violation';
     END IF;
     INSERT INTO app.people (full_name, stage)
-    VALUES (left(btrim(intake.payload ->> 'name'), 200),
+    VALUES (CASE WHEN named THEN left(btrim(intake.payload ->> 'name'), 200) END,
             CASE WHEN intake.payload ->> 'stage' IN ('to_triage', 'new', 'welcomed', 'active')
                  THEN (intake.payload ->> 'stage')::app.stage ELSE 'new' END)
     RETURNING id INTO person;
@@ -1535,7 +1542,8 @@ CREATE FUNCTION private.merge_people(survivor uuid, merged uuid) RETURNS void
      WHERE merged = ANY (i.candidates);
 
     UPDATE app.people p
-       SET owner_id = coalesce(p.owner_id, gone.owner_id),
+       SET full_name = coalesce(p.full_name, gone.full_name),
+           owner_id = coalesce(p.owner_id, gone.owner_id),
            next_action = coalesce(p.next_action, gone.next_action),
            next_action_due = CASE WHEN p.next_action IS NULL THEN gone.next_action_due ELSE p.next_action_due END,
            preferred_name = coalesce(p.preferred_name, gone.preferred_name),
@@ -1585,6 +1593,9 @@ CREATE FUNCTION private.person_rules() RETURNS trigger
     SET search_path TO ''
     AS $$
   BEGIN
+    IF OLD.full_name IS NOT NULL AND NEW.full_name IS NULL THEN
+      RAISE EXCEPTION 'a person''s name, once known, stays' USING ERRCODE = 'check_violation';
+    END IF;
     IF NEW.stage IN ('left', 'discarded') THEN
       NEW.next_action := NULL;
       NEW.next_action_due := NULL;
@@ -2782,7 +2793,7 @@ COMMENT ON COLUMN app.organisations.notes IS 'personal data';
 
 CREATE TABLE app.people (
     id uuid DEFAULT uuidv7() NOT NULL,
-    full_name text NOT NULL,
+    full_name text,
     preferred_name text,
     province text,
     town text,
@@ -2806,7 +2817,7 @@ CREATE TABLE app.people (
     interests_other text,
     CONSTRAINT people_check CHECK ((merged_into IS DISTINCT FROM id)),
     CONSTRAINT people_check1 CHECK (((next_action_due IS NULL) OR (next_action IS NOT NULL))),
-    CONSTRAINT people_full_name_check CHECK (((btrim(full_name) <> ''::text) AND (length(full_name) <= 200))),
+    CONSTRAINT people_full_name_check CHECK (((full_name IS NULL) OR ((btrim(full_name) <> ''::text) AND (length(full_name) <= 200)))),
     CONSTRAINT people_how_heard_check CHECK ((length(how_heard) <= 500)),
     CONSTRAINT people_interests_other_check CHECK ((length(interests_other) <= 300)),
     CONSTRAINT people_languages_check CHECK ((cardinality(languages) <= 20)),

@@ -372,7 +372,7 @@
     "over_5h": "Más de 5 h a la semana"
   },
   "bot": {
-    "help": "Esto es lo que puedo hacer:\n/alta: alguien ha entrado en la comunidad\n/baja: alguien ha salido\n/mios: tus personas que necesitan algo\n/libres: quién está sin asignar\n/buscar seguido de un nombre o un teléfono: buscar a alguien\n/sincronizar: traer ya las altas del formulario de PauseAI Global\n/cancelar: dejar lo que estábamos haciendo\n\nTambién puedes mandarme sin más el nombre y el teléfono de quien ha entrado.",
+    "help": "Esto es lo que puedo hacer:\n/alta: alguien ha entrado en la comunidad\n/baja: alguien ha salido\n/mios: tus personas que necesitan algo\n/libres: quién está sin asignar\n/buscar seguido de un nombre o un teléfono: buscar a alguien\n/sincronizar: traer ya las altas del formulario de PauseAI Global\n/cancelar: dejar lo que estábamos haciendo\n\nTambién puedes mandarme sin más el teléfono de quien ha entrado, y su nombre si lo sabes.",
     "linked": "Listo: tu cuenta de Telegram está conectada. Escribe /ayuda para ver qué puedo hacer.",
     "linkInvalid": "Ese enlace ya no vale: caduca a los 10 minutos y sirve una sola vez. Pide otro desde la web, en Ajustes.",
     "noPermission": "Tu cuenta no tiene permiso de acogida, así que aquí no puedo hacer nada por ti.",
@@ -385,7 +385,7 @@
     "notAuthorised": "No autorizado",
     "unassigned": "sin asignar",
     "alta": {
-      "askName": "¿Cómo se llama la persona que ha entrado?",
+      "askName": "¿Quién ha entrado? Mándame su teléfono, y su nombre si lo sabes.",
       "askContact": "¿Cuál es su teléfono o su correo? Si no lo tienes, pulsa «Sin contacto».",
       "contactNotRecognised": "No reconozco ahí un teléfono ni un correo. Prueba otra vez o pulsa «Sin contacto».",
       "noContact": "Sin contacto",
@@ -393,14 +393,17 @@
       "withEmail": "con correo",
       "withBoth": "con teléfono y correo",
       "withoutContact": "sin contacto",
+      "nameless": "alguien sin nombre",
       "fromChat": "del chat {chat}",
       "confirm": "¿Doy de alta a {who}?",
       "candidates": "{who} se parece a alguien que ya está. ¿Es alguna de estas personas?",
+      "candidatesNameless": "Ya hay alguien con ese teléfono o correo. ¿Es alguna de estas personas?",
       "candidate": "Es {name} · {stage} · {owner}",
       "isNew": "Es otra persona",
       "save": "Guardar",
       "cancel": "Cancelar",
       "created": "Hecho: {name} ya está en el sistema ({stage}, sin asignar).\n{link}",
+      "createdNameless": "Hecho: ya está en el sistema, sin nombre por ahora ({stage}, sin asignar). Ponle nombre en su ficha cuando lo sepas.\n{link}",
       "attached": "Hecho: lo he añadido a la ficha de {name}.\n{link}",
       "conflict": "Lo he añadido a la ficha de {name}, pero algún dato no coincide: queda en la Bandeja para revisarlo.\n{link}",
       "review": "Se parece a alguien que ya está, así que lo he dejado en la Bandeja como posible duplicado.",
@@ -580,6 +583,7 @@
     "whatsappOpen": "Abrir WhatsApp",
     "whatsappNoPhone": "Esta ficha no tiene teléfono: añade uno para escribir por WhatsApp.",
     "whatsappMessage": "Hola, {name}: soy {me}, de PauseAI España. Te escribo para darte la bienvenida y contarte cómo puedes participar. ¿Te viene bien que hablemos?",
+    "whatsappMessageNameless": "Hola: soy {me}, de PauseAI España. Te escribo para darte la bienvenida y contarte cómo puedes participar. ¿Te viene bien que hablemos?",
     "whatsappSent": "¿Lo has enviado?",
     "whatsappYes": "Sí, lo he enviado",
     "whatsappNo": "Todavía no",
@@ -649,6 +653,7 @@
     "someone": "alguien"
   },
   "people": {
+    "noName": "Sin nombre",
     "title": "Personas",
     "intro": "Todas las personas de la acogida. Busca por nombre, teléfono o correo.",
     "search": "Buscar",
@@ -686,8 +691,9 @@
   },
   "intake": {
     "title": "Añadir rápido",
-    "intro": "Para quien acaba de llegar, o para alguien que ya estaba en la comunidad. Basta con el nombre y un teléfono o correo.",
+    "intro": "Para quien acaba de llegar, o para alguien que ya estaba en la comunidad. Basta con un teléfono o un correo; el nombre, si lo sabes.",
     "name": "Nombre",
+    "nameHint": "Opcional: si no lo sabes, se guarda sin nombre y se lo pones después en su ficha.",
     "phone": "Teléfono",
     "phoneHint": "Con o sin prefijo: si no lo tiene, se entiende que es de España.",
     "email": "Correo",
@@ -901,7 +907,8 @@
     "disconnected": "Telegram desconectado."
   },
   "censusLink": {
-    "whatsapp": "Hola, {name}: soy del equipo de acogida de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}"
+    "whatsapp": "Hola, {name}: soy del equipo de acogida de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}",
+    "whatsappNameless": "Hola: soy del equipo de acogida de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}"
   },
   "censo": {
     "title": "Censo",

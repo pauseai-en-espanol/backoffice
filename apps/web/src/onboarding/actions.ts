@@ -79,7 +79,7 @@ export const searchPeople = (q: string) =>
   read(`/api/people?${new URLSearchParams({ q, limit: '10' }).toString()}`);
 
 export interface QuickAdd {
-  name: string;
+  name?: string;
   phone?: string;
   email?: string;
   province?: string;

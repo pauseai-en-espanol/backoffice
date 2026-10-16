@@ -189,5 +189,8 @@ privileges the bot uses (a catalog test lists them), and they hold the bot's wor
 - What the bot may write is limited in the database
   ([ADR-0002 §4](../adr/0002-authorization-and-data-protection.md#4-row-level-security-by-module-and-channel),
   [ADR-0004](../adr/0004-telegram-bot.md)).
+- A person's `full_name` may be missing (NULL, never blank) only for someone the bot or quick-add saved with a phone
+  or an email (PLAN R37); Airtable, the CSV import and the census always name them. A later report or a merge fills
+  it, it is never matched on, and once known it is never emptied (`person_rules`).
 - An invitation is decided once, and accepted only by the invited, verified email.
 - An aal2 session exists only for an account with a second factor.

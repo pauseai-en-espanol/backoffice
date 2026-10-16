@@ -9,6 +9,7 @@ import type { PersonSummary } from '@/onboarding/types';
 import { isUnavailable } from '@/data';
 import { ClaimButton } from '@/onboarding/ClaimButton';
 import { getToday } from '@/onboarding/data';
+import { personName } from '@/onboarding/names';
 import { PersonItem } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, onboardingErrors, personLabels } from '@/onboarding/text';
@@ -64,13 +65,16 @@ const Today = async () => {
   const today = await getToday();
   const errors = onboardingErrors(t);
   const labels = personLabels(t);
-  const claimText = (person: PersonSummary): ClaimText => ({
-    label: t('today.claimFor', { name: person.name }),
-    visible: t('today.claim'),
-    claimed: t('today.claimed', { name: person.name }),
-    taken: t('today.claimTaken', { name: person.name }),
-    errors,
-  });
+  const claimText = (person: PersonSummary): ClaimText => {
+    const name = personName(person.name, labels.noName);
+    return {
+      label: t('today.claimFor', { name }),
+      visible: t('today.claim'),
+      claimed: t('today.claimed', { name }),
+      taken: t('today.claimTaken', { name }),
+      errors,
+    };
+  };
 
   return (
     <AppShell me={me} bandeja={isUnavailable(today) ? undefined : today.counts.bandeja}>

@@ -11,6 +11,7 @@ import { consentText } from '@/onboarding/census/format';
 import * as census from '@/onboarding/census/styles';
 import { getPerson, getSettings, isForbidden } from '@/onboarding/data';
 import { formatDay, formatInstant } from '@/onboarding/format';
+import { personName } from '@/onboarding/names';
 import { Forbidden, OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { EraseData } from '@/onboarding/person/Erase';
 import { Identities } from '@/onboarding/person/Identities';
@@ -97,12 +98,14 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
       .map((option) => option.label);
     return other ? [...labels, t('person.otherOption', { text: other })] : labels;
   };
+  // "Sin nombre" for someone saved with only a phone (PLAN R37), who is greeted without one.
+  const shown = { ...person, name: personName(person.name, t('people.noName')) };
+  const greeting = greetingName(person);
   const link = handoverLink(
     person,
-    whatsappMessage(text.whatsapp.message, {
-      name: greetingName(person),
-      me: me.staff.displayName,
-    }),
+    greeting === undefined
+      ? whatsappMessage(text.whatsapp.messageNameless, { me: me.staff.displayName })
+      : whatsappMessage(text.whatsapp.message, { name: greeting, me: me.staff.displayName }),
   );
   const open = person.presence.some((period) => period.leftOn === null);
 
@@ -119,8 +122,10 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
         </p>
         {person.id === id ? null : <p className={styles.notice}>{t('person.tombstoneNotice')}</p>}
         {anonymised ? <p className={styles.notice}>{t('person.anonymised')}</p> : null}
-        <h1 className={styles.h1}>{person.name}</h1>
-        {person.name === person.fullName ? null : <p className={styles.text}>{person.fullName}</p>}
+        <h1 className={styles.h1}>{shown.name}</h1>
+        {person.fullName === null || person.name === person.fullName ? null : (
+          <p className={styles.text}>{person.fullName}</p>
+        )}
         <ul className={onboarding.meta}>
           <li>
             <StageTag label={text.stages[person.stage]} />
@@ -180,7 +185,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                   <h2 id="etapa" className={styles.h3}>
                     {t('person.stageTitle')}
                   </h2>
-                  <StageOwner person={person} team={owners} text={text} />
+                  <StageOwner person={shown} team={owners} text={text} />
                 </section>
                 <section className={onboarding.section} aria-labelledby="siguiente">
                   <h2 id="siguiente" className={styles.h3}>
@@ -211,7 +216,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
               </h2>
               <dl className={styles.facts}>
                 <dt>{t('person.fullName')}</dt>
-                <dd>{person.fullName}</dd>
+                <dd>{shown.fullName ?? t('people.noName')}</dd>
                 {person.preferredName ? (
                   <>
                     <dt>{t('person.preferredName')}</dt>
@@ -393,7 +398,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 <h2 id="fusionar" className={styles.h3}>
                   {t('person.mergeTitle')}
                 </h2>
-                <MergePanel person={person} text={text} />
+                <MergePanel person={shown} text={text} />
               </section>
             )}
 
@@ -421,7 +426,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                     personId={person.id}
                     text={{
                       erase: t('person.erase'),
-                      question: t('person.eraseQuestion', { name: person.fullName }),
+                      question: t('person.eraseQuestion', { name: shown.fullName ?? shown.name }),
                       understand: t('person.eraseUnderstand'),
                       confirm: t('person.eraseConfirm'),
                       cancel: t('person.cancel'),

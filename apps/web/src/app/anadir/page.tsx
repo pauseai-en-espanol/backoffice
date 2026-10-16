@@ -34,6 +34,8 @@ const QuickAddPage = async () => {
         chats={isUnavailable(settings) ? [] : settings.communityChats}
         text={{
           name: t('intake.name'),
+          nameHint: t('intake.nameHint'),
+          noName: t('people.noName'),
           phone: t('intake.phone'),
           phoneHint: t('intake.phoneHint'),
           email: t('intake.email'),
@@ -55,7 +57,6 @@ const QuickAddPage = async () => {
           isThisPerson: String(t.raw('intake.isThisPerson')),
           isNew: t('intake.isNew'),
           chooseFirst: t('intake.chooseFirst'),
-          nameMissing: t('intake.nameMissing'),
           contactMissing: t('intake.contactMissing'),
           phoneInvalid: t('intake.phoneInvalid'),
           emailInvalid: t('intake.emailInvalid'),

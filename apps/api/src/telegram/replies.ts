@@ -33,6 +33,10 @@ export const reasonsLabel = (reasons: readonly AttentionReason[]): string =>
 
 const ownerLabel = (ownerName: string | null): string => ownerName ?? t('bot.unassigned');
 
+/** A person's name as the bot says it: "Sin nombre" for someone saved with only a phone or an email (PLAN R37). */
+export const nameOf = (name: string | null | undefined): string =>
+  name?.trim() || t('people.noName');
+
 /** The arrival in a few words: its name, whether it has a phone or an email (never which), the chat. */
 export const arrivalWho = (arrival: Arrival & { noContact?: boolean | undefined }): string => {
   const phone = arrival.phones.length > 0;
@@ -46,7 +50,7 @@ export const arrivalWho = (arrival: Arrival & { noContact?: boolean | undefined 
           ? t('bot.alta.withEmail')
           : t('bot.alta.withoutContact');
   return [
-    `${arrival.name ?? ''} (${contact})`.trim(),
+    `${arrival.name?.trim() || t('bot.alta.nameless')} (${contact})`,
     ...(arrival.chat ? [t('bot.alta.fromChat', { chat: arrival.chat })] : []),
   ].join(', ');
 };
@@ -65,12 +69,14 @@ export const offerCandidates = (
   arrival: Arrival,
   candidates: readonly Candidate[],
 ): { text: string; keyboard: Keyboard } => ({
-  text: t('bot.alta.candidates', { who: arrivalWho(arrival) }),
+  text: arrival.name?.trim()
+    ? t('bot.alta.candidates', { who: arrivalWho(arrival) })
+    : t('bot.alta.candidatesNameless'),
   keyboard: [
     ...candidates.map((candidate) => [
       {
         text: t('bot.alta.candidate', {
-          name: candidate.name,
+          name: nameOf(candidate.name),
           stage: stageLabel(candidate.stage),
           owner: ownerLabel(candidate.ownerName),
         }),
@@ -96,7 +102,7 @@ export const mineList = (staffOrigin: string, people: readonly PersonLine[]): st
         t('bot.mine.title', { count: people.length }),
         ...people.map((person) =>
           t('bot.mine.line', {
-            name: person.name,
+            name: nameOf(person.name),
             reasons: reasonsLabel(person.reasons),
             link: personLink(staffOrigin, person.personId),
           }),
@@ -110,7 +116,7 @@ export const searchList = (staffOrigin: string, people: readonly PersonLine[]): 
         t('bot.search.title', { count: people.length }),
         ...people.map((person) =>
           t('bot.search.line', {
-            name: person.name,
+            name: nameOf(person.name),
             stage: stageLabel(person.stage),
             owner: ownerLabel(person.ownerName),
             link: personLink(staffOrigin, person.personId),
@@ -126,7 +132,7 @@ export const freeList = (people: readonly PersonLine[]): { text: string; keyboar
         text: t('bot.free.title', { count: people.length }),
         keyboard: people.slice(0, 10).map((person) => [
           {
-            text: t('bot.free.claim', { name: person.name }),
+            text: t('bot.free.claim', { name: nameOf(person.name) }),
             data: BUTTON_DATA.claim(person.personId),
           },
         ]),
@@ -139,7 +145,7 @@ export const leaveOptions = (
   keyboard: [
     ...people.slice(0, 10).map((person) => [
       {
-        text: t('bot.baja.option', { name: person.name, stage: stageLabel(person.stage) }),
+        text: t('bot.baja.option', { name: nameOf(person.name), stage: stageLabel(person.stage) }),
         data: BUTTON_DATA.bajaPick(person.personId),
       },
     ]),
@@ -148,7 +154,7 @@ export const leaveOptions = (
 });
 
 export const confirmLeave = (person: PersonLine): { text: string; keyboard: Keyboard } => ({
-  text: t('bot.baja.confirm', { name: person.name }),
+  text: t('bot.baja.confirm', { name: nameOf(person.name) }),
   keyboard: [
     [
       { text: t('bot.baja.yes'), data: BUTTON_DATA.bajaYes(person.personId) },
@@ -167,7 +173,7 @@ export const teamPost = (
 ): { text: string; keyboard: Keyboard } => ({
   text: [
     t('bot.team.arrival', {
-      name: card.name,
+      name: nameOf(card.name),
       sources: card.sources.map((source) => t(`sources.${source as 'manual'}`)).join(', '),
     }),
     ...(card.province ? [t('bot.team.province', { province: card.province })] : []),
@@ -206,7 +212,10 @@ export const digest = (
           '',
           t('bot.digest.mine', { count: mine.length }),
           ...mine.map((person) =>
-            t('bot.digest.line', { name: person.name, reasons: reasonsLabel(person.reasons) }),
+            t('bot.digest.line', {
+              name: nameOf(person.name),
+              reasons: reasonsLabel(person.reasons),
+            }),
           ),
         ]
       : []),

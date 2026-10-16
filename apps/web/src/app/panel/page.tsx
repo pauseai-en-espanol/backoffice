@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { isUnavailable } from '@/data';
 import { getPanel } from '@/onboarding/data';
 import { formatDay, formatInstantDay } from '@/onboarding/format';
+import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { PANEL_WEEKS, sourcesIn, waitIn, weeksFrom, weekTotal } from '@/onboarding/panel/types';
 import * as onboarding from '@/onboarding/styles';
@@ -190,7 +191,7 @@ const PanelPage = async ({
                     className={onboarding.personName}
                     href={`/personas/${encodeURIComponent(person.id)}`}
                   >
-                    {person.name}
+                    {personName(person.name, t('people.noName'))}
                   </Link>{' '}
                   <span className={styles.hint}>
                     {t('panel.arrivedOn', { date: formatInstantDay(person.createdAt) })}

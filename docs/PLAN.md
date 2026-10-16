@@ -291,6 +291,12 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 - **R35. Once someone wrote to a target, that stays**: it never goes back to the queue, nor out of the campaign.
 - **R36. Erasure reaches the team group too**: the bot deletes its posts about the person, or, past Telegram's
   48 hours, blanks them to "Persona anonimizada", and forgets them.
+- **R37. Arrivals may have no name.** Most bot reports carry only a phone number (Dani, 2026-10-16). Options: ask
+  for a name before saving; save without one. **Chose to save without one**: the bot asks for a name only when there
+  is neither a name nor a contact, and quick-add needs a phone or an email, not a name. Such a person shows as "Sin
+  nombre" everywhere (the bot, the team group, the staff app) until a later report, the census, a merge or staff
+  name them; a name, once known, is never emptied, and a nameless person is never matched on name. Airtable, the CSV
+  import and the census still always carry a name.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

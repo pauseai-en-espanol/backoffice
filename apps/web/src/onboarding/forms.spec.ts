@@ -44,6 +44,19 @@ describe('the profile form', () => {
     });
   });
 
+  it('leaves someone without a name so when the field stays empty, and sends a name once typed', () => {
+    const nameless = { ...profile, fullName: null };
+    expect(
+      profileChange(nameless, reader({ province: 'Madrid', languages: 'castellano' })),
+    ).toEqual({});
+    expect(
+      profileChange(
+        nameless,
+        reader({ fullName: ' Ana Nueva ', province: 'Madrid', languages: 'castellano' }),
+      ),
+    ).toEqual({ fullName: 'Ana Nueva' });
+  });
+
   it('sends nothing when nothing changed', () => {
     expect(
       profileChange(
@@ -86,10 +99,13 @@ describe('the settings form', () => {
 });
 
 describe('quick-add', () => {
-  it('needs a name and a valid phone or email, and a choice when there are candidates', () => {
+  it('needs a valid phone or email, a name only if known, and a choice when there are candidates', () => {
     expect(quickAddProblems({ name: '', phone: '', email: '', candidates: 0, choice: '' })).toEqual(
-      ['name', 'contact'],
+      ['contact'],
     );
+    expect(
+      quickAddProblems({ name: '', phone: '612 345 678', email: '', candidates: 0, choice: '' }),
+    ).toEqual([]);
     expect(
       quickAddProblems({ name: 'Ana', phone: '123', email: 'ana@', candidates: 2, choice: '' }),
     ).toEqual(['phone', 'email', 'choice']);

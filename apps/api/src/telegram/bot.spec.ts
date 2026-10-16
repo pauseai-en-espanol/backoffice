@@ -262,7 +262,7 @@ describe('/alta', () => {
       { personId: ANA, name: 'Ana Ejemplo', stage: 'new', ownerName: null, exact: false },
     ]);
     await bot.say('/alta');
-    expect(bot.sent.at(-1)?.text).toMatch(/Cómo se llama/u);
+    expect(bot.sent.at(-1)?.text).toMatch(/Quién ha entrado/u);
     await bot.say('Ana Ejemplo');
     expect(bot.sent.at(-1)?.text).toMatch(/teléfono o su correo/u);
     await bot.say('no lo sé');
@@ -292,6 +292,39 @@ describe('/alta', () => {
     expect(bot.edited.at(-1)?.text).toBe('Hecho, lo dejamos.');
     await bot.press('alta:new');
     expect(bot.answered.at(-1)?.text).toMatch(/caducado/u);
+  });
+
+  it('saves a phone with no name in one step, never asking for the name (PLAN R37)', async () => {
+    const bot = setup();
+    const id = await bot.say(PHONE_AS_TYPED);
+    expect(bot.sent.at(-1)?.text).toBe('¿Doy de alta a alguien sin nombre (con teléfono)?');
+    await bot.press('alta:new');
+    expect(bot.submitted).toEqual([
+      {
+        externalId: `tg:${TG}:${id}`,
+        arrival: expect.not.objectContaining({ name: expect.anything() }),
+        decision: { kind: 'new' },
+      },
+    ]);
+    expect(bot.submitted[0]?.arrival.phones).toEqual([PHONE]);
+    expect(bot.edited.at(-1)?.text).toContain(
+      'Hecho: ya está en el sistema, sin nombre por ahora (Nuevo, sin asignar).',
+    );
+    expect(bot.deleted).toEqual([{ chatId: TG, messageId: id }]);
+    expect(bot.told.arrivals).toEqual([NEW_PERSON]);
+    const command = setup();
+    await command.say(`/alta ${EMAIL}`);
+    expect(command.sent.at(-1)?.text).toBe('¿Doy de alta a alguien sin nombre (con correo)?');
+  });
+
+  it('offers who already holds the phone, someone without a name shown as «Sin nombre»', async () => {
+    const bot = setup([{ personId: ANA, name: null, stage: 'new', ownerName: null, exact: true }]);
+    await bot.say(`/alta ${PHONE_AS_TYPED}`);
+    const offer = bot.sent.at(-1);
+    expect(offer?.text).toBe(
+      'Ya hay alguien con ese teléfono o correo. ¿Es alguna de estas personas?',
+    );
+    expect(buttons(offer).map((b) => b.text)[0]).toBe('Es Sin nombre · Nuevo · sin asignar');
   });
 
   it('lets the reporter go on without contact details', async () => {

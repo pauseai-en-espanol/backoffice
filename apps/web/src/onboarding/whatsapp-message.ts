@@ -9,13 +9,21 @@ import type { Identity } from './types';
  * message, which the onboarder sends from their own number. Nothing is sent by the backoffice.
  */
 
-/** How the message greets the person: their preferred name, else the first word of their full name. */
-export const greetingName = (person: { preferredName: string | null; fullName: string }): string =>
-  person.preferredName?.trim() || person.fullName.trim().split(/\s+/u)[0] || person.fullName;
+/**
+ * How the message greets the person: their preferred name, else the first word of their full name; undefined for
+ * someone without a name (PLAN R37), whom the message greets without one.
+ */
+export const greetingName = (person: {
+  preferredName: string | null;
+  fullName: string | null;
+}): string | undefined =>
+  person.preferredName?.trim() || person.fullName?.trim().split(/\s+/u)[0] || undefined;
 
-/** The prepared message, from its template (`{name}`, `{me}`). */
-export const whatsappMessage = (template: string, values: { name: string; me: string }): string =>
-  fill(template, values);
+/** The prepared message, from its template (`{name}` if it has one, `{me}`). */
+export const whatsappMessage = (
+  template: string,
+  values: Readonly<{ me: string } & Record<string, string>>,
+): string => fill(template, values);
 
 const E164 = /^\+[1-9]\d{6,14}$/u;
 

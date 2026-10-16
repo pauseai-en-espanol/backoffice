@@ -19,6 +19,7 @@ import {
   freeList,
   leaveOptions,
   mineList,
+  nameOf,
   offerCandidates,
   personLink,
   searchList,
@@ -106,15 +107,19 @@ const deleteContactMessages = async (
 
 // /alta ------------------------------------------------------------------------------------------------------------
 
-/** Asks for what the arrival still lacks (a name; a phone or email), then offers the candidates or asks to confirm. */
+/**
+ * Asks for what the arrival still lacks, then offers the candidates or asks to confirm. A phone or an email is enough
+ * (most reports carry only a phone, PLAN R37); a name alone gets asked for a contact, which may be "Sin contacto".
+ */
 const advanceAlta = async (dialog: AltaDialog, ctx: Context): Promise<void> => {
   const { store } = ctx.deps;
-  if (!dialog.name) {
+  const hasContact = dialog.phones.length > 0 || dialog.emails.length > 0;
+  if (!dialog.name && !hasContact) {
     await store.saveDialog(ctx.telegramUserId, ctx.userId, { ...dialog, step: 'name' });
     await ctx.say(t('bot.alta.askName'));
     return;
   }
-  if (dialog.phones.length === 0 && dialog.emails.length === 0 && !dialog.noContact) {
+  if (!hasContact && !dialog.noContact) {
     await store.saveDialog(ctx.telegramUserId, ctx.userId, { ...dialog, step: 'contact' });
     const { text, keyboard } = askContact();
     await ctx.say(text, keyboard);
@@ -200,15 +205,14 @@ const saveAlta = async (
   if (saved.status === 'review' || !saved.personId) {
     text = t('bot.alta.review');
   } else if (saved.status === 'created') {
-    text = t('bot.alta.created', {
-      name: dialog.name ?? '',
-      stage: stageLabel('new'),
-      link: personLink(staffOrigin, saved.personId),
-    });
+    const said = { stage: stageLabel('new'), link: personLink(staffOrigin, saved.personId) };
+    text = dialog.name?.trim()
+      ? t('bot.alta.created', { ...said, name: dialog.name })
+      : t('bot.alta.createdNameless', said);
   } else {
     const [person] = await store.people(ctx.userId, 'person', { text: saved.personId });
     text = t(saved.status === 'conflict' ? 'bot.alta.conflict' : 'bot.alta.attached', {
-      name: person?.name ?? dialog.name ?? '',
+      name: nameOf(person?.name ?? dialog.name),
       link: personLink(staffOrigin, saved.personId),
     });
   }
@@ -424,7 +428,9 @@ const handleCallback = async (query: TelegramCallbackQuery, deps: BotDeps): Prom
     const personId = claim[1];
     const done = await store.claim(who.userId, personId);
     const [person] = done ? await store.people(who.userId, 'person', { text: personId }) : [];
-    await answer(done ? t('bot.free.claimed', { name: person?.name ?? '' }) : t('bot.free.taken'));
+    await answer(
+      done ? t('bot.free.claimed', { name: nameOf(person?.name) }) : t('bot.free.taken'),
+    );
     if (done) {
       await deps.notifier.claimed(personId).catch((error: unknown) => report(deps, error));
     }
@@ -508,7 +514,7 @@ const handleCallback = async (query: TelegramCallbackQuery, deps: BotDeps): Prom
     }
     await store.leave(who.userId, personId);
     await store.endDialog(query.from.id);
-    await edit(t('bot.baja.done', { name: person.name }));
+    await edit(t('bot.baja.done', { name: nameOf(person.name) }));
     await deleteContactMessages(ctx, dialog.chatId, dialog.contactMessages);
     return;
   }

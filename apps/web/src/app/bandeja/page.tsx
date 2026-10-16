@@ -11,6 +11,7 @@ import { getCensusOptions } from '@/onboarding/census/data';
 import { answerRows } from '@/onboarding/census/format';
 import { getBandeja } from '@/onboarding/data';
 import { formatInstant } from '@/onboarding/format';
+import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { PersonItem } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
@@ -113,7 +114,7 @@ const BandejaPage = async () => {
             kind="attention"
             label={entry.status === 'review' ? t('bandeja.review') : t('bandeja.conflict')}
           />{' '}
-          {entry.name ?? entry.person?.name ?? '—'}
+          {entry.name ?? personName(entry.person?.name, t('people.noName'))}
         </h2>
         <p className={styles.hint}>
           {t('bandeja.from', {
@@ -210,7 +211,9 @@ const BandejaPage = async () => {
           text={{
             attachTo: entry.candidates.map((candidate) => ({
               personId: candidate.id,
-              label: t('bandeja.attachTo', { name: candidate.name }),
+              label: t('bandeja.attachTo', {
+                name: personName(candidate.name, t('people.noName')),
+              }),
             })),
             // A census answer that matched two people is theirs to attach to one: both hold its email or phone.
             ...(census ? {} : { isNew: t('bandeja.isNew') }),
@@ -218,7 +221,9 @@ const BandejaPage = async () => {
             discardConfirm: t('bandeja.discardConfirm'),
             apply:
               census && entry.person
-                ? t('bandeja.censusApply', { name: entry.person.name })
+                ? t('bandeja.censusApply', {
+                    name: personName(entry.person.name, t('people.noName')),
+                  })
                 : t('bandeja.apply'),
             keep: census ? t('bandeja.censusKeep') : t('bandeja.keep'),
             confirm: t('team.confirm'),

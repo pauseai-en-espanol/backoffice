@@ -20,9 +20,9 @@ const card: TeamCard = {
   ownerName: null,
 };
 
-const setup = ({ failSend = false, tooOld = false } = {}) => {
+const setup = ({ failSend = false, tooOld = false, nameless = false } = {}) => {
   const posts = new Map<string, number | null>();
-  let current = card;
+  let current: TeamCard = nameless ? { ...card, name: null } : card;
   const sent: { text: string; keyboard?: Keyboard | undefined }[] = [];
   const edited: { messageId: number; text: string; keyboard?: Keyboard | undefined }[] = [];
   const deleted: number[] = [];
@@ -109,6 +109,12 @@ describe('the team group', () => {
       },
     ]);
     expect(team.posts.get(PERSON)).toBe(77);
+  });
+
+  it('posts someone saved with only a phone as «Sin nombre» (PLAN R37)', async () => {
+    const team = setup({ nameless: true });
+    await team.notifier.arrival(PERSON);
+    expect(team.sent[0]?.text).toMatch(/^Nueva llegada: Sin nombre\n/u);
   });
 
   it('shows who took someone, and drops the claim button', async () => {

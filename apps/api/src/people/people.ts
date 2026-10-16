@@ -10,11 +10,14 @@ import { type RawBuilder, sql, type Transaction } from 'kysely';
  * the bot may do goes through its own functions instead (ADR-0004).
  */
 
-/** A person as lists show one: never their contact details. */
+/**
+ * A person as lists show one: never their contact details. `name` is the preferred name, else the full name; both
+ * are null for someone saved with only a phone or an email (PLAN R37), whom the apps show as "Sin nombre".
+ */
 export interface PersonSummary {
   id: string;
-  name: string;
-  fullName: string;
+  name: string | null;
+  fullName: string | null;
   stage: Stage;
   owner: { userId: string; displayName: string } | null;
   province: string | null;
@@ -28,7 +31,7 @@ export interface PersonSummary {
 
 interface SummaryRow {
   id: string;
-  full_name: string;
+  full_name: string | null;
   preferred_name: string | null;
   stage: Stage;
   owner_id: string | null;

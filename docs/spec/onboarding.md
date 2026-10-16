@@ -11,7 +11,9 @@ Airtable's mechanics and security are in their ADRs; this spec says what they do
 ## 1. Concepts
 
 - **Person.** One human, whatever the number of sources they came from. It holds the profile (names, location,
-  languages, skills, availability, interests, consent).
+  languages, skills, availability, interests, consent). Someone reported through the bot or quick-add may have no
+  name yet, only a phone or an email (PLAN R37); a later report, the census or a merge fills it, and a name, once
+  known, is never emptied.
 - **Identity.** A way to recognise a person: an email, a phone number (E.164), an Airtable record ID. A normalised
   identity belongs to at most one person, which is what prevents duplicates.
 - **Source.** Where we learned about a person: `airtable`, `telegram` (reported to the bot), `census`, `manual`
@@ -75,7 +77,8 @@ mobile-first all the same.
 - **Persona:** profile, identities, community presence, timeline. Quick actions: log a contact attempt (channel
   and outcome presets), set the next action, change stage, assign, add a note, open a WhatsApp chat with a
   prepared message ([§7.3](#73-whatsapp-handover-links)), copy the email address.
-- **Añadir rápido:** name and phone or email, source, optional note. Duplicates are checked as you type.
+- **Añadir rápido:** a phone or email, the name if known, source, optional note. Duplicates are checked as you
+  type.
 - **Bandeja:** records awaiting a decision: possible duplicates and conflicting values.
 - **Importar:** "Sincronizar Airtable ahora" with the last run's result; upload a CSV, preview, dry-run diff,
   apply ([§5.3](#53-web-and-csv-m1)).
@@ -109,15 +112,15 @@ an account, the webhook and what the bot may do are in [ADR-0004](../adr/0004-te
 
 **Commands.** These work in a private chat with the bot. Replies are in Spanish.
 
-| Command          | Does                                                                                                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/alta`          | Reports someone who joined. The bot reads name, phone or email, chat and note from one message, asks for what's missing, shows any likely match ("¿Es Ana G., Nuevo, sin asignar?") and confirms |
-| `/baja`          | Reports someone who left. Search by phone or name, pick from buttons, confirm                                                                                                                    |
-| `/mios`          | My people needing attention: name, reason, link to the web app                                                                                                                                   |
-| `/libres`        | The unassigned queue, with a "Me lo quedo" button on each                                                                                                                                        |
-| `/buscar <text>` | Name, stage and owner of the matches, with links. No contact details                                                                                                                             |
-| `/sincronizar`   | Runs the Airtable sync now and reports how many people came in                                                                                                                                   |
-| `/ayuda`         | The commands                                                                                                                                                                                     |
+| Command          | Does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/alta`          | Reports someone who joined. The bot reads name, phone or email, chat and note from one message, shows any likely match ("¿Es Ana G., Nuevo, sin asignar?") and confirms. A phone or an email alone is enough: most reports carry only a phone, and the person is saved without a name ("Sin nombre") for staff to name later (PLAN R37). It asks only for what's missing: who, when there's neither a name nor a contact; a phone or email, when there's only a name ("Sin contacto" goes on without one) |
+| `/baja`          | Reports someone who left. Search by phone or name, pick from buttons, confirm                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `/mios`          | My people needing attention: name, reason, link to the web app                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `/libres`        | The unassigned queue, with a "Me lo quedo" button on each                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `/buscar <text>` | Name, stage and owner of the matches, with links. No contact details                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `/sincronizar`   | Runs the Airtable sync now and reports how many people came in                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `/ayuda`         | The commands                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 - A message that isn't a command but contains a phone number or email is taken as a draft `/alta`, and is only
   saved after confirmation.
@@ -127,7 +130,8 @@ an account, the webhook and what the bot may do are in [ADR-0004](../adr/0004-te
 
 ### 5.3 Web and CSV (M1)
 
-- **Quick-add** in the web app, for whoever prefers it to the bot.
+- **Quick-add** in the web app, for whoever prefers it to the bot. A phone or an email is required; the name only if
+  known (PLAN R37).
 - **CSV import** with a column mapping, a preview, a dry run and an apply step. It covers any one-off list, and
   Airtable whenever the shared-view sync breaks.
 

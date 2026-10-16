@@ -566,7 +566,7 @@ export const peopleRoutes =
 
     scope.post<{
       Body: {
-        name: string;
+        name?: string;
         phone?: string;
         email?: string;
         province?: string;
@@ -583,10 +583,9 @@ export const peopleRoutes =
         schema: {
           body: {
             type: 'object',
-            required: ['name'],
             additionalProperties: false,
             properties: {
-              name: { type: 'string', minLength: 1, maxLength: 200, pattern: '\\S' },
+              name: TEXT(200),
               phone: TEXT(50),
               email: TEXT(254),
               province: TEXT(100),
@@ -615,13 +614,17 @@ export const peopleRoutes =
           if (decision === 'attach' && !target) {
             throw new Refusal(400, 'invalid', { field: 'target' });
           }
+          // A name, or a phone or an email to find them by (PLAN R37: most arrivals come with only a phone).
+          if (!name?.trim() && !phones && !emails) {
+            throw new Refusal(400, 'invalid', { field: 'name' });
+          }
           const clean = (value: string | undefined) => (value?.trim() ? value.trim() : undefined);
           const submitted = await onboarding(db, actor, (trx) =>
             submitIntake(trx, {
               source: 'manual',
               externalId: `web:${randomUUID()}`,
               payload: {
-                name: name.trim(),
+                ...(clean(name) ? { name: clean(name) } : {}),
                 ...(phones ? { phones: [phones] } : {}),
                 ...(emails ? { emails: [emails] } : {}),
                 ...(clean(province) ? { province: clean(province) } : {}),

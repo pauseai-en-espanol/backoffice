@@ -7,6 +7,7 @@ import { CensusLinkPanel, type CensusLinkText } from '@/onboarding/census/Census
 import { CopyLink } from '@/onboarding/census/CopyLink';
 import { censusUrl, getCensus } from '@/onboarding/census/data';
 import { linkState, linkText, progressOf, textBar } from '@/onboarding/census/format';
+import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { PersonItem } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
@@ -147,7 +148,7 @@ const CensusPage = async () => {
                     action={
                       <CensusLinkPanel
                         personId={person.id}
-                        name={person.name}
+                        name={personName(person.name, labels.noName)}
                         link={
                           link === null
                             ? null

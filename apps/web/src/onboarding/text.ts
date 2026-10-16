@@ -61,6 +61,7 @@ export const personLabels = (t: Translator): PersonLabels => ({
   overdue: String(t.raw('person.overdue')),
   due: String(t.raw('person.due')),
   dueToday: t('person.dueToday'),
+  noName: t('people.noName'),
 });
 
 /** A reason's words, or "Revisar" for one this version of the page doesn't know yet. */

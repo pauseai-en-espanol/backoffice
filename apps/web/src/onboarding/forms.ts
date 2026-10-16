@@ -39,8 +39,9 @@ export type Profile = Pick<
 /** A profile's changes (every change goes to the timeline, so nothing is sent for nothing). */
 export const profileChange = (profile: Profile, read: (name: string) => string): PersonChange => {
   const change: PersonChange = {};
+  // Someone without a name yet (PLAN R37) may stay so; a name, once there, is only ever changed, never emptied.
   const fullName = read('fullName').trim();
-  if (fullName !== profile.fullName) {
+  if (fullName !== (profile.fullName ?? '')) {
     change.fullName = fullName;
   }
   for (const key of ['preferredName', 'province', 'town', 'pronouns', 'howHeard'] as const) {
@@ -102,9 +103,12 @@ export const normalised = (kind: 'email' | 'phone', value: string): string | und
 /** The stages a quick-add may start someone in (onboarding spec: existing members come in as these). */
 export const QUICK_ADD_STAGES = ['new', 'to_triage', 'welcomed', 'active'] as const;
 
-export type QuickAddProblem = 'name' | 'contact' | 'phone' | 'email' | 'choice';
+export type QuickAddProblem = 'contact' | 'phone' | 'email' | 'choice';
 
-/** A quick-add's problems before it is sent, in the order they're said. */
+/**
+ * A quick-add's problems before it is sent, in the order they're said. The name is optional: most arrivals come with
+ * only a phone (PLAN R37), and staff add the name later.
+ */
 export const quickAddProblems = (values: {
   name: string;
   phone: string;
@@ -113,9 +117,6 @@ export const quickAddProblems = (values: {
   choice: string;
 }): QuickAddProblem[] => {
   const problems: QuickAddProblem[] = [];
-  if (values.name.trim() === '') {
-    problems.push('name');
-  }
   if (values.phone.trim() === '' && values.email.trim() === '') {
     problems.push('contact');
   }

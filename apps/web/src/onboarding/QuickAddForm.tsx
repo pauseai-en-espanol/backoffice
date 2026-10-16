@@ -12,11 +12,16 @@ import { messageFor } from '@/write';
 
 import { candidates as findCandidates, quickAdd, type QuickAdd } from './actions';
 import { QUICK_ADD_STAGES, type QuickAddProblem, quickAddProblems } from './forms';
+import { personName } from './names';
 import * as styles from './styles';
 import { type Candidate, parseCandidates } from './types';
 
 export interface QuickAddText {
   name: string;
+  /** "Opcional: …" */
+  nameHint: string;
+  /** "Sin nombre", for a candidate without one. */
+  noName: string;
   phone: string;
   phoneHint: string;
   email: string;
@@ -39,7 +44,6 @@ export interface QuickAddText {
   isThisPerson: string;
   isNew: string;
   chooseFirst: string;
-  nameMissing: string;
   contactMissing: string;
   phoneInvalid: string;
   emailInvalid: string;
@@ -56,7 +60,7 @@ export interface QuickAddText {
 const DEBOUNCE_MS = 400;
 
 /**
- * Añadir rápido (onboarding spec, views): name and a phone or email, and whatever else is known. As the person types,
+ * Añadir rápido (onboarding spec, views): a phone or email, the name if known (PLAN R37), and whatever else is known. As the person types,
  * the API is asked for records like it (debounced), and when there are any, the person must say whether it is one of
  * them or someone new before saving, so the database isn't left to guess. Saving leads to the person's page, or says
  * the record went to the Bandeja.
@@ -136,7 +140,7 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
       return;
     }
     const intake: QuickAdd = {
-      name: name.trim(),
+      ...(name.trim() ? { name: name.trim() } : {}),
       ...(phoneValue ? { phone: phoneValue } : {}),
       ...(emailValue ? { email: emailValue } : {}),
       ...(province.trim() ? { province: province.trim() } : {}),
@@ -191,7 +195,6 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
 
   const has = (problem: QuickAddProblem) => problems.includes(problem);
   const message: Record<QuickAddProblem, string> = {
-    name: text.nameMissing,
     contact: text.contactMissing,
     phone: text.phoneInvalid,
     email: text.emailInvalid,
@@ -212,10 +215,11 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
           onChange={(event) => setName(event.target.value)}
           maxLength={200}
           autoComplete="off"
-          required
-          aria-invalid={has('name')}
-          aria-describedby="alta-problemas"
+          aria-describedby="alta-nombre-hint"
         />
+        <span id="alta-nombre-hint" className={ui.hint}>
+          {text.nameHint}
+        </span>
       </div>
       <fieldset className={ui.fieldset} aria-describedby="alta-contacto">
         <legend>
@@ -310,7 +314,7 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
                 onChange={() => setChoice(candidate.personId)}
               />
               <span>
-                {fill(text.isThisPerson, { name: candidate.name })}
+                {fill(text.isThisPerson, { name: personName(candidate.name, text.noName) })}
                 <span className={`${ui.block} ${ui.hint}`}>
                   {[
                     candidate.stage ? text.stages[candidate.stage] : undefined,

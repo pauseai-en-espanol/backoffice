@@ -27,6 +27,28 @@ test('quick-add someone, find them unassigned in Hoy, and claim them', async ({ 
   await expect(page.getByText(`Ahora ${name} está a tu cargo.`)).toBeVisible();
 });
 
+test('quick-add someone with only a phone, shown as «Sin nombre» until named (PLAN R37)', async ({
+  page,
+}) => {
+  await signedInStaff(page, ['onboarding']);
+  await page.goto('/anadir');
+  await page.getByLabel('Teléfono').fill(phone());
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await expect(page).toHaveURL(/\/personas\/[0-9a-f-]{36}$/u);
+  await expect(page.getByRole('heading', { level: 1, name: 'Sin nombre' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Abrir WhatsApp' })).toHaveAttribute(
+    'href',
+    /\?text=Hola%3A%20soy%20/u,
+  );
+  await expectAccessible(page);
+
+  await page.getByRole('button', { name: 'Editar el perfil' }).click();
+  const name = uniqueName();
+  await page.getByLabel('Nombre completo').fill(name);
+  await page.getByRole('button', { name: 'Guardar el perfil' }).click();
+  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+});
+
 test('a person’s page: next action, a contact attempt, a note, a phone, and leaving', async ({
   page,
 }) => {

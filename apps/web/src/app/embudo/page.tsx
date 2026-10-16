@@ -11,6 +11,7 @@ import { isUnavailable } from '@/data';
 import { getBoard } from '@/onboarding/data';
 import { filtersFromPage, pageQuery, type PeopleFilters } from '@/onboarding/filters';
 import { FiltersForm } from '@/onboarding/FiltersForm';
+import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { NextAction, ReasonChips } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
@@ -27,7 +28,7 @@ export const metadata: Metadata = { title: t('board.title') };
 const Card = ({ person, labels }: { person: PersonSummary; labels: PersonLabels }) => (
   <li className={onboarding.boardCard}>
     <Link className={onboarding.personName} href={`/personas/${encodeURIComponent(person.id)}`}>
-      {person.name}
+      {personName(person.name, labels.noName)}
     </Link>
     <span className={styles.hint}>
       {labels.owner}: {person.owner?.displayName ?? labels.noOwner}

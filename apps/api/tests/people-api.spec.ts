@@ -214,6 +214,31 @@ describe('onboarding through the staff API (M1)', () => {
     expect(found.body).not.toContain(phone.slice(-6));
   });
 
+  it('quick-adds someone with only a phone, nameless until a name is set (PLAN R37)', async () => {
+    expect(
+      (await onboarder.who.send('POST', '/api/intake', { province: 'Provincia de ejemplo' }))
+        .statusCode,
+    ).toBe(400);
+    const phone = `6001${suffix()}`.slice(0, 9);
+    const added = await onboarder.who.send('POST', '/api/intake', { phone });
+    expect(added.statusCode).toBe(201);
+    const { status, personId } = added.json<{ status: string; personId: string }>();
+    expect(status).toBe('created');
+    people.push(personId);
+    const page = (await onboarder.who.send('GET', `/api/people/${personId}`)).json<{
+      person: { name: string | null; fullName: string | null };
+    }>();
+    expect(page.person).toMatchObject({ name: null, fullName: null });
+    const named = await onboarder.who.send('PATCH', `/api/people/${personId}`, {
+      fullName: 'Nombre Puesto Después',
+    });
+    expect(named.statusCode).toBeLessThan(300);
+    const after = (await onboarder.who.send('GET', `/api/people/${personId}`)).json<{
+      person: { name: string | null };
+    }>();
+    expect(after.person.name).toBe('Nombre Puesto Después');
+  });
+
   it('works a person: claim, next action, contact attempts, notes, identities, leaving', async () => {
     const { personId } = (
       await onboarder.who.send('POST', '/api/intake', {

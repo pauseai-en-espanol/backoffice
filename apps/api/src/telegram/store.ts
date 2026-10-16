@@ -15,7 +15,8 @@ type AuthPool = ReturnType<typeof createAuthPool>;
 /** A person as the bot may show one (ADR-0004): never contact details. */
 export interface PersonLine {
   personId: string;
-  name: string;
+  /** Null for someone saved without a name (PLAN R37). */
+  name: string | null;
   stage: Stage;
   ownerName: string | null;
   reasons: AttentionReason[];
@@ -23,7 +24,7 @@ export interface PersonLine {
 
 export interface Candidate {
   personId: string;
-  name: string;
+  name: string | null;
   stage: Stage;
   ownerName: string | null;
   /** Holds one of the arrival's phones or emails, rather than a similar name. */
@@ -47,7 +48,7 @@ export interface Submitted {
 /** What a post in the team group shows (ADR-0004, notifications). */
 export interface TeamCard {
   personId: string;
-  name: string;
+  name: string | null;
   province: string | null;
   sources: string[];
   stage: Stage;
@@ -111,7 +112,7 @@ const asBot = (userId: string) => ({ userId, aal: 2 as const, channel: 'bot' as 
 
 interface PersonRow {
   person_id: string;
-  name: string;
+  name: string | null;
   stage: Stage;
   owner_name: string | null;
   reasons: AttentionReason[];
@@ -275,7 +276,7 @@ export const createBotStore = ({ app, auth }: { app: Database; auth: AuthPool })
   teamCard: async (personId) => {
     const { rows } = await sql<{
       person_id: string;
-      name: string;
+      name: string | null;
       province: string | null;
       sources: string[];
       stage: Stage;

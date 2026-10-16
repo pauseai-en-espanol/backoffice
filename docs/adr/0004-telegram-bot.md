@@ -89,7 +89,8 @@ replies are in Spanish.
   the reads the bot's commands need. Everything else is refused when `app.channel = 'bot'`, whatever the member's
   roles: no edits to profiles, no stage changes beyond claiming, no exports, no erasure. A new table is closed to
   the bot until listed on purpose ([ADR-0002 §4](0002-authorization-and-data-protection.md#4-row-level-security-by-module-and-channel)).
-- **What the bot shows** is names, stages, owners and reasons, never contact details.
+- **What the bot shows** is names, stages, owners and reasons, never contact details. Most reports carry only a
+  phone number: the person is saved without a name and shown as "Sin nombre" until staff name them (PLAN R37).
 
 ### 5. Notifications
 

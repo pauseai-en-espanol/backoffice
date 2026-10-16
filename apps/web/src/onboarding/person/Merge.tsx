@@ -13,6 +13,7 @@ import { messageFor } from '@/write';
 import type { PersonPageText } from './text';
 
 import { merge, searchPeople } from '../actions';
+import { personName } from '../names';
 import * as styles from '../styles';
 import { parsePeople, type PersonSummary } from '../types';
 
@@ -113,7 +114,7 @@ export const MergePanel = ({
           {results.map((found) => (
             <li key={found.id} className={styles.boardCard}>
               <span>
-                {found.name} · {text.stages[found.stage]}
+                {personName(found.name, text.labels.noName)} · {text.stages[found.stage]}
               </span>
               <span className={ui.hint}>
                 {text.labels.owner}: {found.owner?.displayName ?? text.labels.noOwner}
@@ -124,7 +125,7 @@ export const MergePanel = ({
                   className={ui.secondaryButton}
                   onClick={() => setChosen(found)}
                 >
-                  {fill(t.pick, { name: found.name })}
+                  {fill(t.pick, { name: personName(found.name, text.labels.noName) })}
                 </button>
               </div>
             </li>
@@ -133,7 +134,12 @@ export const MergePanel = ({
       ) : null}
       {chosen ? (
         <div ref={question} tabIndex={-1} role="group" aria-label={t.title} className={ui.confirm}>
-          <p>{fill(t.confirm, { other: chosen.name, name: person.name })}</p>
+          <p>
+            {fill(t.confirm, {
+              other: personName(chosen.name, text.labels.noName),
+              name: person.name,
+            })}
+          </p>
           <div className={ui.rowActions}>
             <button
               type="button"

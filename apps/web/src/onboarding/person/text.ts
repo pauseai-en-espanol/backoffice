@@ -124,6 +124,7 @@ export const personPageText = (t: Translator) => {
       open: t('person.whatsappOpen'),
       noPhone: t('person.whatsappNoPhone'),
       message: raw('person.whatsappMessage'),
+      messageNameless: raw('person.whatsappMessageNameless'),
       sent: t('person.whatsappSent'),
       yes: t('person.whatsappYes'),
       no: t('person.whatsappNo'),

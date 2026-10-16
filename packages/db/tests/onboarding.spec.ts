@@ -594,6 +594,112 @@ describe('merging', () => {
   });
 });
 
+describe('arrivals without a name (PLAN R37)', () => {
+  const nameOf = async (client: pg.Client, person: string | null) =>
+    (
+      await client.query<{ full_name: string | null }>(
+        'SELECT full_name FROM app.people WHERE id = $1',
+        [person],
+      )
+    ).rows[0]?.full_name;
+
+  it('saves someone the bot or the staff app reports with only a phone or an email', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const byPhone = await submit(
+        client,
+        bot(USERS.onboarder),
+        { phones: ['+34600000030'] },
+        { source: 'telegram' },
+      );
+      const byEmail = await submit(client, web(USERS.onboarder), {
+        emails: ['sin.nombre@ejemplo.test'],
+      });
+      expect([byPhone.status, byEmail.status]).toEqual(['created', 'created']);
+      expect(await nameOf(client, byPhone.person_id)).toBeNull();
+      expect(await nameOf(client, byEmail.person_id)).toBeNull();
+    });
+  });
+
+  it('still needs a name, a phone or an email; and Airtable and the CSV import always need a name', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await actAs(client, 'pauseai_backoffice_app', bot(USERS.onboarder));
+      const report = "SELECT * FROM private.submit_intake('telegram', $1, $2)";
+      expect(
+        await errorCode(client, report, ['solo-nota', JSON.stringify({ note: 'Entró alguien' })]),
+      ).toBe('23514');
+      expect(
+        await errorCode(client, report, [
+          'nombre-en-blanco',
+          JSON.stringify({ name: '  ', phones: [] }),
+        ]),
+      ).toBe('23514');
+      await client.query('RESET ROLE');
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.adminA));
+      expect(
+        await errorCode(client, "SELECT private.import_csv('csv-sin-nombre', $1)", [
+          JSON.stringify([{ payload: { phones: ['+34600000031'] } }]),
+        ]),
+      ).toBe('23514');
+      await client.query('RESET ROLE');
+      await client.query('SET LOCAL ROLE pauseai_backoffice_ingest');
+      expect(
+        await errorCode(client, 'SELECT private.ingest_airtable($1)', [
+          JSON.stringify([
+            {
+              external_id: 'recEjemploSinNom1',
+              payload: { airtable_id: 'recEjemploSinNom1', phones: ['+34600000032'] },
+            },
+          ]),
+        ]),
+      ).toBe('23514');
+    });
+  });
+
+  it('takes the name a later report brings, and never matches a nameless person by name', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const nameless = await submit(
+        client,
+        bot(USERS.onboarder),
+        { phones: ['+34600000033'], province: 'Provincia sin nombre' },
+        { source: 'telegram' },
+      );
+      const stranger = await submit(client, web(USERS.onboarder), {
+        name: 'Nadie Conocido',
+        province: 'Provincia sin nombre',
+      });
+      expect(stranger.status).toBe('created');
+      const named = await submit(client, web(USERS.onboarder), {
+        name: 'Lola Ejemplo',
+        phones: ['+34600000033'],
+      });
+      expect(named).toMatchObject({ status: 'attached', person_id: nameless.person_id });
+      expect(await nameOf(client, nameless.person_id)).toBe('Lola Ejemplo');
+    });
+  });
+
+  it('keeps a name once known: never blank, never taken away; a merge gives a nameless survivor the other’s', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const nameless = await submit(client, web(USERS.onboarder), { phones: ['+34600000034'] });
+      const named = await submit(
+        client,
+        web(USERS.onboarder),
+        { name: 'Mar Ejemplo', emails: ['mar@ejemplo.test'] },
+        { decision: 'new' },
+      );
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.onboarder));
+      const rename = 'UPDATE app.people SET full_name = $2 WHERE id = $1';
+      expect(await errorCode(client, rename, [named.person_id, '  '])).toBe('23514');
+      expect(await errorCode(client, rename, [named.person_id, null])).toBe('23514');
+      await client.query('SELECT private.merge_people($1, $2)', [
+        nameless.person_id,
+        named.person_id,
+      ]);
+      await client.query('RESET ROLE');
+      expect(await nameOf(client, nameless.person_id)).toBe('Mar Ejemplo');
+    });
+  });
+});
+
 describe('the Airtable sync', () => {
   it('runs only as the ingest role, idempotent by record id, and reaches nothing else', async () => {
     await inRolledBackTransaction(async (client) => {

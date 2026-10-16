@@ -477,6 +477,30 @@ describe('the census, after the review', () => {
     });
   });
 
+  it('names someone saved without a name, greeting them with none until then (PLAN R37)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const made = await client.query<{ id: string }>(
+        "INSERT INTO app.people (stage) VALUES ('new') RETURNING id",
+      );
+      const nameless = made.rows[0]?.id ?? '';
+      await client.query("SELECT set_config('app.user_id', $1, true)", [USERS.onboarder]);
+      await client.query(
+        `INSERT INTO app.census_links (person_id, token_hash, expires_at)
+         VALUES ($1, $2, now() + interval '30 days')`,
+        [nameless, tokenHash('enlace-sin-nombre')],
+      );
+      const form = await client.query('SELECT greeting, link FROM private.census_form($1)', [
+        tokenHash('enlace-sin-nombre'),
+      ]);
+      expect(form.rows[0]).toEqual({ greeting: null, link: 'personal' });
+      expect(await submit(client, 'enlace-sin-nombre')).toBe('updated');
+      const named = await client.query('SELECT full_name FROM app.people WHERE id = $1', [
+        nameless,
+      ]);
+      expect(named.rows[0]?.full_name).toBe('Censo Ejemplo');
+    });
+  });
+
   it('lets a personal link work only while it is the person’s latest, and through a merge', async () => {
     await inRolledBackTransaction(async (client) => {
       const form = async (token: string) =>

@@ -7,6 +7,7 @@ import { fill } from '@/fill';
 import type { PersonSummary } from './types';
 
 import { dueState, formatDay, madridToday } from './format';
+import { personName } from './names';
 import * as styles from './styles';
 
 /**
@@ -32,6 +33,8 @@ export interface PersonLabels {
   /** "para el {date}" */
   due: string;
   dueToday: string;
+  /** "Sin nombre": someone saved with only a phone or an email. */
+  noName: string;
 }
 
 /** A stage in words, outlined: never a colour of its own (WCAG 1.4.1). */
@@ -110,7 +113,7 @@ export const PersonItem = ({
   <li className={styles.personItem}>
     <div className={styles.personHead}>
       <Link className={styles.personName} href={`/personas/${encodeURIComponent(person.id)}`}>
-        {person.name}
+        {personName(person.name, labels.noName)}
       </Link>
       <StageTag label={labels.stages[person.stage] ?? person.stage} />
     </div>

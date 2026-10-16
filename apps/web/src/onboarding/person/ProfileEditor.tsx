@@ -81,7 +81,7 @@ export const ProfileEditor = ({ person, text }: { person: Profile; text: PersonP
             : ((person[name] as string | null) ?? '')
         }
         maxLength={maxLength}
-        required={name === 'fullName'}
+        required={name === 'fullName' && person.fullName !== null}
         aria-invalid={invalid === name}
         aria-describedby={
           [hint ? `perfil-${name}-hint` : '', write.error ? 'perfil-error' : '']
