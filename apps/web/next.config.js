@@ -6,7 +6,7 @@ const appDir = dirname(fileURLToPath(import.meta.url));
 const { name, version } = JSON.parse(readFileSync(join(appDir, 'package.json'), 'utf8'));
 
 /**
- * On every response, pages and build assets alike (as aiontheballot's admin). The Content Security Policy is the
+ * On every response, pages and build assets alike. The Content Security Policy is the
  * proxy's (src/proxy.ts), since each page's has its own nonce.
  */
 const SECURITY_HEADERS = [

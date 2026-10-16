@@ -19,7 +19,7 @@ syncInjectedDepsAfterScripts:
 
 # Packages allowed to run install scripts; add entries deliberately, one by one.
 allowBuilds:
-  # native file watcher, pulled in by next-intl (as in aiontheballot)
+  # native file watcher, pulled in by next-intl
   '@parcel/watcher': true
-  # native SWC binary, pulled in by next-intl (as in aiontheballot)
+  # native SWC binary, pulled in by next-intl
   '@swc/core': true

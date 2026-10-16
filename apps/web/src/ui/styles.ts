@@ -1,7 +1,7 @@
 import { css } from '@styled-system/css';
 
 /**
- * The signed-in screens' look (as aiontheballot's admin): the preset's colours by role only (packages/ui), 44px
+ * The signed-in screens' look: the preset's colours by role only (packages/ui), 44px
  * controls and a visible focus ring (WCAG 2.2 AA), states marked in words or shapes as well as colour. Mobile first:
  * most reporting happens from a phone.
  */

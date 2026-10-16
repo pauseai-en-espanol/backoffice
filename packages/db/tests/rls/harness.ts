@@ -31,7 +31,7 @@ const fingerprint = async (client: pg.Client, c: Case): Promise<string> =>
   JSON.stringify((await client.query(c.target, c.targetParams)).rows);
 
 /**
- * Runs one case inside the caller's transaction and classifies it (as aiontheballot's matrix does):
+ * Runs one case inside the caller's transaction and classifies it:
  * - allow: exactly one row visible or affected;
  * - deny: an error, or zero rows, and the target is unchanged afterwards.
  * Anything else (a missing target, several rows, a deny that still changed data) throws, so it can never pass

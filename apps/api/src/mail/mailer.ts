@@ -24,7 +24,7 @@ const headerText = (value: string): string =>
   value.replaceAll(/[\p{Cc}\p{Zl}\p{Zp}]+/gu, ' ').trim();
 
 /**
- * Sends through the backoffice's one sender: Mailu's SMTP submission, its address in the
+ * Sends through the backoffice's one sender: the mail server's SMTP submission, its address in the
  * envelope and From, with the given display name. A failure rejects, so callers can undo what the email stood for.
  */
 export const createMailer = ({ smtpUrl, from }: MailConfig): Mailer => {

@@ -4,7 +4,7 @@
   rangeStrategy: 'bump',
   dependencyDashboard: true,
   timezone: 'Europe/Madrid',
-  // One weekly window, early on Monday (as aiontheballot), and open PRs aren't updated outside it either. Security fixes
+  // One weekly window, early on Monday, and open PRs aren't updated outside it either. Security fixes
   // ignore it: Renovate always raises vulnerability PRs at once, whatever the schedule. Lock-file maintenance
   // (config:best-practices) keeps its own PR, before 4am the same Monday.
   schedule: ['* 0-5 * * 1'],

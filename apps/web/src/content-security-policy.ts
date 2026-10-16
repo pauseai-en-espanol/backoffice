@@ -1,5 +1,5 @@
 /**
- * The staff app's Content Security Policy (as aiontheballot's admin). Every page is rendered per request, so each gets
+ * The staff app's Content Security Policy. Every page is rendered per request, so each gets
  * a nonce of its own: Next reads it from this header on the request and puts it on its scripts, and 'strict-dynamic'
  * lets those load the rest of the app's chunks. No other script runs, inline or from anywhere, so injected markup can't
  * run code where staff are signed in. Styles allow inline: the components' server-rendered style attributes can't

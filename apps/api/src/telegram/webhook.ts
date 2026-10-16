@@ -8,7 +8,7 @@ import { updateSchema } from './updates.js';
 const digest = (value: string): Buffer => createHash('sha256').update(value).digest();
 
 /**
- * Whether a header carries the secret, in constant time (as aisafety-newsroom): both sides hashed first, so neither
+ * Whether a header carries the secret, in constant time: both sides hashed first, so neither
  * their lengths nor their contents leak through the comparison. A missing header, or several, never matches.
  */
 export const headerMatches = (header: string | string[] | undefined, secret: string): boolean =>

@@ -1,6 +1,6 @@
 /**
- * Where the e2e run serves each app's production build. The ports stay clear of `pnpm dev` (3000-3001) and of
- * aiontheballot's e2e run (4100-4108).
+ * Where the e2e run serves each app's production build. The ports stay clear of `pnpm dev` (3000-3003) and of
+ * the 4100s, which other projects' e2e runs on the same machine use.
  */
 export const PORTS = {
   web: 4200,

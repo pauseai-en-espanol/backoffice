@@ -1,7 +1,7 @@
 import type { Actor } from '@backoffice/db/actor';
 
 /**
- * Where a request stands in signing in (as aiontheballot):
+ * Where a request stands in signing in:
  *
  * - `signed-in`: a session a TOTP or backup code created, of a user with TOTP. The only stage with an actor, at aal2.
  * - `enrol`: a session of a user without TOTP yet. It reaches the enrolment and nothing else.

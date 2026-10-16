@@ -1,5 +1,5 @@
 /**
- * The brand palette, from PauseAI's brand kit, and the greys around it (as aiontheballot). Pages use it through the
+ * The brand palette, from PauseAI's brand kit, and the greys around it. Pages use it through the
  * preset's semantic tokens only.
  *
  * Orange text on white fails WCAG AA (about 2.2:1): orange is a fill behind ink text, or text on ink.

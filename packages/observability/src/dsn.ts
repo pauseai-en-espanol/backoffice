@@ -9,7 +9,7 @@ export interface Dsn {
 }
 
 /**
- * Parses a DSN such as `http://<key>@glitchtip-web.glitchtip.svc.cluster.local/<project>`. Errors name the variable
+ * Parses a DSN such as `http://<key>@errors.example.test/<project>`. Errors name the variable
  * but never echo its value: a DSN lets anyone who reaches GlitchTip post events, so it stays out of logs. (Sentry's
  * own parser prints invalid DSNs to the console, which is why it isn't used here.)
  */

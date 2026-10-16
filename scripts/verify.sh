@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Every check a push must pass, in the order that fails cheapest first (`pnpm verify`, as aiontheballot). Stops at the
+# Every check a push must pass, in the order that fails cheapest first (`pnpm verify`). Stops at the
 # first failure and prints the end of its output; the whole log is in $VERIFY_LOG. Needs the local database up and
 # migrated (CONTRIBUTING.md), like `pnpm test:db` and `pnpm test:e2e` alone.
 #

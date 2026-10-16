@@ -1,5 +1,5 @@
 #!/bin/sh
-# Mirrors what the halyard `postgresql` chart provisions in the cluster: an owner role that owns the database, and
+# Mirrors what the cluster's Postgres provisioning creates: an owner role that owns the database, and
 # runtime roles that own nothing and can never bypass row-level security (ADR-0002). Local development only: the
 # passwords come from compose.yaml and are not secrets.
 set -eu

@@ -63,7 +63,7 @@ export interface AirtableConfig {
 
 export interface MailConfig {
   /**
-   * Mailu's SMTP submission with the sender account's credentials: `smtps://user:password@host:465`, or `smtp://…`
+   * The mail server's SMTP submission with the sender account's credentials: `smtps://user:password@host:465`, or `smtp://…`
    * with STARTTLS. Never logged.
    */
   smtpUrl: string;

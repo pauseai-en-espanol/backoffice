@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Mutation check (`pnpm test:mutation <list> [--only <text>]`, as in aiontheballot): breaks each rule in turn and expects a test
+// Mutation check (`pnpm test:mutation <list> [--only <text>]`): breaks each rule in turn and expects a test
 // to fail. A list is a JSON array in scripts/mutations/ (or any path) of mutations:
 //
 //   { "name": "what breaks", "file": "path from the root", "old": "exact text", "new": "its replacement",

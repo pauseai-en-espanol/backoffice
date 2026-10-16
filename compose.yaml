@@ -1,6 +1,6 @@
-# Local development and test database, mirroring production on danilupion-com: the same Postgres image as the
-# halyard `postgresql` chart, and the same roles (an owner plus non-owner runtime roles, as the chart's `extraRoles`
-# create them). See ADR-0001 and ADR-0002.
+# Local development and test database, mirroring production: the same Postgres image as the cluster's, and the same
+# roles (an owner plus non-owner runtime roles, as the cluster's provisioning creates them). See ADR-0001 and
+# ADR-0002.
 #
 #   pnpm db:up               # start Postgres on :5434 (override with BACKOFFICE_PG_PORT)
 #   pnpm db:migrate          # apply migrations and refresh db/schema.sql

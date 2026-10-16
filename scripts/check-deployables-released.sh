@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Every deployable whose code changed must be in the release plan, or CD won't rebuild its image (aiontheballot once
-# shipped an API needing a migration whose image kept its old tag, because no changeset named it).
+# Every deployable whose code changed must be in the release plan, or CD won't rebuild its image (an API needing a
+# migration could ship with its image at its old tag, because no changeset named it).
 #
 # A deployable is an umbrella-chart dependency. It changed if a commit since the merge-base with the base touched it
 # or one of its workspace dependencies (turbo; uncommitted work doesn't count, since it isn't being pushed). It is

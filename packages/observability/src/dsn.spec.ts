@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseDsn, readDsn } from './dsn.js';
 
-const DSN = 'http://abc123@glitchtip-web.glitchtip.svc.cluster.local/7';
+const DSN = 'http://abc123@errors.example.test/7';
 
 describe('parseDsn', () => {
   it('splits a DSN and builds the envelope endpoint', () => {
@@ -10,8 +10,7 @@ describe('parseDsn', () => {
       value: DSN,
       publicKey: 'abc123',
       projectId: '7',
-      envelopeUrl:
-        'http://glitchtip-web.glitchtip.svc.cluster.local/api/7/envelope/?sentry_version=7&sentry_key=abc123',
+      envelopeUrl: 'http://errors.example.test/api/7/envelope/?sentry_version=7&sentry_key=abc123',
     });
   });
 

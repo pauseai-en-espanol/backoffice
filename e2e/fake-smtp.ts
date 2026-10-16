@@ -1,4 +1,4 @@
-// A stand-in for the backoffice's SMTP sender (Mailu) in e2e runs: just enough SMTP for nodemailer to hand over a
+// A stand-in for the backoffice's SMTP sender (the mail server) in e2e runs: just enough SMTP for nodemailer to hand over a
 // message (no TLS, no authentication), and an HTTP side that serves back every message received on GET /received, so
 // tests can read what would have been sent. Run directly by Node (type stripping), so it imports nothing from the
 // project.

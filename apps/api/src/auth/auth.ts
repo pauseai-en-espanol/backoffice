@@ -164,7 +164,7 @@ export type StaffAuthOptions = Omit<BetterAuthOptions, 'session'> & {
 };
 
 /**
- * Better Auth as the staff app uses it (ADR-0003, as aiontheballot): email and password with no sign-up, then a TOTP
+ * Better Auth as the staff app uses it (ADR-0003): email and password with no sign-up, then a TOTP
  * or backup code; sessions of 12 hours, never refreshed, with no "remember me"; attempts limited per address in the
  * database. Only the endpoints routes.ts lets through are reachable.
  */

@@ -1,5 +1,5 @@
 /**
- * The few Bot API methods the bot uses (https://core.telegram.org/bots/api), by hand, as aisafety-newsroom does:
+ * The few Bot API methods the bot uses (https://core.telegram.org/bots/api), by hand:
  * plain text only (no parse mode, so nothing a person typed can format a message), inline keyboards for choices.
  */
 
