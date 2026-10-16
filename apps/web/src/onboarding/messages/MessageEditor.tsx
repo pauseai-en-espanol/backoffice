@@ -61,7 +61,8 @@ export const MessageEditor = ({
     template !== null && template.bodyNameless !== null,
   );
   const [tried, setTried] = useState(false);
-  const [missing, setMissing] = useState<string>();
+  // What stopped the last save, as it was then: the alert isn't rewritten (and re-announced) at every keystroke.
+  const [stopped, setStopped] = useState<string>();
   const base = template ? `mensaje-${template.id}` : `mensaje-nuevo-${purpose}`;
 
   const usesName = body.includes('{nombre}');
@@ -74,20 +75,22 @@ export const MessageEditor = ({
     typeof refused === 'string' && REFUSED[refused] !== undefined
       ? text.problem[REFUSED[refused]]
       : undefined;
-  const error =
-    missing ??
-    (tried && problems.length > 0
-      ? `${text.problems} ${problems.map((problem) => problemText(problem, purpose, text.problem)).join(' ')}`
-      : (refusedWords ?? write.error));
+  const error = stopped ?? refusedWords ?? write.error;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setTried(true);
     const titleValue = formText(event.currentTarget, 'title').trim();
-    const blank =
-      titleValue === '' ? text.titleMissing : body.trim() === '' ? text.bodyMissing : undefined;
-    setMissing(blank);
-    if (blank !== undefined || problems.length > 0) {
+    const why =
+      titleValue === ''
+        ? text.titleMissing
+        : body.trim() === ''
+          ? text.bodyMissing
+          : problems.length > 0
+            ? `${text.problems} ${problems.map((problem) => problemText(problem, purpose, text.problem)).join(' ')}`
+            : undefined;
+    setStopped(why);
+    if (why !== undefined) {
       write.clear();
       return;
     }
@@ -151,7 +154,10 @@ export const MessageEditor = ({
           id={`${base}-texto`}
           className={onboarding.textarea}
           value={body}
-          onChange={(event) => setBody(event.target.value)}
+          onChange={(event) => {
+            setStopped(undefined);
+            setBody(event.target.value);
+          }}
           required
           maxLength={2000}
           aria-invalid={tried && problems.length > 0}
@@ -171,6 +177,7 @@ export const MessageEditor = ({
             className={onboarding.textarea}
             value={namelessText ?? ''}
             onChange={(event) => {
+              setStopped(undefined);
               setNamelessTouched(true);
               setNameless(event.target.value);
             }}
