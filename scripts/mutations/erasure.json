@@ -94,5 +94,21 @@
     "new": "return { outcome };",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
     "cwd": "apps/api"
+  },
+  {
+    "name": "two answers with the same new email race",
+    "file": "db/migrations/20261016062343_census_answers_at_once.sql",
+    "old": "PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('census email ' || (answer ->> 'email'), 0));",
+    "new": "NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "two answers with the same new phone race",
+    "file": "db/migrations/20261016062343_census_answers_at_once.sql",
+    "old": "PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('census phone ' || (answer ->> 'phone'), 0));",
+    "new": "NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
   }
 ]

@@ -1,8 +1,8 @@
-import type pg from 'pg';
-
+import pg from 'pg';
 import { describe, expect, it } from 'vitest';
 
 import { actAs, errorCode, inRolledBackTransaction } from './db.js';
+import { superuserUrl } from './env.js';
 import { ANA_PHONE, CENSUS_TOKEN, PEOPLE, tokenHash, USERS } from './fixtures.js';
 
 /** A census answer as the form sends it, fictional, with everything it needs. */
@@ -519,4 +519,84 @@ describe('the census, after the review', () => {
       expect(await submit(client, CENSUS_TOKEN)).toBe('invalid');
     });
   });
+});
+
+describe('two answers at once', () => {
+  const email = 'a.la.vez@ejemplo.test';
+  const phone = '+34600000999';
+
+  /** Removes everything a committed answer made: a person, their identities, sources, consents and events. */
+  const cleanUp = async () => {
+    const client = new pg.Client({ connectionString: superuserUrl() });
+    await client.connect();
+    try {
+      await client.query('BEGIN');
+      // Append-only tables refuse deletes through their triggers; this is the test's own data.
+      await client.query("SET LOCAL session_replication_role = 'replica'");
+      const people = (
+        await client.query<{ person_id: string }>(
+          `SELECT person_id FROM app.identities
+            WHERE (kind = 'email' AND value LIKE 'a.la.vez%') OR (kind = 'phone' AND value = $1)`,
+          [phone],
+        )
+      ).rows.map((r) => r.person_id);
+      const tables = (
+        await client.query<{ name: string }>(
+          `SELECT c.table_name AS name FROM information_schema.columns c
+             JOIN information_schema.tables t USING (table_schema, table_name)
+            WHERE c.table_schema = 'app' AND c.column_name = 'person_id' AND t.table_type = 'BASE TABLE'`,
+        )
+      ).rows.map((r) => r.name);
+      for (const table of tables) {
+        await client.query(`DELETE FROM app.${table} WHERE person_id = ANY($1::uuid[])`, [people]);
+      }
+      await client.query('DELETE FROM app.people WHERE id = ANY($1::uuid[])', [people]);
+      await client.query(
+        `DELETE FROM app.intake_records WHERE source = 'census'
+            AND (payload ->> 'emails' LIKE '%a.la.vez%' OR payload -> 'phones' ? $1)`,
+        [phone],
+      );
+      await client.query('COMMIT');
+    } finally {
+      await client.end();
+    }
+  };
+
+  it.each([
+    ['email', { email }, { email, name: 'Otra Persona Ejemplo' }],
+    ['phone', { email, phone }, { email: 'a.la.vez.otra@ejemplo.test', phone }],
+  ])(
+    'with the same new %s: the second waits for the first, and goes to the Bandeja',
+    async (_, firstAnswer, secondAnswer) => {
+      const first = new pg.Client({ connectionString: superuserUrl() });
+      const second = new pg.Client({ connectionString: superuserUrl() });
+      await Promise.all([first.connect(), second.connect()]);
+      await cleanUp();
+      try {
+        await first.query('BEGIN');
+        expect(await submit(first, null, firstAnswer)).toBe('created');
+        await second.query('BEGIN');
+        const { rows } = await second.query<{ pid: number }>('SELECT pg_backend_pid() AS pid');
+        const later = submit(second, null, secondAnswer);
+        // The second is held until the first is done.
+        const waiting = async () =>
+          (
+            await first.query<{ waiting: boolean }>(
+              "SELECT wait_event_type = 'Lock' AS waiting FROM pg_stat_activity WHERE pid = $1",
+              [rows[0]?.pid],
+            )
+          ).rows[0]?.waiting;
+        for (let tries = 0; tries < 50 && !(await waiting()); tries += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        expect(await waiting()).toBe(true);
+        await first.query('COMMIT');
+        expect(await later).toBe('review');
+        await second.query('ROLLBACK');
+      } finally {
+        await Promise.all([first.end(), second.end()]);
+        await cleanUp();
+      }
+    },
+  );
 });

@@ -1923,6 +1923,16 @@ CREATE FUNCTION private.submit_census(token_hash text, answer jsonb) RETURNS tex
       RETURN 'updated';
     END IF;
 
+    -- Two answers with the same new email or phone at once (a double click, a reload): the second waits here until the
+    -- first is done, then finds the person it made and waits in the Bandeja, instead of failing on an identity it can't
+    -- add twice. Email first, then phone, always, so two answers never wait on each other.
+    IF coalesce(answer ->> 'email', '') <> '' THEN
+      PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('census email ' || (answer ->> 'email'), 0));
+    END IF;
+    IF coalesce(answer ->> 'phone', '') <> '' THEN
+      PERFORM pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('census phone ' || (answer ->> 'phone'), 0));
+    END IF;
+
     INSERT INTO app.intake_records (source, external_id, payload, reported_by)
     VALUES ('census', 'censo:' || pg_catalog.gen_random_uuid()::text,
             jsonb_strip_nulls(jsonb_build_object(
