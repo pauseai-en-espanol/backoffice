@@ -1,4 +1,5 @@
 ---
+'@backoffice/migrations': patch
 '@backoffice/api': patch
 '@backoffice/web': patch
 '@backoffice/forms': patch
