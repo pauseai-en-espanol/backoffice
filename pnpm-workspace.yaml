@@ -23,3 +23,12 @@ allowBuilds:
   '@parcel/watcher': true
   # native SWC binary, pulled in by next-intl
   '@swc/core': true
+
+# better-auth lists framework integrations as optional peers, and pnpm fills them from the workspace (the web app's
+# Next.js and React, the test runner): `pnpm deploy --prod` then put Next.js, Playwright and Vitest in the API's
+# image, doubling it. The API uses none of them; '-' drops each from better-auth's peers.
+overrides:
+  'better-auth>next': '-'
+  'better-auth>react': '-'
+  'better-auth>react-dom': '-'
+  'better-auth>vitest': '-'
