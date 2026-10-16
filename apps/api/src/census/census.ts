@@ -288,7 +288,8 @@ export const exportPerson = async (
   const [survivor, ...merged] = chain;
   const profileOf = (id: string) => sql`
     SELECT p.id, p.full_name, p.preferred_name, p.province, p.town, p.languages, p.pronouns, p.availability,
-           p.how_heard, p.skills_other, p.interests_other, p.stage, p.owner_id, p.next_action, p.next_action_due,
+           p.how_heard, p.skills_other, p.interests_other, p.summary, p.stage, p.owner_id, p.next_action,
+           p.next_action_due,
            to_char(p.arrived_on, 'YYYY-MM-DD') AS arrived_on, c.label AS arrived_through, p.profile_completed_at,
            p.merged_into, p.anonymised_at, p.created_at, p.updated_at
       FROM app.people p LEFT JOIN app.arrival_channels c ON c.id = p.arrival_channel_id WHERE p.id = ${id}`;

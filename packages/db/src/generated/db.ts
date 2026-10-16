@@ -497,6 +497,10 @@ export interface AppPeople {
   /**
    * personal data
    */
+  summary: string | null;
+  /**
+   * personal data
+   */
   town: string | null;
   updated_at: Generated<Timestamp>;
   updated_by: string | null;

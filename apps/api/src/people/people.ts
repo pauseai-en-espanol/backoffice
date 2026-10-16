@@ -2,6 +2,7 @@ import type { DB } from '@backoffice/db/generated/db';
 import type { AttentionReason, Stage } from '@backoffice/domain/stages';
 
 import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { type MissingDetail, missingDetails } from '@backoffice/domain/missing';
 import { type RawBuilder, sql, type Transaction } from 'kysely';
 
 /**
@@ -31,6 +32,10 @@ export interface PersonSummary {
   /** "Llegó por", from the list in Ajustes. */
   arrival: { id: string; label: string } | null;
   createdAt: string;
+  /** The one-line internal summary (PLAN M5, step 4): staff only, never to Telegram. */
+  summary: string | null;
+  /** What the card says is missing ("Falta: correo · qué quiere hacer"), from what the database knows. */
+  missing: MissingDetail[];
 }
 
 interface SummaryRow {
@@ -50,6 +55,10 @@ interface SummaryRow {
   arrival_id: string | null;
   arrival_label: string | null;
   created_at: string;
+  summary: string | null;
+  has_phone: boolean;
+  has_email: boolean;
+  has_interests: boolean;
 }
 
 const SUMMARY_COLUMNS = sql`
@@ -59,7 +68,12 @@ const SUMMARY_COLUMNS = sql`
   ARRAY(SELECT ps.source::text FROM app.person_sources ps WHERE ps.person_id = p.id ORDER BY ps.first_seen_at)
     AS sources,
   to_char(p.arrived_on, 'YYYY-MM-DD') AS arrived_on, ac.id AS arrival_id, ac.label AS arrival_label,
-  to_json(p.created_at)#>>'{}' AS created_at`;
+  to_json(p.created_at)#>>'{}' AS created_at, p.summary,
+  EXISTS (SELECT 1 FROM app.identities i WHERE i.person_id = p.id AND i.kind = 'phone') AS has_phone,
+  EXISTS (SELECT 1 FROM app.identities i WHERE i.person_id = p.id AND i.kind = 'email') AS has_email,
+  p.interests_other IS NOT NULL
+    OR EXISTS (SELECT 1 FROM app.person_options po JOIN app.census_options o ON o.id = po.option_id
+                WHERE po.person_id = p.id AND o.kind = 'interest') AS has_interests`;
 
 const SUMMARY_FROM = sql`
   app.people p
@@ -83,6 +97,14 @@ const toSummary = (row: SummaryRow): PersonSummary => ({
   arrival:
     row.arrival_id && row.arrival_label ? { id: row.arrival_id, label: row.arrival_label } : null,
   createdAt: row.created_at,
+  summary: row.summary,
+  missing: missingDetails({
+    stage: row.stage,
+    hasPhone: row.has_phone,
+    hasEmail: row.has_email,
+    province: row.province,
+    hasInterests: row.has_interests,
+  }),
 });
 
 export interface PeopleFilter {
@@ -527,6 +549,7 @@ export const PROFILE_FIELDS = {
   pronouns: 'pronouns',
   availability: 'availability',
   howHeard: 'how_heard',
+  summary: 'summary',
   stage: 'stage',
   ownerId: 'owner_id',
   nextAction: 'next_action',

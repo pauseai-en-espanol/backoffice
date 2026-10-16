@@ -833,3 +833,67 @@ describe('when and where from, and Discord (PLAN M5)', () => {
     }
   });
 });
+
+describe('cards that say who someone is (PLAN M5, step 4)', () => {
+  type Card = { id: string; summary: string | null; missing: string[]; province: string | null };
+
+  it('says what is missing in plain words, and keeps a one-line internal summary', async () => {
+    const name = `Maite Prueba ${suffix()}`;
+    const { personId } = (
+      await onboarder.who.send('POST', '/api/intake', {
+        name,
+        phone: `6002${suffix()}`.slice(0, 9),
+        decision: 'new',
+      })
+    ).json<{ personId: string }>();
+    people.push(personId);
+    const card = async () =>
+      (await onboarder.who.send('GET', `/api/people/${personId}`)).json<{ person: Card }>().person;
+    expect(await card()).toMatchObject({
+      summary: null,
+      missing: ['email', 'province', 'interests'],
+    });
+
+    expect(
+      (
+        await onboarder.who.send('PATCH', `/api/people/${personId}`, {
+          province: 'Madrid',
+          summary: '  Diseñadora, quiere ayudar con redes  ',
+        })
+      ).statusCode,
+    ).toBe(204);
+    await superuser.query("UPDATE app.people SET interests_other = 'Redes' WHERE id = $1", [
+      personId,
+    ]);
+    expect(await card()).toMatchObject({
+      province: 'Madrid',
+      summary: 'Diseñadora, quiere ayudar con redes',
+      missing: ['email'],
+    });
+    // Lists carry the same card.
+    const listed = (
+      await onboarder.who.send('GET', `/api/people?q=${encodeURIComponent(name)}`)
+    ).json<{ people: Card[] }>().people;
+    expect(listed.find((person) => person.id === personId)).toMatchObject({
+      summary: 'Diseñadora, quiere ayudar con redes',
+      missing: ['email'],
+    });
+
+    for (const summary of ['Una línea\nY otra', 'x'.repeat(201)]) {
+      expect(
+        (await onboarder.who.send('PATCH', `/api/people/${personId}`, { summary })).statusCode,
+      ).toBe(400);
+    }
+    expect(
+      (await outreacher.who.send('PATCH', `/api/people/${personId}`, { summary: 'Otra' }))
+        .statusCode,
+    ).toBe(403);
+    expect(
+      (await onboarder.who.send('PATCH', `/api/people/${personId}`, { summary: '' })).statusCode,
+    ).toBe(204);
+    expect((await card()).summary).toBeNull();
+    // Someone discarded is asked nothing.
+    await onboarder.who.send('PATCH', `/api/people/${personId}`, { stage: 'discarded' });
+    expect((await card()).missing).toEqual([]);
+  });
+});

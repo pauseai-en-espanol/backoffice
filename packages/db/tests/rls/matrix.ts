@@ -183,6 +183,12 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         delete: NOBODY,
       },
       {
+        id: "a person's internal summary",
+        where: `id = ${ana}`,
+        select: ONBOARDING,
+        update: { set: "summary = 'Resumen de ejemplo'", rule: ONBOARDING },
+      },
+      {
         id: 'a tombstone',
         where: `id = '${PEOPLE.anaDuplicate}'`,
         select: ONBOARDING,

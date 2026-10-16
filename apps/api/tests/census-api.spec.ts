@@ -539,4 +539,37 @@ describe('the census’s staff side (M2)', () => {
     expect(erased.person).toMatchObject({ fullName: 'Persona anonimizada', identities: [] });
     expect(erased.person.anonymisedAt).not.toBeNull();
   });
+
+  it('exports every column of a person marked personal data, the internal summary too (PLAN M5)', async () => {
+    const added = (
+      await onboarder.who.send('POST', '/api/intake', {
+        name: `Censo Exportable ${crypto.randomUUID().slice(0, 6)}`,
+        decision: 'new',
+      })
+    ).json<{ personId: string }>();
+    people.push(added.personId);
+    expect(
+      (
+        await onboarder.who.send('PATCH', `/api/people/${added.personId}`, {
+          summary: 'Resumen para exportar',
+        })
+      ).statusCode,
+    ).toBe(204);
+    const exported = (
+      await admin.who.send('GET', `/api/people/${added.personId}/export`, undefined, {
+        'sec-fetch-site': 'same-origin',
+      })
+    ).json<{ person: Record<string, unknown> }>();
+    expect(exported.person.summary).toBe('Resumen para exportar');
+    // Generated columns (name_folded, the name folded for search) say nothing the name doesn't.
+    const { rows } = await superuser.query<{ column: string }>(
+      `SELECT a.attname AS column FROM pg_attribute a
+        WHERE a.attrelid = 'app.people'::regclass AND a.attnum > 0 AND NOT a.attisdropped
+          AND col_description(a.attrelid, a.attnum) = 'personal data' AND a.attgenerated = ''`,
+    );
+    expect(rows.length).toBeGreaterThan(10);
+    expect(rows.map((row) => row.column).filter((column) => !(column in exported.person))).toEqual(
+      [],
+    );
+  });
 });

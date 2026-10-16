@@ -372,6 +372,8 @@ export const peopleRoutes =
                 enum: ['occasional', 'under_2h', 'from_2_to_5h', 'over_5h', null],
               },
               howHeard: NULLABLE_TEXT(500),
+              // The card's one-line internal summary (PLAN M5, step 4).
+              summary: { ...NULLABLE_TEXT(200), pattern: '^[^\\r\\n]*$' },
               stage: { type: 'string', enum: [...STAGES] },
               // The day a stage change made now happened, if another (PLAN M5).
               stageOn: DATE,

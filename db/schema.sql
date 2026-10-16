@@ -436,7 +436,7 @@ CREATE FUNCTION private.anonymise_person(person uuid) RETURNS boolean
     UPDATE app.people p
        SET full_name = 'Persona anonimizada', preferred_name = NULL, province = NULL, town = NULL, languages = '{}',
            pronouns = NULL, availability = NULL, how_heard = NULL, next_action = NULL, next_action_due = NULL,
-           skills_other = NULL, interests_other = NULL, owner_id = NULL, anonymised_at = now()
+           skills_other = NULL, interests_other = NULL, summary = NULL, owner_id = NULL, anonymised_at = now()
      WHERE p.id = ANY (chain) AND p.anonymised_at IS NULL;
     -- Last, so the events the update above just wrote are redacted too.
     PERFORM set_config('app.redact', 'on', true);
@@ -1704,6 +1704,7 @@ CREATE FUNCTION private.merge_people(survivor uuid, merged uuid) RETURNS void
            pronouns = coalesce(p.pronouns, gone.pronouns),
            availability = coalesce(p.availability, gone.availability),
            how_heard = coalesce(p.how_heard, gone.how_heard),
+           summary = coalesce(p.summary, gone.summary),
            languages = ARRAY(SELECT DISTINCT l FROM unnest(p.languages || gone.languages) l ORDER BY l),
            profile_completed_at = greatest(p.profile_completed_at, gone.profile_completed_at),
            arrived_on = least(p.arrived_on, gone.arrived_on),
@@ -3101,6 +3102,7 @@ CREATE TABLE app.people (
     interests_other text,
     arrived_on date DEFAULT ((now() AT TIME ZONE 'Europe/Madrid'::text))::date,
     arrival_channel_id uuid,
+    summary text,
     CONSTRAINT people_check CHECK ((merged_into IS DISTINCT FROM id)),
     CONSTRAINT people_check1 CHECK (((next_action_due IS NULL) OR (next_action IS NOT NULL))),
     CONSTRAINT people_full_name_check CHECK (((full_name IS NULL) OR ((btrim(full_name) <> ''::text) AND (length(full_name) <= 200)))),
@@ -3112,6 +3114,7 @@ CREATE TABLE app.people (
     CONSTRAINT people_pronouns_check CHECK ((length(pronouns) <= 50)),
     CONSTRAINT people_province_check CHECK ((length(province) <= 100)),
     CONSTRAINT people_skills_other_check CHECK ((length(skills_other) <= 300)),
+    CONSTRAINT people_summary_check CHECK (((btrim(summary) <> ''::text) AND (length(summary) <= 200) AND (summary !~ '[\r\n]'::text))),
     CONSTRAINT people_town_check CHECK ((length(town) <= 100))
 );
 
@@ -3200,6 +3203,13 @@ COMMENT ON COLUMN app.people.skills_other IS 'personal data';
 --
 
 COMMENT ON COLUMN app.people.interests_other IS 'personal data';
+
+
+--
+-- Name: COLUMN people.summary; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.summary IS 'personal data';
 
 
 --
@@ -7403,6 +7413,13 @@ GRANT UPDATE(arrived_on) ON TABLE app.people TO pauseai_backoffice_app;
 --
 
 GRANT UPDATE(arrival_channel_id) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.summary; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(summary) ON TABLE app.people TO pauseai_backoffice_app;
 
 
 --

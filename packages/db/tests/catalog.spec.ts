@@ -503,6 +503,7 @@ const PERSONAL_DATA: readonly string[] = [
   'people.pronouns',
   'people.province',
   'people.skills_other',
+  'people.summary',
   'people.town',
   'person_events.body',
   'person_events.data',
