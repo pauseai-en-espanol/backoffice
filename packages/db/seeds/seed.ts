@@ -26,13 +26,13 @@ if (!['localhost', '127.0.0.1', '::1', '[::1]'].includes(hostname)) {
 const MARKER = '0190f8c4-5eed-7000-8000-000000000001';
 
 const STAGES = [
-  'to_triage',
+  'new',
   'new',
   'new',
   'new',
   'contacting',
   'contacting',
-  'talking',
+  'contacting',
   'welcomed',
   'active',
   'active',
@@ -41,6 +41,8 @@ const STAGES = [
   'left',
   'discarded',
 ] as const;
+/** Where each seeded person came from ("Llegó por"), by the list's keys; null for not said. */
+const ARRIVALS = ['whatsapp', 'airtable', 'discord', null, 'email', 'whatsapp'] as const;
 const FIRST = [
   'Alba',
   'Bruno',
@@ -234,15 +236,21 @@ try {
       const source = SOURCES[n % SOURCES.length] ?? 'manual';
       const province = PROVINCES[n % PROVINCES.length] ?? null;
       const { rows } = await client.query<{ id: string }>(
-        `INSERT INTO app.people (id, full_name, stage, province, next_action, next_action_due)
-         VALUES (coalesce($1::uuid, uuidv7()), $2, $3, $4, $5, $6) RETURNING id`,
+        `INSERT INTO app.people (id, full_name, stage, province, next_action, next_action_due, arrived_on,
+                                 arrival_channel_id)
+         VALUES (coalesce($1::uuid, uuidv7()), $2, $3, $4, $5, $6, current_date - $7::int,
+                 (SELECT id FROM app.arrival_channels WHERE key = $8))
+         RETURNING id`,
         [
           n === 0 ? MARKER : null,
           name,
           stage,
           province,
-          ['contacting', 'talking', 'welcomed'].includes(stage) ? 'Escribir para quedar' : null,
-          stage === 'talking' ? new Date(Date.now() - 86_400_000).toISOString().slice(0, 10) : null,
+          ['contacting', 'welcomed'].includes(stage) ? 'Escribir para quedar' : null,
+          n === 6 ? new Date(Date.now() - 86_400_000).toISOString().slice(0, 10) : null,
+          // The first arrived long ago (an existing member, out of "Sin asignar"); the rest over the last weeks.
+          n === 0 ? 120 : n * 3,
+          ARRIVALS[n % ARRIVALS.length],
         ],
       );
       const id = rows[0]?.id ?? '';
@@ -266,7 +274,13 @@ try {
           [id, 10 + n, stage === 'left', n % 2 === 0 ? 'Chat general' : 'Chat Norte'],
         );
       }
-      if (['contacting', 'talking', 'welcomed', 'active', 'unresponsive'].includes(stage)) {
+      if (n % 5 === 2) {
+        await client.query(
+          `INSERT INTO app.identities (person_id, kind, value, source) VALUES ($1, 'discord', $2, $3)`,
+          [id, slug.replaceAll(/[^a-z0-9_.]/gu, '_').slice(0, 32), source],
+        );
+      }
+      if (['contacting', 'welcomed', 'active', 'unresponsive'].includes(stage)) {
         await client.query(
           `INSERT INTO app.person_events (person_id, kind, data)
            VALUES ($1, 'contact_attempt', '{"channel": "whatsapp", "outcome": "no_answer"}')`,

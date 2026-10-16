@@ -32,7 +32,7 @@ export type AppEventKind =
   | 'reported'
   | 'stage_changed';
 
-export type AppIdentityKind = 'airtable' | 'email' | 'phone';
+export type AppIdentityKind = 'airtable' | 'discord' | 'email' | 'phone';
 
 export type AppIntakeStatus =
   'attached' | 'conflict' | 'created' | 'discarded' | 'pending' | 'review';
@@ -56,16 +56,7 @@ export type AppSourceKind = 'airtable' | 'census' | 'csv' | 'manual' | 'telegram
 export type AppStaffRole = 'admin' | 'onboarding' | 'outreach';
 
 export type AppStage =
-  | 'active'
-  | 'contacting'
-  | 'discarded'
-  | 'dormant'
-  | 'left'
-  | 'new'
-  | 'talking'
-  | 'to_triage'
-  | 'unresponsive'
-  | 'welcomed';
+  'active' | 'contacting' | 'discarded' | 'dormant' | 'left' | 'new' | 'unresponsive' | 'welcomed';
 
 export type AppTargetStatus =
   | 'bounced'
@@ -105,6 +96,18 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 export type Numeric = ColumnType<string, number | string, number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface AppArrivalChannels {
+  active: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  key: string | null;
+  label: string;
+  position: Generated<number>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
 
 export interface AppAuditLog {
   action: string;
@@ -419,6 +422,8 @@ export interface AppOrganisations {
 
 export interface AppPeople {
   anonymised_at: Timestamp | null;
+  arrival_channel_id: string | null;
+  arrived_on: Generated<Timestamp | null>;
   /**
    * personal data
    */
@@ -496,6 +501,7 @@ export interface AppPersonEvents {
    * personal data
    */
   data: Generated<Json>;
+  happened_on: Timestamp | null;
   id: Generated<string>;
   kind: AppEventKind;
   person_id: string;
@@ -547,6 +553,7 @@ export interface AppStaffRoles {
 }
 
 export interface DB {
+  'app.arrival_channels': AppArrivalChannels;
   'app.audit_log': AppAuditLog;
   'app.campaign_anchors': AppCampaignAnchors;
   'app.campaign_targets': AppCampaignTargets;

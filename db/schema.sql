@@ -169,7 +169,8 @@ ALTER TYPE app.event_kind OWNER TO pauseai_backoffice_owner;
 CREATE TYPE app.identity_kind AS ENUM (
     'email',
     'phone',
-    'airtable'
+    'airtable',
+    'discord'
 );
 
 
@@ -260,10 +261,8 @@ ALTER TYPE app.staff_role OWNER TO pauseai_backoffice_owner;
 --
 
 CREATE TYPE app.stage AS ENUM (
-    'to_triage',
     'new',
     'contacting',
-    'talking',
     'welcomed',
     'active',
     'dormant',
@@ -439,6 +438,44 @@ CREATE FUNCTION private.anonymise_person(person uuid) RETURNS boolean
 ALTER FUNCTION private.anonymise_person(person uuid) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: arrival_channel(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.arrival_channel(word text) RETURNS uuid
+    LANGUAGE sql STABLE
+    SET search_path TO ''
+    AS $$
+    SELECT c.id FROM app.arrival_channels c
+     WHERE c.active AND coalesce(btrim(word), '') <> ''
+       AND (c.id::text = lower(btrim(word)) OR c.key = lower(btrim(word))
+            OR private.fold_name(c.label) = private.fold_name(word))
+     ORDER BY (c.key = lower(btrim(word))) DESC NULLS LAST, c.position
+     LIMIT 1
+  $$;
+
+
+ALTER FUNCTION private.arrival_channel(word text) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: arrival_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.arrival_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NEW.arrived_on > (now() AT TIME ZONE 'Europe/Madrid')::date THEN
+      RAISE EXCEPTION 'nobody arrives in the future' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.arrival_rules() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: audit(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -579,7 +616,7 @@ CREATE FUNCTION private.bot_people(scope text, query text DEFAULT NULL::text, ph
       LEFT JOIN app.staff s ON s.user_id = p.owner_id
      WHERE CASE scope
              WHEN 'mine' THEN p.owner_id = private.current_user_id() AND cardinality(a.reasons) > 0
-             WHEN 'unassigned' THEN p.stage = 'new' AND p.owner_id IS NULL
+             WHEN 'unassigned' THEN 'unassigned' = ANY (a.reasons)
              WHEN 'person' THEN p.id::text = query
              WHEN 'search' THEN
                EXISTS (SELECT 1 FROM app.identities i
@@ -593,7 +630,7 @@ CREATE FUNCTION private.bot_people(scope text, query text DEFAULT NULL::text, ph
            END
      ORDER BY CASE WHEN scope = 'search' AND coalesce(btrim(query), '') <> ''
                    THEN extensions.similarity(p.name_folded, private.fold_name(query)) END DESC NULLS LAST,
-              p.created_at
+              p.arrived_on, p.created_at
      LIMIT 20;
   END
   $$;
@@ -614,12 +651,10 @@ CREATE FUNCTION private.bot_summary() RETURNS TABLE(unassigned integer, arrived_
       RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
     END IF;
     RETURN QUERY
-    SELECT (SELECT count(*)::int FROM app.people p
-             WHERE p.stage = 'new' AND p.owner_id IS NULL AND p.merged_into IS NULL AND p.anonymised_at IS NULL),
+    SELECT (SELECT count(*)::int FROM app.people_attention a WHERE 'unassigned' = ANY (a.reasons)),
            (SELECT count(*)::int FROM app.people p
              WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL
-               AND (p.created_at AT TIME ZONE 'Europe/Madrid')::date
-                   = (now() AT TIME ZONE 'Europe/Madrid')::date - 1);
+               AND p.arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date - 1);
   END
   $$;
 
@@ -791,7 +826,7 @@ ALTER FUNCTION private.check_census(answer jsonb) OWNER TO pauseai_backoffice_ow
 CREATE FUNCTION private.check_payload(payload jsonb) RETURNS void
     LANGUAGE plpgsql IMMUTABLE
     SET search_path TO ''
-    AS $$
+    AS $_$
   DECLARE
     extra text;
   BEGIN
@@ -799,18 +834,23 @@ CREATE FUNCTION private.check_payload(payload jsonb) RETURNS void
       RAISE EXCEPTION 'an intake payload is an object' USING ERRCODE = 'invalid_parameter_value';
     END IF;
     SELECT string_agg(k, ', ') INTO extra FROM jsonb_object_keys(payload) k
-     WHERE k NOT IN ('name', 'preferred_name', 'emails', 'phones', 'airtable_id', 'province', 'town', 'languages',
-                     'how_heard', 'chat', 'note', 'stage', 'joined_on');
+     WHERE k NOT IN ('name', 'preferred_name', 'emails', 'phones', 'discords', 'airtable_id', 'province', 'town',
+                     'languages', 'how_heard', 'chat', 'note', 'stage', 'joined_on', 'arrived_on', 'arrival');
     IF extra IS NOT NULL THEN
       RAISE EXCEPTION 'an intake payload takes no %', extra USING ERRCODE = 'invalid_parameter_value';
     END IF;
     IF jsonb_typeof(coalesce(payload -> 'emails', '[]')) <> 'array'
        OR jsonb_typeof(coalesce(payload -> 'phones', '[]')) <> 'array'
+       OR jsonb_typeof(coalesce(payload -> 'discords', '[]')) <> 'array'
        OR jsonb_typeof(coalesce(payload -> 'languages', '[]')) <> 'array' THEN
-      RAISE EXCEPTION 'emails, phones and languages are arrays' USING ERRCODE = 'invalid_parameter_value';
+      RAISE EXCEPTION 'emails, phones, discords and languages are arrays' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF payload ? 'arrived_on' AND jsonb_typeof(payload -> 'arrived_on') <> 'null'
+       AND (jsonb_typeof(payload -> 'arrived_on') <> 'string' OR (payload ->> 'arrived_on') !~ '^\d{4}-\d{2}-\d{2}$') THEN
+      RAISE EXCEPTION 'arrived_on is a date, YYYY-MM-DD, or null' USING ERRCODE = 'invalid_parameter_value';
     END IF;
   END
-  $$;
+  $_$;
 
 
 ALTER FUNCTION private.check_payload(payload jsonb) OWNER TO pauseai_backoffice_owner;
@@ -848,13 +888,14 @@ CREATE FUNCTION private.contact_attempt_rules() RETURNS trigger
   DECLARE
     current app.stage;
     attempts integer;
-    first_at timestamptz;
+    first_on date;
     settings app.settings;
+    replied record;
   BEGIN
     SELECT p.stage INTO current FROM app.people p WHERE p.id = NEW.person_id;
     IF NEW.data ->> 'outcome' = 'replied' THEN
-      IF current IN ('new', 'contacting', 'unresponsive') THEN
-        UPDATE app.people p SET stage = 'talking' WHERE p.id = NEW.person_id;
+      IF current IN ('new', 'unresponsive') THEN
+        UPDATE app.people p SET stage = 'contacting' WHERE p.id = NEW.person_id;
       END IF;
       RETURN NULL;
     END IF;
@@ -864,14 +905,21 @@ CREATE FUNCTION private.contact_attempt_rules() RETURNS trigger
     END IF;
     IF current = 'contacting' THEN
       SELECT s.* INTO settings FROM app.settings s;
-      SELECT count(*), min(e.created_at) INTO attempts, first_at
+      SELECT coalesce(r.happened_on, (r.created_at AT TIME ZONE 'Europe/Madrid')::date) AS on_day, r.created_at
+        INTO replied
+        FROM app.person_events r
+       WHERE r.person_id = NEW.person_id AND r.kind = 'contact_attempt' AND r.data ->> 'outcome' = 'replied'
+       ORDER BY 1 DESC, r.created_at DESC
+       LIMIT 1;
+      SELECT count(*), min(coalesce(e.happened_on, (e.created_at AT TIME ZONE 'Europe/Madrid')::date))
+        INTO attempts, first_on
         FROM app.person_events e
        WHERE e.person_id = NEW.person_id AND e.kind = 'contact_attempt'
-         AND e.created_at > coalesce((SELECT max(r.created_at) FROM app.person_events r
-                               WHERE r.person_id = NEW.person_id AND r.kind = 'contact_attempt'
-                                 AND r.data ->> 'outcome' = 'replied'), '-infinity');
+         AND (replied.on_day IS NULL
+              OR (coalesce(e.happened_on, (e.created_at AT TIME ZONE 'Europe/Madrid')::date), e.created_at)
+                 > (replied.on_day, replied.created_at));
       IF attempts >= settings.unresponsive_attempts
-         AND first_at <= now() - make_interval(days => settings.unresponsive_days) THEN
+         AND first_on <= (now() AT TIME ZONE 'Europe/Madrid')::date - settings.unresponsive_days THEN
         UPDATE app.people p SET stage = 'unresponsive' WHERE p.id = NEW.person_id;
       END IF;
     END IF;
@@ -1006,6 +1054,25 @@ CREATE FUNCTION private.forbid_mutation() RETURNS trigger
 
 
 ALTER FUNCTION private.forbid_mutation() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: happened_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.happened_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NEW.happened_on > (now() AT TIME ZONE 'Europe/Madrid')::date THEN
+      RAISE EXCEPTION 'nothing has happened in the future yet' USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.happened_rules() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: import_batch(text, app.source_kind, text, jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -1194,6 +1261,7 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
     proposed text;
     held text;
     taken text[] := '{}';
+    channel uuid := private.arrival_channel(payload ->> 'arrival');
   BEGIN
     SELECT p.* INTO subject FROM app.people p WHERE p.id = person FOR UPDATE;
     FOR identity IN SELECT * FROM private.intake_identities(payload) LOOP
@@ -1238,6 +1306,16 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
                                  SELECT jsonb_array_elements_text(payload -> 'languages'))) l ORDER BY l)
        WHERE p.id = person;
     END IF;
+    IF payload ->> 'arrived_on' IS NOT NULL
+       AND (subject.arrived_on IS NULL
+            OR least((payload ->> 'arrived_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date) < subject.arrived_on) THEN
+      UPDATE app.people p
+         SET arrived_on = least((payload ->> 'arrived_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date)
+       WHERE p.id = person;
+    END IF;
+    IF channel IS NOT NULL AND subject.arrival_channel_id IS NULL THEN
+      UPDATE app.people p SET arrival_channel_id = channel WHERE p.id = person;
+    END IF;
 
     IF (intake.source = 'telegram' OR payload ? 'chat' OR payload ? 'joined_on')
        AND NOT EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = person AND c.left_on IS NULL) THEN
@@ -1272,17 +1350,22 @@ CREATE FUNCTION private.intake_create(intake app.intake_records) RETURNS uuid
   DECLARE
     person uuid;
     named boolean := coalesce(btrim(intake.payload ->> 'name'), '') <> '';
+    today date := (now() AT TIME ZONE 'Europe/Madrid')::date;
   BEGIN
     IF NOT named
        AND NOT (intake.source IN ('telegram', 'manual')
                 AND EXISTS (SELECT 1 FROM private.intake_identities(intake.payload) x
-                             WHERE x.kind IN ('phone', 'email') AND btrim(x.value) <> '')) THEN
-      RAISE EXCEPTION 'a new person needs a name, or a phone or an email' USING ERRCODE = 'check_violation';
+                             WHERE x.kind IN ('phone', 'email', 'discord') AND btrim(x.value) <> '')) THEN
+      RAISE EXCEPTION 'a new person needs a name, or a phone, an email or a Discord username'
+        USING ERRCODE = 'check_violation';
     END IF;
-    INSERT INTO app.people (full_name, stage)
+    INSERT INTO app.people (full_name, stage, arrived_on, arrival_channel_id)
     VALUES (CASE WHEN named THEN left(btrim(intake.payload ->> 'name'), 200) END,
-            CASE WHEN intake.payload ->> 'stage' IN ('to_triage', 'new', 'welcomed', 'active')
-                 THEN (intake.payload ->> 'stage')::app.stage ELSE 'new' END)
+            CASE WHEN intake.payload ->> 'stage' IN ('new', 'welcomed', 'active')
+                 THEN (intake.payload ->> 'stage')::app.stage ELSE 'new' END,
+            CASE WHEN jsonb_typeof(intake.payload -> 'arrived_on') = 'null' THEN NULL
+                 ELSE least(coalesce((intake.payload ->> 'arrived_on')::date, today), today) END,
+            private.arrival_channel(intake.payload ->> 'arrival'))
     RETURNING id INTO person;
     PERFORM private.intake_attach(intake, person);
     RETURN person;
@@ -1303,6 +1386,8 @@ CREATE FUNCTION private.intake_identities(payload jsonb) RETURNS TABLE(kind app.
     SELECT 'email'::app.identity_kind, e FROM jsonb_array_elements_text(coalesce(payload -> 'emails', '[]')) e
     UNION
     SELECT 'phone'::app.identity_kind, p FROM jsonb_array_elements_text(coalesce(payload -> 'phones', '[]')) p
+    UNION
+    SELECT 'discord'::app.identity_kind, d FROM jsonb_array_elements_text(coalesce(payload -> 'discords', '[]')) d
     UNION
     SELECT 'airtable'::app.identity_kind, payload ->> 'airtable_id' WHERE payload ? 'airtable_id'
   $$;
@@ -1553,7 +1638,9 @@ CREATE FUNCTION private.merge_people(survivor uuid, merged uuid) RETURNS void
            availability = coalesce(p.availability, gone.availability),
            how_heard = coalesce(p.how_heard, gone.how_heard),
            languages = ARRAY(SELECT DISTINCT l FROM unnest(p.languages || gone.languages) l ORDER BY l),
-           profile_completed_at = greatest(p.profile_completed_at, gone.profile_completed_at)
+           profile_completed_at = greatest(p.profile_completed_at, gone.profile_completed_at),
+           arrived_on = least(p.arrived_on, gone.arrived_on),
+           arrival_channel_id = coalesce(p.arrival_channel_id, gone.arrival_channel_id)
      WHERE p.id = survivor;
     UPDATE app.people p SET merged_into = survivor, owner_id = NULL, next_action = NULL, next_action_due = NULL
      WHERE p.id = merged;
@@ -1622,8 +1709,9 @@ CREATE FUNCTION private.person_timeline() RETURNS trigger
       RETURN NULL;
     END IF;
     IF NEW.stage IS DISTINCT FROM OLD.stage THEN
-      INSERT INTO app.person_events (person_id, kind, data)
-      VALUES (NEW.id, 'stage_changed', jsonb_build_object('from', OLD.stage, 'to', NEW.stage));
+      INSERT INTO app.person_events (person_id, kind, data, happened_on)
+      VALUES (NEW.id, 'stage_changed', jsonb_build_object('from', OLD.stage, 'to', NEW.stage),
+              nullif(current_setting('app.happened_on', true), '')::date);
     END IF;
     IF NEW.owner_id IS DISTINCT FROM OLD.owner_id THEN
       INSERT INTO app.person_events (person_id, kind, data)
@@ -2185,6 +2273,7 @@ CREATE FUNCTION private.team_unposted(chat bigint) RETURNS SETOF uuid
     SELECT p.id
       FROM app.people p
      WHERE p.created_at > now() - interval '48 hours' AND p.merged_into IS NULL AND p.anonymised_at IS NULL
+       AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date - 2
        AND NOT EXISTS (SELECT 1 FROM private.telegram_posts t WHERE t.person_id = p.id AND t.chat_id = chat)
      ORDER BY p.created_at
      LIMIT 20
@@ -2254,6 +2343,27 @@ CREATE FUNCTION private.unlink_telegram() RETURNS trigger
 
 
 ALTER FUNCTION private.unlink_telegram() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: arrival_channels; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.arrival_channels (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    key text,
+    label text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT arrival_channels_key_check CHECK ((key ~ '^[a-z_]{1,30}$'::text)),
+    CONSTRAINT arrival_channels_label_check CHECK (((btrim(label) <> ''::text) AND (length(label) <= 80)))
+);
+
+
+ALTER TABLE app.arrival_channels OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: audit_log; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -2730,7 +2840,8 @@ CASE kind
     WHEN 'email'::app.identity_kind THEN ((value = lower(value)) AND (value ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'::text))
     WHEN 'phone'::app.identity_kind THEN (value ~ '^\+[1-9][0-9]{6,14}$'::text)
     WHEN 'airtable'::app.identity_kind THEN (value ~ '^rec[A-Za-z0-9]{14}$'::text)
-    ELSE NULL::boolean
+    WHEN 'discord'::app.identity_kind THEN ((value ~ '^[a-z0-9_.]{2,32}$'::text) AND (POSITION(('..'::text) IN (value)) = 0))
+    ELSE false
 END)
 );
 
@@ -2858,6 +2969,8 @@ CREATE TABLE app.people (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     skills_other text,
     interests_other text,
+    arrived_on date DEFAULT ((now() AT TIME ZONE 'Europe/Madrid'::text))::date,
+    arrival_channel_id uuid,
     CONSTRAINT people_check CHECK ((merged_into IS DISTINCT FROM id)),
     CONSTRAINT people_check1 CHECK (((next_action_due IS NULL) OR (next_action IS NOT NULL))),
     CONSTRAINT people_full_name_check CHECK (((full_name IS NULL) OR ((btrim(full_name) <> ''::text) AND (length(full_name) <= 200)))),
@@ -2972,10 +3085,12 @@ CREATE TABLE app.person_events (
     channel text,
     body text,
     data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    happened_on date,
     CONSTRAINT person_events_body_check CHECK ((length(body) <= 4000)),
     CONSTRAINT person_events_channel_check CHECK ((channel = ANY (ARRAY['web'::text, 'bot'::text]))),
     CONSTRAINT person_events_check CHECK (((kind <> 'contact_attempt'::app.event_kind) OR ((data ? 'channel'::text) AND (data ? 'outcome'::text) AND ((data ->> 'channel'::text) = ANY (ARRAY['whatsapp'::text, 'phone'::text, 'email'::text, 'telegram'::text, 'in_person'::text, 'other'::text])) AND ((data ->> 'outcome'::text) = ANY (ARRAY['no_answer'::text, 'replied'::text, 'left_message'::text, 'wrong_number'::text, 'declined'::text]))))),
-    CONSTRAINT person_events_data_check CHECK ((jsonb_typeof(data) = 'object'::text))
+    CONSTRAINT person_events_data_check CHECK ((jsonb_typeof(data) = 'object'::text)),
+    CONSTRAINT person_events_happened_on_check CHECK (((happened_on IS NULL) OR (kind = ANY (ARRAY['contact_attempt'::app.event_kind, 'note'::app.event_kind, 'stage_changed'::app.event_kind]))))
 );
 
 
@@ -3029,7 +3144,7 @@ CREATE VIEW app.people_attention WITH (security_invoker='true') AS
  SELECT p.id AS person_id,
     array_remove(ARRAY[
         CASE
-            WHEN ((p.stage = 'new'::app.stage) AND (p.owner_id IS NULL)) THEN 'unassigned'::text
+            WHEN ((p.stage = 'new'::app.stage) AND (p.owner_id IS NULL) AND (p.arrived_on >= (((now() AT TIME ZONE 'Europe/Madrid'::text))::date - 30))) THEN 'unassigned'::text
             ELSE NULL::text
         END,
         CASE
@@ -3037,17 +3152,15 @@ CREATE VIEW app.people_attention WITH (security_invoker='true') AS
             ELSE NULL::text
         END,
         CASE
-            WHEN ((p.stage = ANY (ARRAY['new'::app.stage, 'contacting'::app.stage, 'talking'::app.stage, 'welcomed'::app.stage])) AND (p.next_action IS NULL)) THEN 'no_next_step'::text
+            WHEN ((p.stage = ANY (ARRAY['new'::app.stage, 'contacting'::app.stage, 'welcomed'::app.stage])) AND (p.next_action IS NULL)) THEN 'no_next_step'::text
             ELSE NULL::text
         END,
         CASE
-            WHEN ((p.stage = 'contacting'::app.stage) AND (( SELECT max(e.created_at) AS max
-               FROM app.person_events e
-              WHERE ((e.person_id = p.id) AND (e.kind = 'contact_attempt'::app.event_kind))) < (now() - make_interval(days => s.follow_up_days)))) THEN 'follow_up'::text
+            WHEN ((p.stage = 'contacting'::app.stage) AND (latest.outcome IS DISTINCT FROM 'replied'::text) AND (latest.on_day < (((now() AT TIME ZONE 'Europe/Madrid'::text))::date - s.follow_up_days))) THEN 'follow_up'::text
             ELSE NULL::text
         END,
         CASE
-            WHEN ((p.stage = ANY (ARRAY['new'::app.stage, 'contacting'::app.stage, 'talking'::app.stage, 'welcomed'::app.stage, 'active'::app.stage])) AND (EXISTS ( SELECT 1
+            WHEN ((p.stage = ANY (ARRAY['new'::app.stage, 'contacting'::app.stage, 'welcomed'::app.stage, 'active'::app.stage])) AND (EXISTS ( SELECT 1
                FROM app.community_presence c
               WHERE ((c.person_id = p.id) AND (c.left_on IS NOT NULL)))) AND (NOT (EXISTS ( SELECT 1
                FROM app.community_presence c
@@ -3060,8 +3173,14 @@ CREATE VIEW app.people_attention WITH (security_invoker='true') AS
               WHERE ((i.status = 'review'::app.intake_status) AND ((p.id = ANY (i.candidates)) OR (i.person_id = p.id))))) THEN 'possible_duplicate'::text
             ELSE NULL::text
         END], NULL::text) AS reasons
-   FROM (app.people p
+   FROM ((app.people p
      CROSS JOIN app.settings s)
+     LEFT JOIN LATERAL ( SELECT COALESCE(e.happened_on, ((e.created_at AT TIME ZONE 'Europe/Madrid'::text))::date) AS on_day,
+            (e.data ->> 'outcome'::text) AS outcome
+           FROM app.person_events e
+          WHERE ((e.person_id = p.id) AND (e.kind = 'contact_attempt'::app.event_kind))
+          ORDER BY COALESCE(e.happened_on, ((e.created_at AT TIME ZONE 'Europe/Madrid'::text))::date) DESC, e.created_at DESC
+         LIMIT 1) latest ON (true))
   WHERE ((p.merged_into IS NULL) AND (p.anonymised_at IS NULL));
 
 
@@ -3388,6 +3507,30 @@ CREATE TABLE public.schema_migrations (
 
 
 ALTER TABLE public.schema_migrations OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: arrival_channels arrival_channels_key_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.arrival_channels
+    ADD CONSTRAINT arrival_channels_key_key UNIQUE (key);
+
+
+--
+-- Name: arrival_channels arrival_channels_label_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.arrival_channels
+    ADD CONSTRAINT arrival_channels_label_key UNIQUE (label);
+
+
+--
+-- Name: arrival_channels arrival_channels_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.arrival_channels
+    ADD CONSTRAINT arrival_channels_pkey PRIMARY KEY (id);
+
 
 --
 -- Name: audit_log audit_log_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
@@ -3973,6 +4116,20 @@ CREATE TRIGGER activation BEFORE INSERT OR UPDATE ON app.staff FOR EACH ROW EXEC
 
 
 --
+-- Name: people arrival; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER arrival BEFORE INSERT OR UPDATE OF arrived_on ON app.people FOR EACH ROW EXECUTE FUNCTION private.arrival_rules();
+
+
+--
+-- Name: arrival_channels audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.arrival_channels FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
 -- Name: campaign_anchors audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4246,6 +4403,13 @@ CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.person_events FOR EACH STA
 
 
 --
+-- Name: person_events happened; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER happened BEFORE INSERT ON app.person_events FOR EACH ROW WHEN ((new.happened_on IS NOT NULL)) EXECUTE FUNCTION private.happened_rules();
+
+
+--
 -- Name: staff keep_an_admin; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4278,6 +4442,13 @@ CREATE TRIGGER rules BEFORE UPDATE ON app.people FOR EACH ROW EXECUTE FUNCTION p
 --
 
 CREATE TRIGGER sent BEFORE UPDATE ON app.census_links FOR EACH ROW EXECUTE FUNCTION private.census_link_sent();
+
+
+--
+-- Name: arrival_channels stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.arrival_channels FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
 
 
 --
@@ -4716,6 +4887,14 @@ ALTER TABLE ONLY app.invitations
 
 
 --
+-- Name: people people_arrival_channel_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.people
+    ADD CONSTRAINT people_arrival_channel_id_fkey FOREIGN KEY (arrival_channel_id) REFERENCES app.arrival_channels(id);
+
+
+--
 -- Name: people people_merged_into_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4866,6 +5045,13 @@ CREATE POLICY admin_delete ON app.staff_roles FOR DELETE TO pauseai_backoffice_a
 
 
 --
+-- Name: arrival_channels admin_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY admin_insert ON app.arrival_channels FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: census_options admin_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4922,6 +5108,13 @@ CREATE POLICY admin_revoke ON app.invitations FOR UPDATE TO pauseai_backoffice_a
 
 
 --
+-- Name: arrival_channels admin_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY admin_update ON app.arrival_channels FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: census_options admin_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4941,6 +5134,12 @@ CREATE POLICY admin_update ON app.settings FOR UPDATE TO pauseai_backoffice_app 
 
 CREATE POLICY admin_update ON app.staff FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
 
+
+--
+-- Name: arrival_channels; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.arrival_channels ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: audit_log; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
@@ -5085,6 +5284,13 @@ CREATE POLICY onboarding_insert ON app.person_events FOR INSERT TO pauseai_backo
 --
 
 CREATE POLICY onboarding_insert ON app.person_options FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: arrival_channels onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.arrival_channels FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
 
 
 --
@@ -5477,6 +5683,20 @@ GRANT ALL ON FUNCTION private.anonymise_person(person uuid) TO pauseai_backoffic
 
 
 --
+-- Name: FUNCTION arrival_channel(word text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.arrival_channel(word text) FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION arrival_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.arrival_rules() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION audit(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -5624,6 +5844,13 @@ GRANT ALL ON FUNCTION private.fold_name(input text) TO pauseai_backoffice_app;
 --
 
 REVOKE ALL ON FUNCTION private.forbid_mutation() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION happened_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.happened_rules() FROM PUBLIC;
 
 
 --
@@ -5901,6 +6128,34 @@ REVOKE ALL ON FUNCTION private.template_version() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION private.unlink_telegram() FROM PUBLIC;
+
+
+--
+-- Name: TABLE arrival_channels; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.arrival_channels TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN arrival_channels.label; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(label),UPDATE(label) ON TABLE app.arrival_channels TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN arrival_channels.active; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(active),UPDATE(active) ON TABLE app.arrival_channels TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN arrival_channels."position"; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT("position"),UPDATE("position") ON TABLE app.arrival_channels TO pauseai_backoffice_app;
 
 
 --
@@ -6828,6 +7083,20 @@ GRANT UPDATE(interests_other) ON TABLE app.people TO pauseai_backoffice_app;
 
 
 --
+-- Name: COLUMN people.arrived_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(arrived_on) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.arrival_channel_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(arrival_channel_id) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
 -- Name: TABLE person_events; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -6860,6 +7129,13 @@ GRANT INSERT(body) ON TABLE app.person_events TO pauseai_backoffice_app;
 --
 
 GRANT INSERT(data) ON TABLE app.person_events TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN person_events.happened_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(happened_on) ON TABLE app.person_events TO pauseai_backoffice_app;
 
 
 --

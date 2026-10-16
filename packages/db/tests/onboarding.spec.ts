@@ -470,7 +470,7 @@ describe('stages and the timeline', () => {
       await as(
         client,
         web(USERS.adminA),
-        "UPDATE app.people SET stage = 'talking', owner_id = $2, next_action = 'Llamar el jueves', next_action_due = current_date WHERE id = $1",
+        "UPDATE app.people SET stage = 'contacting', owner_id = $2, next_action = 'Llamar el jueves', next_action_due = current_date WHERE id = $1",
         [PEOPLE.ana, USERS.both],
       );
       expect(await reasonsOf(client, PEOPLE.ana)).toEqual(['action_due']);
@@ -487,15 +487,15 @@ describe('stages and the timeline', () => {
         (e) => e.actor_id === USERS.adminA && !['created', 'joined'].includes(e.kind),
       );
       expect(events.map((e) => [e.kind, e.data])).toEqual([
-        ['stage_changed', { from: 'new', to: 'talking' }],
+        ['stage_changed', { from: 'new', to: 'contacting' }],
         ['owner_changed', { from: USERS.onboarder, to: USERS.both }],
         ['next_action_set', { due: expect.any(String) }],
-        ['stage_changed', { from: 'talking', to: 'left' }],
+        ['stage_changed', { from: 'contacting', to: 'left' }],
       ]);
     });
   });
 
-  it('moves a person along with contact attempts: contacting, then talking on a reply', async () => {
+  it('moves a person along with contact attempts: an attempt puts someone new in contact, a reply keeps them there, and brings back someone who had stopped answering (PLAN M5)', async () => {
     await inRolledBackTransaction(async (client) => {
       const attempt = (outcome: string) =>
         as(
@@ -514,7 +514,16 @@ describe('stages and the timeline', () => {
       expect(
         (await client.query('SELECT stage FROM app.people WHERE id = $1', [PEOPLE.ana])).rows[0],
       ).toEqual({
-        stage: 'talking',
+        stage: 'contacting',
+      });
+      await client.query("UPDATE app.people SET stage = 'unresponsive' WHERE id = $1", [
+        PEOPLE.ana,
+      ]);
+      await attempt('replied');
+      expect(
+        (await client.query('SELECT stage FROM app.people WHERE id = $1', [PEOPLE.ana])).rows[0],
+      ).toEqual({
+        stage: 'contacting',
       });
     });
   });
@@ -760,6 +769,352 @@ describe('the Airtable sync', () => {
       await client.query('RESET ROLE');
       await actAs(client, 'pauseai_backoffice_app', web(USERS.adminA));
       expect(await errorCode(client, "SELECT private.ingest_airtable('[]')")).toBe('42501');
+    });
+  });
+});
+
+/** Today in Madrid, as the database counts days, minus `days`, as YYYY-MM-DD. */
+const madridDay = async (client: pg.Client, days = 0): Promise<string> =>
+  (
+    await client.query<{ day: string }>(
+      "SELECT to_char((now() AT TIME ZONE 'Europe/Madrid')::date - $1::int, 'YYYY-MM-DD') AS day",
+      [days],
+    )
+  ).rows[0]?.day ?? '';
+
+const arrivalOf = async (client: pg.Client, person: string) =>
+  (
+    await client.query<{ arrived_on: string; arrival: string | null }>(
+      `SELECT to_char(p.arrived_on, 'YYYY-MM-DD') AS arrived_on, c.key AS arrival
+         FROM app.people p LEFT JOIN app.arrival_channels c ON c.id = p.arrival_channel_id WHERE p.id = $1`,
+      [person],
+    )
+  ).rows[0];
+
+describe('fewer stages (PLAN M5)', () => {
+  it('has no Por clasificar and no En conversación', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const { rows } = await client.query<{ stages: string }>(
+        'SELECT enum_range(NULL::app.stage)::text AS stages',
+      );
+      expect(rows[0]?.stages).toBe(
+        '{new,contacting,welcomed,active,dormant,unresponsive,left,discarded}',
+      );
+    });
+  });
+
+  it('asks who takes someone new only in the 30 days after they arrived', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await client.query(
+        "UPDATE app.people SET owner_id = NULL, next_action = 'Escribir', arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date - 30 WHERE id = $1",
+        [PEOPLE.ana],
+      );
+      expect(await reasonsOf(client, PEOPLE.ana)).toEqual(['unassigned']);
+      const botQueue = async () =>
+        (
+          await as<{ person_id: string }>(
+            client,
+            bot(USERS.onboarder),
+            "SELECT person_id FROM private.bot_people('unassigned')",
+          )
+        ).map((row) => row.person_id);
+      expect(await botQueue()).toContain(PEOPLE.ana);
+      await client.query(
+        "UPDATE app.people SET arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date - 31 WHERE id = $1",
+        [PEOPLE.ana],
+      );
+      expect(await reasonsOf(client, PEOPLE.ana)).toEqual([]);
+      // The bot's /libres is the same queue.
+      expect(await botQueue()).not.toContain(PEOPLE.ana);
+    });
+  });
+
+  it('asks to follow up when the latest attempt, by the day it happened, went unanswered too long ago', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const attempt = async (outcome: string, daysAgo: number) =>
+        as(
+          client,
+          web(USERS.onboarder),
+          `INSERT INTO app.person_events (person_id, kind, data, happened_on)
+           VALUES ($1, 'contact_attempt', $2, (now() AT TIME ZONE 'Europe/Madrid')::date - $3::int)`,
+          [PEOPLE.ana, JSON.stringify({ channel: 'whatsapp', outcome }), daysAgo],
+        );
+      await client.query("UPDATE app.people SET next_action = 'Insistir' WHERE id = $1", [
+        PEOPLE.ana,
+      ]);
+      // They replied, long ago, and nothing since: the next move is ours, not a follow-up.
+      await attempt('replied', 10);
+      expect(await reasonsOf(client, PEOPLE.ana)).toEqual([]);
+      await attempt('no_answer', 6);
+      expect(await reasonsOf(client, PEOPLE.ana)).toEqual(['follow_up']);
+      // A reply written now but said to have happened before the unanswered attempt doesn't hide it.
+      await attempt('replied', 7);
+      expect(await reasonsOf(client, PEOPLE.ana)).toEqual(['follow_up']);
+      await attempt('replied', 2);
+      expect(await reasonsOf(client, PEOPLE.ana)).toEqual([]);
+      await attempt('no_answer', 5);
+      expect(await reasonsOf(client, PEOPLE.ana)).toEqual([]);
+    });
+  });
+
+  it('marks someone unresponsive by the days attempts happened, counting only those since the last reply', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const attempt = async (outcome: string, daysAgo: number) =>
+        as(
+          client,
+          web(USERS.onboarder),
+          `INSERT INTO app.person_events (person_id, kind, data, happened_on)
+           VALUES ($1, 'contact_attempt', $2, (now() AT TIME ZONE 'Europe/Madrid')::date - $3::int)`,
+          [PEOPLE.ana, JSON.stringify({ channel: 'phone', outcome }), daysAgo],
+        );
+      const stage = async () =>
+        (await client.query('SELECT stage FROM app.people WHERE id = $1', [PEOPLE.ana])).rows[0];
+      await attempt('no_answer', 40);
+      await attempt('no_answer', 35);
+      await attempt('replied', 30);
+      await attempt('no_answer', 10);
+      await attempt('no_answer', 9);
+      expect(await stage()).toEqual({ stage: 'contacting' });
+      // Three unanswered since the reply, but over less than the 14 days.
+      await attempt('no_answer', 0);
+      expect(await stage()).toEqual({ stage: 'contacting' });
+      // A fourth, said to be from 20 days ago (after the reply): unanswered for long enough now.
+      await attempt('no_answer', 20);
+      expect(await stage()).toEqual({ stage: 'unresponsive' });
+    });
+  });
+});
+
+describe('when someone arrived and where from (PLAN M5)', () => {
+  it('arrives today by default, may be dated back by onboarding staff, never forward', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const created = await submit(client, web(USERS.onboarder), { name: 'Persona fechada' });
+      const id = created.person_id ?? '';
+      expect(await arrivalOf(client, id)).toEqual({
+        arrived_on: await madridDay(client),
+        arrival: null,
+      });
+      await as(
+        client,
+        web(USERS.onboarder),
+        "UPDATE app.people SET arrived_on = '2025-03-01' WHERE id = $1",
+        [id],
+      );
+      expect((await arrivalOf(client, id))?.arrived_on).toBe('2025-03-01');
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.onboarder));
+      expect(
+        await errorCode(
+          client,
+          "UPDATE app.people SET arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date + 1 WHERE id = $1",
+          [id],
+        ),
+      ).toBe('23514');
+    });
+  });
+
+  it('takes from an intake when and where from, by key or label; an unknown or retired one leaves it empty', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const arrival = async (payload: object) =>
+        arrivalOf(client, (await submit(client, web(USERS.onboarder), payload)).person_id ?? '');
+      expect(
+        await arrival({ name: 'Por clave', arrival: 'whatsapp', arrived_on: '2026-01-02' }),
+      ).toEqual({ arrived_on: '2026-01-02', arrival: 'whatsapp' });
+      expect(
+        await arrival({ name: 'Por nombre', arrival: ' formulario de pauseai GLOBAL ' }),
+      ).toEqual({ arrived_on: await madridDay(client), arrival: 'airtable' });
+      expect((await arrival({ name: 'Desconocida', arrival: 'Paloma mensajera' }))?.arrival).toBe(
+        null,
+      );
+      expect((await arrival({ name: 'Del futuro', arrived_on: '2999-01-01' }))?.arrived_on).toBe(
+        await madridDay(client),
+      );
+      await client.query("UPDATE app.arrival_channels SET active = false WHERE key = 'discord'");
+      expect((await arrival({ name: 'Retirada', arrival: 'discord' }))?.arrival).toBe(null);
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.onboarder));
+      expect(
+        await errorCode(client, 'SELECT * FROM private.submit_intake($1, $2, $3)', [
+          'manual',
+          crypto.randomUUID(),
+          JSON.stringify({ name: 'Fecha rara', arrived_on: 'ayer' }),
+        ]),
+      ).toBe('22023');
+    });
+  });
+
+  it('may not know when someone arrived: an intake may say so, staff may clear it, and an unknown day is never “Sin asignar” (Dani, 2026-10-16)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const unknown = (
+        await submit(client, web(USERS.onboarder), { name: 'Miembro de antes', arrived_on: null })
+      ).person_id;
+      expect((await arrivalOf(client, unknown ?? ''))?.arrived_on).toBeNull();
+      expect(await reasonsOf(client, unknown ?? '')).toEqual(['no_next_step']);
+      await as(
+        client,
+        web(USERS.onboarder),
+        'UPDATE app.people SET arrived_on = NULL WHERE id = $1',
+        [PEOPLE.ana],
+      );
+      expect((await arrivalOf(client, PEOPLE.ana))?.arrived_on).toBeNull();
+      // A report that knows the day fills an unknown one.
+      await submit(client, web(USERS.onboarder), { phones: [ANA_PHONE], arrived_on: '2025-06-06' });
+      expect((await arrivalOf(client, PEOPLE.ana))?.arrived_on).toBe('2025-06-06');
+      // One that doesn't know leaves a known day alone.
+      await submit(client, web(USERS.onboarder), { phones: [ANA_PHONE], arrived_on: null });
+      expect((await arrivalOf(client, PEOPLE.ana))?.arrived_on).toBe('2025-06-06');
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.onboarder));
+      expect(
+        await errorCode(client, 'SELECT * FROM private.submit_intake($1, $2, $3)', [
+          'manual',
+          crypto.randomUUID(),
+          JSON.stringify({ name: 'Fecha numérica', arrived_on: 20_260_101 }),
+        ]),
+      ).toBe('22023');
+    });
+  });
+
+  it('keeps a known arrival day over an unknown one in a merge', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const other = (
+        await submit(
+          client,
+          web(USERS.onboarder),
+          { name: 'Otra persona sin fecha', arrived_on: null },
+          { decision: 'new' },
+        )
+      ).person_id;
+      await as(client, web(USERS.onboarder), 'SELECT private.merge_people($1, $2)', [
+        other,
+        PEOPLE.ana,
+      ]);
+      expect((await arrivalOf(client, other ?? ''))?.arrived_on).toBe(await madridDay(client));
+    });
+  });
+
+  it('keeps the earlier arrival when a report attaches, and fills only an empty where-from', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await submit(client, web(USERS.onboarder), {
+        phones: [ANA_PHONE],
+        arrived_on: '2025-05-05',
+        arrival: 'email',
+      });
+      expect(await arrivalOf(client, PEOPLE.ana)).toEqual({
+        arrived_on: '2025-05-05',
+        arrival: 'email',
+      });
+      await submit(client, web(USERS.onboarder), {
+        phones: [ANA_PHONE],
+        arrived_on: '2025-09-09',
+        arrival: 'discord',
+      });
+      expect(await arrivalOf(client, PEOPLE.ana)).toEqual({
+        arrived_on: '2025-05-05',
+        arrival: 'email',
+      });
+    });
+  });
+
+  it('keeps the earlier arrival in a merge, and the duplicate’s where-from if the survivor has none', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const other = (
+        await submit(
+          client,
+          web(USERS.onboarder),
+          { name: 'Otra persona de ejemplo', arrived_on: '2024-12-24', arrival: 'discord' },
+          { decision: 'new' },
+        )
+      ).person_id;
+      await as(client, web(USERS.onboarder), 'SELECT private.merge_people($1, $2)', [
+        PEOPLE.ana,
+        other,
+      ]);
+      expect(await arrivalOf(client, PEOPLE.ana)).toEqual({
+        arrived_on: '2024-12-24',
+        arrival: 'discord',
+      });
+    });
+  });
+});
+
+describe('when something happened (PLAN M5)', () => {
+  it('lets attempts, notes and stage changes by hand say the day they happened, never a day to come', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await as(
+        client,
+        web(USERS.onboarder),
+        `INSERT INTO app.person_events (person_id, kind, body, happened_on)
+         VALUES ($1, 'note', 'Hablamos en la manifestación', (now() AT TIME ZONE 'Europe/Madrid')::date - 3)`,
+        [PEOPLE.ana],
+      );
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.onboarder));
+      await client.query("SELECT set_config('app.happened_on', '2026-01-15', true)");
+      await client.query("UPDATE app.people SET stage = 'welcomed' WHERE id = $1", [PEOPLE.ana]);
+      await client.query("SELECT set_config('app.happened_on', '', true)");
+      expect(
+        await errorCode(
+          client,
+          `INSERT INTO app.person_events (person_id, kind, body, happened_on)
+           VALUES ($1, 'note', 'Mañana', (now() AT TIME ZONE 'Europe/Madrid')::date + 1)`,
+          [PEOPLE.ana],
+        ),
+      ).toBe('23514');
+      await client.query('RESET ROLE');
+      const dated = (
+        await client.query<{ kind: string; happened_on: string; actor_id: string | null }>(
+          `SELECT kind::text, to_char(happened_on, 'YYYY-MM-DD') AS happened_on, actor_id
+             FROM app.person_events WHERE person_id = $1 AND happened_on IS NOT NULL ORDER BY id`,
+          [PEOPLE.ana],
+        )
+      ).rows;
+      expect(dated).toEqual([
+        { kind: 'note', happened_on: await madridDay(client, 3), actor_id: USERS.onboarder },
+        { kind: 'stage_changed', happened_on: '2026-01-15', actor_id: USERS.onboarder },
+      ]);
+      // Only those three kinds say when they happened; the rest happened when they were written.
+      expect(
+        await errorCode(
+          client,
+          "INSERT INTO app.person_events (person_id, kind, happened_on) VALUES ($1, 'joined', '2026-01-01')",
+          [PEOPLE.ana],
+        ),
+      ).toBe('23514');
+    });
+  });
+});
+
+describe('Discord usernames (PLAN M5)', () => {
+  it('are kept as Discord makes them: 2 to 32 lowercase letters, digits, underscores and dots, no two dots together', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const add = (value: string) =>
+        errorCode(
+          client,
+          "INSERT INTO app.identities (person_id, kind, value, source) VALUES ($1, 'discord', $2, 'manual')",
+          [PEOPLE.ana, value],
+        );
+      expect(await add('ana_ejemplo.1')).toBeNull();
+      for (const bad of [
+        'Ana_Ejemplo',
+        'a',
+        'x'.repeat(33),
+        'ana..ejemplo',
+        'ana ejemplo',
+        'ana#1234',
+      ]) {
+        expect(await add(bad), bad).toBe('23514');
+      }
+    });
+  });
+
+  it('find someone again, and are enough to save someone reported by hand', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const first = await submit(client, web(USERS.onboarder), {
+        discords: ['persona_de_ejemplo'],
+      });
+      expect(first.status).toBe('created');
+      const again = await submit(client, web(USERS.onboarder), {
+        name: 'Persona de ejemplo',
+        discords: ['persona_de_ejemplo'],
+      });
+      expect(again).toMatchObject({ status: 'attached', person_id: first.person_id });
     });
   });
 });

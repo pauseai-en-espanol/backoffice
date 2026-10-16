@@ -79,7 +79,7 @@ describe('the census form', () => {
            FROM app.people p JOIN app.identities i ON i.person_id = p.id WHERE i.value = 'censo.ejemplo@ejemplo.test'`,
       );
       expect(rows[0]).toMatchObject({
-        stage: 'to_triage',
+        stage: 'new',
         availability: 'under_2h',
         skills_other: 'Fotografía',
         done: true,

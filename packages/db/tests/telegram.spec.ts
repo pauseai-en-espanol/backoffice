@@ -284,6 +284,21 @@ describe("the team group's posts", () => {
       );
     });
   });
+
+  it('leave out members entered after the fact: added now, arrived more than two days ago (PLAN M5)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await client.query(
+        "UPDATE app.people SET arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date - 3 WHERE id = $1",
+        [PEOPLE.ana],
+      );
+      await client.query('SET LOCAL ROLE pauseai_backoffice_app');
+      expect(
+        (await client.query('SELECT * FROM private.team_unposted(-100)')).rows.map(
+          (r: { team_unposted: string }) => r.team_unposted,
+        ),
+      ).not.toContain(PEOPLE.ana);
+    });
+  });
 });
 
 describe('bot_summary', () => {
@@ -291,8 +306,7 @@ describe('bot_summary', () => {
     await inRolledBackTransaction(async (client) => {
       await client.query("SET LOCAL session_replication_role = 'replica'");
       await client.query(
-        `UPDATE app.people SET owner_id = NULL,
-                created_at = ((now() AT TIME ZONE 'Europe/Madrid')::date - 1 + time '12:00') AT TIME ZONE 'Europe/Madrid'
+        `UPDATE app.people SET owner_id = NULL, arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date - 1
           WHERE id = $1`,
         [PEOPLE.ana],
       );

@@ -347,6 +347,24 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
       },
     ],
   },
+  'app.arrival_channels': {
+    rows: [
+      {
+        id: 'where people come from',
+        where: "key = 'whatsapp'",
+        select: ONBOARDING,
+        update: { set: 'position = 9', rule: ADMIN },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a new place people come from',
+        sql: "INSERT INTO app.arrival_channels (label) VALUES ('Lugar de la matriz')",
+        rule: ADMIN,
+      },
+    ],
+  },
   'app.person_options': {
     rows: [
       {
