@@ -67,6 +67,28 @@ export const meta = css({
   listStyle: 'none',
 });
 
+/** A card's tags, side by side: "Equipo" and the stage. */
+export const tags = css({
+  display: 'inline-flex',
+  flexWrap: 'wrap',
+  gap: '2',
+  alignItems: 'center',
+});
+
+/** "Equipo": a dashed outline, so it never reads as a stage; in words, never a colour alone. */
+export const teamTag = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  minHeight: '7',
+  paddingInline: '2',
+  borderWidth: '2px',
+  borderStyle: 'dashed',
+  borderColor: 'border.default',
+  borderRadius: 'sm',
+  color: 'fg.default',
+  fontSize: 'sm',
+});
+
 /** A stage, in words, with a solid outline: the same weight for every stage, never a colour of its own. */
 export const stage = css({
   display: 'inline-flex',

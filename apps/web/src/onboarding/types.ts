@@ -37,6 +37,8 @@ export interface PersonSummary {
   summary: string | null;
   /** What the card says is missing ("Falta: correo · qué quiere hacer"). */
   missing: MissingDetail[];
+  /** The team account linked to this person (PLAN M5, step 5), active or not. */
+  team: (StaffRef & { active: boolean }) | null;
 }
 
 /** An entry of "Llegó por" (PLAN M5): `key` marks the ones the backoffice picks itself (the bot's, Global's form). */
@@ -267,6 +269,8 @@ const summaryFields = (value: Record<string, unknown>) => {
   const arrivedOn = nullable(value.arrivedOn);
   const summary = nullable(value.summary);
   const missing = strings(value.missing);
+  // Linked to a team account (PLAN M5, step 5); an older API sent nothing.
+  const team = parseStaffRef(value.team);
   const arrival =
     isRecord(value.arrival) && str(value.arrival.id) && str(value.arrival.label)
       ? { id: value.arrival.id, label: value.arrival.label }
@@ -304,6 +308,7 @@ const summaryFields = (value: Record<string, unknown>) => {
     summary,
     // A detail this app doesn't know yet is left out rather than shown as a key.
     missing: missing.filter(isMissingDetail),
+    team: team ? { ...team, active: isRecord(value.team) && value.team.active === true } : null,
   };
 };
 

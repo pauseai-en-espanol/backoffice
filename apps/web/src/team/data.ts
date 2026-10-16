@@ -9,6 +9,8 @@ export interface TeamMember {
   invitedBy: string | null;
   createdAt: string;
   deactivatedAt: string | null;
+  /** Their own person record (PLAN M5, step 5); null when not linked, or from an older API. */
+  personId: string | null;
 }
 
 export interface Team {
@@ -31,7 +33,7 @@ export interface Invitation {
 const isRoles = (value: unknown): value is StaffRole[] =>
   Array.isArray(value) && value.every((role) => (STAFF_ROLES as readonly unknown[]).includes(role));
 
-const isMember = (value: unknown): value is TeamMember =>
+const isMember = (value: unknown): value is Omit<TeamMember, 'personId'> & { personId?: unknown } =>
   isRecord(value) &&
   isString(value.userId) &&
   isString(value.displayName) &&
@@ -39,7 +41,21 @@ const isMember = (value: unknown): value is TeamMember =>
   isRoles(value.roles) &&
   isNullableString(value.invitedBy) &&
   isString(value.createdAt) &&
-  isNullableString(value.deactivatedAt);
+  isNullableString(value.deactivatedAt) &&
+  (value.personId === undefined || isNullableString(value.personId));
+
+/** A suggestion for an account's person: the one who shares its sign-in email (PLAN M5, step 5). */
+export interface PersonSuggestion {
+  userId: string;
+  person: { id: string; name: string | null };
+}
+
+const isSuggestion = (value: unknown): value is PersonSuggestion =>
+  isRecord(value) &&
+  isString(value.userId) &&
+  isRecord(value.person) &&
+  isString(value.person.id) &&
+  isNullableString(value.person.name);
 
 const STATES: readonly unknown[] = ['pending', 'accepted', 'revoked', 'expired'];
 
@@ -58,7 +74,19 @@ const isInvitation = (value: unknown): value is Invitation =>
 /** `GET /api/staff`'s body, or undefined if it isn't one. */
 export const parseTeam = (body: unknown): Team | undefined =>
   isRecord(body) && isString(body.me) && Array.isArray(body.staff) && body.staff.every(isMember)
-    ? { me: body.me, staff: body.staff }
+    ? {
+        me: body.me,
+        staff: body.staff.map((member) => ({
+          ...member,
+          personId: isString(member.personId) ? member.personId : null,
+        })),
+      }
+    : undefined;
+
+/** `GET /api/staff/person-suggestions`'s body, or undefined if it isn't one. */
+export const parseSuggestions = (body: unknown): PersonSuggestion[] | undefined =>
+  isRecord(body) && Array.isArray(body.suggestions) && body.suggestions.every(isSuggestion)
+    ? body.suggestions
     : undefined;
 
 /** `GET /api/invitations`'s body, or undefined if it isn't one. */
@@ -72,3 +100,7 @@ export const getTeam = () => readFromApi('/api/staff', parseTeam);
 
 /** The invitations, which only admins see. */
 export const getInvitations = () => readFromApi('/api/invitations', parseInvitations);
+
+/** Each unlinked account's likely person, which only admins see. */
+export const getPersonSuggestions = () =>
+  readFromApi('/api/staff/person-suggestions', parseSuggestions);

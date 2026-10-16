@@ -106,6 +106,21 @@ export const FiltersForm = ({
         </select>
       </div>
       <div className={ui.field}>
+        <label className={ui.label} htmlFor="equipo">
+          {t('people.team')}
+        </label>
+        <select
+          id="equipo"
+          name="equipo"
+          className={styles.select}
+          defaultValue={filters.team === 'yes' ? 'si' : filters.team === 'no' ? 'no' : ''}
+        >
+          <option value="">{t('people.teamAny')}</option>
+          <option value="si">{t('people.teamYes')}</option>
+          <option value="no">{t('people.teamNo')}</option>
+        </select>
+      </div>
+      <div className={ui.field}>
         <label className={ui.label} htmlFor="fuente">
           {t('people.source')}
         </label>

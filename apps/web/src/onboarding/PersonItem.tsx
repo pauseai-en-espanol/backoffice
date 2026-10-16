@@ -40,12 +40,23 @@ export interface PersonLabels {
   /** What is missing, in plain words, and the line's label ("Falta"). */
   missing: Readonly<Record<string, string>>;
   missingLabel: string;
+  /** "Equipo": on the team, through an active team account linked to them (PLAN M5, step 5). */
+  team: string;
 }
 
 /** A stage in words, outlined: never a colour of its own (WCAG 1.4.1). */
 export const StageTag = ({ label }: { label: string }) => (
   <span className={styles.stage}>{label}</span>
 );
+
+/** "Equipo", in words, for someone on the team (PLAN M5, step 5); nothing otherwise, nor for a deactivated account. */
+export const TeamTag = ({
+  team,
+  labels,
+}: {
+  team: { active: boolean } | null;
+  labels: Pick<PersonLabels, 'team'>;
+}) => (team?.active ? <span className={styles.teamTag}>{labels.team}</span> : null);
 
 /** Why a person needs attention, each reason with its mark and words. */
 export const ReasonChips = ({
@@ -163,7 +174,10 @@ export const PersonItem = ({
           labels={labels}
         />
       </span>
-      <StageTag label={labels.stages[person.stage] ?? person.stage} />
+      <span className={styles.tags}>
+        <TeamTag team={person.team} labels={labels} />
+        <StageTag label={labels.stages[person.stage] ?? person.stage} />
+      </span>
     </div>
     {person.summary ? <p className={styles.summary}>{person.summary}</p> : null}
     <MissingLine missing={person.missing} labels={labels} />

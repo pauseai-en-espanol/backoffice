@@ -70,6 +70,7 @@ export const personLabels = (t: Translator): PersonLabels => ({
   withProvince: String(t.raw('person.withProvince')),
   missing: missingNames(t),
   missingLabel: t('person.missingLabel'),
+  team: t('person.team'),
 });
 
 /** A reason's words, or "Revisar" for one this version of the page doesn't know yet. */
@@ -97,6 +98,9 @@ export const onboardingErrors = (t: Translator): Record<string, string> => ({
   signIn: t('errors.signIn'),
   notFound: t('errors.notFound'),
   network: t('errors.network'),
+  personGone: t('errors.personGone'),
+  personTaken: t('errors.personTaken'),
+  bothInTeam: t('errors.bothInTeam'),
   unavailable: t('web.unavailable.body'),
   running: t('imports.running'),
   airtable: t('imports.airtableFailed'),

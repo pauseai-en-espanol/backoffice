@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { getFormatter, getTranslator } from '@backoffice/i18n/messages';
+import Link from 'next/link';
 
 import type { Invitation, InvitationState, TeamMember } from '@/team/data';
 import type { ConfirmText } from '@/ui/ConfirmAction';
@@ -8,9 +9,10 @@ import type { ConfirmText } from '@/ui/ConfirmAction';
 import { isUnavailable } from '@/data';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
-import { getInvitations, getTeam } from '@/team/data';
+import { getInvitations, getPersonSuggestions, getTeam } from '@/team/data';
 import { InvitationActions } from '@/team/InvitationActions';
 import { InviteForm } from '@/team/InviteForm';
+import { LinkSuggestion } from '@/team/LinkSuggestion';
 import { MemberActions } from '@/team/MemberActions';
 import { roleHelp, roleNames, teamErrors } from '@/team/text';
 import { Announcer } from '@/ui/Announcer';
@@ -36,9 +38,12 @@ const STATE_KIND = {
 const TeamPage = async () => {
   const me = await requireStaff();
   const admin = me.staff.roles.includes('admin');
-  const [team, invitations] = await Promise.all([
+  // Who may open a person's page (onboarding staff and admins), and so follow "Ver su ficha".
+  const opensPeople = admin || me.staff.roles.includes('onboarding');
+  const [team, invitations, suggestions] = await Promise.all([
     getTeam(),
     admin ? getInvitations() : Promise.resolve(undefined),
+    admin ? getPersonSuggestions() : Promise.resolve([]),
   ]);
   const format = getFormatter();
   const day = (iso: string) => format.dateTime(new Date(iso), { dateStyle: 'long' });
@@ -52,6 +57,48 @@ const TeamPage = async () => {
     cancel: t('team.cancel'),
     errors,
   });
+
+  /**
+   * A member's own person record (PLAN M5, step 5): a link to it for whoever can open it; else, for an admin, the
+   * person who shares the account's email, to link here, or where linking is done.
+   */
+  const personOf = (member: TeamMember) => {
+    if (member.personId !== null) {
+      return opensPeople ? (
+        <Link className={styles.link} href={`/personas/${encodeURIComponent(member.personId)}`}>
+          {t('team.personOpen')}
+        </Link>
+      ) : (
+        t('team.personOpen')
+      );
+    }
+    const suggestion = isUnavailable(suggestions)
+      ? undefined
+      : suggestions.find((entry) => entry.userId === member.userId);
+    if (!admin || !suggestion) {
+      return admin ? t('team.personNoneHint') : t('team.personNone');
+    }
+    const name = suggestion.person.name ?? t('people.noName');
+    return (
+      <>
+        <Link
+          className={styles.link}
+          href={`/personas/${encodeURIComponent(suggestion.person.id)}`}
+        >
+          {t('team.personSuggested', { name })}
+        </Link>{' '}
+        <LinkSuggestion
+          userId={member.userId}
+          personId={suggestion.person.id}
+          label={t('team.personLink')}
+          text={confirm(
+            t('team.confirmPersonLink', { account: member.displayName, name }),
+            t('team.personLinked'),
+          )}
+        />
+      </>
+    );
+  };
 
   const memberCard = (member: TeamMember) => {
     const self = member.userId === (isUnavailable(team) ? '' : team.me);
@@ -84,6 +131,8 @@ const TeamPage = async () => {
               <Status kind="negative" label={t('team.inactive')} />
             )}
           </dd>
+          <dt>{t('team.person')}</dt>
+          <dd>{personOf(member)}</dd>
           {member.active || member.deactivatedAt === null ? (
             <>
               <dt>{t('team.since')}</dt>

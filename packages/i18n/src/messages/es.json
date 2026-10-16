@@ -33,7 +33,10 @@
     "limit": "Demasiados intentos. Espera unos minutos y vuelve a intentarlo.",
     "signIn": "Tu sesión ha terminado. Vuelve a entrar.",
     "notFound": "Ya no existe: puede que alguien lo haya quitado. Recarga la página.",
-    "network": "No hay conexión con el servidor. Comprueba tu conexión y vuelve a intentarlo."
+    "network": "No hay conexión con el servidor. Comprueba tu conexión y vuelve a intentarlo.",
+    "personGone": "Esa ficha ya no está: se fusionó en otra o se borró. Recarga la página.",
+    "personTaken": "Esa ficha ya está vinculada a otra cuenta del equipo.",
+    "bothInTeam": "Las dos fichas están vinculadas a cuentas del equipo distintas. Desvincula una (en «Cuenta del equipo») antes de fusionarlas."
   },
   "web": {
     "skip": "Ir al contenido",
@@ -233,6 +236,14 @@
     "passwordLink": "Enviar enlace de contraseña",
     "confirmPasswordLink": "¿Enviar a {name} un enlace para elegir una contraseña nueva? Le llega por correo y sirve una hora.",
     "passwordLinkSent": "Enlace enviado a {name}.",
+    "person": "Su ficha",
+    "personOpen": "Ver su ficha",
+    "personNone": "Sin ficha",
+    "personSuggested": "Posible ficha: {name} (mismo correo)",
+    "personLink": "Vincular",
+    "confirmPersonLink": "¿Vincular la cuenta de {account} con la ficha de {name}? La ficha mostrará «Equipo». No da ningún permiso.",
+    "personLinked": "Cuenta vinculada con su ficha.",
+    "personNoneHint": "Sin ficha. Se vincula desde la ficha de la persona, en «Cuenta del equipo».",
     "invite": {
       "title": "Invitar a alguien",
       "intro": "La invitación llega por correo y sirve durante 7 días. Quien la acepte elige su contraseña y configura la verificación en dos pasos.",
@@ -530,6 +541,20 @@
     "summaryHint": "Una línea que diga quién es, solo para el equipo: nunca va a Telegram. Sin salud, ideología ni otros datos sensibles. Por ejemplo: «Diseñadora, quiere ayudar con redes».",
     "withProvince": "({province})",
     "missingLabel": "Falta",
+    "team": "Equipo",
+    "teamAccount": {
+      "title": "Cuenta del equipo",
+      "linkedTo": "Cuenta del equipo: {name}",
+      "inactive": "(desactivada)",
+      "hint": "Esta persona es del equipo y entra con esta cuenta. Su ficha mostrará «Equipo»; no da ningún permiso.",
+      "account": "Cuenta",
+      "sameEmail": "(mismo correo)",
+      "link": "Vincular",
+      "linked": "Cuenta vinculada con esta ficha.",
+      "unlink": "Desvincular",
+      "unlinked": "Cuenta desvinculada.",
+      "noAccounts": "Todas las cuentas del equipo están vinculadas a otra ficha."
+    },
     "missing": {
       "phone": "teléfono",
       "email": "correo",
@@ -715,6 +740,10 @@
     "inCommunityAny": "Da igual",
     "inCommunityYes": "Sí",
     "inCommunityNo": "No",
+    "team": "Del equipo",
+    "teamAny": "Da igual",
+    "teamYes": "Sí",
+    "teamNo": "No",
     "source": "Entró por",
     "anySource": "Cualquier vía",
     "arrival": "Llegó por",

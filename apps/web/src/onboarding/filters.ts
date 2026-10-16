@@ -19,6 +19,8 @@ export interface PeopleFilters {
   owner: string;
   attention: boolean;
   inCommunity: 'yes' | 'no' | '';
+  /** On the team: linked to an active team account (PLAN M5, step 5). */
+  team: 'yes' | 'no' | '';
   source: Source | '';
   /** "Llegó por" (PLAN M5): an entry's id, 'none' for not said, or '' for any. */
   arrival: string;
@@ -35,6 +37,7 @@ export const NO_FILTERS: PeopleFilters = {
   owner: '',
   attention: false,
   inCommunity: '',
+  team: '',
   source: '',
   arrival: '',
   arrivedOn: '',
@@ -65,6 +68,7 @@ const first = (value: string | string[] | undefined): string => all(value)[0]?.t
 export const filtersFromPage = (params: SearchParams): PeopleFilters => {
   const owner = first(params.responsable);
   const community = first(params.comunidad);
+  const team = first(params.equipo);
   const source = first(params.fuente);
   const arrival = first(params.llegada);
   const arrivedOn = first(params.fecha);
@@ -75,6 +79,7 @@ export const filtersFromPage = (params: SearchParams): PeopleFilters => {
     owner: owner === 'yo' ? 'me' : owner === 'nadie' ? 'none' : UUID.test(owner) ? owner : '',
     attention: first(params.atencion) === '1',
     inCommunity: community === 'si' ? 'yes' : community === 'no' ? 'no' : '',
+    team: team === 'si' ? 'yes' : team === 'no' ? 'no' : '',
     source: (SOURCES as readonly string[]).includes(source) ? (source as Source) : '',
     arrival: arrival === 'ninguna' ? 'none' : UUID.test(arrival) ? arrival : '',
     arrivedOn: arrivedOn === 'sabida' ? 'known' : arrivedOn === 'no-se-sabe' ? 'unknown' : '',
@@ -111,6 +116,9 @@ export const pageQuery = (filters: PeopleFilters): string => {
   }
   if (filters.inCommunity) {
     params.set('comunidad', filters.inCommunity === 'yes' ? 'si' : 'no');
+  }
+  if (filters.team) {
+    params.set('equipo', filters.team === 'yes' ? 'si' : 'no');
   }
   if (filters.source) {
     params.set('fuente', filters.source);
@@ -150,6 +158,9 @@ export const apiQuery = (
   }
   if (filters.inCommunity) {
     params.set('inCommunity', filters.inCommunity === 'yes' ? 'true' : 'false');
+  }
+  if (filters.team) {
+    params.set('team', filters.team === 'yes' ? 'true' : 'false');
   }
   if (filters.source) {
     params.set('source', filters.source);

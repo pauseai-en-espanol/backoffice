@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('next/headers', () => ({ headers: vi.fn() }));
 vi.mock('next/navigation', () => ({ notFound: vi.fn(), redirect: vi.fn() }));
 
-const { parseInvitations, parseTeam } = await import('./data');
+const { parseInvitations, parseSuggestions, parseTeam } = await import('./data');
 
 const member = {
   userId: 'u1',
@@ -13,6 +13,7 @@ const member = {
   invitedBy: null,
   createdAt: '2026-10-15T20:00:00.000Z',
   deactivatedAt: null,
+  personId: null,
 };
 
 const invitation = {
@@ -30,11 +31,27 @@ describe('parseTeam', () => {
     expect(parseTeam({ me: 'u1', staff: [member] })).toEqual({ me: 'u1', staff: [member] });
   });
 
+  it('takes the person an account is linked to, and an older API without it as none (PLAN M5, step 5)', () => {
+    const linked = { ...member, personId: 'p1' };
+    expect(parseTeam({ me: 'u1', staff: [linked] })).toEqual({ me: 'u1', staff: [linked] });
+    const { personId: _, ...older } = member;
+    expect(parseTeam({ me: 'u1', staff: [older] })).toEqual({ me: 'u1', staff: [member] });
+    expect(parseTeam({ me: 'u1', staff: [{ ...member, personId: 7 }] })).toBeUndefined();
+  });
+
   it('refuses a body it does not understand, rather than render half of it', () => {
     expect(parseTeam({ staff: [member] })).toBeUndefined();
     expect(parseTeam({ me: 'u1', staff: [{ ...member, roles: ['root'] }] })).toBeUndefined();
     expect(parseTeam({ me: 'u1', staff: [{ ...member, active: 'yes' }] })).toBeUndefined();
     expect(parseTeam(undefined)).toBeUndefined();
+  });
+});
+
+describe('parseSuggestions', () => {
+  it('takes each account’s likely person, and nothing it does not understand', () => {
+    const suggestion = { userId: 'u1', person: { id: 'p1', name: 'Persona Ejemplo' } };
+    expect(parseSuggestions({ suggestions: [suggestion] })).toEqual([suggestion]);
+    expect(parseSuggestions({ suggestions: [{ userId: 'u1' }] })).toBeUndefined();
   });
 });
 

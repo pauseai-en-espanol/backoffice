@@ -28,9 +28,10 @@ import { AttemptForm, NextActionForm, NoteForm } from '@/onboarding/person/Notes
 import { PresenceActions } from '@/onboarding/person/Presence';
 import { ProfileEditor } from '@/onboarding/person/ProfileEditor';
 import { StageOwner } from '@/onboarding/person/StageOwner';
+import { TeamAccount } from '@/onboarding/person/TeamAccount';
 import { personPageText } from '@/onboarding/person/text';
 import { type WhatsAppChoice, WhatsAppHandover } from '@/onboarding/person/WhatsApp';
-import { MissingLine, NextAction, ReasonChips, StageTag } from '@/onboarding/PersonItem';
+import { MissingLine, NextAction, ReasonChips, StageTag, TeamTag } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, isAdmin, sourceName } from '@/onboarding/text';
 import { describeEvent } from '@/onboarding/timeline';
@@ -38,7 +39,7 @@ import { CONSENT_KINDS } from '@/onboarding/types';
 import { greetingName, handoverLink, whatsappMessage } from '@/onboarding/whatsapp-message';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
-import { getTeam } from '@/team/data';
+import { getPersonSuggestions, getTeam } from '@/team/data';
 import { Announcer } from '@/ui/Announcer';
 import { Disclosure } from '@/ui/Disclosure';
 import * as styles from '@/ui/styles';
@@ -65,12 +66,14 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
     );
   }
   const { id } = await params;
-  const [page, team, settings, arrivalChannels, templates] = await Promise.all([
+  const admin = isAdmin(me);
+  const [page, team, settings, arrivalChannels, templates, suggestions] = await Promise.all([
     getPerson(id),
     getTeam(),
     getSettings(),
     getArrivalChannels(),
     getMessageTemplates(),
+    admin ? getPersonSuggestions() : Promise.resolve([]),
   ]);
   if (isForbidden(page)) {
     return (
@@ -107,7 +110,6 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   const merged = person.mergedInto !== null;
   const anonymised = person.anonymisedAt !== null;
   const readOnly = merged || anonymised;
-  const admin = isAdmin(me);
   const consentWords = {
     granted: String(t.raw('person.consentGranted')),
     denied: String(t.raw('person.consentDenied')),
@@ -195,6 +197,13 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
             </li>
           ) : null}
           <li>{open ? t('person.inCommunity') : t('person.notInCommunity')}</li>
+          {person.team ? (
+            <li>
+              <TeamTag team={person.team} labels={text.labels} />{' '}
+              {t('person.teamAccount.linkedTo', { name: person.team.displayName })}
+              {person.team.active ? null : ` ${t('person.teamAccount.inactive')}`}
+            </li>
+          ) : null}
         </ul>
         <p>
           <span className={styles.muted}>{t('person.nextAction')}: </span>
@@ -346,6 +355,42 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
               {readOnly ? null : <ProfileEditor person={person} channels={channels} text={text} />}
             </section>
 
+            {admin && !readOnly ? (
+              <section className={onboarding.section} aria-labelledby="cuenta-del-equipo">
+                <h2 id="cuenta-del-equipo" className={styles.h3}>
+                  {t('person.teamAccount.title')}
+                </h2>
+                <TeamAccount
+                  personId={person.id}
+                  linked={person.team}
+                  accounts={members
+                    .filter((member) => member.personId === null)
+                    .map(({ userId, displayName }) => ({
+                      userId,
+                      displayName,
+                      suggested:
+                        !isUnavailable(suggestions) &&
+                        suggestions.some(
+                          (suggestion) =>
+                            suggestion.userId === userId && suggestion.person.id === person.id,
+                        ),
+                    }))}
+                  text={{
+                    linkedTo: String(t.raw('person.teamAccount.linkedTo')),
+                    inactive: t('person.teamAccount.inactive'),
+                    hint: t('person.teamAccount.hint'),
+                    account: t('person.teamAccount.account'),
+                    sameEmail: t('person.teamAccount.sameEmail'),
+                    link: t('person.teamAccount.link'),
+                    linked: t('person.teamAccount.linked'),
+                    unlink: t('person.teamAccount.unlink'),
+                    unlinked: t('person.teamAccount.unlinked'),
+                    noAccounts: t('person.teamAccount.noAccounts'),
+                    errors: text.errors,
+                  }}
+                />
+              </section>
+            ) : null}
             <section className={onboarding.section} aria-labelledby="censo">
               <h2 id="censo" className={styles.h3}>
                 {t('person.census')}

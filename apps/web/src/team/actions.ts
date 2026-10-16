@@ -12,6 +12,10 @@ export const setActive = (userId: string, active: boolean) =>
 
 export const sendPasswordLink = (userId: string) => send('POST', `${staff(userId)}/password-link`);
 
+/** Links an account to its own person record, or unlinks it with null (PLAN M5, step 5). */
+export const linkPerson = (userId: string, personId: string | null) =>
+  send('PUT', `${staff(userId)}/person`, { personId });
+
 export const revokeInvitation = (id: string) => send('POST', `${invitation(id)}/revoke`);
 
 export const deleteInvitation = (id: string) => send('DELETE', invitation(id));

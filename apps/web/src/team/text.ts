@@ -34,6 +34,8 @@ export const teamErrors = (t: Translator): Record<string, string> => ({
   signIn: t('errors.signIn'),
   notFound: t('errors.notFound'),
   network: t('errors.network'),
+  personGone: t('errors.personGone'),
+  personTaken: t('errors.personTaken'),
   lastAdmin: t('team.errors.lastAdmin'),
   alreadyStaff: t('team.errors.alreadyStaff'),
   mail: t('team.errors.mail'),

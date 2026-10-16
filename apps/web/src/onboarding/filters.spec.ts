@@ -29,6 +29,7 @@ describe('the people filters', () => {
       owner: 'me',
       attention: true,
       inCommunity: 'yes',
+      team: '',
       source: 'airtable',
       arrival: '',
       arrivedOn: '',
@@ -80,6 +81,14 @@ describe('the people filters', () => {
     expect(
       apiQuery({ ...NO_FILTERS, arrival: 'none', arrivedOn: 'unknown', reason: 'unassigned' }),
     ).toBe('?arrival=none&arrivedOn=unknown&reason=unassigned');
+  });
+
+  it('ask for the team, or everyone but the team, in Spanish (PLAN M5, step 5)', () => {
+    expect(pageQuery({ ...NO_FILTERS, team: 'yes' })).toBe('?equipo=si');
+    expect(filtersFromPage({ equipo: 'no' })).toEqual({ ...NO_FILTERS, team: 'no' });
+    expect(filtersFromPage({ equipo: 'todos' })).toEqual(NO_FILTERS);
+    expect(apiQuery({ ...NO_FILTERS, team: 'yes' })).toBe('?team=true');
+    expect(apiQuery({ ...NO_FILTERS, team: 'no' })).toBe('?team=false');
   });
 
   it('become the API query', () => {
