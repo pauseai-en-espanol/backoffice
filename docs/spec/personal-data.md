@@ -1,7 +1,7 @@
 # Personal data
 
 - **Status:** Drafted from the specification (v3). Legal and privacy calls (D9, D12, the privacy notice) are
-  Dani's, for the association.
+  Dani's, for the association. D9 is decided.
 - **Relates to:** [BRIEF](../BRIEF.md) G5 and §5; [ADR-0002](../adr/0002-authorization-and-data-protection.md);
   [ADR-0004](../adr/0004-telegram-bot.md); [ADR-0005](../adr/0005-airtable-intake.md);
   [data model](data-model.md)
@@ -77,8 +77,9 @@ calls.** Meanwhile the app:
 
 ## 9. Retention (D9)
 
-Proposed: 12 months after leaving or after last contact for `left`, `unresponsive` and `discarded`, then
-anonymised automatically (M4). Dani to confirm.
+Decided (Dani, 2026-10-16): **no automatic erasure.** A person's data stays until an admin erases it
+(`private.anonymise_person`), on their request (art. 17) or when the association decides. The privacy notice has to
+say how long data is kept, or the criteria for it (art. 13.2.a): that wording is the association's.
 
 ## 10. Processors
 

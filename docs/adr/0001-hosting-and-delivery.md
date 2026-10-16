@@ -19,7 +19,7 @@
   - a staff UI and an API, used by a handful of volunteers;
   - a Telegram webhook reachable from the internet (M1);
   - a public census form (M2), a few submissions a day;
-  - short periodic jobs: session clean-up, the Airtable sync, the daily digest, dialog clean-up, retention.
+  - short periodic jobs: session clean-up, the Airtable sync, the daily digest, dialog clean-up.
 - **Backups** are Dani's, in gitops (`docs/backup-policy-plan.md`), separately from this ADR.
 
 ## Options considered
@@ -50,7 +50,7 @@ Dani chose 4b (D4). The rest are Claude's recommendations, taken as decided unle
 | -------------------- | ----------------------------------------------------------------------------- | ------------------------------------------- | ----------------------------- |
 | `apps/web`           | Next.js staff UI                                                              | `backoffice.pauseai.es`                     | None; calls the API           |
 | `apps/api`           | Fastify: all data access, Better Auth, staff, bot, public and internal routes | Same host, `/api/*` and `/telegram/webhook` | `app`, `auth`, `public` roles |
-| CronJobs (API image) | Airtable sync, digest, session and dialog cleanup, retention                  | —                                           | `ingest`, `app`, `auth`       |
+| CronJobs (API image) | Airtable sync, digest, session and dialog cleanup                             | —                                           | `ingest`, `app`, `auth`       |
 | `apps/forms` (M2)    | Next.js public census form                                                    | `unete.pauseai.es`                          | None; calls the API           |
 | Migration Job        | dbmate, as `owner`                                                            | —                                           | `owner`                       |
 
@@ -60,7 +60,7 @@ Hostnames are configuration, not code (D4). The roles are in
 ### 2. Jobs
 
 Kubernetes CronJobs with `timeZone: Europe/Madrid`, `concurrencyPolicy: Forbid`, each with its own role's
-credentials only:
+credentials only (there is no retention job: D9 decided no automatic erasure):
 
 | Job                      | Schedule                            | Role                            | Milestone              |
 | ------------------------ | ----------------------------------- | ------------------------------- | ---------------------- |
@@ -68,7 +68,6 @@ credentials only:
 | Airtable sync            | Hourly (and on demand from the API) | `ingest`                        | M1, if the spike works |
 | Daily digest             | Daily 09:00                         | `app` (system actor, read-only) | M1                     |
 | Dialog cleanup           | Hourly                              | `app` (system actor)            | M1                     |
-| Retention                | Daily 04:00                         | `app` (system actor)            | M4                     |
 
 ### 3. Gitops entries
 

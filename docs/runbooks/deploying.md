@@ -97,8 +97,9 @@ secret; the browser never reaches the API, and the host routes nothing to it (AD
 4. **The privacy notice: review before sharing the form widely.** Until `backoffice-forms.privacyNoticeUrl` is set
    (an https address), the form links its own notice at `/privacidad`, marked _Borrador pendiente de revisión_: the
    controller (Asociación Pausemos La IA), GDPR art. 9.2.d with the LOPDGDD, no recipients outside the association,
-   the D9 retention proposal, rights and the AEPD. Have the association read it, then either set `contactEmail` (the
-   address it shows for privacy questions) and keep it, or publish the association's own and set its address. When
+   how long data is kept (D9: until erased, so this needs the association's wording), rights and the AEPD. Have the
+   association read it, then either set `contactEmail` (the address it shows for privacy questions) and keep it, or
+   publish the association's own and set its address. When
    the wording changes, raise `wordingVersion` under both `backoffice-api.census` and `backoffice-forms`: each
    consent is recorded with it.
 5. **Push gitops.** Check: `https://unete.pauseai.es/healthz` answers 200; the form loads its lists (**Censo** in
