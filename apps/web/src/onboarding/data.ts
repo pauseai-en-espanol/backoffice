@@ -7,6 +7,7 @@ import { forwardedRequest, PAGE_OF } from '@/session';
 import { apiQuery, type PeopleFilters } from './filters';
 import { parsePanel } from './panel/types';
 import {
+  parseAirtableSettings,
   parseArrivalChannels,
   parseBandeja,
   parseBoard,
@@ -41,6 +42,9 @@ export const getBandeja = () => readFromApi('/api/bandeja', parseBandeja);
 export const getImports = () => readFromApi('/api/imports', parseImports);
 
 export const getSettings = () => readFromApi('/api/settings', parseSettings);
+
+/** The Airtable sync's settings (ADR-0005), for admins: never the link. */
+export const getAirtableSettings = () => readFromApi('/api/airtable', parseAirtableSettings);
 
 export const getTelegramLink = () => readFromApi('/api/telegram/link', parseTelegramLink);
 

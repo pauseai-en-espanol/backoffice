@@ -36,8 +36,8 @@ const app = config.appDatabaseUrl
       applicationName: 'backoffice-api-app',
     })
   : undefined;
-// The Airtable sync, on demand (ADR-0005): its own pool, as the ingest role, which may only run the sync's function.
-const ingest = config.airtable
+// The Airtable sync, on demand (ADR-0005): its own pool, as the ingest role, which may only run the sync's functions.
+const ingest = config.airtable?.ingestDatabaseUrl
   ? createDatabase({
       connectionString: config.airtable.ingestDatabaseUrl,
       maxConnections: 1,
@@ -101,15 +101,16 @@ const reportBotFailure = (error: unknown): void => {
   console.error(failure.message);
   captureException(failure);
 };
-// The Airtable sync on demand, from Importar and /sync (/sincronizar) (ADR-0005), as the ingest role. One at a time:
-// a request while one runs gets its result, rather than reading Global's view again.
+// The Airtable sync on demand, from Importar and /sync (/sincronizar) (ADR-0005), as the ingest role, with the link
+// admins set in Ajustes. One at a time: a request while one runs gets its result, rather than reading the view again.
+const airtable = config.airtable;
 const syncAirtable =
-  config.airtable && ingest
+  airtable && ingest
     ? singleFlight(() =>
         runAirtableSync({
           ingest,
-          link: config.airtable?.sharedViewUrl ?? '',
-          requirePermission: config.airtable?.requirePermission ?? false,
+          key: airtable.key,
+          requirePermission: airtable.requirePermission,
         }),
       )
     : undefined;
@@ -160,6 +161,8 @@ const server = buildApp({
         : undefined,
     endSessions: authPool ? (userId) => endSessions(authPool, userId) : undefined,
     syncAirtable,
+    // Seals the link admins set in Ajustes (ADR-0005); without it, no link can be set here.
+    airtableKey: airtable?.key,
     // New people and claims from the staff app reach the team group at once (ADR-0004, D11).
     onArrival: team ? (personId) => team.arrival(personId) : undefined,
     onClaim: team ? (personId) => team.claimed(personId) : undefined,

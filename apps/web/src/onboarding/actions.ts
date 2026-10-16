@@ -158,6 +158,13 @@ export const updateArrivalChannel = (id: string, change: { label?: string; activ
 export const orderArrivalChannels = (ids: readonly string[]) =>
   send('PUT', '/api/arrival-channels/order', { ids });
 
+/** Global's view link, sealed by the API (ADR-0005): set once, never shown again; removing it turns the sync off. */
+export const setAirtableLink = (link: string) => send('PUT', '/api/airtable/link', { link });
+
+export const removeAirtableLink = () => send('DELETE', '/api/airtable/link');
+
+export const setAirtableEnabled = (enabled: boolean) => send('PATCH', '/api/airtable', { enabled });
+
 export const linkTelegram = () => send('POST', '/api/telegram/link');
 
 export const unlinkTelegram = () => send('DELETE', '/api/telegram/link');

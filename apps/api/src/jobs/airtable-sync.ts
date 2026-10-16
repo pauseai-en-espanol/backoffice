@@ -3,20 +3,23 @@ import { readDsn } from '@backoffice/observability/dsn';
 import { captureException, flush } from '@sentry/node';
 
 import { initErrorTracking } from '../error-tracking.js';
+import { readLinkKey } from '../imports/airtable-link.js';
 import { runAirtableSync } from '../imports/airtable-sync.js';
 import { AirtableError } from '../imports/airtable.js';
 
 /**
  * The hourly Airtable sync (ADR-0005), run by the API chart's CronJob from the API's image. It connects as
- * pauseai_backoffice_ingest, which may only execute the sync's function, and prints counts only: never a record, never
- * the link. A run that can't read the view fails, so the CronJob's failure and GlitchTip tell the admins.
+ * pauseai_backoffice_ingest, which may only execute the sync's functions, reads the link admins set in Ajustes and
+ * opens it with AIRTABLE_LINK_KEY, and prints counts only: never a record, never the link. Off or without a link, it
+ * says so and does nothing. A run that can't read the view, or whose link doesn't open, fails, so the CronJob's failure
+ * and GlitchTip tell the admins, and Ajustes shows why.
  *
  *   node dist/jobs/airtable-sync.js
  */
 const url = process.env.INGEST_DATABASE_URL;
-const link = process.env.AIRTABLE_SHARED_VIEW_URL;
-if (!url || !link) {
-  console.error('INGEST_DATABASE_URL and AIRTABLE_SHARED_VIEW_URL must be set');
+const key = readLinkKey(process.env.AIRTABLE_LINK_KEY);
+if (!url || !key) {
+  console.error('INGEST_DATABASE_URL and AIRTABLE_LINK_KEY (32 random bytes, base64) must be set');
   process.exit(1);
 }
 initErrorTracking(readDsn(process.env));
@@ -28,18 +31,22 @@ const ingest = createDatabase({
 try {
   const counts = await runAirtableSync({
     ingest,
-    link,
+    key,
     requirePermission: process.env.AIRTABLE_REQUIRE_CHAPTER_PERMISSION === 'true',
   });
   console.log(JSON.stringify({ msg: 'Airtable sync done', ...counts }));
 } catch (error) {
-  const reason = error instanceof AirtableError ? error.reason : 'database';
-  console.error(`The Airtable sync failed (${reason})`);
-  captureException(
-    error instanceof AirtableError ? error : new Error(`The Airtable sync failed (${reason})`),
-  );
-  await flush(2_000);
-  process.exitCode = 1;
+  if (error instanceof AirtableError && error.reason === 'off') {
+    console.log(JSON.stringify({ msg: 'The Airtable sync is off, or has no link: nothing to do' }));
+  } else {
+    const reason = error instanceof AirtableError ? error.reason : 'database';
+    console.error(`The Airtable sync failed (${reason})`);
+    captureException(
+      error instanceof AirtableError ? error : new Error(`The Airtable sync failed (${reason})`),
+    );
+    await flush(2_000);
+    process.exitCode = 1;
+  }
 } finally {
   await ingest.destroy();
 }

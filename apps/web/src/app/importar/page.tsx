@@ -35,11 +35,15 @@ const COUNTS = [
   'skipped',
   'discarded',
   'invalid',
+  'erased',
+  'skippedNoPermission',
+  'skippedDuplicate',
+  'skippedInvalid',
 ] as const;
 
 /**
- * Importar (onboarding spec, intake sources): Global's Airtable view, synced hourly and on demand (ADR-0005), and the
- * CSV import, which is also the fallback whenever the view can't be read. Every import is idempotent, and listed.
+ * Importar (onboarding spec, intake sources): Global's Airtable view, synced hourly and on demand while an admin has it
+ * on in Ajustes (ADR-0005), and the CSV import, which is also the fallback whenever the view can't be read. Every import is idempotent, and listed.
  */
 const ImportsPage = async () => {
   const me = await requireStaff();
@@ -79,7 +83,11 @@ const ImportsPage = async () => {
             <h2 id="airtable" className={styles.h3}>
               {t('imports.airtable')}
             </h2>
-            {imports.airtable.configured ? (
+            {!imports.airtable.configured ? (
+              <p className={styles.notice}>{t('imports.airtableNotConfigured')}</p>
+            ) : !imports.airtable.enabled ? (
+              <p className={styles.notice}>{t('imports.airtableOff')}</p>
+            ) : (
               <>
                 <p className={styles.hint}>{t('imports.airtableIntro')}</p>
                 <p>
@@ -105,14 +113,13 @@ const ImportsPage = async () => {
                       page: t('imports.airtableReasons.page'),
                       data: t('imports.airtableReasons.data'),
                       columns: t('imports.airtableReasons.columns'),
+                      key: t('imports.airtableReasons.key'),
                     },
                     counts,
-                    errors,
+                    errors: { ...errors, off: t('imports.airtableOff') },
                   }}
                 />
               </>
-            ) : (
-              <p className={styles.notice}>{t('imports.airtableNotConfigured')}</p>
             )}
           </section>
           <section className={onboarding.section} aria-labelledby="csv">

@@ -109,6 +109,8 @@ export interface StaffApiOptions {
   endSessions?: (userId: string) => Promise<number>;
   /** The Airtable sync, run now from Importar (ADR-0005); undefined when not configured. */
   syncAirtable?: (() => Promise<SyncCounts>) | undefined;
+  /** AIRTABLE_LINK_KEY, which seals the link admins set in Ajustes (ADR-0005); without it, none can be set. */
+  airtableKey?: Buffer | undefined;
   /** Told about every new person from the staff app (the bot's team group, ADR-0004). */
   onArrival?: ((personId: string) => Promise<void>) | undefined;
   /** Told when someone is claimed from the staff app, so the team group's post says who. */
@@ -134,6 +136,7 @@ export const staffApiRoutes =
     passwordLinks,
     endSessions,
     syncAirtable,
+    airtableKey,
     onArrival,
     onClaim,
     onErase,
@@ -248,6 +251,7 @@ export const staffApiRoutes =
         staffOrigin,
         actorFor: async (request) => actorOf(await findSession(request)),
         syncAirtable,
+        airtableKey,
         onArrival,
         onClaim,
       }),

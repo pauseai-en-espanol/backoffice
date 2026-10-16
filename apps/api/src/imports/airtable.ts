@@ -12,7 +12,11 @@ import type { IntakePayload } from '../people/intake.js';
  * the data answers with `data.table.columns` and `data.table.rows`, and the share allows `downloadCsv`.
  */
 
-export type AirtableFailure = 'link' | 'page' | 'data' | 'columns';
+/**
+ * Why a run imported nothing: the link isn't a shared view's, its page or data couldn't be read, or its columns changed;
+ * `key`, the link admins set doesn't open with this deployment's key; `off`, the sync is off or has no link.
+ */
+export type AirtableFailure = 'link' | 'page' | 'data' | 'columns' | 'key' | 'off';
 
 export class AirtableError extends Error {
   constructor(readonly reason: AirtableFailure) {

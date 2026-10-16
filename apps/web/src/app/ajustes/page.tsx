@@ -7,7 +7,15 @@ import { getCensusOptions } from '@/onboarding/census/data';
 import { sortOptions } from '@/onboarding/census/format';
 import { OptionsEditor, type OptionsEditorText } from '@/onboarding/census/OptionsEditor';
 import * as census from '@/onboarding/census/styles';
-import { getArrivalChannels, getSettings, getTelegramLink } from '@/onboarding/data';
+import {
+  getAirtableSettings,
+  getArrivalChannels,
+  getSettings,
+  getTelegramLink,
+} from '@/onboarding/data';
+import { formatInstant } from '@/onboarding/format';
+import { Counts } from '@/onboarding/imports/Counts';
+import { AirtableLink } from '@/onboarding/settings/AirtableLink';
 import { SettingsForm } from '@/onboarding/settings/SettingsForm';
 import { usesTelegramBot } from '@/onboarding/settings/telegram-access';
 import { TelegramLink } from '@/onboarding/settings/TelegramLink';
@@ -22,21 +30,43 @@ const t = getTranslator();
 
 export const metadata: Metadata = { title: t('settings.title') };
 
+/** What a sync run counts, in words (Importar's). */
+const RUN_COUNTS = [
+  'received',
+  'created',
+  'attached',
+  'review',
+  'conflict',
+  'updated',
+  'unchanged',
+  'erased',
+  'skippedNoPermission',
+  'skippedDuplicate',
+  'skippedInvalid',
+] as const;
+
+/** Why a run imported nothing, as the database records it (migration airtable_sync). */
+const RUN_FAILURES = ['link', 'page', 'data', 'columns', 'key', 'database'] as const;
+const isRunFailure = (value: string): value is (typeof RUN_FAILURES)[number] =>
+  (RUN_FAILURES as readonly string[]).includes(value);
+
 /**
  * Ajustes: onboarding staff link (or unlink) their Telegram account to the bot, which is theirs alone (ADR-0004);
  * onboarding staff and admins see the onboarding settings and "Llegó por"'s list (PLAN M5), which admins change;
- * everyone sees the census's lists, which admins edit.
+ * admins alone set Global's Airtable link and turn its sync on or off (ADR-0005); everyone sees the census's lists,
+ * which admins edit.
  */
 const SettingsPage = async () => {
   const me = await requireStaff();
   const admin = isAdmin(me);
   const onboarder = canOnboard(me);
   const botUser = usesTelegramBot(me.staff.roles);
-  const [telegram, settings, options, arrivals] = await Promise.all([
+  const [telegram, settings, options, arrivals, airtable] = await Promise.all([
     botUser ? getTelegramLink() : Promise.resolve(undefined),
     onboarder ? getSettings() : Promise.resolve(undefined),
     getCensusOptions(),
     onboarder ? getArrivalChannels() : Promise.resolve(undefined),
+    admin ? getAirtableSettings() : Promise.resolve(undefined),
   ]);
   const errors = onboardingErrors(t);
   const raw = (key: Parameters<typeof t.raw>[0]) => String(t.raw(key));
@@ -158,6 +188,84 @@ const SettingsPage = async () => {
                   <dd>{settings.communityChats.join(', ') || '—'}</dd>
                 </dl>
                 <p className={styles.hint}>{t('settings.readOnly')}</p>
+              </>
+            )}
+          </section>
+        )}
+        {airtable === undefined ? null : (
+          <section className={onboarding.section} aria-labelledby="airtable">
+            <h2 id="airtable" className={styles.h3}>
+              {t('settings.airtable')}
+            </h2>
+            <p className={styles.hint}>{t('settings.airtableIntro')}</p>
+            {isUnavailable(airtable) ? (
+              <p className={styles.notice}>{t('web.unavailable.body')}</p>
+            ) : !airtable.available ? (
+              <p className={styles.notice}>{t('settings.airtableUnavailable')}</p>
+            ) : (
+              <>
+                <p>
+                  {airtable.link === null
+                    ? t('settings.airtableNoLink')
+                    : airtable.link.setBy === null
+                      ? t('settings.airtableLinkSetNoName', {
+                          date: formatInstant(airtable.link.setAt),
+                        })
+                      : t('settings.airtableLinkSet', {
+                          date: formatInstant(airtable.link.setAt),
+                          name: airtable.link.setBy,
+                        })}
+                </p>
+                {airtable.link === null ? null : (
+                  <p>
+                    {airtable.enabled ? t('settings.airtableOn') : t('settings.airtableOffNow')}
+                  </p>
+                )}
+                {airtable.link === null ? null : airtable.lastRun === null ? (
+                  <p className={styles.hint}>{t('settings.airtableNeverRun')}</p>
+                ) : airtable.lastRun.failure === null ? (
+                  <>
+                    <p>
+                      {t('settings.airtableLastRun', { date: formatInstant(airtable.lastRun.at) })}
+                    </p>
+                    <Counts
+                      counts={airtable.lastRun.counts ?? {}}
+                      labels={Object.fromEntries(
+                        RUN_COUNTS.map((key) => [key, t(`imports.counts.${key}`)]),
+                      )}
+                    />
+                  </>
+                ) : (
+                  <p className={styles.notice}>
+                    {t('settings.airtableLastFailed', { date: formatInstant(airtable.lastRun.at) })}{' '}
+                    {isRunFailure(airtable.lastRun.failure)
+                      ? t(`imports.airtableReasons.${airtable.lastRun.failure}`)
+                      : airtable.lastRun.failure}
+                  </p>
+                )}
+                <AirtableLink
+                  hasLink={airtable.link !== null}
+                  enabled={airtable.enabled}
+                  text={{
+                    link: t('settings.airtableLink'),
+                    newLink: t('settings.airtableNewLink'),
+                    linkHint: t('settings.airtableLinkHint'),
+                    save: t('settings.airtableSave'),
+                    saved: t('settings.airtableSaved'),
+                    invalid: t('settings.airtableInvalid'),
+                    turnOn: t('settings.airtableTurnOn'),
+                    turnOff: t('settings.airtableTurnOff'),
+                    turnedOn: t('settings.airtableTurnedOn'),
+                    turnedOff: t('settings.airtableTurnedOff'),
+                    noLinkYet: t('settings.airtableNoLinkYet'),
+                    remove: t('settings.airtableRemove'),
+                    removeQuestion: t('settings.airtableRemoveQuestion'),
+                    removed: t('settings.airtableRemoved'),
+                    confirm: t('team.confirm'),
+                    cancel: t('person.cancel'),
+                    errors,
+                  }}
+                />
               </>
             )}
           </section>

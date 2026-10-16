@@ -1,9 +1,11 @@
 import { createAuthPool } from '@backoffice/db/auth-pool';
 import { createDatabase } from '@backoffice/db/client';
+import { randomBytes } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { buildApp } from '../src/app.js';
 import { createAuth } from '../src/auth/auth.js';
+import { openLink, sealLink } from '../src/imports/airtable-link.js';
 import { runAirtableSync } from '../src/imports/airtable-sync.js';
 import {
   browser,
@@ -43,6 +45,8 @@ const ingest = createDatabase({
 
 /** A fictional Airtable view, served by a fake fetch: the page, then its data. */
 const LINK = 'https://airtable.com/appEjemplo000001/shrEjemplo0000001';
+/** This test run's AIRTABLE_LINK_KEY: the link admins set is sealed with it (ADR-0005). */
+const KEY = randomBytes(32);
 const airtableRows: { id: string; cellValuesByColumnId: Record<string, unknown> }[] = [];
 const fakeAirtable = (async (input: string | URL) => {
   if (String(input) === LINK) {
@@ -79,7 +83,8 @@ const app = buildApp({
     },
     app: appDb,
     syncAirtable: () =>
-      runAirtableSync({ ingest, link: LINK, requirePermission: true, fetch: fakeAirtable }),
+      runAirtableSync({ ingest, key: KEY, requirePermission: true, fetch: fakeAirtable }),
+    airtableKey: KEY,
     onArrival: async (personId) => {
       arrivals.push(personId);
     },
@@ -90,13 +95,13 @@ const accounts: string[] = [];
 const addresses: string[] = [];
 const people: string[] = [];
 
-/** An enrolled account made staff with `roles` by the owner's SQL, signed in. */
-const staffMember = async (...roles: string[]) => {
+/** An enrolled account made staff with `roles` by the owner's SQL, signed in, on `on` (this file's app by default). */
+const staffMemberOn = async (on: typeof app, ...roles: string[]) => {
   const created = await createAccount(authPool);
   accounts.push(created.id);
   const address = testAddress();
   addresses.push(address);
-  const who = browser(app, address);
+  const who = browser(on, address);
   expect(
     (
       await who.send('POST', '/api/auth/sign-in/email', {
@@ -126,6 +131,8 @@ const staffMember = async (...roles: string[]) => {
   }
   return { ...created, who };
 };
+
+const staffMember = async (...roles: string[]) => staffMemberOn(app, ...roles);
 
 let onboarder: Awaited<ReturnType<typeof staffMember>>;
 let admin: Awaited<ReturnType<typeof staffMember>>;
@@ -426,6 +433,10 @@ describe('onboarding through the staff API (M1)', () => {
   });
 
   it('syncs Airtable on demand as the ingest role, idempotently, and lists the run', async () => {
+    // The link admins set in Ajustes, sealed with this run's key, and the sync on (ADR-0005).
+    await superuser.query('UPDATE app.airtable_sync SET link_ciphertext = $1, enabled = true', [
+      sealLink(LINK, KEY),
+    ]);
     const id = `recSync${suffix()}abcd`.slice(0, 17);
     airtableRows.splice(0, airtableRows.length, {
       id,
@@ -444,9 +455,13 @@ describe('onboarding through the staff API (M1)', () => {
     }>();
     expect(second.counts).toMatchObject({ received: 1, unchanged: 1 });
     const imports = (await onboarder.who.send('GET', '/api/imports')).json<{
-      airtable: { configured: boolean; lastRun: unknown };
+      airtable: { configured: boolean; enabled: boolean; lastRun: unknown };
     }>();
-    expect(imports.airtable.configured).toBe(true);
+    expect(imports.airtable).toMatchObject({ configured: true, enabled: true });
+    // Turned off in Ajustes, it doesn't run on demand either.
+    await superuser.query('UPDATE app.airtable_sync SET enabled = false');
+    const off = await onboarder.who.send('POST', '/api/imports/airtable');
+    expect([off.statusCode, off.json()]).toEqual([409, { error: 'off' }]);
     const { rows } = await superuser.query<{ person_id: string }>(
       "SELECT person_id FROM app.identities WHERE kind = 'airtable' AND value = $1",
       [id],
@@ -999,5 +1014,168 @@ describe('team accounts linked to their person (PLAN M5, step 5)', () => {
         })
       ).statusCode,
     ).toBe(404);
+  });
+});
+
+describe('the Airtable link in Ajustes (ADR-0005)', () => {
+  const OTHER = 'https://airtable.com/appEjemplo000002/shrEjemplo0000002';
+  type Settings = {
+    available: boolean;
+    link: { setAt: string; setBy: { displayName: string } | null } | null;
+    enabled: boolean;
+    lastRun: { at: string; failure: string | null; counts: Record<string, unknown> | null } | null;
+  };
+  const sealed = async () =>
+    (
+      await superuser.query<{ link: string | null; by: string | null }>(
+        'SELECT link_ciphertext AS link, link_set_by AS by FROM app.airtable_sync',
+      )
+    ).rows[0];
+
+  it('lets admins alone set the link, write-only, turn the sync on and off, see its last run, and remove it', async () => {
+    await superuser.query('UPDATE app.airtable_sync SET link_ciphertext = NULL');
+    for (const who of [onboarder, outreacher]) {
+      for (const [method, path, body] of [
+        ['GET', '/api/airtable', undefined],
+        ['PUT', '/api/airtable/link', { link: LINK }],
+        ['PATCH', '/api/airtable', { enabled: true }],
+        ['DELETE', '/api/airtable/link', undefined],
+      ] as const) {
+        expect(
+          { method, path, status: (await who.who.send(method, path, body)).statusCode },
+          path,
+        ).toEqual({ method, path, status: 403 });
+      }
+    }
+    expect((await sealed())?.link).toBeNull();
+    const settings = async () => {
+      const answer = await admin.who.send('GET', '/api/airtable');
+      return { body: answer.json<Settings>(), text: answer.body };
+    };
+    expect((await settings()).body).toEqual({
+      available: true,
+      link: null,
+      enabled: false,
+      lastRun: null,
+    });
+    // Nothing to turn on without a link.
+    const early = await admin.who.send('PATCH', '/api/airtable', { enabled: true });
+    expect([early.statusCode, early.json()]).toEqual([409, { error: 'no_link' }]);
+
+    // Only an Airtable shared view's link, over https.
+    for (const link of [
+      'http://airtable.com/appEjemplo000001/shrEjemplo0000001',
+      'https://ejemplo.test/appEjemplo000001/shrEjemplo0000001',
+      'https://airtable.com.ejemplo.test/appEjemplo000001/shrEjemplo0000001',
+      'https://airtable.com/appEjemplo000001/viwEjemplo0000001',
+      `https://airtable.com/appEjemplo000001/shrEjemplo0000001/${'x'.repeat(450)}`,
+    ]) {
+      expect(
+        (await admin.who.send('PUT', '/api/airtable/link', { link })).statusCode,
+        link.slice(0, 40),
+      ).toBe(400);
+    }
+    expect((await sealed())?.link).toBeNull();
+
+    expect(
+      (await admin.who.send('PUT', '/api/airtable/link', { link: ` ${LINK} ` })).statusCode,
+    ).toBe(204);
+    const stored = await sealed();
+    expect(stored?.by).toBe(admin.id);
+    expect(openLink(stored?.link ?? '', KEY)).toBe(LINK);
+    const after = await settings();
+    expect(after.body).toEqual({
+      available: true,
+      link: { setAt: expect.any(String), setBy: { displayName: expect.any(String) } },
+      enabled: false,
+      lastRun: null,
+    });
+    // Write-only: no answer carries the link, nor what the database holds.
+    for (const secret of [
+      'airtable.com',
+      'shrEjemplo',
+      stored?.link ?? '',
+      (stored?.link ?? '').slice(3, 30),
+    ]) {
+      expect(after.text).not.toContain(secret);
+    }
+
+    expect((await admin.who.send('PATCH', '/api/airtable', { enabled: true })).statusCode).toBe(
+      204,
+    );
+    airtableRows.splice(0, airtableRows.length);
+    expect((await admin.who.send('POST', '/api/imports/airtable')).statusCode).toBe(200);
+    expect((await settings()).body).toMatchObject({
+      enabled: true,
+      lastRun: { at: expect.any(String), failure: null, counts: { received: 0 } },
+    });
+    // A view that can't be read: the last run says why, by its kind.
+    expect((await admin.who.send('PUT', '/api/airtable/link', { link: OTHER })).statusCode).toBe(
+      204,
+    );
+    expect((await settings()).body).toMatchObject({ enabled: true, lastRun: null });
+    const failed = await admin.who.send('POST', '/api/imports/airtable');
+    expect([failed.statusCode, failed.json()]).toEqual([
+      502,
+      { error: 'airtable', reason: 'page' },
+    ]);
+    expect((await settings()).body).toMatchObject({ lastRun: { failure: 'page', counts: null } });
+    // A link sealed with another deployment's key doesn't open: nothing is read, and the last run says so.
+    await superuser.query('UPDATE app.airtable_sync SET link_ciphertext = $1, enabled = true', [
+      sealLink(LINK, randomBytes(32)),
+    ]);
+    const unopened = await admin.who.send('POST', '/api/imports/airtable');
+    expect([unopened.statusCode, unopened.json()]).toEqual([
+      502,
+      { error: 'airtable', reason: 'key' },
+    ]);
+    expect((await settings()).body).toMatchObject({ lastRun: { failure: 'key', counts: null } });
+
+    expect((await admin.who.send('PATCH', '/api/airtable', { enabled: false })).statusCode).toBe(
+      204,
+    );
+    expect((await settings()).body.enabled).toBe(false);
+    expect((await admin.who.send('PATCH', '/api/airtable', { enabled: true })).statusCode).toBe(
+      204,
+    );
+    expect((await admin.who.send('DELETE', '/api/airtable/link')).statusCode).toBe(204);
+    expect((await settings()).body).toMatchObject({ link: null, enabled: false });
+    expect((await sealed())?.link).toBeNull();
+
+    // The audit log says the link changed, and who changed it, never what it was.
+    const { rows } = await superuser.query<{ actor_id: string; diff: unknown }>(
+      `SELECT actor_id, diff FROM app.audit_log WHERE table_name = 'airtable_sync' AND actor_id = $1`,
+      [admin.id],
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.some((row) => JSON.stringify(row.diff).includes('link_ciphertext'))).toBe(true);
+    expect(JSON.stringify(rows)).not.toContain(stored?.link?.slice(3, 30) ?? 'nothing');
+  });
+
+  it('refuses a link where the deployment has no key, and says so', async () => {
+    const keyless = buildApp({
+      api: {
+        auth: {
+          auth: createAuth({
+            pool: authPool,
+            secret: SECRET,
+            staffOrigin: STAFF_ORIGIN,
+            totpIssuer: TOTP_ISSUER,
+          }),
+          staffOrigin: STAFF_ORIGIN,
+        },
+        app: appDb,
+      },
+    });
+    await keyless.ready();
+    try {
+      const other = await staffMemberOn(keyless, 'admin');
+      expect((await other.who.send('GET', '/api/airtable')).json<Settings>().available).toBe(false);
+      const refused = await other.who.send('PUT', '/api/airtable/link', { link: LINK });
+      expect([refused.statusCode, refused.json()]).toEqual([503, { error: 'unavailable' }]);
+      expect((await sealed())?.link).toBeNull();
+    } finally {
+      await keyless.close();
+    }
   });
 });

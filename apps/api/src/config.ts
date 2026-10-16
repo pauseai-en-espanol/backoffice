@@ -1,6 +1,6 @@
 import { type Dsn, readDsn } from '@backoffice/observability/dsn';
 
-import { isSharedViewUrl } from './imports/airtable.js';
+import { readLinkKey } from './imports/airtable-link.js';
 import { readTelegram, type TelegramConfig } from './telegram/config.js';
 
 export interface ApiConfig {
@@ -26,8 +26,8 @@ export interface ApiConfig {
   /** The backoffice's mail sender. Undefined: nothing sends mail, so no invitation or password link goes out. */
   mail: MailConfig | undefined;
   /**
-   * The Airtable sync, run on demand from Importar or the bot (ADR-0005): the ingest role's connection and the shared
-   * view link. Undefined: "Sincronizar Airtable ahora" answers that it isn't configured.
+   * The Airtable sync (ADR-0005): the key that seals the link admins set in Ajustes, and the ingest role's connection
+   * that runs it on demand from Importar or the bot. Undefined: no link can be set, and nothing syncs here.
    */
   airtable: AirtableConfig | undefined;
   /** The Telegram bot (ADR-0004). Undefined: no webhook, no linking, no team group. */
@@ -53,10 +53,16 @@ export interface FormsConfig {
 }
 
 export interface AirtableConfig {
-  /** pauseai_backoffice_ingest, which may only execute the sync's function. */
-  ingestDatabaseUrl: string;
-  /** Global's shared view link: a credential, from a sealed secret. Never logged, never in an error. */
-  sharedViewUrl: string;
+  /**
+   * AIRTABLE_LINK_KEY: 32 random bytes, from a sealed secret, that seal and open the link admins set (the link itself
+   * lives in the database, encrypted). Never logged, never in an error.
+   */
+  key: Buffer;
+  /**
+   * pauseai_backoffice_ingest, which may only execute the sync's functions. Undefined: admins can set the link, but
+   * only the CronJob syncs ("Sincronizar Airtable ahora" answers that it isn't available).
+   */
+  ingestDatabaseUrl: string | undefined;
   /** Only rows with Global's chapter-share permission: AIRTABLE_REQUIRE_CHAPTER_PERMISSION=true (PLAN R14). */
   requirePermission: boolean;
 }
@@ -181,26 +187,29 @@ export const readMail = (env: NodeJS.ProcessEnv): MailConfig | undefined => {
   return { smtpUrl, from };
 };
 
-/** The sync needs the ingest role's connection and the link, or neither. Errors never echo either. */
-const readAirtable = (env: NodeJS.ProcessEnv): AirtableConfig | undefined => {
+/**
+ * The sync needs the key, and the ingest role's connection to run on demand: the key alone lets admins set the link,
+ * the connection alone is an error. Errors never echo either. The link is no longer an environment variable: admins set
+ * it in Ajustes (ADR-0005).
+ */
+export const readAirtable = (env: NodeJS.ProcessEnv): AirtableConfig | undefined => {
   const ingestDatabaseUrl = env.INGEST_DATABASE_URL || undefined;
-  const sharedViewUrl = env.AIRTABLE_SHARED_VIEW_URL || undefined;
-  if (!ingestDatabaseUrl && !sharedViewUrl) {
+  const keyText = env.AIRTABLE_LINK_KEY || undefined;
+  if (!ingestDatabaseUrl && !keyText) {
     return undefined;
   }
-  if (!ingestDatabaseUrl || !sharedViewUrl) {
-    throw new Error(
-      `The Airtable sync is half configured: ${ingestDatabaseUrl ? 'AIRTABLE_SHARED_VIEW_URL' : 'INGEST_DATABASE_URL'} not set`,
-    );
+  if (!keyText) {
+    throw new Error('The Airtable sync is half configured: AIRTABLE_LINK_KEY not set');
   }
-  if (!isSharedViewUrl(sharedViewUrl)) {
+  const key = readLinkKey(keyText);
+  if (!key) {
     throw new Error(
-      'AIRTABLE_SHARED_VIEW_URL must be an Airtable shared view link (https://airtable.com/app…/shr…)',
+      'AIRTABLE_LINK_KEY must be 32 random bytes in base64 (scripts/seal-airtable-key.sh)',
     );
   }
   return {
+    key,
     ingestDatabaseUrl,
-    sharedViewUrl,
     requirePermission: env.AIRTABLE_REQUIRE_CHAPTER_PERMISSION === 'true',
   };
 };

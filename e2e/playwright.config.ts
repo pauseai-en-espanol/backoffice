@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { existsSync } from 'node:fs';
 
 import {
+  AIRTABLE_LINK_KEY,
   API_FORMS_URL,
   API_URL,
   AUTH,
@@ -86,6 +87,8 @@ export default defineConfig({
         PUBLIC_DATABASE_URL,
         FORMS_TOKEN,
         CENSUS_URL: FORMS_URL,
+        // Admins can set Global's Airtable link in Ajustes (ADR-0005); without the ingest role, nothing syncs here.
+        AIRTABLE_LINK_KEY,
       },
     },
     {

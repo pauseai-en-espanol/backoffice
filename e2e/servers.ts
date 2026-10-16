@@ -22,6 +22,8 @@ export const API_FORMS_URL = `http://127.0.0.1:${PORTS.apiForms}`;
 export const FORMS_URL = `http://localhost:${PORTS.forms}`;
 /** The secret the forms app and the API share, for the e2e run only. */
 export const FORMS_TOKEN = 'an-e2e-only-forms-token-of-more-than-thirty-two-characters';
+/** AIRTABLE_LINK_KEY for the e2e API: 32 bytes in base64, e2e only, which seals the fictional links tests set. */
+export const AIRTABLE_LINK_KEY = Buffer.alloc(32, 'e2e-only-airtable-link-key').toString('base64');
 
 /**
  * The staff host, through the stand-in gateway (fake-gateway.ts), as browsers reach it in production. `localhost`, so

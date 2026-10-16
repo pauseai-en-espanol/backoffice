@@ -26,7 +26,14 @@ import type { SyncCounts } from '../imports/airtable-sync.js';
 import { censusOfPerson } from '../census/census.js';
 import { databaseRefusal } from '../database-errors.js';
 import { fromAnotherSite } from '../fetch-site.js';
-import { AirtableError } from '../imports/airtable.js';
+import { sealLink } from '../imports/airtable-link.js';
+import {
+  airtableEnabled,
+  readAirtableSettings,
+  setAirtableEnabled,
+  setAirtableLink,
+} from '../imports/airtable-settings.js';
+import { AirtableError, isSharedViewUrl } from '../imports/airtable.js';
 import {
   CSV_FIELDS,
   CsvError,
@@ -92,8 +99,10 @@ export interface PeopleRoutesOptions {
   app: Database | undefined;
   staffOrigin: string;
   actorFor: (request: FastifyRequest) => Promise<Actor | undefined>;
-  /** The Airtable sync, run now (ADR-0005); undefined when the link or the ingest role isn't configured. */
+  /** The Airtable sync, run now (ADR-0005); undefined when the key or the ingest role isn't configured. */
   syncAirtable?: (() => Promise<SyncCounts>) | undefined;
+  /** AIRTABLE_LINK_KEY, which seals the link admins set in Ajustes (ADR-0005); undefined: none can be set here. */
+  airtableKey?: Buffer | undefined;
   /** Told about every new person from the staff app (the bot's team group, ADR-0004); never awaited for long. */
   onArrival?: ((personId: string) => Promise<void>) | undefined;
   /** Told when someone is claimed here, so the team group's post says who. */
@@ -205,7 +214,15 @@ const csvCell = (
 };
 
 export const peopleRoutes =
-  ({ app, staffOrigin, actorFor, syncAirtable, onArrival, onClaim }: PeopleRoutesOptions) =>
+  ({
+    app,
+    staffOrigin,
+    actorFor,
+    syncAirtable,
+    airtableKey,
+    onArrival,
+    onClaim,
+  }: PeopleRoutesOptions) =>
   async (scope: FastifyInstance): Promise<void> => {
     scope.setErrorHandler(async (error, _request, reply) => {
       const refusal = schemaRefusal(error);
@@ -799,6 +816,8 @@ export const peopleRoutes =
             imports,
             airtable: {
               configured: syncAirtable !== undefined,
+              // Whether an admin has turned it on, with a link, in Ajustes (ADR-0005).
+              enabled: await airtableEnabled(trx),
               lastRun: imports.find((run) => run.kind === 'airtable') ?? null,
             },
           };
@@ -822,6 +841,10 @@ export const peopleRoutes =
           }
           return { counts };
         } catch (error) {
+          // Off, or without a link: an admin's choice in Ajustes, not a failure.
+          if (error instanceof AirtableError && error.reason === 'off') {
+            throw new Refusal(409, 'off');
+          }
           if (error instanceof AirtableError) {
             request.log.error(`The Airtable sync failed (${error.reason})`);
             captureException(error);
@@ -1115,6 +1138,81 @@ export const peopleRoutes =
           await withActor(db, actor, async (trx) => {
             await require(trx, ADMIN);
             await updateSettings(trx, request.body);
+          });
+          return reply.code(204).send();
+        }),
+    );
+
+    // The Airtable sync's settings (ADR-0005): admins only. The link is write-only: no answer here carries it, nor its
+    // ciphertext; the API seals it with the deployment's key before it reaches the database.
+
+    scope.get('/airtable', async (request, reply) =>
+      signedIn(request, reply, async (db, actor) =>
+        withActor(db, actor, async (trx) => {
+          await require(trx, ADMIN);
+          return { available: airtableKey !== undefined, ...(await readAirtableSettings(trx)) };
+        }),
+      ),
+    );
+
+    scope.put<{ Body: { link: string } }>(
+      '/airtable/link',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['link'],
+            properties: { link: { type: 'string', minLength: 1, maxLength: 500 } },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          await withActor(db, actor, async (trx) => {
+            await require(trx, ADMIN);
+            if (!airtableKey) {
+              throw new Refusal(503, 'unavailable');
+            }
+            const link = request.body.link.trim();
+            if (!isSharedViewUrl(link)) {
+              throw new Refusal(400, 'invalid', { field: 'link' });
+            }
+            await setAirtableLink(trx, sealLink(link, airtableKey));
+          });
+          return reply.code(204).send();
+        }),
+    );
+
+    scope.delete('/airtable/link', async (request, reply) =>
+      signedIn(request, reply, async (db, actor) => {
+        await withActor(db, actor, async (trx) => {
+          await require(trx, ADMIN);
+          await setAirtableLink(trx, null);
+        });
+        return reply.code(204).send();
+      }),
+    );
+
+    scope.patch<{ Body: { enabled: boolean } }>(
+      '/airtable',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['enabled'],
+            properties: { enabled: { type: 'boolean' } },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          await withActor(db, actor, async (trx) => {
+            await require(trx, ADMIN);
+            if ((await setAirtableEnabled(trx, request.body.enabled)) === 'no_link') {
+              throw new Refusal(409, 'no_link');
+            }
           });
           return reply.code(204).send();
         }),

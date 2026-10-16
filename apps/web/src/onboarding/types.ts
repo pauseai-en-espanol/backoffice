@@ -193,7 +193,17 @@ export interface ImportRun {
 
 export interface Imports {
   imports: ImportRun[];
-  airtable: { configured: boolean; lastRun: ImportRun | null };
+  /** `enabled`: an admin has turned the sync on, with a link, in Ajustes (ADR-0005). */
+  airtable: { configured: boolean; enabled: boolean; lastRun: ImportRun | null };
+}
+
+/** The Airtable sync's settings, for admins in Ajustes (ADR-0005): never the link, which no answer carries. */
+export interface AirtableSettings {
+  /** Whether this deployment has the key that seals the link: without it, no link can be set. */
+  available: boolean;
+  link: { setAt: string; setBy: string | null } | null;
+  enabled: boolean;
+  lastRun: { at: string; failure: string | null; counts: Record<string, number> | null } | null;
 }
 
 export interface Settings {
@@ -712,8 +722,48 @@ export const parseImports = (body: unknown): Imports | undefined => {
       ? null
       : parseImportRun(airtable.lastRun);
   return imports && lastRun !== undefined
-    ? { imports, airtable: { configured: airtable.configured === true, lastRun } }
+    ? {
+        imports,
+        airtable: {
+          configured: airtable.configured === true,
+          enabled: airtable.enabled === true,
+          lastRun,
+        },
+      }
     : undefined;
+};
+
+/** `GET /api/airtable`'s body (admins). */
+export const parseAirtableSettings = (body: unknown): AirtableSettings | undefined => {
+  if (!isRecord(body) || typeof body.available !== 'boolean' || typeof body.enabled !== 'boolean') {
+    return undefined;
+  }
+  const link =
+    body.link === null
+      ? null
+      : isRecord(body.link) && str(body.link.setAt)
+        ? {
+            setAt: body.link.setAt,
+            setBy:
+              isRecord(body.link.setBy) && str(body.link.setBy.displayName)
+                ? body.link.setBy.displayName
+                : null,
+          }
+        : undefined;
+  const run = body.lastRun;
+  const lastRun =
+    run === null
+      ? null
+      : isRecord(run) && str(run.at)
+        ? {
+            at: run.at,
+            failure: str(run.failure) ? run.failure : null,
+            counts: isRecord(run.counts) ? countsOf(run.counts) : null,
+          }
+        : undefined;
+  return link === undefined || lastRun === undefined
+    ? undefined
+    : { available: body.available, link, enabled: body.enabled, lastRun };
 };
 
 const SETTINGS_NUMBERS = [

@@ -12,6 +12,7 @@ import type { Notifier } from './notify.js';
 import type { BotStore, PersonLine } from './store.js';
 import type { TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from './updates.js';
 
+import { AirtableError } from '../imports/airtable.js';
 import {
   askContact,
   confirmArrival,
@@ -356,6 +357,11 @@ const runCommand = async (command: ParsedCommand, ctx: Context): Promise<void> =
       try {
         counts = await sync();
       } catch (error) {
+        // Off, or without a link: an admin's choice in Ajustes, not a failure (ADR-0005).
+        if (error instanceof AirtableError && error.reason === 'off') {
+          await ctx.say(t('bot.sync.off'));
+          return;
+        }
         report(ctx.deps, error);
         await ctx.say(t('bot.sync.failed'));
         return;
