@@ -1,5 +1,18 @@
 # @backoffice/web
 
+## 0.5.0
+
+### Minor Changes
+
+- fb626ac: The team group hears of arrivals within a window admins set in Ajustes, a week by default: someone who arrived before
+  it, or on a day nobody knows, is a member entered after the fact and isn't announced. The instant post (the bot,
+  Añadir) now obeys it as the sweep did.
+
+### Patch Changes
+
+- Updated dependencies [fb626ac]
+  - @backoffice/i18n@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes

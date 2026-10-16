@@ -1,5 +1,12 @@
 # @backoffice/forms
 
+## 0.1.6
+
+### Patch Changes
+
+- Updated dependencies [fb626ac]
+  - @backoffice/i18n@0.5.0
+
 ## 0.1.5
 
 ### Patch Changes
