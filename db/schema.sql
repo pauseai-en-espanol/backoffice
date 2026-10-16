@@ -356,6 +356,75 @@ CREATE FUNCTION private.accept_invitation(token_hash text) RETURNS boolean
 ALTER FUNCTION private.accept_invitation(token_hash text) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: airtable_link(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.airtable_link() RETURNS text
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  SELECT s.link_ciphertext FROM app.airtable_sync s WHERE s.enabled
+  $$;
+
+
+ALTER FUNCTION private.airtable_link() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: airtable_link_set(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.airtable_link_set() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF TG_OP = 'UPDATE' AND NEW.link_ciphertext IS NOT DISTINCT FROM OLD.link_ciphertext THEN
+      NEW.link_set_by := OLD.link_set_by;
+      NEW.link_set_at := OLD.link_set_at;
+      RETURN NEW;
+    END IF;
+    IF NEW.link_ciphertext IS NULL THEN
+      NEW.link_set_by := NULL;
+      NEW.link_set_at := NULL;
+      NEW.enabled := false;
+    ELSE
+      NEW.link_set_by := private.current_user_id();
+      NEW.link_set_at := now();
+    END IF;
+    IF TG_OP = 'UPDATE' THEN
+      NEW.last_run_at := NULL;
+      NEW.last_run_failure := NULL;
+      NEW.last_run_counts := NULL;
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.airtable_link_set() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: airtable_ran(text, jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.airtable_ran(failure text, counts jsonb) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF (failure IS NULL) = (counts IS NULL) THEN
+      RAISE EXCEPTION 'a run either failed or counted' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    UPDATE app.airtable_sync s
+       SET last_run_at = now(), last_run_failure = airtable_ran.failure, last_run_counts = airtable_ran.counts
+     WHERE s.id;
+  END
+  $$;
+
+
+ALTER FUNCTION private.airtable_ran(failure text, counts jsonb) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: anonymise_contact(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -2494,6 +2563,44 @@ CREATE FUNCTION private.unlink_telegram() RETURNS trigger
 ALTER FUNCTION private.unlink_telegram() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: airtable_sync; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.airtable_sync (
+    id boolean DEFAULT true NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    link_ciphertext text,
+    link_set_by uuid,
+    link_set_at timestamp with time zone,
+    last_run_at timestamp with time zone,
+    last_run_failure text,
+    last_run_counts jsonb,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT airtable_sync_enabled_check CHECK (((NOT enabled) OR (link_ciphertext IS NOT NULL))),
+    CONSTRAINT airtable_sync_id_check CHECK (id),
+    CONSTRAINT airtable_sync_last_run_counts_check CHECK ((jsonb_typeof(last_run_counts) = 'object'::text)),
+    CONSTRAINT airtable_sync_last_run_failure_check CHECK ((last_run_failure = ANY (ARRAY['link'::text, 'page'::text, 'data'::text, 'columns'::text, 'key'::text, 'database'::text]))),
+    CONSTRAINT airtable_sync_link_check CHECK (((link_ciphertext IS NULL) = (link_set_at IS NULL))),
+    CONSTRAINT airtable_sync_link_ciphertext_check CHECK (((link_ciphertext ~ '^v1\.[A-Za-z0-9_-]+$'::text) AND (length(link_ciphertext) <= 1000))),
+    CONSTRAINT airtable_sync_run_check CHECK (
+CASE
+    WHEN (last_run_at IS NULL) THEN ((last_run_failure IS NULL) AND (last_run_counts IS NULL))
+    ELSE ((last_run_failure IS NULL) <> (last_run_counts IS NULL))
+END)
+);
+
+
+ALTER TABLE app.airtable_sync OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN airtable_sync.link_ciphertext; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.airtable_sync.link_ciphertext IS 'personal data';
+
+
+--
 -- Name: arrival_channels; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3724,6 +3831,14 @@ CREATE TABLE public.schema_migrations (
 ALTER TABLE public.schema_migrations OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: airtable_sync airtable_sync_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.airtable_sync
+    ADD CONSTRAINT airtable_sync_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: arrival_channels arrival_channels_key_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4376,6 +4491,13 @@ CREATE TRIGGER attempt_template BEFORE INSERT ON app.person_events FOR EACH ROW 
 
 
 --
+-- Name: airtable_sync audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.airtable_sync FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
 -- Name: arrival_channels audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4684,6 +4806,13 @@ CREATE TRIGGER keep_an_admin AFTER DELETE ON app.staff_roles FOR EACH ROW WHEN (
 
 
 --
+-- Name: airtable_sync link_set; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER link_set BEFORE INSERT OR UPDATE ON app.airtable_sync FOR EACH ROW EXECUTE FUNCTION private.airtable_link_set();
+
+
+--
 -- Name: staff person_is_live; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4709,6 +4838,13 @@ CREATE TRIGGER rules BEFORE UPDATE ON app.people FOR EACH ROW EXECUTE FUNCTION p
 --
 
 CREATE TRIGGER sent BEFORE UPDATE ON app.census_links FOR EACH ROW EXECUTE FUNCTION private.census_link_sent();
+
+
+--
+-- Name: airtable_sync stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.airtable_sync FOR EACH ROW EXECUTE FUNCTION private.stamp('updated_by', 'updated_at');
 
 
 --
@@ -5412,6 +5548,13 @@ CREATE POLICY admin_revoke ON app.invitations FOR UPDATE TO pauseai_backoffice_a
 
 
 --
+-- Name: airtable_sync admin_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY admin_update ON app.airtable_sync FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: arrival_channels admin_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5438,6 +5581,12 @@ CREATE POLICY admin_update ON app.settings FOR UPDATE TO pauseai_backoffice_app 
 
 CREATE POLICY admin_update ON app.staff FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can));
 
+
+--
+-- Name: airtable_sync; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.airtable_sync ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: arrival_channels; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
@@ -5601,6 +5750,13 @@ CREATE POLICY onboarding_insert ON app.person_events FOR INSERT TO pauseai_backo
 --
 
 CREATE POLICY onboarding_insert ON app.person_options FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: airtable_sync onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.airtable_sync FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
 
 
 --
@@ -5995,6 +6151,29 @@ REVOKE USAGE ON SCHEMA public FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION private.accept_invitation(token_hash text) FROM PUBLIC;
 GRANT ALL ON FUNCTION private.accept_invitation(token_hash text) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION airtable_link(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.airtable_link() FROM PUBLIC;
+GRANT ALL ON FUNCTION private.airtable_link() TO pauseai_backoffice_ingest;
+
+
+--
+-- Name: FUNCTION airtable_link_set(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.airtable_link_set() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION airtable_ran(failure text, counts jsonb); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.airtable_ran(failure text, counts jsonb) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.airtable_ran(failure text, counts jsonb) TO pauseai_backoffice_ingest;
 
 
 --
@@ -6495,6 +6674,76 @@ REVOKE ALL ON FUNCTION private.template_version() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION private.unlink_telegram() FROM PUBLIC;
+
+
+--
+-- Name: COLUMN airtable_sync.id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(id) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN airtable_sync.enabled; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(enabled),UPDATE(enabled) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN airtable_sync.link_ciphertext; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(link_ciphertext) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN airtable_sync.link_set_by; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(link_set_by) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN airtable_sync.link_set_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(link_set_at) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN airtable_sync.last_run_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(last_run_at) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN airtable_sync.last_run_failure; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(last_run_failure) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN airtable_sync.last_run_counts; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(last_run_counts) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN airtable_sync.updated_by; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(updated_by) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN airtable_sync.updated_at; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(updated_at) ON TABLE app.airtable_sync TO pauseai_backoffice_app;
 
 
 --

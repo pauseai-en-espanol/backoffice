@@ -99,6 +99,22 @@ export type Numeric = ColumnType<string, number | string, number | string>;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface AppAirtableSync {
+  enabled: Generated<boolean>;
+  id: Generated<boolean>;
+  last_run_at: Timestamp | null;
+  last_run_counts: Json | null;
+  last_run_failure: string | null;
+  /**
+   * personal data
+   */
+  link_ciphertext: string | null;
+  link_set_at: Timestamp | null;
+  link_set_by: string | null;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
 export interface AppArrivalChannels {
   active: Generated<boolean>;
   created_at: Generated<Timestamp>;
@@ -583,6 +599,7 @@ export interface AppStaffRoles {
 }
 
 export interface DB {
+  'app.airtable_sync': AppAirtableSync;
   'app.arrival_channels': AppArrivalChannels;
   'app.audit_log': AppAuditLog;
   'app.campaign_anchors': AppCampaignAnchors;

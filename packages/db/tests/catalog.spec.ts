@@ -180,9 +180,11 @@ describe('catalog: closed by default', () => {
     }
   });
 
-  it('keeps the ingest role to its one function (ADR-0005), and the public role to the census form’s two', async () => {
+  it('keeps the ingest role to the sync’s three functions (ADR-0005), and the public role to the census form’s two', async () => {
     expect(await reachable('pauseai_backoffice_ingest', SCHEMAS)).toEqual([
       'private USAGE',
+      'private.airtable_link EXECUTE',
+      'private.airtable_ran EXECUTE',
       'private.ingest_airtable EXECUTE',
     ]);
     expect(await reachable('pauseai_backoffice_public', SCHEMAS)).toEqual([
@@ -468,6 +470,8 @@ const APPEND_ONLY = ['audit_log', 'consents', 'contact_events', 'person_events']
 
 /** Columns commented `personal data` (data model spec, conventions), as `table.column`: never copied to the log. */
 const PERSONAL_DATA: readonly string[] = [
+  // Not personal data itself, but the credential that reads every signup (ADR-0005): marked so the log never has it.
+  'airtable_sync.link_ciphertext',
   'campaign_targets.next_action',
   'campaign_targets.notes',
   'community_presence.chat',

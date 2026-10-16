@@ -157,6 +157,22 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
       },
     ],
   },
+  'app.airtable_sync': {
+    rows: [
+      {
+        // Admins set the link and turn the sync on or off (ADR-0005); onboarding staff see whether it's on (Importar).
+        // The link itself no one selects: its column isn't granted (packages/db/tests/airtable-sync.spec.ts).
+        id: 'the Airtable sync',
+        where: 'id',
+        select: ONBOARDING,
+        update: { set: "link_ciphertext = 'v1.cifrado'", rule: ADMIN },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      { id: 'another row', sql: 'INSERT INTO app.airtable_sync (id) VALUES (false)', rule: NOBODY },
+    ],
+  },
   'app.settings': {
     rows: [
       {

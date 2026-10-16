@@ -25,7 +25,10 @@ export const EXECUTE_ALLOWLIST: readonly string[] = [
   'pauseai_backoffice_app private.submit_intake(source app.source_kind, external_id text, payload jsonb, decision text, target uuid)',
   'pauseai_backoffice_app private.team_card(person uuid)',
   'pauseai_backoffice_app private.team_unposted(chat bigint)',
-  // The Airtable sync's one function (ADR-0005): nothing else is granted to the ingest role.
+  // The Airtable sync's (ADR-0005): the link to read, encrypted, while the sync is on; how a run went; the records.
+  // Nothing else is granted to the ingest role.
+  'pauseai_backoffice_ingest private.airtable_link()',
+  'pauseai_backoffice_ingest private.airtable_ran(failure text, counts jsonb)',
   'pauseai_backoffice_ingest private.ingest_airtable(records jsonb)',
   // The census form's (ADR-0002 §7): its lists and greeting, and one answer at a time; nothing else.
   'pauseai_backoffice_public private.census_form(token_hash text)',
@@ -35,6 +38,9 @@ export const EXECUTE_ALLOWLIST: readonly string[] = [
 /** SECURITY DEFINER functions allowed in `app`, `private` and `auth` (ADR-0002). */
 export const SECURITY_DEFINER_ALLOWLIST: readonly string[] = [
   'private.accept_invitation',
+  // The Airtable sync's settings, for the ingest role alone (ADR-0005): the app role can't read the link at all.
+  'private.airtable_link',
+  'private.airtable_ran',
   // Erasure (personal data spec, rights): admins only, through the staff app.
   'private.anonymise_contact',
   'private.anonymise_person',
