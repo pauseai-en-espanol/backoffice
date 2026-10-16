@@ -27,7 +27,7 @@ export const getToday = () => readFromApi('/api/today', parseToday);
 export const getPeople = (filters: PeopleFilters, cursor?: string) =>
   readFromApi(`/api/people${apiQuery(filters, { cursor })}`, parsePeople);
 
-/** Embudo: the people by stage, for the filters (without the search text). */
+/** The Onboarding Pipeline: the people by stage, for the filters (without the search text). */
 export const getBoard = (filters: PeopleFilters) =>
   readFromApi(`/api/board${apiQuery({ ...filters, q: '' })}`, parseBoard);
 

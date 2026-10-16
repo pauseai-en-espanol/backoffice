@@ -1,7 +1,7 @@
 import { isStage, type Source, SOURCES, type Stage } from '@backoffice/domain/stages';
 
 /**
- * The filters of Personas and Embudo, and their two spellings: the page's address, in Spanish, so a list can be
+ * The filters of Personas and the Onboarding Pipeline, and their two spellings: the page's address, in Spanish, so a list can be
  * bookmarked and shared (`?etapa=new&responsable=yo`), and the API's query (docs/spec/staff-api.md, People).
  */
 export interface PeopleFilters {

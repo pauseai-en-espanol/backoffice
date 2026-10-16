@@ -42,7 +42,7 @@ describe('the invitation email', () => {
       token: 't',
     });
     expect(sent[0]?.text).toContain('Luis te ha invitado');
-    expect(sent[0]?.text).toContain('Acogida, Relaciones externas');
+    expect(sent[0]?.text).toContain('Onboarding, Relaciones externas');
     expect(sent[0]?.text).toContain('https://backoffice.example.test/invitacion#token=t');
     expect(sent[0]?.text).not.toContain('malo.example');
   });

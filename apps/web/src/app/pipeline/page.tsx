@@ -45,7 +45,7 @@ const fullList = (filters: PeopleFilters, stage: Stage) =>
   `/personas${pageQuery({ ...filters, stages: [stage] })}`;
 
 /**
- * Embudo (onboarding spec, views): the people by stage, in the expected path's order. From a tablet up, one column a
+ * Onboarding Pipeline (onboarding spec, views): the people by stage, in the expected path's order. From a tablet up, one column a
  * stage, side by side (scrolling sideways); on a phone, one stage at a time, picked from a list that says how many
  * each has. Each card leads to the person, where the stage is changed.
  */
@@ -79,7 +79,7 @@ const BoardPage = async ({
       <h1 className={styles.h1}>{t('board.title')}</h1>
       <p className={styles.text}>{t('board.intro')}</p>
       <FiltersForm
-        action="/embudo"
+        action="/pipeline"
         filters={filters}
         team={isUnavailable(team) ? [] : team.staff}
         search={false}
@@ -121,7 +121,7 @@ const BoardPage = async ({
             })}
           </div>
           <div className={onboarding.boardPhone}>
-            <form method="get" action="/embudo" className={styles.form}>
+            <form method="get" action="/pipeline" className={styles.form}>
               {/* The filters, carried along. */}
               {[...new URLSearchParams(pageQuery(filters))].map(([name, value], index) => (
                 <input key={`${name}-${index}`} type="hidden" name={name} value={value} />

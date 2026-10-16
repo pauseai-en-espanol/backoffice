@@ -12,7 +12,7 @@ import * as styles from './styles';
 const t = getTranslator();
 
 /**
- * The filters of Personas and Embudo, as a plain GET form: the list is the page's address, so it works without
+ * The filters of Personas and the Onboarding Pipeline, as a plain GET form: the list is the page's address, so it works without
  * scripts, and can be bookmarked or shared with the team. `search` adds the search box (Personas).
  */
 export const FiltersForm = ({

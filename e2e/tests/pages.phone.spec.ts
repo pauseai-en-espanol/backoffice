@@ -6,7 +6,7 @@ import { expect, test } from '../test.js';
 const PAGES = [
   '/',
   '/personas',
-  '/embudo',
+  '/pipeline',
   '/anadir',
   '/bandeja',
   '/censo',

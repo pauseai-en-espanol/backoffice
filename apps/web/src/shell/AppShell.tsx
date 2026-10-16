@@ -50,7 +50,7 @@ export const AppShell = ({
                 <NavLink href="/personas" label={t('web.nav.people')} />
               </li>
               <li>
-                <NavLink href="/embudo" label={t('web.nav.board')} />
+                <NavLink href="/pipeline" label={t('web.nav.board')} />
               </li>
               <li>
                 <NavLink href="/panel" label={t('web.nav.panel')} />

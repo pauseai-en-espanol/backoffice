@@ -71,7 +71,8 @@ Reporting happens mostly through the bot. The web app is where the work is follo
 mobile-first all the same.
 
 - **Hoy:** my people needing attention, then the unassigned queue with a "Me lo quedo" (claim) button.
-- **Embudo:** a board by stage. Filters: owner, province, source, in the community or not, needs attention.
+- **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage. Filters: owner, province, source, in
+  the community or not, needs attention.
 - **Personas:** a searchable list (name, email, phone; typo-tolerant). Exportable to CSV by admins only, and
   every export is audited.
 - **Persona:** profile, identities, community presence, timeline. Quick actions: log a contact attempt (channel

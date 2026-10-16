@@ -1,7 +1,7 @@
 {
   "roles": {
     "admin": "Administración",
-    "onboarding": "Acogida",
+    "onboarding": "Onboarding",
     "outreach": "Relaciones externas"
   },
   "email": {
@@ -45,7 +45,7 @@
       "audit": "Registro",
       "signOut": "Salir",
       "people": "Personas",
-      "board": "Embudo",
+      "board": "Onboarding Pipeline",
       "add": "Añadir",
       "bandeja": "Bandeja",
       "bandejaCount": "Bandeja ({count})",
@@ -66,7 +66,7 @@
       "coming": "Aquí verás a las personas que necesitan algo de ti, la cola de personas sin asignar y lo que llega cada día. Esas vistas llegan con la siguiente entrega (M1). Mientras tanto puedes ver el equipo.",
       "toTeam": "Ver el equipo",
       "toAudit": "Ver el registro de cambios",
-      "notOnboarding": "Las vistas de acogida (personas, embudo, bandeja) son del equipo de acogida. Desde aquí puedes ver el equipo y tus ajustes.",
+      "notOnboarding": "Las vistas de onboarding (Personas, Onboarding Pipeline, Bandeja) son del equipo de onboarding. Desde aquí puedes ver el equipo y tus ajustes.",
       "toNext": "Ir a Siguiente: el próximo contacto al que escribir"
     },
     "noAccess": {
@@ -84,8 +84,8 @@
       "body": "El servidor no ha respondido. Vuelve a intentarlo en un momento."
     },
     "onboardingOnly": {
-      "title": "Esta sección es del equipo de acogida",
-      "body": "Solo las personas con permiso de acogida o de administración ven y cambian los datos de quienes llegan. Si necesitas acceso, pídeselo a quien administra el equipo."
+      "title": "Esta sección es del equipo de onboarding",
+      "body": "Solo las personas con permiso de onboarding o de administración ven y cambian los datos de quienes llegan. Si necesitas acceso, pídeselo a quien administra el equipo."
     },
     "outreachOnly": {
       "title": "Esta sección es del equipo de relaciones externas",
@@ -258,7 +258,7 @@
     },
     "roleHelp": {
       "admin": "Gestiona el equipo, los ajustes y el registro de cambios.",
-      "onboarding": "Acoge a las personas nuevas y lleva el embudo de acogida.",
+      "onboarding": "Acoge a las personas nuevas y lleva el Onboarding Pipeline.",
       "outreach": "Lleva las organizaciones, los contactos y las campañas."
     },
     "errors": {
@@ -387,7 +387,7 @@
     },
     "linked": "Listo: tu cuenta de Telegram está conectada. Escribe /help (/ayuda) para ver qué puedo hacer.",
     "linkInvalid": "Ese enlace ya no vale: caduca a los 10 minutos y sirve una sola vez. Pide otro desde la web, en Ajustes.",
-    "noPermission": "Tu cuenta no tiene permiso de acogida, así que aquí no puedo hacer nada por ti.",
+    "noPermission": "Tu cuenta no tiene permiso de onboarding, así que aquí no puedo hacer nada por ti.",
     "notUnderstood": "No te he entendido. Escribe /help (/ayuda) para ver qué puedo hacer.",
     "cancelled": "Hecho, lo dejamos.",
     "nothingToCancel": "No estábamos haciendo nada.",
@@ -467,8 +467,8 @@
       "erased": "Persona anonimizada: sus datos se han borrado."
     },
     "digest": {
-      "subject": "Tu resumen de acogida",
-      "title": "Buenos días. Tu resumen de acogida:",
+      "subject": "Tu resumen de onboarding",
+      "title": "Buenos días. Tu resumen de onboarding:",
       "mine": "Tus personas que necesitan algo ({count}):",
       "line": "• {name}: {reasons}",
       "unassigned": "Sin asignar: {count}.",
@@ -479,7 +479,7 @@
   "today": {
     "mine": "Mis personas",
     "mineIntro": "Las personas a tu cargo que necesitan algo de ti.",
-    "mineNone": "Nadie a tu cargo necesita nada ahora. Mira la cola de sin asignar o el embudo.",
+    "mineNone": "Nadie a tu cargo necesita nada ahora. Mira la cola de sin asignar o el Onboarding Pipeline.",
     "unassigned": "Sin asignar",
     "unassignedIntro": "Personas nuevas que nadie ha cogido todavía, de la más antigua a la más reciente.",
     "unassignedNone": "No hay nadie sin asignar. Cuando llegue alguien aparecerá aquí.",
@@ -668,7 +668,7 @@
   "people": {
     "noName": "Sin nombre",
     "title": "Personas",
-    "intro": "Todas las personas de la acogida. Busca por nombre, teléfono o correo.",
+    "intro": "Todas las personas del onboarding. Busca por nombre, teléfono o correo.",
     "search": "Buscar",
     "searchHint": "Nombre, teléfono o correo",
     "stage": "Etapa",
@@ -694,7 +694,7 @@
     "listLabel": "Resultados"
   },
   "board": {
-    "title": "Embudo",
+    "title": "Onboarding Pipeline",
     "intro": "Las personas por etapa. Abre una ficha para cambiar su etapa.",
     "count": "{count, plural, =0 {nadie} one {# persona} other {# personas}}",
     "more": "Ver las {count} de esta etapa",
@@ -863,8 +863,8 @@
   },
   "settings": {
     "title": "Ajustes",
-    "intro": "Tu conexión con el bot de Telegram y, si administras, los ajustes de la acogida.",
-    "rules": "Ajustes de la acogida",
+    "intro": "Tu conexión con el bot de Telegram y, si administras, los ajustes del onboarding.",
+    "rules": "Ajustes del onboarding",
     "rulesIntro": "Cuándo alguien necesita atención y cuándo dos fichas se parecen. Se aplican al momento.",
     "followUpDays": "Días sin respuesta para «Toca seguimiento»",
     "unresponsiveAttempts": "Intentos sin respuesta para pasar a «Sin respuesta»",
@@ -921,8 +921,8 @@
     "disconnected": "Telegram desconectado."
   },
   "censusLink": {
-    "whatsapp": "Hola, {name}: soy del equipo de acogida de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}",
-    "whatsappNameless": "Hola: soy del equipo de acogida de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}"
+    "whatsapp": "Hola, {name}: soy del equipo de onboarding de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}",
+    "whatsappNameless": "Hola: soy del equipo de onboarding de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}"
   },
   "censo": {
     "title": "Censo",
@@ -1024,7 +1024,7 @@
       "ageOk": "Si tienes menos de 14 años, no envíes el formulario: habla con alguien del equipo de PauseAI España, que te explicará cómo participar."
     },
     "outcomes": {
-      "received": "¡Gracias! Hemos recibido tus respuestas. Si acabas de llegar, alguien del equipo de acogida te escribirá pronto.",
+      "received": "¡Gracias! Hemos recibido tus respuestas. Si acabas de llegar, alguien del equipo de onboarding te escribirá pronto.",
       "updated": "¡Gracias! Hemos puesto al día tu ficha."
     },
     "thanksTitle": "Gracias",
@@ -1046,7 +1046,7 @@
       "purposeTitle": "Para qué",
       "purpose": "Para organizar a las personas voluntarias de la asociación: saber quién forma parte de la comunidad, cómo contactar contigo, qué sabes hacer y en qué te gustaría ayudar, y darte la bienvenida.",
       "dataTitle": "Qué datos",
-      "data": "Los que nos das en este formulario: nombre, cómo prefieres que te llamemos, correo, teléfono, provincia y localidad, idiomas, habilidades, en qué te gustaría ayudar, disponibilidad, cómo conociste PauseAI y, si quieres, tus pronombres. Si te apuntaste en el formulario de PauseAI Global, también los que Global compartió con nosotros (nombre, correo, teléfono, ciudad, idiomas y cómo nos conociste). Además, lo que el equipo anota sobre cómo va tu acogida.",
+      "data": "Los que nos das en este formulario: nombre, cómo prefieres que te llamemos, correo, teléfono, provincia y localidad, idiomas, habilidades, en qué te gustaría ayudar, disponibilidad, cómo conociste PauseAI y, si quieres, tus pronombres. Si te apuntaste en el formulario de PauseAI Global, también los que Global compartió con nosotros (nombre, correo, teléfono, ciudad, idiomas y cómo nos conociste). Además, lo que el equipo anota sobre cómo va tu onboarding.",
       "basisTitle": "Con qué base legal",
       "basis": "Formar parte de una organización con fines políticos puede revelar opiniones políticas, que el Reglamento General de Protección de Datos (RGPD) protege especialmente. Las tratamos porque somos una asociación sin ánimo de lucro y lo hacemos dentro de nuestras actividades legítimas, con datos de nuestros miembros y de personas en contacto regular con nosotros (art. 9.2.d del RGPD), con las garantías de la Ley Orgánica 3/2018 (LOPDGDD). Escribirte por correo o por WhatsApp se basa en tu consentimiento, que puedes retirar cuando quieras.",
       "recipientsTitle": "Con quién los compartimos",
@@ -1097,7 +1097,7 @@
   },
   "panel": {
     "title": "Panel",
-    "intro": "Cómo va la acogida: cuántas personas hay en cada etapa, cuántas llegan cada semana y por dónde, cuánto esperan a que alguien les escriba, y quién lleva más de dos días sin nadie.",
+    "intro": "Cómo va el onboarding: cuántas personas hay en cada etapa, cuántas llegan cada semana y por dónde, cuánto esperan a que alguien les escriba, y quién lleva más de dos días sin nadie.",
     "weeks": "Periodo",
     "weeksOption": "{count, plural, one {La última semana} other {Las últimas # semanas}}",
     "show": "Ver",

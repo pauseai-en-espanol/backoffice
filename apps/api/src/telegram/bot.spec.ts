@@ -208,7 +208,7 @@ describe('who the bot listens to', () => {
     await bot.say(`Ana ${PHONE_AS_TYPED}`, TG_STRANGER);
     expect(bot.sent).toEqual([]);
     await bot.say('/mine', TG_OUTREACH);
-    expect(bot.sent.at(-1)?.text).toMatch(/no tiene permiso de acogida/u);
+    expect(bot.sent.at(-1)?.text).toMatch(/no tiene permiso de onboarding/u);
   });
 
   it('links with a valid code, refuses a spent one, and ignores anything else', async () => {

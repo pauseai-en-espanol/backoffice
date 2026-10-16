@@ -13,7 +13,7 @@ test('an admin invites someone, who makes an account, enrols and joins the team'
   await expectAccessible(page);
   const email = `nueva-${crypto.randomUUID()}@ejemplo.test`;
   await page.getByLabel('Correo electrónico').fill(email);
-  await page.getByRole('checkbox', { name: /Acogida/u }).check();
+  await page.getByRole('checkbox', { name: /Onboarding/u }).check();
   await page.getByRole('button', { name: 'Enviar la invitación' }).click();
   await expect(page.getByText(`Invitación enviada a ${email}.`)).toBeVisible();
 

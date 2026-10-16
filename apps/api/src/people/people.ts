@@ -284,7 +284,7 @@ export const today = async (trx: Transaction<DB>, me: string) => {
   };
 };
 
-/** Embudo: each stage's count and its first 50 people, newest first. */
+/** The Onboarding Pipeline: each stage's count and its first 50 people, newest first. */
 export const board = async (trx: Transaction<DB>, me: string, filter: PeopleFilter) => {
   const where = conditions({ ...filter, q: undefined, stages: undefined }, me);
   const { rows } = await sql<SummaryRow & { rank: number; total: number }>`

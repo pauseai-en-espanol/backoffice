@@ -155,9 +155,9 @@ test('a CSV import: a dry run, then applying it once', async ({ page }) => {
 
 test('outreach-only staff are kept out of onboarding, in words', async ({ page }) => {
   await signedInStaff(page, ['outreach']);
-  for (const path of ['/personas', '/embudo', '/anadir', '/bandeja', '/importar']) {
+  for (const path of ['/personas', '/pipeline', '/anadir', '/bandeja', '/importar']) {
     await page.goto(path);
-    await expect(page.getByText('Esta sección es del equipo de acogida')).toBeVisible();
+    await expect(page.getByText('Esta sección es del equipo de onboarding')).toBeVisible();
   }
 });
 
@@ -177,7 +177,7 @@ test('admins change the settings and export the people listed', async ({ page })
 
 test('the board shows every stage in words', async ({ page }) => {
   await signedInStaff(page, ['onboarding']);
-  await page.goto('/embudo');
+  await page.goto('/pipeline');
   await expectAccessible(page);
   for (const label of ['Nuevo', 'Contactando', 'En conversación', 'Activo']) {
     await expect(page.getByRole('heading', { name: new RegExp(label, 'u') }).first()).toBeVisible();

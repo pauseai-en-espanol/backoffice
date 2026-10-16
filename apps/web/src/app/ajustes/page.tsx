@@ -112,8 +112,8 @@ const SettingsPage = async () => {
           )}
         </section>
         {settings === undefined ? null : (
-          <section className={onboarding.section} aria-labelledby="acogida">
-            <h2 id="acogida" className={styles.h3}>
+          <section className={onboarding.section} aria-labelledby="onboarding">
+            <h2 id="onboarding" className={styles.h3}>
               {t('settings.rules')}
             </h2>
             <p className={styles.hint}>{t('settings.rulesIntro')}</p>

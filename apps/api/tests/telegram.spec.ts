@@ -503,9 +503,9 @@ describe('who may use the bot', () => {
       client.release();
     }
     await message(telegramIds.admin, '/mios');
-    expect(lastText(telegramIds.admin)).toMatch(/no tiene permiso de acogida/u);
+    expect(lastText(telegramIds.admin)).toMatch(/no tiene permiso de onboarding/u);
     await message(telegramIds.outreach, '/mios');
-    expect(lastText(telegramIds.outreach)).toMatch(/no tiene permiso de acogida/u);
+    expect(lastText(telegramIds.outreach)).toMatch(/no tiene permiso de onboarding/u);
     await press(telegramIds.outreach, `claim:${ANA}`, { id: TEAM_CHAT, type: 'supergroup' });
     expect(calls.at(-1)?.body.text).toBe('No autorizado');
 
