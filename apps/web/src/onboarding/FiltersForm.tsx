@@ -6,7 +6,9 @@ import type { TeamMember } from '@/team/data';
 
 import * as ui from '@/ui/styles';
 
-import { hasFilters, type PeopleFilters } from './filters';
+import type { ArrivalChannel } from './types';
+
+import { hasFilters, pageReason, type PeopleFilters } from './filters';
 import * as styles from './styles';
 
 const t = getTranslator();
@@ -19,11 +21,14 @@ export const FiltersForm = ({
   action,
   filters,
   team,
+  channels,
   search,
 }: {
   action: string;
   filters: PeopleFilters;
   team: readonly TeamMember[];
+  /** "Llegó por"'s entries (PLAN M5); empty if the list couldn't be read. */
+  channels: readonly ArrivalChannel[];
   search: boolean;
 }) => {
   const owner = filters.owner === 'me' ? 'yo' : filters.owner === 'none' ? 'nadie' : filters.owner;
@@ -114,6 +119,46 @@ export const FiltersForm = ({
         </select>
       </div>
       <div className={ui.field}>
+        <label className={ui.label} htmlFor="llegada">
+          {t('people.arrival')}
+        </label>
+        <select
+          id="llegada"
+          name="llegada"
+          className={styles.select}
+          defaultValue={filters.arrival === 'none' ? 'ninguna' : filters.arrival}
+        >
+          <option value="">{t('people.anyArrival')}</option>
+          <option value="ninguna">{t('people.arrivalNone')}</option>
+          {channels.map((channel) => (
+            <option key={channel.id} value={channel.id}>
+              {channel.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className={ui.field}>
+        <label className={ui.label} htmlFor="fecha">
+          {t('people.arrivedOn')}
+        </label>
+        <select
+          id="fecha"
+          name="fecha"
+          className={styles.select}
+          defaultValue={
+            filters.arrivedOn === 'known'
+              ? 'sabida'
+              : filters.arrivedOn === 'unknown'
+                ? 'no-se-sabe'
+                : ''
+          }
+        >
+          <option value="">{t('people.arrivedOnAny')}</option>
+          <option value="sabida">{t('people.arrivedOnKnown')}</option>
+          <option value="no-se-sabe">{t('people.arrivedOnUnknown')}</option>
+        </select>
+      </div>
+      <div className={ui.field}>
         <label className={ui.label} htmlFor="provincia">
           {t('people.province')}
         </label>
@@ -135,6 +180,9 @@ export const FiltersForm = ({
         />
         <label htmlFor="atencion">{t('people.attention')}</label>
       </div>
+      {filters.reason ? (
+        <input type="hidden" name="motivo" value={pageReason(filters.reason)} />
+      ) : null}
       <div className={ui.rowActions} data-wide="">
         <button type="submit" className={ui.button}>
           {t('people.apply')}

@@ -8,7 +8,7 @@ import type { PersonLabels } from '@/onboarding/PersonItem';
 import type { PersonSummary } from '@/onboarding/types';
 
 import { isUnavailable } from '@/data';
-import { getBoard } from '@/onboarding/data';
+import { getArrivalChannels, getBoard } from '@/onboarding/data';
 import { filtersFromPage, pageQuery, type PeopleFilters } from '@/onboarding/filters';
 import { FiltersForm } from '@/onboarding/FiltersForm';
 import { personName } from '@/onboarding/names';
@@ -64,7 +64,11 @@ const BoardPage = async ({
   }
   const params = await searchParams;
   const filters = { ...filtersFromPage(params), q: '' };
-  const [board, team] = await Promise.all([getBoard(filters), getTeam()]);
+  const [board, team, channels] = await Promise.all([
+    getBoard(filters),
+    getTeam(),
+    getArrivalChannels(),
+  ]);
   const labels = personLabels(t);
   const requested = Array.isArray(params.ver) ? params.ver[0] : params.ver;
   const shown: Stage = isStage(requested)
@@ -82,6 +86,7 @@ const BoardPage = async ({
         action="/pipeline"
         filters={filters}
         team={isUnavailable(team) ? [] : team.staff}
+        channels={isUnavailable(channels) ? [] : channels}
         search={false}
       />
       {isUnavailable(board) ? (

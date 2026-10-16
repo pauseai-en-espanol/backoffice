@@ -7,7 +7,7 @@ import { getCensusOptions } from '@/onboarding/census/data';
 import { sortOptions } from '@/onboarding/census/format';
 import { OptionsEditor, type OptionsEditorText } from '@/onboarding/census/OptionsEditor';
 import * as census from '@/onboarding/census/styles';
-import { getSettings, getTelegramLink } from '@/onboarding/data';
+import { getArrivalChannels, getSettings, getTelegramLink } from '@/onboarding/data';
 import { SettingsForm } from '@/onboarding/settings/SettingsForm';
 import { usesTelegramBot } from '@/onboarding/settings/telegram-access';
 import { TelegramLink } from '@/onboarding/settings/TelegramLink';
@@ -24,18 +24,19 @@ export const metadata: Metadata = { title: t('settings.title') };
 
 /**
  * Ajustes: onboarding staff link (or unlink) their Telegram account to the bot, which is theirs alone (ADR-0004);
- * onboarding staff and admins see the onboarding settings, which admins change; everyone sees the census's lists,
- * which admins edit.
+ * onboarding staff and admins see the onboarding settings and "Llegó por"'s list (PLAN M5), which admins change;
+ * everyone sees the census's lists, which admins edit.
  */
 const SettingsPage = async () => {
   const me = await requireStaff();
   const admin = isAdmin(me);
   const onboarder = canOnboard(me);
   const botUser = usesTelegramBot(me.staff.roles);
-  const [telegram, settings, options] = await Promise.all([
+  const [telegram, settings, options, arrivals] = await Promise.all([
     botUser ? getTelegramLink() : Promise.resolve(undefined),
     onboarder ? getSettings() : Promise.resolve(undefined),
     getCensusOptions(),
+    onboarder ? getArrivalChannels() : Promise.resolve(undefined),
   ]);
   const errors = onboardingErrors(t);
   const raw = (key: Parameters<typeof t.raw>[0]) => String(t.raw(key));
@@ -153,6 +154,31 @@ const SettingsPage = async () => {
                   <dd>{settings.communityChats.join(', ') || '—'}</dd>
                 </dl>
                 <p className={styles.hint}>{t('settings.readOnly')}</p>
+              </>
+            )}
+          </section>
+        )}
+        {arrivals === undefined ? null : (
+          <section className={onboarding.section} aria-labelledby="llegadas">
+            <h2 id="llegadas" className={styles.h3}>
+              {t('settings.arrivals')}
+            </h2>
+            <p className={styles.hint}>{t('settings.arrivalsIntro')}</p>
+            {isUnavailable(arrivals) ? (
+              <p className={styles.notice}>{t('settings.arrivalsUnavailable')}</p>
+            ) : admin ? (
+              <OptionsEditor kind="arrival" options={arrivals} text={optionsText} />
+            ) : (
+              <>
+                <ul className={census.bullets}>
+                  {sortOptions(arrivals).map((channel) => (
+                    <li key={channel.id}>
+                      {channel.label}
+                      {channel.active ? '' : ` ${t('settings.optionInactive')}`}
+                    </li>
+                  ))}
+                </ul>
+                <p className={styles.hint}>{t('settings.optionsReadOnly')}</p>
               </>
             )}
           </section>

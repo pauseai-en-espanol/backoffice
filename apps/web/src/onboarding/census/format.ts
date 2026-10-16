@@ -189,7 +189,15 @@ export const answerRows = (
 };
 
 /** A list as shown: by position, then by label (and id) where positions tie. */
-export const sortOptions = (options: readonly CensusOption[]): CensusOption[] =>
+/** What an editable list's entry has: the census's options and "Llegó por"'s entries alike (PLAN M5). */
+export interface ListEntry {
+  id: string;
+  label: string;
+  active: boolean;
+  position: number;
+}
+
+export const sortOptions = <T extends ListEntry>(options: readonly T[]): T[] =>
   [...options].sort(
     (a, b) =>
       a.position - b.position || a.label.localeCompare(b.label, 'es') || a.id.localeCompare(b.id),
@@ -199,8 +207,8 @@ export const sortOptions = (options: readonly CensusOption[]): CensusOption[] =>
  * A list with one option moved up or down: every option's id of that list, in the new order, for the API to number
  * afresh in one go. Empty when it can't move.
  */
-export const reorder = (
-  options: readonly CensusOption[],
+export const reorder = <T extends ListEntry>(
+  options: readonly T[],
   id: string,
   direction: 'up' | 'down',
 ): string[] => {

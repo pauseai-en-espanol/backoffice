@@ -16,7 +16,9 @@ import { useWrite } from '@/ui/useWrite';
 import type { PersonPageText } from './text';
 
 import { addAttempt, addNote, updatePerson } from '../actions';
+import { happenedOnOf } from '../forms';
 import * as styles from '../styles';
+import { HappenedOn } from './HappenedOn';
 
 const isChannel = (value: unknown): value is ContactChannel =>
   typeof value === 'string' && (CONTACT_CHANNELS as readonly string[]).includes(value);
@@ -109,7 +111,10 @@ export const NextActionForm = ({
   );
 };
 
-/** A contact attempt (onboarding spec, views): channel and outcome presets, and an optional note. */
+/**
+ * A contact attempt (onboarding spec, views): channel and outcome presets, an optional note, and the day it was made if
+ * not today (PLAN M5).
+ */
 export const AttemptForm = ({ personId, text }: { personId: string; text: PersonPageText }) => {
   const t = text.attempt;
   const write = useWrite(text.errors);
@@ -124,7 +129,13 @@ export const AttemptForm = ({ personId, text }: { personId: string; text: Person
       return;
     }
     const answer = await write.run(
-      () => addAttempt(personId, { channel, outcome, ...(note === '' ? {} : { note }) }),
+      () =>
+        addAttempt(personId, {
+          channel,
+          outcome,
+          ...(note === '' ? {} : { note }),
+          ...happenedOnOf(formText(form, 'happenedOn')),
+        }),
       { done: t.saved },
     );
     if (answer?.ok) {
@@ -185,6 +196,7 @@ export const AttemptForm = ({ personId, text }: { personId: string; text: Person
           {text.note.warning}
         </span>
       </div>
+      <HappenedOn id="intento-fecha" text={text} />
       <FormError message={write.error} />
       <div>
         <button type="submit" className={ui.button} aria-disabled={write.pending}>
@@ -195,7 +207,7 @@ export const AttemptForm = ({ personId, text }: { personId: string; text: Person
   );
 };
 
-/** A note on the timeline, with the reminder not to write sensitive details down. */
+/** A note on the timeline, with the reminder not to write sensitive details down; dated if it tells of another day. */
 export const NoteForm = ({ personId, text }: { personId: string; text: PersonPageText }) => {
   const t = text.note;
   const write = useWrite({ ...text.errors, body: t.missing });
@@ -209,7 +221,10 @@ export const NoteForm = ({ personId, text }: { personId: string; text: PersonPag
     if (body === '') {
       return;
     }
-    const answer = await write.run(() => addNote(personId, body), { done: t.saved });
+    const answer = await write.run(
+      () => addNote(personId, { body, ...happenedOnOf(formText(form, 'happenedOn')) }),
+      { done: t.saved },
+    );
     if (answer?.ok) {
       form.reset();
     }
@@ -233,6 +248,7 @@ export const NoteForm = ({ personId, text }: { personId: string; text: PersonPag
           {t.warning}
         </span>
       </div>
+      <HappenedOn id="nota-fecha" text={text} />
       <FormError id="nota-error" message={missing ? t.missing : write.error} />
       <div>
         <button type="submit" className={ui.button} aria-disabled={write.pending}>

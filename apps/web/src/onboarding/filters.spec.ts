@@ -30,6 +30,9 @@ describe('the people filters', () => {
       attention: true,
       inCommunity: 'yes',
       source: 'airtable',
+      arrival: '',
+      arrivedOn: '',
+      reason: '',
       province: 'Provincia de ejemplo',
     });
   });
@@ -46,13 +49,37 @@ describe('the people filters', () => {
     const filters = {
       ...NO_FILTERS,
       q: 'García',
-      stages: ['talking' as const],
+      stages: ['contacting' as const],
       owner: 'none',
       inCommunity: 'no' as const,
+      arrival: 'none',
+      arrivedOn: 'unknown' as const,
+      reason: 'unassigned' as const,
     };
     const params = Object.fromEntries(new URLSearchParams(pageQuery(filters)));
     expect(filtersFromPage(params)).toEqual(filters);
     expect(pageQuery(NO_FILTERS)).toBe('');
+  });
+
+  it('spell “Llegó por”, “Llegó el” and a reason in Spanish, and ignore what they can’t mean (PLAN M5)', () => {
+    const channel = '0190f8c4-0000-7000-8000-0000000000aa';
+    expect(
+      pageQuery({ ...NO_FILTERS, arrival: channel, arrivedOn: 'known', reason: 'follow_up' }),
+    ).toBe(`?llegada=${channel}&fecha=sabida&motivo=toca-seguimiento`);
+    expect(
+      filtersFromPage({ llegada: 'ninguna', fecha: 'no-se-sabe', motivo: 'sin-asignar' }),
+    ).toEqual({
+      ...NO_FILTERS,
+      arrival: 'none',
+      arrivedOn: 'unknown',
+      reason: 'unassigned',
+    });
+    expect(filtersFromPage({ llegada: 'whatsapp', fecha: 'ayer', motivo: 'unassigned' })).toEqual(
+      NO_FILTERS,
+    );
+    expect(
+      apiQuery({ ...NO_FILTERS, arrival: 'none', arrivedOn: 'unknown', reason: 'unassigned' }),
+    ).toBe('?arrival=none&arrivedOn=unknown&reason=unassigned');
   });
 
   it('become the API query', () => {

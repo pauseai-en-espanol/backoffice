@@ -1,6 +1,6 @@
 'use client';
 
-import { normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
@@ -14,7 +14,7 @@ import { candidates as findCandidates, quickAdd, type QuickAdd } from './actions
 import { QUICK_ADD_STAGES, type QuickAddProblem, quickAddProblems } from './forms';
 import { personName } from './names';
 import * as styles from './styles';
-import { type Candidate, parseCandidates } from './types';
+import { type ArrivalChannel, type Candidate, parseCandidates } from './types';
 
 export interface QuickAddText {
   name: string;
@@ -25,7 +25,15 @@ export interface QuickAddText {
   phone: string;
   phoneHint: string;
   email: string;
+  discord: string;
+  discordHint: string;
+  discordInvalid: string;
   contactHint: string;
+  arrival: string;
+  arrivalHint: string;
+  arrivalNone: string;
+  arrivedOn: string;
+  arrivedOnHint: string;
   province: string;
   town: string;
   chat: string;
@@ -60,16 +68,30 @@ export interface QuickAddText {
 const DEBOUNCE_MS = 400;
 
 /**
- * Añadir rápido (onboarding spec, views): a phone or email, the name if known (PLAN R37), and whatever else is known. As the person types,
- * the API is asked for records like it (debounced), and when there are any, the person must say whether it is one of
- * them or someone new before saving, so the database isn't left to guess. Saving leads to the person's page, or says
- * the record went to the Bandeja.
+ * Añadir rápido (onboarding spec, views): a phone, an email or a Discord username, the name if known (PLAN R37), and
+ * whatever else is known: where they came from, from the list in Ajustes, and the day they arrived, today unless
+ * changed, and emptied when nobody knows (PLAN M5). As the person types, the API is asked for records like it
+ * (debounced), and when there are any, the person must say whether it is one of them or someone new before saving, so
+ * the database isn't left to guess. Saving leads to the person's page, or says the record went to the Bandeja.
  */
-export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: QuickAddText }) => {
+export const QuickAddForm = ({
+  chats,
+  channels,
+  today,
+  text,
+}: {
+  chats: readonly string[];
+  /** "Llegó por"'s active entries. */
+  channels: readonly ArrivalChannel[];
+  /** Today in Madrid: "Llegó el"'s first value, and its latest. */
+  today: string;
+  text: QuickAddText;
+}) => {
   const router = useRouter();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [discord, setDiscord] = useState('');
   const [province, setProvince] = useState('');
   const [found, setFound] = useState<Candidate[]>([]);
   const [checking, setChecking] = useState(false);
@@ -83,6 +105,7 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
 
   const phoneValue = normalizePhone(phone);
   const emailValue = normalizeEmail(email);
+  const discordValue = normalizeDiscord(discord);
 
   // Asked only once there's enough to go on: three letters of a name, or a valid phone or email.
   const enough = name.trim().length >= 3 || phoneValue !== undefined || emailValue !== undefined;
@@ -134,7 +157,14 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
       const value = form.get(key);
       return typeof value === 'string' ? value.trim() : '';
     };
-    const issues = quickAddProblems({ name, phone, email, candidates: shown.length, choice });
+    const issues = quickAddProblems({
+      name,
+      phone,
+      email,
+      discord,
+      candidates: shown.length,
+      choice,
+    });
     setProblems(issues);
     if (issues.length > 0) {
       return;
@@ -143,6 +173,10 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
       ...(name.trim() ? { name: name.trim() } : {}),
       ...(phoneValue ? { phone: phoneValue } : {}),
       ...(emailValue ? { email: emailValue } : {}),
+      ...(discordValue ? { discord: discordValue } : {}),
+      ...(field('arrival') ? { arrival: field('arrival') } : {}),
+      // Emptied: nobody knows when they arrived (PLAN M5).
+      arrivedOn: field('arrivedOn') || null,
       ...(province.trim() ? { province: province.trim() } : {}),
       ...(field('town') ? { town: field('town') } : {}),
       ...(field('chat') ? { chat: field('chat') } : {}),
@@ -198,6 +232,7 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
     contact: text.contactMissing,
     phone: text.phoneInvalid,
     email: text.emailInvalid,
+    discord: text.discordInvalid,
     choice: text.chooseFirst,
   };
 
@@ -223,7 +258,7 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
       </div>
       <fieldset className={ui.fieldset} aria-describedby="alta-contacto">
         <legend>
-          {text.phone} / {text.email}
+          {text.phone} / {text.email} / {text.discord}
         </legend>
         <span id="alta-contacto" className={ui.hint}>
           {text.contactHint}
@@ -272,7 +307,72 @@ export const QuickAddForm = ({ chats, text }: { chats: readonly string[]; text: 
             {email.trim() !== '' && !emailValue ? text.emailInvalid : ''}
           </span>
         </div>
+        <div className={ui.field}>
+          <label className={ui.label} htmlFor="alta-discord">
+            {text.discord}
+          </label>
+          <input
+            id="alta-discord"
+            className={ui.input}
+            name="discord"
+            value={discord}
+            onChange={(event) => setDiscord(event.target.value)}
+            autoComplete="off"
+            autoCapitalize="none"
+            maxLength={40}
+            aria-invalid={has('discord') || has('contact')}
+            aria-describedby="alta-discord-hint alta-problemas"
+          />
+          <span id="alta-discord-hint" className={ui.hint}>
+            {discord.trim() === ''
+              ? text.discordHint
+              : discordValue
+                ? fill(text.willBe, { value: discordValue })
+                : text.discordInvalid}
+          </span>
+        </div>
       </fieldset>
+      <div className={styles.pair}>
+        <div className={ui.field}>
+          <label className={ui.label} htmlFor="alta-llegada">
+            {text.arrival}
+          </label>
+          <select
+            id="alta-llegada"
+            name="arrival"
+            className={styles.select}
+            defaultValue=""
+            aria-describedby="alta-llegada-hint"
+          >
+            <option value="">{text.arrivalNone}</option>
+            {channels.map((channel) => (
+              <option key={channel.id} value={channel.id}>
+                {channel.label}
+              </option>
+            ))}
+          </select>
+          <span id="alta-llegada-hint" className={ui.hint}>
+            {text.arrivalHint}
+          </span>
+        </div>
+        <div className={ui.field}>
+          <label className={ui.label} htmlFor="alta-llego-el">
+            {text.arrivedOn}
+          </label>
+          <input
+            id="alta-llego-el"
+            className={ui.input}
+            type="date"
+            name="arrivedOn"
+            defaultValue={today}
+            max={today}
+            aria-describedby="alta-llego-el-hint"
+          />
+          <span id="alta-llego-el-hint" className={ui.hint}>
+            {text.arrivedOnHint}
+          </span>
+        </div>
+      </div>
       <div className={styles.pair}>
         <div className={ui.field}>
           <label className={ui.label} htmlFor="alta-provincia">

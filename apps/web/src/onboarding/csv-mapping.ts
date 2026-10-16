@@ -14,6 +14,9 @@ export const MAPPING_FIELDS = [
   'chat',
   'note',
   'stage',
+  'discord',
+  'arrival',
+  'arrivedOn',
 ] as const;
 export type MappingField = (typeof MAPPING_FIELDS)[number];
 
@@ -61,9 +64,23 @@ const EXACT: Readonly<Record<string, MappingField>> = {
   etapa: 'stage',
   estado: 'stage',
   stage: 'stage',
+  discord: 'discord',
+  'usuario de discord': 'discord',
+  'llego por': 'arrival',
+  'por donde llego': 'arrival',
+  canal: 'arrival',
+  via: 'arrival',
+  origen: 'arrival',
+  'llego el': 'arrivedOn',
+  'fecha de llegada': 'arrivedOn',
+  llegada: 'arrivedOn',
+  'fecha de alta': 'arrivedOn',
 };
 
 const WORDS: readonly [RegExp, MappingField][] = [
+  [/\bdiscord\b/u, 'discord'],
+  [/\bllego por\b/u, 'arrival'],
+  [/\b(?:llego el|llegada)\b/u, 'arrivedOn'],
   [/\b(?:correo|email|mail)\b/u, 'email'],
   [/\b(?:telefono|movil|phone|whatsapp)\b/u, 'phone'],
   [/\bprovincia\b/u, 'province'],

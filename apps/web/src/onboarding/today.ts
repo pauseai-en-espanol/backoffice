@@ -5,7 +5,8 @@ export const TODAY_UNASSIGNED = 10;
 
 /**
  * Hoy's unassigned queue: its first people, and, when there are more than it shows, how many there are in all and
- * where Personas lists them: new and nobody's, Hoy's own rule (onboarding spec, "Sin asignar").
+ * where Personas lists them: by the reason itself, so the list is exactly the rule's (new, nobody's, arrived in the last
+ * 30 days; onboarding spec, "Sin asignar").
  */
 export const unassignedQueue = <T>(
   unassigned: readonly T[],
@@ -19,7 +20,7 @@ export const unassignedQueue = <T>(
       count > shown.length
         ? {
             count,
-            href: `/personas${pageQuery({ ...NO_FILTERS, stages: ['new'], owner: 'none' })}`,
+            href: `/personas${pageQuery({ ...NO_FILTERS, reason: 'unassigned' })}`,
           }
         : undefined,
   };

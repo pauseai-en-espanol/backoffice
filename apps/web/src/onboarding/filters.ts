@@ -1,4 +1,11 @@
-import { isStage, type Source, SOURCES, type Stage } from '@backoffice/domain/stages';
+import {
+  ATTENTION_REASONS,
+  type AttentionReason,
+  isStage,
+  type Source,
+  SOURCES,
+  type Stage,
+} from '@backoffice/domain/stages';
 
 /**
  * The filters of Personas and the Onboarding Pipeline, and their two spellings: the page's address, in Spanish, so a list can be
@@ -13,6 +20,12 @@ export interface PeopleFilters {
   attention: boolean;
   inCommunity: 'yes' | 'no' | '';
   source: Source | '';
+  /** "Llegó por" (PLAN M5): an entry's id, 'none' for not said, or '' for any. */
+  arrival: string;
+  /** Whether "Llegó el" is known. */
+  arrivedOn: 'known' | 'unknown' | '';
+  /** One attention reason: Hoy's "Ver los N sin asignar" asks for `unassigned`. */
+  reason: AttentionReason | '';
   province: string;
 }
 
@@ -23,7 +36,20 @@ export const NO_FILTERS: PeopleFilters = {
   attention: false,
   inCommunity: '',
   source: '',
+  arrival: '',
+  arrivedOn: '',
+  reason: '',
   province: '',
+};
+
+/** The reasons as the address spells them, in Spanish. */
+const REASON_WORDS: Readonly<Record<AttentionReason, string>> = {
+  unassigned: 'sin-asignar',
+  action_due: 'accion-pendiente',
+  no_next_step: 'sin-siguiente-paso',
+  follow_up: 'toca-seguimiento',
+  left_community: 'ha-salido',
+  possible_duplicate: 'posible-duplicado',
 };
 
 type SearchParams = Readonly<Record<string, string | string[] | undefined>>;
@@ -40,6 +66,9 @@ export const filtersFromPage = (params: SearchParams): PeopleFilters => {
   const owner = first(params.responsable);
   const community = first(params.comunidad);
   const source = first(params.fuente);
+  const arrival = first(params.llegada);
+  const arrivedOn = first(params.fecha);
+  const reason = ATTENTION_REASONS.find((key) => REASON_WORDS[key] === first(params.motivo));
   return {
     q: first(params.buscar).slice(0, 200),
     stages: [...new Set(all(params.etapa).filter(isStage))],
@@ -47,6 +76,9 @@ export const filtersFromPage = (params: SearchParams): PeopleFilters => {
     attention: first(params.atencion) === '1',
     inCommunity: community === 'si' ? 'yes' : community === 'no' ? 'no' : '',
     source: (SOURCES as readonly string[]).includes(source) ? (source as Source) : '',
+    arrival: arrival === 'ninguna' ? 'none' : UUID.test(arrival) ? arrival : '',
+    arrivedOn: arrivedOn === 'sabida' ? 'known' : arrivedOn === 'no-se-sabe' ? 'unknown' : '',
+    reason: reason ?? '',
     province: first(params.provincia).slice(0, 100),
   };
 };
@@ -55,6 +87,9 @@ const query = (params: URLSearchParams): string => {
   const text = params.toString();
   return text === '' ? '' : `?${text}`;
 };
+
+/** A reason as the address spells it, for a form that keeps it. */
+export const pageReason = (reason: AttentionReason): string => REASON_WORDS[reason];
 
 /** The page's address for the filters. */
 export const pageQuery = (filters: PeopleFilters): string => {
@@ -79,6 +114,15 @@ export const pageQuery = (filters: PeopleFilters): string => {
   }
   if (filters.source) {
     params.set('fuente', filters.source);
+  }
+  if (filters.arrival) {
+    params.set('llegada', filters.arrival === 'none' ? 'ninguna' : filters.arrival);
+  }
+  if (filters.arrivedOn) {
+    params.set('fecha', filters.arrivedOn === 'known' ? 'sabida' : 'no-se-sabe');
+  }
+  if (filters.reason) {
+    params.set('motivo', REASON_WORDS[filters.reason]);
   }
   if (filters.province) {
     params.set('provincia', filters.province);
@@ -109,6 +153,15 @@ export const apiQuery = (
   }
   if (filters.source) {
     params.set('source', filters.source);
+  }
+  if (filters.arrival) {
+    params.set('arrival', filters.arrival);
+  }
+  if (filters.arrivedOn) {
+    params.set('arrivedOn', filters.arrivedOn);
+  }
+  if (filters.reason) {
+    params.set('reason', filters.reason);
   }
   if (filters.province) {
     params.set('province', filters.province);

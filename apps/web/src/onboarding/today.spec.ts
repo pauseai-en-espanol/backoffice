@@ -13,12 +13,12 @@ describe("Hoy's unassigned queue (PLAN M5)", () => {
     expect(queue.more?.count).toBe(193);
   });
 
-  it('links to Personas filtered by Hoy’s own rule: new, and nobody’s', () => {
+  it('links to Personas filtered by Hoy’s own rule, the “Sin asignar” reason itself (PLAN M5)', () => {
     const href = unassignedQueue(people(11), 11).more?.href ?? '';
-    expect(href.startsWith('/personas?')).toBe(true);
+    expect(href).toBe('/personas?motivo=sin-asignar');
     const filters = filtersFromPage(Object.fromEntries(new URLSearchParams(href.split('?')[1])));
-    expect(filters.stages).toEqual(['new']);
-    expect(filters.owner).toBe('none');
+    expect(filters.reason).toBe('unassigned');
+    expect(filters.stages).toEqual([]);
   });
 
   it('has no link when it already shows everyone', () => {

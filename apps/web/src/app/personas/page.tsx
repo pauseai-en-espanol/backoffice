@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { getTranslator } from '@backoffice/i18n/messages';
 
 import { isUnavailable } from '@/data';
-import { getPeople } from '@/onboarding/data';
+import { getArrivalChannels, getPeople } from '@/onboarding/data';
 import { apiQuery, exportHref, filtersFromPage } from '@/onboarding/filters';
 import { FiltersForm } from '@/onboarding/FiltersForm';
 import { MorePeople } from '@/onboarding/MorePeople';
@@ -39,7 +39,11 @@ const PeoplePage = async ({
     );
   }
   const filters = filtersFromPage(await searchParams);
-  const [page, team] = await Promise.all([getPeople(filters), getTeam()]);
+  const [page, team, channels] = await Promise.all([
+    getPeople(filters),
+    getTeam(),
+    getArrivalChannels(),
+  ]);
   const labels = personLabels(t);
   return (
     <AppShell me={me}>
@@ -49,6 +53,7 @@ const PeoplePage = async ({
         action="/personas"
         filters={filters}
         team={isUnavailable(team) ? [] : team.staff}
+        channels={isUnavailable(channels) ? [] : channels}
         search
       />
       {isAdmin(me) ? (

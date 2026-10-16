@@ -1,4 +1,4 @@
-import { normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
 
 import { formText } from '@/auth/client';
 
@@ -34,6 +34,8 @@ export type Profile = Pick<
   | 'pronouns'
   | 'availability'
   | 'howHeard'
+  | 'arrivedOn'
+  | 'arrival'
 >;
 
 /** A profile's changes (every change goes to the timeline, so nothing is sent for nothing). */
@@ -58,8 +60,21 @@ export const profileChange = (profile: Profile, read: (name: string) => string):
   if (languages.join('\n') !== profile.languages.join('\n')) {
     change.languages = languages;
   }
+  // "Llegó el" emptied means nobody knows (PLAN M5); "Llegó por" emptied, not said.
+  const arrivedOn = optional(read('arrivedOn'));
+  if (arrivedOn !== profile.arrivedOn) {
+    change.arrivedOn = arrivedOn;
+  }
+  const arrivalId = optional(read('arrivalId'));
+  if (arrivalId !== (profile.arrival?.id ?? null)) {
+    change.arrivalId = arrivalId;
+  }
   return change;
 };
+
+/** A "Cuándo fue" field's value as the API takes it (PLAN M5): a date, or nothing for today. */
+export const happenedOnOf = (value: string): { happenedOn?: string } =>
+  value.trim() === '' ? {} : { happenedOn: value.trim() };
 
 /** Reads a form's text fields for profileChange and settingsChange. */
 export const fieldsOf = (form: HTMLFormElement) => (name: string) => formText(form, name);
@@ -92,32 +107,45 @@ export const settingsChange = (
   return change;
 };
 
-/** What a typed phone or email will be stored as, for the hint under its field; undefined if it isn't one. */
-export const normalised = (kind: 'email' | 'phone', value: string): string | undefined =>
+/**
+ * What a typed phone, email or Discord username will be stored as, for the hint under its field; undefined if it isn't
+ * one.
+ */
+export const normalised = (
+  kind: 'email' | 'phone' | 'discord',
+  value: string,
+): string | undefined =>
   value.trim() === ''
     ? undefined
     : kind === 'email'
       ? normalizeEmail(value)
-      : normalizePhone(value);
+      : kind === 'phone'
+        ? normalizePhone(value)
+        : normalizeDiscord(value);
 
-/** The stages a quick-add may start someone in (onboarding spec: existing members come in as these). */
-export const QUICK_ADD_STAGES = ['new', 'to_triage', 'welcomed', 'active'] as const;
+/**
+ * The stages a quick-add may start someone in (onboarding spec: existing members come in as these). Someone already
+ * there whom nobody knows yet starts as new too (PLAN M5).
+ */
+export const QUICK_ADD_STAGES = ['new', 'welcomed', 'active'] as const;
 
-export type QuickAddProblem = 'contact' | 'phone' | 'email' | 'choice';
+export type QuickAddProblem = 'contact' | 'phone' | 'email' | 'discord' | 'choice';
 
 /**
  * A quick-add's problems before it is sent, in the order they're said. The name is optional: most arrivals come with
- * only a phone (PLAN R37), and staff add the name later.
+ * only a phone (PLAN R37), and staff add the name later. A Discord username is enough to find them by (PLAN M5).
  */
 export const quickAddProblems = (values: {
   name: string;
   phone: string;
   email: string;
+  discord?: string;
   candidates: number;
   choice: string;
 }): QuickAddProblem[] => {
   const problems: QuickAddProblem[] = [];
-  if (values.phone.trim() === '' && values.email.trim() === '') {
+  const discord = values.discord ?? '';
+  if (values.phone.trim() === '' && values.email.trim() === '' && discord.trim() === '') {
     problems.push('contact');
   }
   if (values.phone.trim() !== '' && normalizePhone(values.phone) === undefined) {
@@ -125,6 +153,9 @@ export const quickAddProblems = (values: {
   }
   if (values.email.trim() !== '' && normalizeEmail(values.email) === undefined) {
     problems.push('email');
+  }
+  if (discord.trim() !== '' && normalizeDiscord(discord) === undefined) {
+    problems.push('discord');
   }
   if (values.candidates > 0 && values.choice === '') {
     problems.push('choice');

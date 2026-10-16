@@ -7,11 +7,26 @@ import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
 
-import type { CensusOption, OptionKind } from './types';
+import type { OptionKind } from './types';
 
+import { addArrivalChannel, orderArrivalChannels, updateArrivalChannel } from '../actions';
 import * as styles from '../styles';
 import { addCensusOption, orderCensusOptions, updateCensusOption } from './actions';
-import { reorder, sortOptions } from './format';
+import { type ListEntry, reorder, sortOptions } from './format';
+
+/** The calls that change a list: the census's two, or "Llegó por" (PLAN M5). */
+const callsFor = (kind: OptionKind | 'arrival') =>
+  kind === 'arrival'
+    ? {
+        add: (label: string) => addArrivalChannel(label),
+        update: updateArrivalChannel,
+        order: (ids: readonly string[]) => orderArrivalChannels(ids),
+      }
+    : {
+        add: (label: string) => addCensusOption({ kind, label }),
+        update: updateCensusOption,
+        order: (ids: readonly string[]) => orderCensusOptions(kind, ids),
+      };
 
 export interface OptionsEditorText {
   none: string;
@@ -54,7 +69,7 @@ const RenameForm = ({
   onSave,
   onCancel,
 }: {
-  option: CensusOption;
+  option: ListEntry;
   text: OptionsEditorText;
   pending: boolean;
   onSave: (label: string) => void;
@@ -106,20 +121,22 @@ const RenameForm = ({
 };
 
 /**
- * One of the census's lists (skills, or areas to help in), for admins (census spec): add an option, rename it, move it
- * up or down, deactivate it or bring it back. Nothing is ever deleted: an option someone chose stays theirs, and a
- * deactivated one is no longer offered. Each change is said in the page's live region; focus stays where it was.
+ * One of the lists admins edit in Ajustes, for admins: the census's (skills, or areas to help in; census spec) or
+ * "Llegó por" (PLAN M5). Add an option, rename it, move it up or down, deactivate it or bring it back. Nothing is ever
+ * deleted: an option someone chose stays theirs, and a deactivated one is no longer offered. Each change is said in
+ * the page's live region; focus stays where it was.
  */
 export const OptionsEditor = ({
   kind,
   options,
   text,
 }: {
-  kind: OptionKind;
-  options: readonly CensusOption[];
+  kind: OptionKind | 'arrival';
+  options: readonly ListEntry[];
   text: OptionsEditorText;
 }) => {
   const write = useWrite(text.errors);
+  const calls = callsFor(kind);
   const list = sortOptions(options);
   const [renaming, setRenaming] = useState<string>();
   const [back, setBack] = useState<string>();
@@ -138,12 +155,12 @@ export const OptionsEditor = ({
     setRenaming(undefined);
   };
 
-  const rename = async (option: CensusOption, value: string) => {
+  const rename = async (option: ListEntry, value: string) => {
     if (value === option.label) {
       close(option.id);
       return;
     }
-    const answer = await write.run(() => updateCensusOption(option.id, { label: value }), {
+    const answer = await write.run(() => calls.update(option.id, { label: value }), {
       done: text.renamed,
     });
     if (answer?.ok) {
@@ -156,11 +173,11 @@ export const OptionsEditor = ({
     if (ids.length === 0 || write.pending) {
       return;
     }
-    void write.run(() => orderCensusOptions(kind, ids), { done: text.moved });
+    void write.run(() => calls.order(ids), { done: text.moved });
   };
 
-  const toggle = (option: CensusOption) =>
-    void write.run(() => updateCensusOption(option.id, { active: !option.active }), {
+  const toggle = (option: ListEntry) =>
+    void write.run(() => calls.update(option.id, { active: !option.active }), {
       done: option.active ? text.deactivated : text.reactivated,
     });
 
@@ -171,7 +188,7 @@ export const OptionsEditor = ({
     if (value === '') {
       return;
     }
-    const answer = await write.run(() => addCensusOption({ kind, label: value }), {
+    const answer = await write.run(() => calls.add(value), {
       done: text.added,
     });
     if (answer?.ok) {

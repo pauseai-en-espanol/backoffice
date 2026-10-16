@@ -9,7 +9,14 @@ import { getPanel } from '@/onboarding/data';
 import { formatDay, formatInstantDay } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
-import { PANEL_WEEKS, sourcesIn, waitIn, weeksFrom, weekTotal } from '@/onboarding/panel/types';
+import {
+  channelsIn,
+  PANEL_WEEKS,
+  sourcesIn,
+  waitIn,
+  weeksFrom,
+  weekTotal,
+} from '@/onboarding/panel/types';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard } from '@/onboarding/text';
 import { requireStaff } from '@/session';
@@ -61,6 +68,7 @@ const PanelPage = async ({
     );
   }
   const sources = sourcesIn(panel.arrivals, SOURCES);
+  const channels = channelsIn(panel.arrivalsByChannel);
   const totalPeople = STAGES.reduce((sum, stage) => sum + (panel.stages[stage] ?? 0), 0);
   const { arrived, contacted, medianHours, p90Hours } = panel.firstContact;
 
@@ -125,6 +133,11 @@ const PanelPage = async ({
           {t('panel.arrivals')}
         </h2>
         <p className={styles.hint}>{t('panel.arrivalsIntro')}</p>
+        {panel.unknownArrival > 0 ? (
+          <p className={styles.text}>
+            {t('panel.unknownArrival', { count: panel.unknownArrival })}
+          </p>
+        ) : null}
         {/* Wider than a phone with every source: it scrolls in its own frame, which takes the keyboard's focus. */}
         {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be focusable */}
         <div className={styles.tableWrap} tabIndex={0} role="region" aria-labelledby="llegadas">
@@ -147,6 +160,41 @@ const PanelPage = async ({
                   <th scope="row">{t('panel.weekOf', { date: formatDay(week.week, 'medium') })}</th>
                   {sources.map((source) => (
                     <td key={source}>{week.counts[source] ?? 0}</td>
+                  ))}
+                  <td>{weekTotal(week)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className={onboarding.section} aria-labelledby="por-donde">
+        <h2 id="por-donde" className={styles.h2}>
+          {t('panel.arrivalsByChannel')}
+        </h2>
+        <p className={styles.hint}>{t('panel.arrivalsByChannelIntro')}</p>
+        {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be focusable */}
+        <div className={styles.tableWrap} tabIndex={0} role="region" aria-labelledby="por-donde">
+          <table className={styles.table}>
+            <caption className={styles.srOnly}>{t('panel.arrivalsByChannel')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('panel.week')}</th>
+                {channels.map((channel) => (
+                  <th key={channel.id} scope="col">
+                    {channel.label ?? t('panel.arrivalNone')}
+                  </th>
+                ))}
+                <th scope="col">{t('panel.total')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...panel.arrivalsByChannel.weeks].reverse().map((week) => (
+                <tr key={week.week}>
+                  <th scope="row">{t('panel.weekOf', { date: formatDay(week.week, 'medium') })}</th>
+                  {channels.map((channel) => (
+                    <td key={channel.id}>{week.counts[channel.id] ?? 0}</td>
                   ))}
                   <td>{weekTotal(week)}</td>
                 </tr>
@@ -194,7 +242,11 @@ const PanelPage = async ({
                     {personName(person.name, t('people.noName'))}
                   </Link>{' '}
                   <span className={styles.hint}>
-                    {t('panel.arrivedOn', { date: formatInstantDay(person.createdAt) })}
+                    {t('panel.arrivedOn', {
+                      date: person.arrivedOn
+                        ? formatDay(person.arrivedOn)
+                        : formatInstantDay(person.createdAt),
+                    })}
                   </span>
                 </li>
               ))}

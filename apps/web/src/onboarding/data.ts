@@ -7,6 +7,7 @@ import { forwardedRequest, PAGE_OF } from '@/session';
 import { apiQuery, type PeopleFilters } from './filters';
 import { parsePanel } from './panel/types';
 import {
+  parseArrivalChannels,
   parseBandeja,
   parseBoard,
   parseImports,
@@ -41,6 +42,9 @@ export const getImports = () => readFromApi('/api/imports', parseImports);
 export const getSettings = () => readFromApi('/api/settings', parseSettings);
 
 export const getTelegramLink = () => readFromApi('/api/telegram/link', parseTelegramLink);
+
+/** "Llegó por": the list to choose from, and to edit in Ajustes (PLAN M5). */
+export const getArrivalChannels = () => readFromApi('/api/arrival-channels', parseArrivalChannels);
 
 /** A read that may be refused: the page then says so, rather than "unavailable". */
 export interface Forbidden {

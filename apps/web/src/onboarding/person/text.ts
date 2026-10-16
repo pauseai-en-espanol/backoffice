@@ -1,5 +1,6 @@
 import type { getTranslator } from '@backoffice/i18n/messages';
 
+import { madridToday } from '../format';
 import {
   availabilityNames,
   channelNames,
@@ -29,7 +30,14 @@ export const personPageText = (t: Translator) => {
     identityKinds: {
       email: t('person.identityKinds.email'),
       phone: t('person.identityKinds.phone'),
+      discord: t('person.identityKinds.discord'),
       airtable: t('person.identityKinds.airtable'),
+    },
+    happened: {
+      label: t('person.happenedOn'),
+      hint: t('person.happenedOnHint'),
+      /** Today in Madrid: the latest day a date field takes. */
+      today: madridToday(),
     },
     cancel: t('person.cancel'),
     saved: t('person.saved'),
@@ -47,6 +55,10 @@ export const personPageText = (t: Translator) => {
       availability: t('person.availability'),
       availabilityNone: t('person.availabilityNone'),
       howHeard: t('person.howHeard'),
+      arrivedOn: t('person.arrivedOn'),
+      arrivedOnHint: t('person.arrivedOnHint'),
+      arrival: t('person.arrival'),
+      arrivalNone: t('person.arrivalNone'),
     },
     identities: {
       add: t('person.addIdentity'),

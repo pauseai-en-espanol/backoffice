@@ -55,6 +55,12 @@ const isoDay = new Intl.DateTimeFormat('en-CA', {
 /** Today's date in Madrid, `YYYY-MM-DD`. */
 export const madridToday = (now: Date = new Date()): string => isoDay.format(now);
 
+/** The day an instant falls on in Madrid, `YYYY-MM-DD`; anything that isn't an instant, as it is. */
+export const formatMadridDay = (iso: string): string => {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? iso : isoDay.format(date);
+};
+
 /** Whether a due date has passed, is today, or is still ahead (dates compare as text in this form). */
 export const dueState = (due: string, today: string): 'overdue' | 'today' | 'later' =>
   due < today ? 'overdue' : due === today ? 'today' : 'later';

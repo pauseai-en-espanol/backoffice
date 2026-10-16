@@ -22,6 +22,8 @@ describe('the profile form', () => {
     pronouns: null,
     availability: null,
     howHeard: null,
+    arrivedOn: null,
+    arrival: null,
   };
 
   it('sends only what changed, trimmed, and null for what was emptied', () => {
@@ -55,6 +57,22 @@ describe('the profile form', () => {
         reader({ fullName: ' Ana Nueva ', province: 'Madrid', languages: 'castellano' }),
       ),
     ).toEqual({ fullName: 'Ana Nueva' });
+  });
+
+  it('sends when they arrived and where from, and emptied means nobody knows, or not said (PLAN M5)', () => {
+    const dated = {
+      ...profile,
+      arrivedOn: '2025-03-01',
+      arrival: { id: 'canal-1', label: 'WhatsApp' },
+    };
+    const same = { fullName: 'Ana Ejemplo', province: 'Madrid', languages: 'castellano' };
+    expect(
+      profileChange(dated, reader({ ...same, arrivedOn: '2025-03-01', arrivalId: 'canal-1' })),
+    ).toEqual({});
+    expect(
+      profileChange(dated, reader({ ...same, arrivedOn: '2024-12-24', arrivalId: 'canal-2' })),
+    ).toEqual({ arrivedOn: '2024-12-24', arrivalId: 'canal-2' });
+    expect(profileChange(dated, reader(same))).toEqual({ arrivedOn: null, arrivalId: null });
   });
 
   it('sends nothing when nothing changed', () => {
@@ -118,6 +136,13 @@ describe('quick-add', () => {
         choice: 'new',
       }),
     ).toEqual([]);
+  });
+
+  it('takes a Discord username as enough to find them by, when it is one (PLAN M5)', () => {
+    const none = { name: '', phone: '', email: '', candidates: 0, choice: '' };
+    expect(quickAddProblems({ ...none, discord: '@Persona_Ejemplo' })).toEqual([]);
+    expect(quickAddProblems({ ...none, discord: 'a' })).toEqual(['discord']);
+    expect(quickAddProblems({ ...none, discord: '   ' })).toEqual(['contact']);
   });
 
   it('hints how a phone or email will be stored', () => {

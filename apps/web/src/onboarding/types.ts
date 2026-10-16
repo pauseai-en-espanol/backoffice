@@ -26,12 +26,25 @@ export interface PersonSummary {
   reasons: string[];
   inCommunity: boolean;
   sources: string[];
+  /** "Llegó el": null when nobody knows (PLAN M5). */
+  arrivedOn: string | null;
+  /** "Llegó por", from the list in Ajustes. */
+  arrival: { id: string; label: string } | null;
   createdAt: string;
+}
+
+/** An entry of "Llegó por" (PLAN M5): `key` marks the ones the backoffice picks itself (the bot's, Global's form). */
+export interface ArrivalChannel {
+  id: string;
+  key: string | null;
+  label: string;
+  active: boolean;
+  position: number;
 }
 
 export interface Identity {
   id: string;
-  kind: 'email' | 'phone' | 'airtable';
+  kind: 'email' | 'phone' | 'discord' | 'airtable';
   value: string;
   verified: boolean;
   source: string;
@@ -99,6 +112,8 @@ export interface TimelineEvent {
   channel: 'web' | 'bot' | null;
   body: string | null;
   data: Record<string, unknown>;
+  /** The day it happened, when someone said it wasn't the day it was written (PLAN M5). */
+  happenedOn: string | null;
 }
 
 export interface PersonPage {
@@ -226,6 +241,11 @@ const summaryFields = (value: Record<string, unknown>) => {
   const nextAction = nullable(value.nextAction);
   const nextActionDue = nullable(value.nextActionDue);
   const reasons = strings(value.reasons);
+  const arrivedOn = nullable(value.arrivedOn);
+  const arrival =
+    isRecord(value.arrival) && str(value.arrival.id) && str(value.arrival.label)
+      ? { id: value.arrival.id, label: value.arrival.label }
+      : null;
   if (
     !str(value.id) ||
     name === undefined ||
@@ -235,7 +255,8 @@ const summaryFields = (value: Record<string, unknown>) => {
     province === undefined ||
     nextAction === undefined ||
     nextActionDue === undefined ||
-    reasons === undefined
+    reasons === undefined ||
+    arrivedOn === undefined
   ) {
     return undefined;
   }
@@ -250,6 +271,8 @@ const summaryFields = (value: Record<string, unknown>) => {
     nextActionDue,
     reasons,
     inCommunity: value.inCommunity === true,
+    arrivedOn,
+    arrival,
     createdAt: str(value.createdAt) ? value.createdAt : '',
   };
 };
@@ -263,7 +286,7 @@ export const parseSummary = (value: unknown): PersonSummary | undefined => {
   return fields && sources ? { ...fields, sources } : undefined;
 };
 
-const IDENTITY_KINDS: readonly unknown[] = ['email', 'phone', 'airtable'];
+const IDENTITY_KINDS: readonly unknown[] = ['email', 'phone', 'discord', 'airtable'];
 
 const parseIdentity = (value: unknown): Identity | undefined =>
   isRecord(value) && str(value.id) && IDENTITY_KINDS.includes(value.kind) && str(value.value)
@@ -413,7 +436,8 @@ export const parseEvent = (value: unknown): TimelineEvent | undefined => {
   }
   const actor = nullableRef(value.actor);
   const body = nullable(value.body);
-  if (actor === undefined || body === undefined) {
+  const happenedOn = nullable(value.happenedOn);
+  if (actor === undefined || body === undefined || happenedOn === undefined) {
     return undefined;
   }
   return {
@@ -424,8 +448,29 @@ export const parseEvent = (value: unknown): TimelineEvent | undefined => {
     channel: value.channel === 'web' || value.channel === 'bot' ? value.channel : null,
     body,
     data: isRecord(value.data) ? value.data : {},
+    happenedOn,
   };
 };
+
+/** `GET /api/arrival-channels`'s body: the list, in its order. */
+export const parseArrivalChannels = (body: unknown): ArrivalChannel[] | undefined =>
+  isRecord(body)
+    ? every(body.channels, (value) =>
+        isRecord(value) &&
+        str(value.id) &&
+        str(value.label) &&
+        typeof value.active === 'boolean' &&
+        typeof value.position === 'number'
+          ? {
+              id: value.id,
+              key: str(value.key) ? value.key : null,
+              label: value.label,
+              active: value.active,
+              position: value.position,
+            }
+          : undefined,
+      )
+    : undefined;
 
 /** `GET /api/people/:id`'s body. */
 export const parsePersonPage = (body: unknown): PersonPage | undefined => {

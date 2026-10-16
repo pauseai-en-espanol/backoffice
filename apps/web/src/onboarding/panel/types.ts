@@ -7,6 +7,13 @@ export interface Panel {
   weeks: number;
   stages: Partial<Record<Stage, number>>;
   arrivals: { week: string; counts: Record<string, number> }[];
+  /** The same arrivals by "Llegó por" (PLAN M5): each week's counts by an entry's id, `none` for not said. */
+  arrivalsByChannel: {
+    channels: { id: string; label: string }[];
+    weeks: { week: string; counts: Record<string, number> }[];
+  };
+  /** People whose arrival nobody knows, left out of the weeks and the waits. */
+  unknownArrival: number;
   firstContact: {
     arrived: number;
     contacted: number;
@@ -68,6 +75,27 @@ export const parsePanel = (value: unknown): Panel | undefined => {
     }
     arrivals.push({ week: item.week, counts: weekCounts });
   }
+  // An older API sends neither: no breakdown, and nobody without a date.
+  const byChannel = isRecord(value.arrivalsByChannel) ? value.arrivalsByChannel : {};
+  const channels: Panel['arrivalsByChannel']['channels'] = [];
+  for (const item of Array.isArray(byChannel.channels) ? byChannel.channels : []) {
+    if (!isRecord(item) || typeof item.id !== 'string' || typeof item.label !== 'string') {
+      return undefined;
+    }
+    channels.push({ id: item.id, label: item.label });
+  }
+  const channelWeeks: Panel['arrivalsByChannel']['weeks'] = [];
+  for (const item of Array.isArray(byChannel.weeks) ? byChannel.weeks : []) {
+    const weekCounts = isRecord(item) ? counts(item.counts) : undefined;
+    if (!isRecord(item) || typeof item.week !== 'string' || !weekCounts) {
+      return undefined;
+    }
+    channelWeeks.push({ week: item.week, counts: weekCounts });
+  }
+  const unknownArrival = value.unknownArrival === undefined ? 0 : value.unknownArrival;
+  if (!count(unknownArrival)) {
+    return undefined;
+  }
   const people: PersonSummary[] = [];
   for (const item of unassigned.people) {
     const person = parseSummary(item);
@@ -80,6 +108,8 @@ export const parsePanel = (value: unknown): Panel | undefined => {
     weeks: value.weeks,
     stages: byStage,
     arrivals,
+    arrivalsByChannel: { channels, weeks: channelWeeks },
+    unknownArrival,
     firstContact: {
       arrived: first.arrived,
       contacted: first.contacted,
@@ -106,6 +136,20 @@ export const sourcesIn = (arrivals: Panel['arrivals'], order: readonly string[])
   return [
     ...order.filter((source) => seen.has(source)),
     ...[...seen].filter((s) => !order.includes(s)).sort(),
+  ];
+};
+
+/**
+ * The columns of "Por dónde llegaron": the entries anyone came from in these weeks, in the list's order, then "not
+ * said" (`none`) if anyone's isn't.
+ */
+export const channelsIn = (
+  byChannel: Panel['arrivalsByChannel'],
+): { id: string; label: string | null }[] => {
+  const seen = new Set(byChannel.weeks.flatMap((week) => Object.keys(week.counts)));
+  return [
+    ...byChannel.channels.filter((channel) => seen.has(channel.id)),
+    ...(seen.has('none') ? [{ id: 'none', label: null }] : []),
   ];
 };
 

@@ -12,12 +12,24 @@ const describe_ = (kind: string, data: Record<string, unknown> = {}, body: strin
 
 describe('timeline events in words', () => {
   it('name both stages of a stage change', () => {
+    expect(describe_('stage_changed', { from: 'new', to: 'contacting' }).title).toBe(
+      'Etapa: de «Nuevo» a «En contacto»',
+    );
+  });
+
+  it('keep the old names of the stages PLAN M5 folded, and say when the fold moved someone', () => {
     expect(describe_('stage_changed', { from: 'new', to: 'talking' }).title).toBe(
       'Etapa: de «Nuevo» a «En conversación»',
     );
     expect(describe_('created', { stage: 'to_triage' }).title).toBe(
       'Ficha creada en «Por clasificar»',
     );
+    expect(
+      describe_('stage_changed', { from: 'talking', to: 'contacting', stages_folded: true }),
+    ).toEqual({
+      title: 'Etapa: de «En conversación» a «En contacto»',
+      detail: 'al simplificar las etapas',
+    });
   });
 
   it('say contact attempts with their channel and outcome, and keep the note', () => {
@@ -52,7 +64,7 @@ describe('timeline events in words', () => {
       'Salió de la comunidad el 15 de octubre de 2026',
     );
     expect(describe_('imported', { source: 'airtable' }).title).toBe(
-      'Llegó por Formulario de PauseAI Global',
+      'Entró por Formulario de PauseAI Global',
     );
     expect(describe_('reported', { source: 'telegram' }).title).toBe(
       'Se avisó de su llegada (Bot de Telegram)',

@@ -3,6 +3,7 @@ import type { getTranslator } from '@backoffice/i18n/messages';
 import {
   CONTACT_CHANNELS,
   CONTACT_OUTCOMES,
+  isFormerStage,
   isStage,
   SOURCES,
   type Stage,
@@ -31,8 +32,9 @@ const oneOf = <T extends string>(list: readonly T[], value: unknown): T | undefi
 
 /**
  * A timeline event in words (onboarding spec, concepts: the timeline is what lets someone else pick a person up):
- * stage changes with both stages' names, owners by name (`staffName`, from the team list), contact attempts with their
- * channel and outcome, sources by name. An event of a kind the page doesn't know still says something changed.
+ * stage changes with both stages' names (older history may name the stages PLAN M5 folded, by their old names, and the
+ * fold itself says so), owners by name (`staffName`, from the team list), contact attempts with their channel and
+ * outcome, sources by name. An event of a kind the page doesn't know still says something changed.
  */
 export const describeEvent = (
   event: Pick<TimelineEvent, 'kind' | 'body' | 'data'>,
@@ -40,7 +42,12 @@ export const describeEvent = (
 ): Described => {
   const { data } = event;
   const body = text(event.body) ?? null;
-  const stage = (value: unknown): string => (isStage(value) ? t(`stages.${value as Stage}`) : '—');
+  const stage = (value: unknown): string =>
+    isStage(value)
+      ? t(`stages.${value as Stage}`)
+      : isFormerStage(value)
+        ? t(`formerStages.${value}`)
+        : '—';
   const person = (value: unknown): string => {
     const id = text(value);
     return id === undefined ? t('timeline.someone') : (staffName(id) ?? t('timeline.someone'));
@@ -68,7 +75,7 @@ export const describeEvent = (
     case 'stage_changed':
       return {
         title: t('timeline.stage_changed', { from: stage(data.from), to: stage(data.to) }),
-        detail: null,
+        detail: data.stages_folded === true ? t('timeline.stagesFolded') : null,
       };
     case 'owner_changed':
       return {

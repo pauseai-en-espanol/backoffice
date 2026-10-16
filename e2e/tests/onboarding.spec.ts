@@ -34,7 +34,7 @@ test('quick-add someone, find them through Hoy’s unassigned queue, and claim f
   const queue = page.getByRole('region', { name: 'Sin asignar' });
   await expect(queue.getByRole('button', { name: /^Me quedo a /u })).toHaveCount(10);
   await queue.getByRole('link', { name: /^Ver los \d+ sin asignar$/u }).click();
-  await expect(page).toHaveURL(/\/personas\?etapa=new&responsable=nadie$/u);
+  await expect(page).toHaveURL(/\/personas\?motivo=sin-asignar$/u);
   const card = page.getByRole('listitem').filter({ hasText: name });
   await expect(card).toBeVisible();
   await expect(card).toContainText('Sin asignar');
@@ -97,8 +97,8 @@ test('a person’s page: next action, a contact attempt, a note, a phone, and le
   await page.getByRole('button', { name: 'Guardar la nota' }).click();
   await expect(page.getByText('Nota guardada.')).toBeVisible();
 
-  await page.getByLabel('Teléfono o correo').fill(phone());
-  await page.getByRole('button', { name: 'Añadir teléfono o correo' }).click();
+  await page.getByLabel('Teléfono, correo o usuario de Discord').fill(phone());
+  await page.getByRole('button', { name: 'Añadir teléfono, correo o Discord' }).click();
   await expect(page.getByText('Dato de contacto añadido.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Abrir WhatsApp' })).toHaveAttribute(
     'href',
@@ -106,8 +106,8 @@ test('a person’s page: next action, a contact attempt, a note, a phone, and le
   );
 
   await page.reload();
-  // A reply moves them to "En conversación"; the timeline tells what happened, in words.
-  await expect(page.getByText('En conversación').first()).toBeVisible();
+  // The attempt moved them on to "En contacto" (PLAN M5); the timeline tells what happened, in words.
+  await expect(page.getByText('Etapa: de «Nuevo» a «En contacto»')).toBeVisible();
   await expect(page.getByText('Le interesa la divulgación')).toBeVisible();
   await expectAccessible(page);
 });
@@ -169,8 +169,10 @@ test('a CSV import: a dry run, then applying it once', async ({ page }) => {
   await expect(page.getByText(rosa)).toBeVisible();
   await page.getByRole('button', { name: /Aplicar/u }).click();
   await expect(page.getByText(/Importación hecha|importad/iu).first()).toBeVisible();
+  // Personas searches by `buscar` (`q` would be ignored, listing everyone: newest first, so with other tests adding
+  // people at the same time, these two could fall off the first page).
   for (const name of [rosa, sara]) {
-    await page.goto(`/personas?q=${encodeURIComponent(name)}`);
+    await page.goto(`/personas?buscar=${encodeURIComponent(name)}`);
     await expect(page.getByRole('link', { name: new RegExp(name, 'u') })).toBeVisible();
   }
 });
@@ -201,7 +203,7 @@ test('the board shows every stage in words', async ({ page }) => {
   await signedInStaff(page, ['onboarding']);
   await page.goto('/pipeline');
   await expectAccessible(page);
-  for (const label of ['Nuevo', 'Contactando', 'En conversación', 'Activo']) {
+  for (const label of ['Nuevo', 'En contacto', 'Bienvenida hecha', 'Activo']) {
     await expect(page.getByRole('heading', { name: new RegExp(label, 'u') }).first()).toBeVisible();
   }
 });
@@ -227,5 +229,57 @@ test('the Panel: people by stage, arrivals by week, the first contact, and who w
     page.getByRole('table', { name: 'Por etapa' }).getByRole('row', { name: /Nuevo/u }),
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Más de 48 horas sin nadie/u })).toBeVisible();
+  await expectAccessible(page);
+});
+
+test('an older member entered after the fact: no arrival day, where from, Discord, and a dated note (PLAN M5)', async ({
+  page,
+}) => {
+  await signedInStaff(page, ['admin', 'onboarding']);
+  await page.goto('/anadir');
+  const name = uniqueName();
+  const username = `miembro_${tag()}`;
+  await page.getByLabel('Nombre', { exact: true }).fill(name);
+  await page.getByLabel('Discord', { exact: true }).fill(`@${username}`);
+  await page.getByLabel('Llegó por').selectOption({ label: 'Discord' });
+  // Nobody knows when they arrived: emptied, "No se sabe".
+  await page.getByLabel('Llegó el').fill('');
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await expect(page).toHaveURL(/\/personas\/[0-9a-f-]{36}$/u);
+  const facts = page.getByRole('region', { name: 'Perfil' });
+  await expect(page.getByText('No se sabe')).toBeVisible();
+  await expect(page.getByText(username, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Sin asignar', { exact: true })).toHaveCount(0);
+  const personUrl = page.url();
+
+  // Found by not knowing when, and by where from.
+  await page.goto('/personas?fecha=no-se-sabe');
+  await expect(page.getByRole('link', { name })).toBeVisible();
+  await expectAccessible(page);
+
+  // Dated afterwards, and a note about a day gone by.
+  await page.goto(personUrl);
+  await page.getByRole('button', { name: 'Editar el perfil' }).click();
+  await page.getByLabel('Llegó el').fill('2025-03-01');
+  await page.getByRole('button', { name: 'Guardar el perfil' }).click();
+  await expect(page.getByText('1 de marzo de 2025')).toBeVisible();
+  await page.getByRole('button', { name: 'Añadir una nota' }).click();
+  await page.getByLabel('Nota', { exact: true }).fill('Nos conocimos en una charla');
+  // The note's own date field (the attempt form, folded, has one too).
+  await page.locator('#nota-fecha').fill('2025-03-01');
+  await page.getByRole('button', { name: 'Guardar la nota' }).click();
+  await expect(page.getByText('Nota guardada.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('Fue el 1 de marzo de 2025')).toBeVisible();
+  await expect(facts).toBeVisible();
+  await expectAccessible(page);
+
+  // Admins edit the list "Llegó por" chooses from.
+  await page.goto('/ajustes');
+  const list = page.getByRole('region', { name: 'Por dónde llega la gente' });
+  const label = `Evento ${tag()}`;
+  await list.getByLabel('Nueva opción').fill(label);
+  await list.getByRole('button', { name: 'Añadir a la lista' }).click();
+  await expect(list.getByText(label)).toBeVisible();
   await expectAccessible(page);
 });

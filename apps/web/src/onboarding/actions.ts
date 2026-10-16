@@ -47,21 +47,30 @@ export interface PersonChange {
   ownerId?: string | null;
   nextAction?: string | null;
   nextActionDue?: string | null;
+  /** "Llegó el" (null: nobody knows) and "Llegó por" (PLAN M5). */
+  arrivedOn?: string | null;
+  arrivalId?: string | null;
+  /** The day a stage change made now happened, if another. */
+  stageOn?: string;
 }
 
 export const claim = (id: string) => send('POST', `${person(id)}/claim`);
 
 export const updatePerson = (id: string, change: PersonChange) => send('PATCH', person(id), change);
 
-export const addNote = (id: string, body: string) => send('POST', `${person(id)}/notes`, { body });
+/** A note; `happenedOn` when it tells of another day (PLAN M5). */
+export const addNote = (id: string, note: { body: string; happenedOn?: string }) =>
+  send('POST', `${person(id)}/notes`, note);
 
 export const addAttempt = (
   id: string,
-  attempt: { channel: ContactChannel; outcome: ContactOutcome; note?: string },
+  attempt: { channel: ContactChannel; outcome: ContactOutcome; note?: string; happenedOn?: string },
 ) => send('POST', `${person(id)}/attempts`, attempt);
 
-export const addIdentity = (id: string, identity: { kind: 'email' | 'phone'; value: string }) =>
-  send('POST', `${person(id)}/identities`, identity);
+export const addIdentity = (
+  id: string,
+  identity: { kind: 'email' | 'phone' | 'discord'; value: string },
+) => send('POST', `${person(id)}/identities`, identity);
 
 export const removeIdentity = (id: string, identityId: string) =>
   send('DELETE', `${person(id)}/identities/${encodeURIComponent(identityId)}`);
@@ -82,6 +91,10 @@ export interface QuickAdd {
   name?: string;
   phone?: string;
   email?: string;
+  discord?: string;
+  /** An entry of "Llegó por"; "Llegó el", null when nobody knows (PLAN M5). */
+  arrival?: string;
+  arrivedOn?: string | null;
   province?: string;
   town?: string;
   chat?: string;
@@ -123,6 +136,17 @@ export const importCsv = (request: {
 
 export const updateSettings = (change: Record<string, unknown>) =>
   send('PATCH', '/api/settings', change);
+
+/** "Llegó por", the list admins edit in Ajustes (PLAN M5). */
+export const addArrivalChannel = (label: string) =>
+  send('POST', '/api/arrival-channels', { label });
+
+export const updateArrivalChannel = (id: string, change: { label?: string; active?: boolean }) =>
+  send('PATCH', `/api/arrival-channels/${encodeURIComponent(id)}`, change);
+
+/** The list's new order, all at once, first to last. */
+export const orderArrivalChannels = (ids: readonly string[]) =>
+  send('PUT', '/api/arrival-channels/order', { ids });
 
 export const linkTelegram = () => send('POST', '/api/telegram/link');
 

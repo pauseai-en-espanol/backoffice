@@ -34,11 +34,19 @@ describe('suggestMapping', () => {
   });
 
   it('gives each field one column, and ignores what it does not know', () => {
-    expect(suggestMapping(['Email', 'Correo', 'Fecha de alta', ''])).toEqual({
+    expect(suggestMapping(['Email', 'Correo', 'Talla de camiseta', ''])).toEqual({
       Email: 'email',
       Correo: 'ignore',
-      'Fecha de alta': 'ignore',
+      'Talla de camiseta': 'ignore',
       '': 'ignore',
+    });
+  });
+
+  it('knows the columns that retrofill older members: Discord, “Llegó por”, “Llegó el” (PLAN M5)', () => {
+    expect(suggestMapping(['Usuario de Discord', 'Llegó por', 'Fecha de alta'])).toEqual({
+      'Usuario de Discord': 'discord',
+      'Llegó por': 'arrival',
+      'Fecha de alta': 'arrivedOn',
     });
   });
 });

@@ -3,6 +3,7 @@
 import { STAGES } from '@backoffice/domain/stages';
 import { type FormEvent, useState } from 'react';
 
+import { formText } from '@/auth/client';
 import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
@@ -11,12 +12,15 @@ import type { StaffRef } from '../types';
 import type { PersonPageText } from './text';
 
 import { updatePerson } from '../actions';
+import { happenedOnOf } from '../forms';
 import * as styles from '../styles';
+import { HappenedOn } from './HappenedOn';
 
 /**
  * A person's stage and owner (onboarding spec, stages): any stage can move to any other by hand, the expected path is
- * only a guide, so the selector offers them all, with what the chosen one means. The owner is any active onboarder, or
- * nobody. "Me lo quedo" sits by the owner line at the top of the page (ClaimButton).
+ * only a guide, so the selector offers them all, with what the chosen one means; once another is chosen, the day it
+ * happened may be said, if not today (PLAN M5). The owner is any active onboarder, or nobody. "Me lo quedo" sits by
+ * the owner line at the top of the page (ClaimButton).
  */
 export const StageOwner = ({
   person,
@@ -35,7 +39,11 @@ export const StageOwner = ({
   const saveStage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (stage !== person.stage) {
-      await stageWrite.run(() => updatePerson(person.id, { stage }), { done: t.stageChanged });
+      const on = happenedOnOf(formText(event.currentTarget, 'happenedOn')).happenedOn;
+      await stageWrite.run(
+        () => updatePerson(person.id, { stage, ...(on === undefined ? {} : { stageOn: on }) }),
+        { done: t.stageChanged },
+      );
     }
   };
 
@@ -78,6 +86,7 @@ export const StageOwner = ({
             {text.stageHints[stage as keyof typeof text.stageHints] ?? ''}
           </span>
         </div>
+        {stage === person.stage ? null : <HappenedOn id="etapa-fecha" text={text} />}
         <FormError message={stageWrite.error} />
         <div>
           <button type="submit" className={ui.button} aria-disabled={stageWrite.pending}>

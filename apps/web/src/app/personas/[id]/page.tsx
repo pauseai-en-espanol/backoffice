@@ -10,8 +10,8 @@ import { isUnavailable } from '@/data';
 import { consentText } from '@/onboarding/census/format';
 import * as census from '@/onboarding/census/styles';
 import { ClaimButton } from '@/onboarding/ClaimButton';
-import { getPerson, getSettings, isForbidden } from '@/onboarding/data';
-import { formatDay, formatInstant } from '@/onboarding/format';
+import { getArrivalChannels, getPerson, getSettings, isForbidden } from '@/onboarding/data';
+import { formatDay, formatInstant, formatMadridDay } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
 import { Forbidden, OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { EraseData } from '@/onboarding/person/Erase';
@@ -58,7 +58,12 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
     );
   }
   const { id } = await params;
-  const [page, team, settings] = await Promise.all([getPerson(id), getTeam(), getSettings()]);
+  const [page, team, settings, arrivalChannels] = await Promise.all([
+    getPerson(id),
+    getTeam(),
+    getSettings(),
+    getArrivalChannels(),
+  ]);
   if (isForbidden(page)) {
     return (
       <AppShell me={me}>
@@ -87,6 +92,10 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
     )
     .map(({ userId, displayName }) => ({ userId, displayName }));
   const chats = isUnavailable(settings) ? [] : settings.communityChats;
+  const channels = isUnavailable(arrivalChannels) ? [] : arrivalChannels;
+  // The history by the day things happened (a date someone gave, else the day written), newest first (PLAN M5).
+  const happened = (event: (typeof timeline)[number]) =>
+    `${event.happenedOn ?? formatMadridDay(event.at)} ${event.at}`;
   const merged = person.mergedInto !== null;
   const anonymised = person.anonymisedAt !== null;
   const readOnly = merged || anonymised;
@@ -274,6 +283,12 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                     <dd>{person.howHeard}</dd>
                   </>
                 ) : null}
+                <dt>{t('person.arrivedOn')}</dt>
+                <dd>
+                  {person.arrivedOn ? formatDay(person.arrivedOn) : t('person.arrivedOnUnknown')}
+                </dd>
+                <dt>{t('person.arrival')}</dt>
+                <dd>{person.arrival?.label ?? t('person.arrivalNone')}</dd>
                 {person.sources.length > 0 ? (
                   <>
                     <dt>{t('person.sources')}</dt>
@@ -294,7 +309,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                   </>
                 ) : null}
               </dl>
-              {readOnly ? null : <ProfileEditor person={person} text={text} />}
+              {readOnly ? null : <ProfileEditor person={person} channels={channels} text={text} />}
             </section>
 
             <section className={onboarding.section} aria-labelledby="censo">
@@ -383,17 +398,32 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
               ) : (
                 <ol className={onboarding.timeline} reversed>
                   {[...timeline]
-                    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+                    .sort((a, b) =>
+                      happened(a) < happened(b) ? 1 : happened(a) > happened(b) ? -1 : 0,
+                    )
                     .map((event) => {
                       const described = describeEvent(event, { t, staffName });
                       const who = event.actor?.displayName ?? t('person.system');
                       return (
                         <li key={event.id}>
                           <strong>{described.title}</strong>
+                          {event.happenedOn ? (
+                            <span className={styles.block}>
+                              <time dateTime={event.happenedOn}>
+                                {t('timeline.happened', { date: formatDay(event.happenedOn) })}
+                              </time>
+                            </span>
+                          ) : null}
                           <span className={`${styles.block} ${styles.hint}`}>
                             {who}
                             {event.channel === 'bot' ? ` ${t('person.viaBot')}` : ''} ·{' '}
-                            <time dateTime={event.at}>{formatInstant(event.at)}</time>
+                            {event.happenedOn ? (
+                              <time dateTime={event.at}>
+                                {t('timeline.recorded', { date: formatInstant(event.at) })}
+                              </time>
+                            ) : (
+                              <time dateTime={event.at}>{formatInstant(event.at)}</time>
+                            )}
                           </span>
                           {described.detail ? (
                             <p className={onboarding.timelineBody}>{described.detail}</p>

@@ -53,7 +53,7 @@ export const Identities = ({
 }) => {
   const t = text.identities;
   const write = useWrite(text.errors);
-  const [kind, setKind] = useState<'email' | 'phone'>('phone');
+  const [kind, setKind] = useState<'email' | 'phone' | 'discord'>('phone');
   const [value, setValue] = useState('');
   const [holder, setHolder] = useState<string>();
   const stored = normalised(kind, value);
@@ -84,7 +84,7 @@ export const Identities = ({
             className={ui.input}
             value={value}
             onChange={(event) => setValue(event.target.value)}
-            type={kind === 'email' ? 'email' : 'tel'}
+            type={kind === 'email' ? 'email' : kind === 'phone' ? 'tel' : 'text'}
             autoComplete="off"
             maxLength={254}
             required
@@ -107,10 +107,19 @@ export const Identities = ({
             id="contacto-tipo"
             className={styles.select}
             value={kind}
-            onChange={(event) => setKind(event.target.value === 'email' ? 'email' : 'phone')}
+            onChange={(event) =>
+              setKind(
+                event.target.value === 'email'
+                  ? 'email'
+                  : event.target.value === 'discord'
+                    ? 'discord'
+                    : 'phone',
+              )
+            }
           >
             <option value="phone">{text.identityKinds.phone}</option>
             <option value="email">{text.identityKinds.email}</option>
+            <option value="discord">{text.identityKinds.discord}</option>
           </select>
         </div>
       </div>

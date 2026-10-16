@@ -3,7 +3,8 @@ import type { Metadata } from 'next';
 import { getTranslator } from '@backoffice/i18n/messages';
 
 import { isUnavailable } from '@/data';
-import { getSettings } from '@/onboarding/data';
+import { getArrivalChannels, getSettings } from '@/onboarding/data';
+import { madridToday } from '@/onboarding/format';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { QuickAddForm } from '@/onboarding/QuickAddForm';
 import { canOnboard, onboardingErrors, stageNames } from '@/onboarding/text';
@@ -25,13 +26,15 @@ const QuickAddPage = async () => {
       </AppShell>
     );
   }
-  const settings = await getSettings();
+  const [settings, channels] = await Promise.all([getSettings(), getArrivalChannels()]);
   return (
     <AppShell me={me}>
       <h1 className={styles.h1}>{t('intake.title')}</h1>
       <p className={styles.text}>{t('intake.intro')}</p>
       <QuickAddForm
         chats={isUnavailable(settings) ? [] : settings.communityChats}
+        channels={isUnavailable(channels) ? [] : channels.filter((channel) => channel.active)}
+        today={madridToday()}
         text={{
           name: t('intake.name'),
           nameHint: t('intake.nameHint'),
@@ -39,7 +42,15 @@ const QuickAddPage = async () => {
           phone: t('intake.phone'),
           phoneHint: t('intake.phoneHint'),
           email: t('intake.email'),
+          discord: t('intake.discord'),
+          discordHint: t('intake.discordHint'),
+          discordInvalid: t('intake.discordInvalid'),
           contactHint: t('intake.contactHint'),
+          arrival: t('intake.arrival'),
+          arrivalHint: t('intake.arrivalHint'),
+          arrivalNone: t('intake.arrivalNone'),
+          arrivedOn: t('intake.arrivedOn'),
+          arrivedOnHint: t('intake.arrivedOnHint'),
           province: t('intake.province'),
           town: t('intake.town'),
           chat: t('intake.chat'),
