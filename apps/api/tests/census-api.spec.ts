@@ -162,6 +162,7 @@ afterAll(async () => {
   await superuser.query('DELETE FROM app.people WHERE id = ANY($1::uuid[])', [made]);
   await superuser.query('DELETE FROM app.exports WHERE created_by = ANY($1::uuid[])', [accounts]);
   await superuser.query("DELETE FROM app.census_options WHERE label LIKE 'Opción de prueba%'");
+  await superuser.query("DELETE FROM app.message_templates WHERE title LIKE 'Censo de prueba%'");
   await superuser.query('DELETE FROM app.staff_roles WHERE user_id = ANY($1::uuid[])', [accounts]);
   await superuser.query('DELETE FROM app.staff WHERE user_id = ANY($1::uuid[])', [accounts]);
   await superuser.query("SET session_replication_role = 'origin'");
@@ -264,6 +265,65 @@ describe('the forms app’s routes (M2)', () => {
 });
 
 describe('the census’s staff side (M2)', () => {
+  it('writes a personal link in the team’s message, which the link and its attempt name (Mensajes, PLAN M5)', async () => {
+    const added = (
+      await onboarder.who.send('POST', '/api/intake', {
+        name: `Censo Mensaje ${crypto.randomUUID().slice(0, 6)}`,
+        phone: `61${Math.floor(Math.random() * 1e7)
+          .toString()
+          .padStart(7, '0')}`,
+        decision: 'new',
+      })
+    ).json<{ personId: string }>();
+    people.push(added.personId);
+    const written = await onboarder.who.send('POST', '/api/message-templates', {
+      purpose: 'census_link',
+      title: `Censo de prueba ${crypto.randomUUID().slice(0, 6)}`,
+      body: 'Hola, {nombre}: soy {yo}. Tu enlace: {enlace}',
+      bodyNameless: 'Hola: soy {yo}. Tu enlace: {enlace}',
+    });
+    expect(written.statusCode).toBe(201);
+    const templateId = written.json<{ id: string }>().id;
+
+    const made = await onboarder.who.send('POST', `/api/people/${added.personId}/census-link`, {
+      templateId,
+    });
+    expect(made.statusCode).toBe(201);
+    const link = made.json<{ id: string; url: string; whatsapp: string }>();
+    const text = decodeURIComponent(link.whatsapp.split('?text=')[1] ?? '');
+    expect(text).toMatch(/^Hola, Censo: soy \S/u);
+    expect(text).toContain(`. Tu enlace: ${link.url}`);
+    expect(
+      (
+        await superuser.query(
+          'SELECT template_id, template_version FROM app.census_links WHERE id = $1',
+          [link.id],
+        )
+      ).rows,
+    ).toEqual([{ template_id: templateId, template_version: 1 }]);
+    expect((await onboarder.who.send('POST', `/api/census-links/${link.id}/sent`)).statusCode).toBe(
+      204,
+    );
+    expect(
+      (
+        await superuser.query(
+          `SELECT data FROM app.person_events WHERE person_id = $1 AND kind = 'contact_attempt'`,
+          [added.personId],
+        )
+      ).rows.map((row: { data: unknown }) => row.data),
+    ).toEqual([{ channel: 'whatsapp', outcome: 'left_message', templateId, templateVersion: 1 }]);
+
+    // A message retired meanwhile isn't offered any more: the page is out of date.
+    await onboarder.who.send('PATCH', `/api/message-templates/${templateId}`, { active: false });
+    expect(
+      (
+        await onboarder.who.send('POST', `/api/people/${added.personId}/census-link`, {
+          templateId,
+        })
+      ).statusCode,
+    ).toBe(409);
+  });
+
   it('makes a personal link, greets its person, takes their answer directly, and shows it on their page', async () => {
     const phone = `61${Math.floor(Math.random() * 1e7)
       .toString()

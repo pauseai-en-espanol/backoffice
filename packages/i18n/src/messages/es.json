@@ -962,8 +962,8 @@
     "disconnected": "Telegram desconectado."
   },
   "censusLink": {
-    "whatsapp": "Hola, {name}: soy del equipo de onboarding de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}",
-    "whatsappNameless": "Hola: soy del equipo de onboarding de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}"
+    "whatsapp": "Hola, {name}: soy {me}, de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}",
+    "whatsappNameless": "Hola: soy {me}, de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}"
   },
   "censo": {
     "title": "Censo",

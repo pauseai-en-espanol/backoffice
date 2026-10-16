@@ -100,10 +100,12 @@ export const createCensusLink = async (
   trx: Transaction<DB>,
   person: string,
   token: string,
+  message?: { id: string; version: number },
 ): Promise<{ id: string; expiresAt: string }> => {
   const { rows } = await sql<{ id: string; expires_at: string }>`
-    INSERT INTO app.census_links (person_id, token_hash, expires_at)
-    VALUES (${person}, ${hashCensusToken(token)}, now() + make_interval(days => ${LINK_DAYS}))
+    INSERT INTO app.census_links (person_id, token_hash, expires_at, template_id, template_version)
+    VALUES (${person}, ${hashCensusToken(token)}, now() + make_interval(days => ${LINK_DAYS}),
+            ${message?.id ?? null}, ${message?.version ?? null})
     RETURNING id, to_json(expires_at)#>>'{}' AS expires_at`.execute(trx);
   const [row] = rows;
   if (!row) {
@@ -117,19 +119,30 @@ export const markLinkSent = async (
   trx: Transaction<DB>,
   id: string,
 ): Promise<string | undefined> => {
-  const { rows } = await sql<{ person_id: string }>`
-    UPDATE app.census_links SET sent_at = now() WHERE id = ${id} AND sent_at IS NULL RETURNING person_id`.execute(
-    trx,
-  );
-  const person = rows[0]?.person_id;
-  if (person) {
+  const { rows } = await sql<{
+    person_id: string;
+    template_id: string | null;
+    template_version: number | null;
+  }>`
+    UPDATE app.census_links SET sent_at = now() WHERE id = ${id} AND sent_at IS NULL
+    RETURNING person_id, template_id, template_version`.execute(trx);
+  const [link] = rows;
+  if (link) {
+    // The attempt names the message the link went in, as the link does (Mensajes, PLAN M5).
+    const data = {
+      channel: 'whatsapp',
+      outcome: 'left_message',
+      ...(link.template_id === null
+        ? {}
+        : { templateId: link.template_id, templateVersion: link.template_version }),
+    };
     await sql`
       INSERT INTO app.person_events (person_id, kind, body, data)
-      VALUES (${person}, 'contact_attempt', 'Enlace del censo', '{"channel": "whatsapp", "outcome": "left_message"}')`.execute(
+      VALUES (${link.person_id}, 'contact_attempt', 'Enlace del censo', ${JSON.stringify(data)}::jsonb)`.execute(
       trx,
     );
   }
-  return person;
+  return link?.person_id;
 };
 
 export interface CensusOption {

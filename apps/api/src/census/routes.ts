@@ -5,6 +5,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Transaction } from 'kysely';
 
 import { withActor } from '@backoffice/db/actor';
+import { fillMessage } from '@backoffice/domain/message-templates';
 import { whatsappLink } from '@backoffice/domain/whatsapp';
 import { getTranslator } from '@backoffice/i18n/messages';
 import { captureException } from '@sentry/node';
@@ -14,6 +15,7 @@ import type { CensusConfig } from '../config.js';
 
 import { databaseRefusal } from '../database-errors.js';
 import { fromAnotherSite } from '../fetch-site.js';
+import { messageFor } from '../people/message-templates.js';
 import { createRateLimiter } from '../rate-limit.js';
 import { schemaRefusal } from '../schema-refusal.js';
 import {
@@ -121,9 +123,23 @@ export const censusRoutes =
       ),
     );
 
-    scope.post<{ Params: { id: string } }>(
+    scope.post<{ Params: { id: string }; Body: { templateId?: string } }>(
       '/people/:id/census-link',
-      { schema: { params: ID_PARAMS } },
+      {
+        schema: {
+          params: ID_PARAMS,
+          // The message to write it in, among the team's in use (Mensajes, PLAN M5); the first by default.
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            properties: { templateId: UUID },
+          },
+        },
+        // No body at all asks for the default message, as before Mensajes.
+        preValidation: async (request) => {
+          request.body ??= {};
+        },
+      },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           if (!census) {
@@ -137,10 +153,11 @@ export const censusRoutes =
           const made = await withActor(db, actor, async (trx) => {
             await require(trx, ONBOARDING);
             const person = (
-              await sql<{ name: string | null; phone: string | null }>`
+              await sql<{ name: string | null; phone: string | null; me: string }>`
                 SELECT coalesce(p.preferred_name, split_part(p.full_name, ' ', 1)) AS name,
                        (SELECT i.value FROM app.identities i WHERE i.person_id = p.id AND i.kind = 'phone'
-                         ORDER BY i.created_at LIMIT 1) AS phone
+                         ORDER BY i.created_at LIMIT 1) AS phone,
+                       (SELECT s.display_name FROM app.staff s WHERE s.user_id = ${actor.userId}) AS me
                   FROM app.people p
                  WHERE p.id = ${request.params.id} AND p.merged_into IS NULL AND p.anonymised_at IS NULL`.execute(
                 trx,
@@ -149,18 +166,26 @@ export const censusRoutes =
             if (!person) {
               throw new Refusal(404, 'notFound');
             }
-            const link = await createCensusLink(trx, request.params.id, token);
-            return { ...link, person };
+            const message = await messageFor(trx, 'census_link', request.body.templateId);
+            if (message === 'stale') {
+              throw new Refusal(409, 'stale');
+            }
+            const link = await createCensusLink(trx, request.params.id, token, message);
+            return { ...link, person, message };
           });
-          // Someone saved with only a phone (PLAN R37) is greeted without a name.
-          const message = made.person.name
-            ? t('censusLink.whatsapp', { name: made.person.name, url })
-            : t('censusLink.whatsappNameless', { url });
+          // Someone saved with only a phone (PLAN R37) is greeted without a name; with no message of the team's in
+          // use, the code's neutral one.
+          const { name, me } = made.person;
+          const text = made.message
+            ? fillMessage(made.message, { nombre: name ?? undefined, yo: me, enlace: url })
+            : name
+              ? t('censusLink.whatsapp', { name, me, url })
+              : t('censusLink.whatsappNameless', { me, url });
           return reply.code(201).send({
             id: made.id,
             url,
             expiresAt: made.expiresAt,
-            whatsapp: made.person.phone ? (whatsappLink(made.person.phone, message) ?? null) : null,
+            whatsapp: made.person.phone ? (whatsappLink(made.person.phone, text) ?? null) : null,
           });
         }),
     );

@@ -6,6 +6,7 @@ import type { Transaction } from 'kysely';
 
 import { withActor } from '@backoffice/db/actor';
 import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { MESSAGE_PURPOSES } from '@backoffice/domain/message-templates';
 import {
   ATTENTION_REASONS,
   type AttentionReason,
@@ -50,6 +51,11 @@ import {
   resolveBandeja,
   submitIntake,
 } from './intake.js';
+import {
+  addMessageTemplate,
+  changeMessageTemplate,
+  listMessageTemplates,
+} from './message-templates.js';
 import {
   addAttempt,
   addIdentity,
@@ -435,7 +441,14 @@ export const peopleRoutes =
 
     scope.post<{
       Params: { id: string };
-      Body: { channel: string; outcome: string; note?: string; happenedOn?: string };
+      Body: {
+        channel: string;
+        outcome: string;
+        note?: string;
+        happenedOn?: string;
+        templateId?: string;
+        templateVersion?: number;
+      };
     }>(
       '/people/:id/attempts',
       {
@@ -450,6 +463,9 @@ export const peopleRoutes =
               outcome: { type: 'string', enum: [...CONTACT_OUTCOMES] },
               note: TEXT(4000),
               happenedOn: DATE,
+              // The message that went out, when it was one the team wrote (Mensajes): both or neither.
+              templateId: UUID,
+              templateVersion: { type: 'integer', minimum: 1, maximum: 999_999_999 },
             },
           },
         },
@@ -975,6 +991,81 @@ export const peopleRoutes =
               active: request.body.active,
             });
           });
+          if (!changed) {
+            throw new Refusal(404, 'notFound');
+          }
+          return reply.code(204).send();
+        }),
+    );
+
+    // The team's WhatsApp messages (Mensajes, PLAN M5): onboarding staff and admins read and write them ------------
+
+    scope.get('/message-templates', async (request, reply) =>
+      signedIn(request, reply, async (db, actor) =>
+        onboarding(db, actor, async (trx) => ({ templates: await listMessageTemplates(trx) })),
+      ),
+    );
+
+    const TITLE = { type: 'string', minLength: 1, maxLength: 80, pattern: '\\S' } as const;
+    const BODY = { type: 'string', minLength: 1, maxLength: 2000, pattern: '\\S' } as const;
+
+    scope.post<{
+      Body: {
+        purpose: (typeof MESSAGE_PURPOSES)[number];
+        title: string;
+        body: string;
+        bodyNameless?: string | null;
+      };
+    }>(
+      '/message-templates',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['purpose', 'title', 'body'],
+            additionalProperties: false,
+            properties: {
+              purpose: { type: 'string', enum: [...MESSAGE_PURPOSES] },
+              title: TITLE,
+              body: BODY,
+              bodyNameless: NULLABLE_TEXT(2000),
+            },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const id = await onboarding(db, actor, (trx) => addMessageTemplate(trx, request.body));
+          return reply.code(201).send({ id });
+        }),
+    );
+
+    scope.patch<{
+      Params: { id: string };
+      Body: { title?: string; body?: string; bodyNameless?: string | null; active?: boolean };
+    }>(
+      '/message-templates/:id',
+      {
+        schema: {
+          params: ID_PARAMS,
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            minProperties: 1,
+            properties: {
+              title: TITLE,
+              body: BODY,
+              bodyNameless: NULLABLE_TEXT(2000),
+              active: { type: 'boolean' },
+            },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const changed = await onboarding(db, actor, (trx) =>
+            changeMessageTemplate(trx, request.params.id, request.body),
+          );
           if (!changed) {
             throw new Refusal(404, 'notFound');
           }

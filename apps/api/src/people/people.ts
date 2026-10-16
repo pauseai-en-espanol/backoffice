@@ -598,7 +598,11 @@ export const addNote = async (
     VALUES (${id}, 'note', ${body}, ${happenedOn ?? null}::date)`.execute(trx);
 };
 
-/** A contact attempt; `happenedOn` when it was made another day (PLAN M5), which the rules then count. */
+/**
+ * A contact attempt; `happenedOn` when it was made another day (PLAN M5), which the rules then count; the message that
+ * went out, when the team wrote it in Mensajes, by its id and version (the database checks both or neither, and that
+ * the template has had that version).
+ */
 export const addAttempt = async (
   trx: Transaction<DB>,
   id: string,
@@ -607,12 +611,19 @@ export const addAttempt = async (
     outcome: string;
     note?: string | undefined;
     happenedOn?: string | undefined;
+    templateId?: string | undefined;
+    templateVersion?: number | undefined;
   },
 ): Promise<void> => {
+  const data = {
+    channel: attempt.channel,
+    outcome: attempt.outcome,
+    ...(attempt.templateId === undefined ? {} : { templateId: attempt.templateId }),
+    ...(attempt.templateVersion === undefined ? {} : { templateVersion: attempt.templateVersion }),
+  };
   await sql`
     INSERT INTO app.person_events (person_id, kind, body, data, happened_on)
-    VALUES (${id}, 'contact_attempt', ${attempt.note?.trim() || null},
-            ${JSON.stringify({ channel: attempt.channel, outcome: attempt.outcome })}::jsonb,
+    VALUES (${id}, 'contact_attempt', ${attempt.note?.trim() || null}, ${JSON.stringify(data)}::jsonb,
             ${attempt.happenedOn ?? null}::date)`.execute(trx);
 };
 

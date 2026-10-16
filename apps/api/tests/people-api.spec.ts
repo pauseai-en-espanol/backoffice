@@ -738,4 +738,98 @@ describe('when and where from, and Discord (PLAN M5)', () => {
       await superuser.query('DELETE FROM app.arrival_channels WHERE id = $1', [id]);
     }
   });
+
+  it('lets onboarding staff write the team’s messages, checked by the database, and log which went out', async () => {
+    expect((await outreacher.who.send('GET', '/api/message-templates')).statusCode).toBe(403);
+    const title = `Bienvenida ${suffix()}`;
+    const welcome = (fields: Record<string, unknown>) =>
+      onboarder.who.send('POST', '/api/message-templates', {
+        purpose: 'welcome',
+        title,
+        ...fields,
+      });
+    // The database says what's wrong, by the rule's name, for the staff app to point at.
+    const unnamed = await welcome({ body: 'Hola, {nombre}: soy {yo}.' });
+    expect(unnamed.statusCode).toBe(422);
+    expect(unnamed.json()).toMatchObject({ constraint: 'message_templates_nameless_check' });
+    const typo = await welcome({
+      body: 'Hola, {nombre}: soy {yoo}.',
+      bodyNameless: 'Hola: soy {yo}.',
+    });
+    expect(typo.json()).toMatchObject({ constraint: 'message_templates_placeholders_check' });
+    expect(
+      (await welcome({ purpose: 'census_link', body: 'Hola: soy {yo}.' })).json(),
+    ).toMatchObject({ constraint: 'message_templates_link_check' });
+
+    const added = await welcome({
+      body: 'Hola, {nombre}: soy {yo}.',
+      bodyNameless: ' Hola: soy {yo}. ',
+    });
+    expect(added.statusCode).toBe(201);
+    const { id } = added.json<{ id: string }>();
+    try {
+      expect((await welcome({ body: 'Otra: soy {yo}.' })).statusCode).toBe(409);
+      expect(
+        (
+          await onboarder.who.send('PATCH', `/api/message-templates/${id}`, {
+            body: 'Hola, {nombre}: soy {yo}, de nuevo.',
+            bodyNameless: 'Hola: soy {yo}, de nuevo.',
+          })
+        ).statusCode,
+      ).toBe(204);
+      expect(
+        (await admin.who.send('PATCH', `/api/message-templates/${id}`, { active: false }))
+          .statusCode,
+      ).toBe(204);
+      const { templates } = (await onboarder.who.send('GET', '/api/message-templates')).json<{
+        templates: {
+          id: string;
+          bodyNameless: string;
+          version: number;
+          active: boolean;
+          updatedBy: { displayName: string } | null;
+        }[];
+      }>();
+      expect(templates.find((template) => template.id === id)).toMatchObject({
+        bodyNameless: 'Hola: soy {yo}, de nuevo.',
+        version: 2,
+        active: false,
+        updatedBy: { displayName: expect.any(String) },
+      });
+      expect(
+        (
+          await onboarder.who.send('PATCH', `/api/message-templates/${crypto.randomUUID()}`, {
+            active: true,
+          })
+        ).statusCode,
+      ).toBe(404);
+
+      // "Sí, lo he enviado": the attempt names the message and its version, one it has had.
+      const person = (
+        await onboarder.who.send('POST', '/api/intake', {
+          name: `Mensaje Prueba ${suffix()}`,
+          phone: `6100${suffix()}`.slice(0, 9),
+        })
+      ).json<{ personId: string }>().personId;
+      people.push(person);
+      const attempt = (version: number) =>
+        onboarder.who.send('POST', `/api/people/${person}/attempts`, {
+          channel: 'whatsapp',
+          outcome: 'left_message',
+          templateId: id,
+          templateVersion: version,
+        });
+      expect((await attempt(1)).statusCode).toBe(201);
+      expect((await attempt(3)).statusCode).toBe(422);
+      const logged = await superuser.query<{ data: unknown }>(
+        `SELECT data FROM app.person_events WHERE person_id = $1 AND kind = 'contact_attempt'`,
+        [person],
+      );
+      expect(logged.rows.map((row) => row.data)).toEqual([
+        { channel: 'whatsapp', outcome: 'left_message', templateId: id, templateVersion: 1 },
+      ]);
+    } finally {
+      await superuser.query('DELETE FROM app.message_templates WHERE id = $1', [id]);
+    }
+  });
 });
