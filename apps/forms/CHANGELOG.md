@@ -1,5 +1,18 @@
 # @backoffice/forms
 
+## 0.1.3
+
+### Patch Changes
+
+- a363d6a: The tab icon is the chapter's mark (PauseAI en Español, with its ñ tilde), copied unchanged from the brand's logos,
+  instead of a stand-in.
+- cce1869: The app and the bot say "onboarding" where they said "acogida" (the role, the digest, the settings, the WhatsApp
+  message, the census form's thanks and its draft privacy notice), and the board by stage is the "Onboarding Pipeline",
+  at `/pipeline` instead of `/embudo` (D14).
+- Updated dependencies [013c8a1]
+- Updated dependencies [cce1869]
+  - @backoffice/i18n@0.2.0
+
 ## 0.1.2
 
 ### Patch Changes

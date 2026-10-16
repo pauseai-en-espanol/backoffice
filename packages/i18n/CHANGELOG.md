@@ -1,5 +1,18 @@
 # @backoffice/i18n
 
+## 0.2.0
+
+### Minor Changes
+
+- 013c8a1: The Telegram bot is the onboarding team's alone (D13): only active staff with the onboarding role can connect it and
+  use it, not an admin without that role. The database refuses a link code or a link for anyone else, and unlinks an
+  account, dropping its unused codes, when it loses the role or is deactivated; the bot's functions answer the
+  onboarding role alone. Ajustes offers "Conectar Telegram" only to onboarding staff and tells everyone else the bot
+  is the onboarding team's.
+- cce1869: The app and the bot say "onboarding" where they said "acogida" (the role, the digest, the settings, the WhatsApp
+  message, the census form's thanks and its draft privacy notice), and the board by stage is the "Onboarding Pipeline",
+  at `/pipeline` instead of `/embudo` (D14).
+
 ## 0.1.0
 
 ### Minor Changes
