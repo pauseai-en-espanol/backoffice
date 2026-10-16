@@ -41,6 +41,11 @@ they are 14 or older, doesn't accept them otherwise, and says to talk to the tea
 Global's privacy notice says signups may be shared with the national chapter (`pauseai-website`,
 `src/posts/privacy.md`). We copy only mapped fields ([ADR-0005](../adr/0005-airtable-intake.md)).
 
+The shared view's link reads every Spain signup, so it is a credential: admins paste it in Ajustes, and the API
+stores it encrypted with the deployment's key, which never reaches the database (`app.airtable_sync`). It is
+write-only: no answer, log or audit entry carries it or its ciphertext; its column is marked personal data so the
+audit log records only that it changed, and who changed it.
+
 ## 6. Telegram carries some personal data
 
 A name and a phone number typed into the bot pass through Telegram's servers. The bot deletes those messages

@@ -47,40 +47,41 @@ PostgreSQL 18, database `pauseai_backoffice`.
 Each table is listed with its purpose. The M0 tables' columns are in [§4](#4-m0-tables); the others' are
 specified in the M1 and M3 migrations.
 
-| Table                      | Holds                                                                                    | Module     |
-| -------------------------- | ---------------------------------------------------------------------------------------- | ---------- |
-| `staff`                    | Staff accounts' app side: display name, linked person, active flag                       | Core       |
-| `staff_roles`              | `(user_id, role)`                                                                        | Core       |
-| `invitations`              | Invitations to become staff, with their roles                                            | Core       |
-| `settings`                 | Thresholds, community chats list, skills and interests lists, digest time (M1)           | Core       |
-| `audit_log`                | Every write: actor, channel (web or bot), table, row, what changed. Append-only          | Core       |
-| `people`                   | Profile, stage, owner, next action and due date, `profile_completed_at`, anonymised flag | Onboarding |
-|                            | "Llegó el" (`arrived_on`, null: unknown) and "Llegó por" (`arrival_channel_id`), M5      |            |
-|                            | `summary`: the card's one-line internal summary (≤ 200, personal data; M5, step 4)       |            |
-| `arrival_channels`         | "Llegó por"'s list, edited by admins in Ajustes; `key` marks the bot's and Global's (M5) | Onboarding |
-| `identities`               | `(kind, value)` unique, `person_id`, verified, source, first seen; kinds: email, phone,  | Onboarding |
-|                            | Discord username (M5), Airtable record                                                   |            |
-| `person_sources`           | Each source a person came from, with date, reporter and external reference               | Onboarding |
-| `community_presence`       | `(person_id, joined_at, left_at, chat, reported_by)`                                     | Onboarding |
-| `person_events`            | The timeline. Append-only; only anonymisation redacts it. `happened_on`: its day, M5     | Onboarding |
-| `intake_records`           | Every imported or reported record: source, external ID, minimised payload, status, match | Onboarding |
-| `imports`                  | Each import or sync run: who, when, file hash, counts, dry-run diff                      | Onboarding |
-| `census_links`             | Personal links: person, token hash, expiry, used at; the message it went in (M5)         | Onboarding |
-| `message_templates`        | Mensajes: the team's WhatsApp messages by purpose, title, versions, retired (M5)         | Onboarding |
-| `skills`, `interests`      | Lists edited in settings, and the people linked to them                                  | Onboarding |
-| `organisations`            | Outreach organisations                                                                   | Outreach   |
-| `contacts`                 | Outreach contacts, tier, relationship stage, sources, `needs_review`                     | Outreach   |
-| `campaigns`                | Goal, language, sender, status, owner                                                    | Outreach   |
-| `campaign_templates`       | Per tier: subject, body with merge fields, word limit, version                           | Outreach   |
-| `campaign_anchors`         | Evidence paragraphs and their sources                                                    | Outreach   |
-| `campaign_targets`         | Contact × campaign: status, owner, priority, dates, next action                          | Outreach   |
-| `contact_events`           | The outreach timeline                                                                    | Outreach   |
-| `private.telegram_updates` | Each processed `update_id`, so redeliveries are harmless; kept a week                    | Bot        |
-| `private.telegram_dialogs` | A conversation in progress; deleted after an hour                                        | Bot        |
-| `private.telegram_posts`   | Team-group messages per person, so a claim can edit them                                 | Bot        |
-| `auth.telegram_links`      | Telegram user ID ↔ staff account, one each way, and when they were linked                | Auth       |
-| `auth.telegram_link_codes` | One-time link codes as SHA-256 hashes: ten minutes, used once                            | Auth       |
-| `auth.*`                   | Better Auth's tables (users, accounts, sessions, two-factor); member tokens in M4        | Auth       |
+| Table                      | Holds                                                                                      | Module     |
+| -------------------------- | ------------------------------------------------------------------------------------------ | ---------- |
+| `staff`                    | Staff accounts' app side: display name, linked person, active flag                         | Core       |
+| `staff_roles`              | `(user_id, role)`                                                                          | Core       |
+| `invitations`              | Invitations to become staff, with their roles                                              | Core       |
+| `settings`                 | Thresholds, community chats list, skills and interests lists, digest time (M1)             | Core       |
+| `airtable_sync`            | One row: Global's view link, encrypted and write-only; the switch; the last run (ADR-0005) | Onboarding |
+| `audit_log`                | Every write: actor, channel (web or bot), table, row, what changed. Append-only            | Core       |
+| `people`                   | Profile, stage, owner, next action and due date, `profile_completed_at`, anonymised flag   | Onboarding |
+|                            | "Llegó el" (`arrived_on`, null: unknown) and "Llegó por" (`arrival_channel_id`), M5        |            |
+|                            | `summary`: the card's one-line internal summary (≤ 200, personal data; M5, step 4)         |            |
+| `arrival_channels`         | "Llegó por"'s list, edited by admins in Ajustes; `key` marks the bot's and Global's (M5)   | Onboarding |
+| `identities`               | `(kind, value)` unique, `person_id`, verified, source, first seen; kinds: email, phone,    | Onboarding |
+|                            | Discord username (M5), Airtable record                                                     |            |
+| `person_sources`           | Each source a person came from, with date, reporter and external reference                 | Onboarding |
+| `community_presence`       | `(person_id, joined_at, left_at, chat, reported_by)`                                       | Onboarding |
+| `person_events`            | The timeline. Append-only; only anonymisation redacts it. `happened_on`: its day, M5       | Onboarding |
+| `intake_records`           | Every imported or reported record: source, external ID, minimised payload, status, match   | Onboarding |
+| `imports`                  | Each import or sync run: who, when, file hash, counts, dry-run diff                        | Onboarding |
+| `census_links`             | Personal links: person, token hash, expiry, used at; the message it went in (M5)           | Onboarding |
+| `message_templates`        | Mensajes: the team's WhatsApp messages by purpose, title, versions, retired (M5)           | Onboarding |
+| `skills`, `interests`      | Lists edited in settings, and the people linked to them                                    | Onboarding |
+| `organisations`            | Outreach organisations                                                                     | Outreach   |
+| `contacts`                 | Outreach contacts, tier, relationship stage, sources, `needs_review`                       | Outreach   |
+| `campaigns`                | Goal, language, sender, status, owner                                                      | Outreach   |
+| `campaign_templates`       | Per tier: subject, body with merge fields, word limit, version                             | Outreach   |
+| `campaign_anchors`         | Evidence paragraphs and their sources                                                      | Outreach   |
+| `campaign_targets`         | Contact × campaign: status, owner, priority, dates, next action                            | Outreach   |
+| `contact_events`           | The outreach timeline                                                                      | Outreach   |
+| `private.telegram_updates` | Each processed `update_id`, so redeliveries are harmless; kept a week                      | Bot        |
+| `private.telegram_dialogs` | A conversation in progress; deleted after an hour                                          | Bot        |
+| `private.telegram_posts`   | Team-group messages per person, so a claim can edit them                                   | Bot        |
+| `auth.telegram_links`      | Telegram user ID ↔ staff account, one each way, and when they were linked                  | Auth       |
+| `auth.telegram_link_codes` | One-time link codes as SHA-256 hashes: ten minutes, used once                              | Auth       |
+| `auth.*`                   | Better Auth's tables (users, accounts, sessions, two-factor); member tokens in M4          | Auth       |
 
 Tables are in `app` unless their schema is named.
 

@@ -54,8 +54,11 @@ above, or add it to the running database by hand with the same `CREATE ROLE` and
 - **Never commit personal data:** no member, contact, export, CSV, census answer, Airtable record or screenshot of
   one. `.gitignore` refuses `*.csv`, `*.jsonl` and `*.xlsx` outside test fixtures; that is a backstop, not a
   permission.
-- **The link to Global's shared Airtable view is a credential.** It lives only in its sealed secret in gitops
-  (`scripts/seal-airtable-link.sh`). To try the sync locally, put it in your own `.env`, which is never committed.
+- **The link to Global's shared Airtable view is a credential.** Admins paste it in Ajustes; the API stores it
+  encrypted with the deployment's key (`AIRTABLE_LINK_KEY`, sealed in gitops by `scripts/seal-airtable-key.sh`) and
+  never shows it again (ADR-0005). Never commit, log, print or paste it anywhere else. To try the sync locally, set
+  `AIRTABLE_LINK_KEY` (`openssl rand -base64 32`) and `INGEST_DATABASE_URL` in your own `.env`, which is never
+  committed, and paste the link in your local Ajustes.
 - **Fixtures and seeds are obviously fictional:** "Persona de ejemplo", `@ejemplo.test`, phone numbers from the
   ranges reserved for fiction.
 

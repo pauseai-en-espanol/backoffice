@@ -1,0 +1,220 @@
+[
+  {
+    "name": "the staff app can read the link's ciphertext",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "GRANT SELECT (id, enabled, link_set_by, link_set_at, last_run_at, last_run_failure, last_run_counts, updated_by,\n              updated_at),\n      UPDATE",
+    "new": "GRANT SELECT,\n      UPDATE",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarding staff can set the link",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "  USING ((SELECT private.staff_can('admin')))\n  WITH CHECK ((SELECT private.staff_can('admin')));",
+    "new": "  USING ((SELECT private.staff_can('admin', 'onboarding')))\n  WITH CHECK ((SELECT private.staff_can('admin', 'onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "outreach staff read the sync's settings",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "CREATE POLICY onboarding_read ON app.airtable_sync FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding')));",
+    "new": "CREATE POLICY onboarding_read ON app.airtable_sync FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "nobody records who set the link",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "      NEW.link_set_by := private.current_user_id();\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "removing the link leaves the sync on",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "      NEW.enabled := false;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a new link keeps the last view's last run",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "    IF TG_OP = 'UPDATE' THEN\n      NEW.last_run_at := NULL;",
+    "new": "    IF false THEN\n      NEW.last_run_at := NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the sync can be on without a link",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "  CONSTRAINT airtable_sync_enabled_check CHECK (NOT enabled OR link_ciphertext IS NOT NULL),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the database takes a link in clear",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "link_ciphertext   text CHECK (link_ciphertext ~ '^v1\\.[A-Za-z0-9_-]+$' AND length(link_ciphertext) <= 1000),",
+    "new": "link_ciphertext   text,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the audit log copies the link's ciphertext",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "COMMENT ON COLUMN app.airtable_sync.link_ciphertext IS 'personal data';\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the sync reads the link while it's off",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "  SELECT s.link_ciphertext FROM app.airtable_sync s WHERE s.enabled\n",
+    "new": "  SELECT s.link_ciphertext FROM app.airtable_sync s\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a run's failure can be any text, a message holding the link too",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "  last_run_failure  text CHECK (last_run_failure IN ('link', 'page', 'data', 'columns', 'key', 'database')),",
+    "new": "  last_run_failure  text,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the app role can read the link through the sync's function",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "GRANT EXECUTE ON FUNCTION private.airtable_link() TO pauseai_backoffice_ingest;",
+    "new": "GRANT EXECUTE ON FUNCTION private.airtable_link() TO pauseai_backoffice_ingest, pauseai_backoffice_app;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the ingest role reads the table itself",
+    "file": "db/migrations/20261017100000_airtable_sync.sql",
+    "old": "REVOKE ALL ON FUNCTION private.airtable_link() FROM PUBLIC;",
+    "new": "GRANT USAGE ON SCHEMA app TO pauseai_backoffice_ingest;\nGRANT SELECT (enabled) ON app.airtable_sync TO pauseai_backoffice_ingest;\nREVOKE ALL ON FUNCTION private.airtable_link() FROM PUBLIC;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarding staff read the Airtable settings",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "          await require(trx, ADMIN);\n          return { available: airtableKey",
+    "new": "          await require(trx, ONBOARDING);\n          return { available: airtableKey",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "onboarding staff may try to set the link",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "            await require(trx, ADMIN);\n            if (!airtableKey) {",
+    "new": "            await require(trx, ONBOARDING);\n            if (!airtableKey) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "any https link is taken",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "            if (!isSharedViewUrl(link)) {",
+    "new": "            if (!link.startsWith('https://')) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a link is stored without sealing",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "            await setAirtableLink(trx, sealLink(link, airtableKey));",
+    "new": "            await setAirtableLink(trx, link);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a deployment without the key stores a link anyway",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "            if (!airtableKey) {\n              throw new Refusal(503, 'unavailable');\n            }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a sync turned off answers as a failure",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "          if (error instanceof AirtableError && error.reason === 'off') {\n            throw new Refusal(409, 'off');\n          }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the sync turns on without a link, and the database's refusal says so badly",
+    "file": "apps/api/src/imports/airtable-settings.ts",
+    "old": "    if (link === null) {\n      return 'no_link';\n    }",
+    "new": "    if (link === null) {\n      // checked by the database\n    }",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a run that couldn't read the view says nothing",
+    "file": "apps/api/src/imports/airtable-sync.ts",
+    "old": "      await ran(ingest, { failure: error.reason });\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a link that doesn't open with this key says nothing",
+    "file": "apps/api/src/imports/airtable-sync.ts",
+    "old": "      await ran(ingest, { failure: 'key' });\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a run's counts aren't kept",
+    "file": "apps/api/src/imports/airtable-sync.ts",
+    "old": "    await ran(ingest, { counts });\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts -t Airtable",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a ciphertext from anywhere opens: no purpose bound",
+    "file": "apps/api/src/imports/airtable-link.ts",
+    "old": "  cipher.setAAD(PURPOSE);\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/imports/airtable-link.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "every link is sealed with the same nonce",
+    "file": "apps/api/src/imports/airtable-link.ts",
+    "old": "  const nonce = randomBytes(NONCE_BYTES);",
+    "new": "  const nonce = Buffer.alloc(NONCE_BYTES);",
+    "cmd": "pnpm exec vitest run src/imports/airtable-link.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a key that isn't 32 bytes in base64 is taken",
+    "file": "apps/api/src/imports/airtable-link.ts",
+    "old": "!/^[A-Za-z0-9+/]{43}=$/u.test(value)",
+    "new": "!/^[A-Za-z0-9+/_-]+=*$/u.test(value)",
+    "cmd": "pnpm exec vitest run src/imports/airtable-link.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "onboarding and outreach staff see the Airtable section in Ajustes",
+    "file": "apps/web/src/app/ajustes/page.tsx",
+    "old": "    admin ? getAirtableSettings() : Promise.resolve(undefined),",
+    "new": "    getAirtableSettings(),",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/airtable.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  }
+]

@@ -106,11 +106,14 @@ deactivated account keeps it without the badge.
 - **Añadir rápido:** a phone, an email or a Discord username, the name if known, "Llegó por", "Llegó el" (today,
   emptied when nobody knows), optional note. Duplicates are checked as you type.
 - **Bandeja:** records awaiting a decision: possible duplicates and conflicting values.
-- **Importar:** "Sincronizar Airtable ahora" with the last run's result; upload a CSV, preview, dry-run diff,
-  apply ([§5.3](#53-web-and-csv-m1)).
+- **Importar:** "Sincronizar Airtable ahora" with the last run's result, while an admin has the sync on in Ajustes;
+  upload a CSV, preview, dry-run diff, apply ([§5.3](#53-web-and-csv-m1)).
 - **Censo:** progress of the census, and the queue of personal links still to send ([§7](#7-the-census)), oldest
   first, 50 at a time, searchable as Personas is (PLAN R47).
 - **Ajustes → Telegram:** link or unlink my Telegram account.
+- **Ajustes → Formulario de PauseAI Global (Airtable)**, admins only: paste Global's view link, which is never shown
+  again ("Configurado el … por …"), replace or remove it, turn the sync on or off, and see how its last run went
+  ([§5.1](#51-airtable-m1)).
 - **Panel:** counts by stage, arrivals per week (by "Llegó el") by source and by "Llegó por", time to first
   contact, unassigned for more than 48 hours; people with no arrival day are left out of the weeks and the waits, and
   counted in a line of their own.
@@ -127,6 +130,8 @@ Spain's signups are in an Airtable view that Global shares with us by link. Glob
 the same data, so the app reads no mail (D3). How the view is read, and why the link is a credential, is in
 [ADR-0005](../adr/0005-airtable-intake.md). For onboarding:
 
+- **Who turns it on:** an admin, in Ajustes, by pasting the view's link and switching the sync on; off, or without
+  a link, nothing syncs (PLAN R49).
 - **When:** hourly, plus on demand from `/sync` (`/sincronizar`) in the bot or a button in Importar.
 - **Idempotent:** the Airtable record ID is the identity.
 - **Fails loudly:** a run that can't read the view, or finds the columns changed, imports nothing and tells the

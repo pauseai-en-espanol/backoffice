@@ -57,13 +57,13 @@ name and hostnames still come from config.
 
 ### 2. Database roles
 
-| Role (prefix `pauseai_backoffice_`) | Used by                                               | May                                                                        |
-| ----------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------- |
-| `owner`                             | The migration Job only                                | Own the schemas. Never used at run time                                    |
-| `app`                               | The API's staff and bot routes, via `withActor`       | Read and write `app` under RLS                                             |
-| `auth`                              | Better Auth and the Telegram links, in the API        | Only the `auth` schema                                                     |
-| `ingest`                            | The Airtable sync (CronJob, and on demand in the API) | Insert intake records and import runs; execute the matcher; nothing else   |
-| `public`                            | The API's census form routes                          | Execute `private.census_form` and `private.submit_census`; no table grants |
+| Role (prefix `pauseai_backoffice_`) | Used by                                               | May                                                                                                                               |
+| ----------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `owner`                             | The migration Job only                                | Own the schemas. Never used at run time                                                                                           |
+| `app`                               | The API's staff and bot routes, via `withActor`       | Read and write `app` under RLS                                                                                                    |
+| `auth`                              | Better Auth and the Telegram links, in the API        | Only the `auth` schema                                                                                                            |
+| `ingest`                            | The Airtable sync (CronJob, and on demand in the API) | Read the sealed link while the sync is on; insert intake records and import runs; execute the matcher; record a run; nothing else |
+| `public`                            | The API's census form routes                          | Execute `private.census_form` and `private.submit_census`; no table grants                                                        |
 
 - Every runtime role is `NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB` and owns nothing. A catalog test keeps it
   that way.
@@ -120,7 +120,10 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   - `private.claim_person`, `private.report_leave`: the staff app or the bot.
   - `private.bot_people`, `private.bot_candidates`: the bot's reads (and the staff app's duplicate check): names,
     stages, owners and attention reasons, never contact details.
-  - `private.ingest_airtable`: the ingest role's only grant ([ADR-0005](0005-airtable-intake.md)).
+  - `private.ingest_airtable`, with `private.airtable_link` and `private.airtable_ran` (2026-10-17): the ingest
+    role's only grants ([ADR-0005](0005-airtable-intake.md)): the link admins set, encrypted, only while the sync is
+    on; the records; how a run went, by its kind. The app role executes none of them, and can't select the link's
+    column at all (a column grant): it may only set or clear it, as admins, under RLS.
     The bot reaches people only through these; no table policy names `bot_can`. Through the bot they answer the
     onboarding role alone (`private.may_intake`, D13).
 - **Telegram links** (D13): `private.telegram_needs_onboarding`, a trigger that refuses a link code or a link for

@@ -25,7 +25,7 @@ backoffice-api:
   airtableSync:
     enabled: true
     ingestDatabaseUrlSecret: { name: backoffice-ingest-db }
-    sharedViewUrlSecret: { name: backoffice-airtable }
+    linkKeySecret: { name: backoffice-airtable-key }
     envFrom: [{ secretRef: { name: backoffice-api-glitchtip } }]
   digest:
     enabled: true

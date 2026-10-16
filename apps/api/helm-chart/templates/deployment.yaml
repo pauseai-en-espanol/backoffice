@@ -86,17 +86,17 @@ spec:
                   key: {{ .Values.telegram.secret.webhookSecretKey }}
             {{- end }}
             {{- if .Values.airtableSync.enabled }}
-            # The Airtable sync on demand (ADR-0005): its own role, and the shared view's link, a credential.
+            # The Airtable sync on demand (ADR-0005): its own role, and the key that seals the link admins set.
             - name: INGEST_DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: {{ required "airtableSync.ingestDatabaseUrlSecret.name is required with the sync" .Values.airtableSync.ingestDatabaseUrlSecret.name }}
                   key: {{ .Values.airtableSync.ingestDatabaseUrlSecret.key }}
-            - name: AIRTABLE_SHARED_VIEW_URL
+            - name: AIRTABLE_LINK_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "airtableSync.sharedViewUrlSecret.name is required with the sync" .Values.airtableSync.sharedViewUrlSecret.name }}
-                  key: {{ .Values.airtableSync.sharedViewUrlSecret.key }}
+                  name: {{ required "airtableSync.linkKeySecret.name is required with the sync" .Values.airtableSync.linkKeySecret.name }}
+                  key: {{ .Values.airtableSync.linkKeySecret.key }}
             # Only rows with Global's chapter-share permission while true (PLAN R14).
             - name: AIRTABLE_REQUIRE_CHAPTER_PERMISSION
               value: {{ .Values.airtableSync.requireChapterPermission | quote }}

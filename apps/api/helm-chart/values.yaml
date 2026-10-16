@@ -104,8 +104,10 @@ telegram:
   teamChatId: ''
 
 # The Airtable sync (M1, ADR-0005): off by default. On, an hourly CronJob reads Global's shared view as
-# pauseai_backoffice_ingest, and the API can run it on demand (the bot's /sincronizar, the Importar page). The shared
-# view's link is a credential: it lives only in its sealed secret (scripts/seal-airtable-link.sh).
+# pauseai_backoffice_ingest, and the API can run it on demand (the bot's /sincronizar, the Importar page). The view's
+# link is set by admins in Ajustes and stored encrypted in the database, with AIRTABLE_LINK_KEY, from its sealed secret
+# (scripts/seal-airtable-key.sh): the key is all this chart passes. Turned on here once, the sync then runs only while an
+# admin has it on, with a link, in Ajustes.
 airtableSync:
   enabled: false
   schedule: '5 * * * *'
@@ -115,9 +117,9 @@ airtableSync:
   ingestDatabaseUrlSecret:
     name: ''
     key: DATABASE_URL
-  sharedViewUrlSecret:
+  linkKeySecret:
     name: ''
-    key: AIRTABLE_SHARED_VIEW_URL
+    key: AIRTABLE_LINK_KEY
   # Its own extra environment: e.g. the secret with SENTRY_DSN.
   envFrom: []
   resources:

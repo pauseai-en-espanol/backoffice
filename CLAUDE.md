@@ -14,8 +14,9 @@ PauseAI España's backoffice: the onboarding and outreach pipelines, for a singl
 
 - **No personal data in the repository, ever:** no member, contact, export, CSV, census answer or Airtable record.
   Fixtures and seeds are obviously fictional ("Persona de ejemplo", `@ejemplo.test`).
-- **The link to Global's shared Airtable view is a credential** (ADR-0005). It lives only in its sealed secret in
-  gitops. Never commit, log, print, paste or show it, not even in a test or an error message.
+- **The link to Global's shared Airtable view is a credential** (ADR-0005). Admins paste it in Ajustes; the API
+  stores it encrypted with the deployment's key (sealed in gitops), write-only: no answer, log or audit entry carries
+  it or its ciphertext. Never commit, log, print, paste or show it, not even in a test or an error message.
 - **No hardcoded names or hosts.** The product name and hostnames come from config. Only the database and role names
   are fixed in the migrations (PLAN R13).
 - **This repository is public: nothing about the infrastructure.** No hosts, cluster or kubectl context names,

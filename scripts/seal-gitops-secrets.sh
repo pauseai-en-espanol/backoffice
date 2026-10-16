@@ -7,9 +7,9 @@
 # Usage: scripts/seal-gitops-secrets.sh <path-to-gitops>
 # Non-interactive. Refuses to overwrite: to rotate, delete the files first. The five passwords are always generated
 # together: the postgresql provisioning hook sets them on the roles, and each connection string carries the same one.
-# The Harbor pull secret, the GlitchTip DSNs, mail, the bot and the Airtable link have scripts of their own
-# (seal-harbor-pull-secret.sh, seal-glitchtip-dsns.sh, seal-mail-secret.sh, seal-telegram-secret.sh,
-# seal-airtable-link.sh), since each needs something only a person has.
+# The Harbor pull secret, the GlitchTip DSNs, mail and the bot have scripts of their own (seal-harbor-pull-secret.sh,
+# seal-glitchtip-dsns.sh, seal-mail-secret.sh, seal-telegram-secret.sh), since each needs something only a person has;
+# the Airtable link's key too (seal-airtable-key.sh), since a new one makes admins paste the link again.
 set -euo pipefail
 
 GITOPS="${1:?usage: $0 <path-to-gitops>}"

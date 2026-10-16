@@ -84,10 +84,14 @@ Do these in order. Each step says how to check it.
      node dist/telegram-webhook.js
    ```
 
-2. **The Airtable sync**, once its spike says the shared view can be read without a browser (ADR-0005):
-   `scripts/seal-airtable-link.sh "$GITOPS"` (input hidden; the link is a credential, never paste it anywhere else),
-   then turn on `airtableSync` with `ingestDatabaseUrlSecret: { name: backoffice-ingest-db }` and
-   `sharedViewUrlSecret: { name: backoffice-airtable }`, and add the API's GlitchTip secret to its `envFrom`.
+2. **The Airtable sync** (ADR-0005), once: `scripts/seal-airtable-key.sh "$GITOPS"`, which generates and seals the
+   key the link is stored with (nothing to type, nothing printed), then turn on `airtableSync` with
+   `ingestDatabaseUrlSecret: { name: backoffice-ingest-db }` and `linkKeySecret: { name: backoffice-airtable-key }`,
+   and add the API's GlitchTip secret to its `envFrom`. Leave it on: from then on an admin pastes Global's view link
+   in **Ajustes → Formulario de PauseAI Global (Airtable)** and turns the sync on or off there; nothing syncs until
+   they do. The link is never shown again, and never goes in gitops. A new key (rotation: delete the sealed file, run
+   the script again, deploy) can't open the stored link, so the next run fails with "no se abre con la clave" until
+   an admin pastes the link again.
 
 ## M2: the census form
 
@@ -127,5 +131,7 @@ reaches the API, and the host routes nothing to it (ADR-0002 §7).
 - **The registry pull secret:** `scripts/seal-harbor-pull-secret.sh` replaces it.
 - **The census form's secret:** delete `backoffice-forms-token.yaml`, run `scripts/seal-forms-token.sh` again and
   push; then restart the API and the form together, since each refuses the other's calls until both have it.
-- **The bot's token, the Airtable link, mail:** delete the sealed file and run its script again. When Global changes
-  the shared view's link, that is all: no code changes.
+- **The bot's token, mail:** delete the sealed file and run its script again.
+- **The Airtable link:** when Global changes it, an admin pastes the new one in Ajustes; nothing in gitops changes.
+  **Its key:** delete `backoffice-airtable-key.yaml`, run `scripts/seal-airtable-key.sh` again and push; the stored
+  link doesn't open with the new key, so an admin pastes it again in Ajustes.

@@ -10,17 +10,18 @@ API's env or envFrom. The script paths are apps/api's build output (dist/jobs/*.
 {{- end }}
 {{- if .Values.airtableSync.enabled }}
 ---
-# The Airtable sync (M1, ADR-0005): reads Global's shared view and inserts intake records, as pauseai_backoffice_ingest.
-# A Postgres advisory lock keeps it and an on-demand run from overlapping.
+# The Airtable sync (M1, ADR-0005): reads Global's shared view and inserts intake records, as pauseai_backoffice_ingest,
+# with the link admins set in Ajustes, opened with the key; off in Ajustes, it does nothing. A Postgres advisory lock
+# keeps it and an on-demand run from overlapping.
 {{- $env := printf "%s\n%s\n- name: AIRTABLE_REQUIRE_CHAPTER_PERMISSION\n  value: %s"
       (include "backoffice-api.secretEnv" (dict "name" "INGEST_DATABASE_URL" "secret" .Values.airtableSync.ingestDatabaseUrlSecret))
-      (include "backoffice-api.secretEnv" (dict "name" "AIRTABLE_SHARED_VIEW_URL" "secret" .Values.airtableSync.sharedViewUrlSecret))
+      (include "backoffice-api.secretEnv" (dict "name" "AIRTABLE_LINK_KEY" "secret" .Values.airtableSync.linkKeySecret))
       (.Values.airtableSync.requireChapterPermission | toString | quote) }}
 {{- if not .Values.airtableSync.ingestDatabaseUrlSecret.name }}
 {{- fail "airtableSync.ingestDatabaseUrlSecret.name is required with the sync" }}
 {{- end }}
-{{- if not .Values.airtableSync.sharedViewUrlSecret.name }}
-{{- fail "airtableSync.sharedViewUrlSecret.name is required with the sync" }}
+{{- if not .Values.airtableSync.linkKeySecret.name }}
+{{- fail "airtableSync.linkKeySecret.name is required with the sync" }}
 {{- end }}
 {{ include "backoffice-api.cronjob" (dict "root" . "component" "airtable-sync" "script" "dist/jobs/airtable-sync.js" "schedule" .Values.airtableSync.schedule "env" $env "envFrom" .Values.airtableSync.envFrom "resources" .Values.airtableSync.resources "activeDeadlineSeconds" 900) }}
 {{- end }}
