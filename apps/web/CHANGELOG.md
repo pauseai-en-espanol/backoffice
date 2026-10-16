@@ -1,5 +1,23 @@
 # @backoffice/web
 
+## 0.3.0
+
+### Minor Changes
+
+- b7ef3dc: The menu is in groups by role, each list named by its group: Onboarding, Relaciones externas and Equipo, then Ajustes
+  and Salir. On a computer it is a sidebar that stays in view; on a phone the same groups open under "Menú". Censo is
+  listed only while the census form is configured (PLAN M5).
+- 27cd280: A person's page leads with what is done most, which is what a phone shows first when the bot's "Abrir" opens it:
+  "Me lo quedo" by the owner line, then quick actions (WhatsApp, the stage and the owner), the next step, and a contact
+  attempt or a note behind their buttons; contact moves next to the profile, with adding another phone or email folded.
+  Hoy lists the ten oldest unassigned, then "Ver los N sin asignar", to Personas filtered to them (PLAN M5).
+
+### Patch Changes
+
+- Updated dependencies [b7ef3dc]
+- Updated dependencies [27cd280]
+  - @backoffice/i18n@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
