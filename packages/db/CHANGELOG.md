@@ -1,5 +1,21 @@
 # @backoffice/db
 
+## 0.3.0
+
+### Minor Changes
+
+- d00c2c0: Mensajes: the onboarding team writes the WhatsApp messages newcomers receive (the welcome and the census link's) in
+  the staff app instead of in code. Several per purpose, picked when WhatsApp is opened; `{nombre}`, `{yo}` and
+  `{enlace}` as placeholders, anything else refused as it's typed and by the database; a version for someone without a
+  name; a preview. Each change is a new version, and the contact attempt and the census link name the message and
+  version that went out. The code's own census link message no longer says "onboarding".
+
+### Patch Changes
+
+- a3e2970: Every database connection runs without Postgres's JIT. The planner's estimate for the attention view passes
+  `jit_above_cost` with a few hundred people, and compiling the plan took ~0.6 s of a ~0.65 s Hoy (and as much of the
+  Onboarding Pipeline), on every load: the query itself runs in ~20 ms.
+
 ## 0.2.0
 
 ### Minor Changes

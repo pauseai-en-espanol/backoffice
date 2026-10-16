@@ -1,5 +1,22 @@
 # @backoffice/i18n
 
+## 0.6.0
+
+### Minor Changes
+
+- 01e38c3: Cards say who someone is (PLAN M5, step 4): the name with the province ("Maite (Madrid)"), a one-line internal
+  summary the team writes in the profile (never sent to Telegram), and what is missing in plain words ("Falta: correo ·
+  qué quiere hacer"), on Hoy, Personas, the Onboarding Pipeline, the Bandeja, Censo and the person's page.
+- d00c2c0: Mensajes: the onboarding team writes the WhatsApp messages newcomers receive (the welcome and the census link's) in
+  the staff app instead of in code. Several per purpose, picked when WhatsApp is opened; `{nombre}`, `{yo}` and
+  `{enlace}` as placeholders, anything else refused as it's typed and by the database; a version for someone without a
+  name; a preview. Each change is a new version, and the contact attempt and the census link name the message and
+  version that went out. The code's own census link message no longer says "onboarding".
+- a5a8778: Team accounts linked to their person (PLAN M5, step 5): an admin links an account to its own person record, from the
+  person's page or from Equipo, where the person sharing the account's email is suggested. The person shows "Equipo",
+  and Personas and the Onboarding Pipeline filter by it. The link grants nothing; a deactivated account keeps it
+  without the badge, a merge moves it to the survivor, and erasure removes it.
+
 ## 0.5.0
 
 ### Minor Changes

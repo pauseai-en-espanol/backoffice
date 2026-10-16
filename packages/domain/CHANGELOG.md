@@ -1,5 +1,18 @@
 # @backoffice/domain
 
+## 0.3.0
+
+### Minor Changes
+
+- 01e38c3: Cards say who someone is (PLAN M5, step 4): the name with the province ("Maite (Madrid)"), a one-line internal
+  summary the team writes in the profile (never sent to Telegram), and what is missing in plain words ("Falta: correo ·
+  qué quiere hacer"), on Hoy, Personas, the Onboarding Pipeline, the Bandeja, Censo and the person's page.
+- d00c2c0: Mensajes: the onboarding team writes the WhatsApp messages newcomers receive (the welcome and the census link's) in
+  the staff app instead of in code. Several per purpose, picked when WhatsApp is opened; `{nombre}`, `{yo}` and
+  `{enlace}` as placeholders, anything else refused as it's typed and by the database; a version for someone without a
+  name; a preview. Each change is a new version, and the contact attempt and the census link name the message and
+  version that went out. The code's own census link message no longer says "onboarding".
+
 ## 0.2.0
 
 ### Minor Changes
