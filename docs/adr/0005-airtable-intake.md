@@ -61,8 +61,8 @@ read-only token.
    a real fallback. The view had 118 rows, all with Country = Spain, and far more columns than we map (Bio, photo,
    Discord, stipends, payments…). The sync keeps only these: `Full name`, `Email`, `Email 2`, `Phone`, `City`,
    `Languages`, `Discovery method of PAI`; it reads `duplicate` (Global's own flag, 8 rows) and
-   `GDPR chapter share permission` (ticked on 43 rows) to leave rows out. Required: `Full name` and `Email`; if
-   either disappears, the run fails and imports nothing.
+   `GDPR chapter share permission` (ticked on 43 rows), which can leave rows out (R14). Required: `Full name` and
+   `Email`; if either disappears, the run fails and imports nothing.
 
 4. **The sync** runs as `pauseai_backoffice_ingest`, which may only execute `private.ingest_airtable(records)`
    (it inserts the import run and the intake records and runs the matcher, as the owner); no table grants:
@@ -72,9 +72,9 @@ read-only token.
    - **Fails loudly:** a run that can't read the view, or finds the columns changed, imports nothing and tells the
      admins through the bot.
    - **Minimal:** only mapped fields are copied, never the rest of Global's record.
-   - **Permission (PLAN R14):** while `AIRTABLE_REQUIRE_CHAPTER_PERMISSION` holds (the default), rows without
-     Global's `GDPR chapter share permission` ticked are left out and only counted. Dani decides whether Global's
-     privacy notice covers the rest; setting it to `false` imports them on the next run.
+   - **Permission (PLAN R14):** every row of the view is imported: the view is what Global shares with the chapter
+     (Dani, 2026-10-16). Setting `AIRTABLE_REQUIRE_CHAPTER_PERMISSION` to `true` would leave out the rows without
+     Global's `GDPR chapter share permission` ticked, and only count them.
 5. **The CSV import** in the web app ([onboarding §5.3](../spec/onboarding.md#53-web-and-csv-m1)) is the fallback
    whenever the shared-view sync breaks.
 6. **An API reader** replaces the shared-view reader behind the same interface if Global grants a read-only API

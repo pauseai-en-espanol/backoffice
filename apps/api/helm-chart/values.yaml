@@ -105,8 +105,9 @@ telegram:
 airtableSync:
   enabled: false
   schedule: '5 * * * *'
-  # Only rows with Global's "GDPR chapter share permission" ticked (PLAN R14): Dani's call; false imports every row.
-  requireChapterPermission: true
+  # Every row of the view by default: it is what Global shares with the chapter (PLAN R14, Dani). true would import
+  # only the rows with Global's "GDPR chapter share permission" ticked.
+  requireChapterPermission: false
   ingestDatabaseUrlSecret:
     name: ''
     key: DATABASE_URL

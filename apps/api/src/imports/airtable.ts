@@ -177,7 +177,7 @@ export interface MappedView {
 /**
  * Turns the view into intake records, copying only the mapped fields (ADR-0005): the name, emails, phone, town,
  * languages and how they heard of PauseAI. A row Global marks as a duplicate is left out; so is one without the
- * chapter-share permission, while `requirePermission` holds (PLAN R14, the conservative default until Dani decides).
+ * chapter-share permission, if `requirePermission` is set (by default it isn't: PLAN R14).
  */
 export const mapSharedView = (
   view: SharedView,

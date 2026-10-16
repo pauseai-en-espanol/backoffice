@@ -106,7 +106,7 @@ const syncAirtable =
         runAirtableSync({
           ingest,
           link: config.airtable?.sharedViewUrl ?? '',
-          requirePermission: config.airtable?.requirePermission ?? true,
+          requirePermission: config.airtable?.requirePermission ?? false,
         })
     : undefined;
 const bot =

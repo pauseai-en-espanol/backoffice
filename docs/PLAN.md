@@ -223,12 +223,12 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   needs its own Postgres server, or a renaming migration (D5). The product name and hostnames still come from
   config.
 
-- **R14. Airtable rows without Global's chapter-share permission are left out by default.** The spike found a
+- **R14. Airtable rows without Global's chapter-share permission.** The spike found a
   `GDPR chapter share permission` checkbox in Global's view, ticked on 43 of 118 rows. Options: import every row,
-  relying on Global's privacy notice (the specification's reading); import only rows with the box ticked. **Chose
-  the box** while Dani decides, as the conservative option: it's a switch (`AIRTABLE_REQUIRE_CHAPTER_PERMISSION`,
-  default `true`), and the skipped rows are counted in every run. Setting it to `false` imports them on the next
-  run; nothing else changes.
+  relying on Global's privacy notice (the specification's reading); import only rows with the box ticked. Claude
+  chose the box while Dani decided. **Decided by Dani (2026-10-16): every row**, since the view is what Global shares
+  with the chapter. The switch stays (`AIRTABLE_REQUIRE_CHAPTER_PERMISSION`, now default `false`); `true` would leave
+  the unticked rows out and count them.
 - **R15. Joins and leaves write their own timeline events** (a trigger on community presence), so staff write only
   notes and contact attempts by hand, and every source records a join the same way.
 - **R16. The bot reaches people only through definer functions,** never a table policy: RLS can't hide columns, and

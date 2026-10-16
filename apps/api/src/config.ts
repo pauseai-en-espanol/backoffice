@@ -50,7 +50,7 @@ export interface AirtableConfig {
   ingestDatabaseUrl: string;
   /** Global's shared view link: a credential, from a sealed secret. Never logged, never in an error. */
   sharedViewUrl: string;
-  /** Only rows with Global's chapter-share permission (PLAN R14); AIRTABLE_REQUIRE_CHAPTER_PERMISSION=false lifts it. */
+  /** Only rows with Global's chapter-share permission: AIRTABLE_REQUIRE_CHAPTER_PERMISSION=true (PLAN R14). */
   requirePermission: boolean;
 }
 
@@ -194,7 +194,7 @@ const readAirtable = (env: NodeJS.ProcessEnv): AirtableConfig | undefined => {
   return {
     ingestDatabaseUrl,
     sharedViewUrl,
-    requirePermission: env.AIRTABLE_REQUIRE_CHAPTER_PERMISSION !== 'false',
+    requirePermission: env.AIRTABLE_REQUIRE_CHAPTER_PERMISSION === 'true',
   };
 };
 

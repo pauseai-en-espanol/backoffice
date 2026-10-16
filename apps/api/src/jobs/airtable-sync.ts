@@ -29,7 +29,7 @@ try {
   const counts = await runAirtableSync({
     ingest,
     link,
-    requirePermission: process.env.AIRTABLE_REQUIRE_CHAPTER_PERMISSION !== 'false',
+    requirePermission: process.env.AIRTABLE_REQUIRE_CHAPTER_PERMISSION === 'true',
   });
   console.log(JSON.stringify({ msg: 'Airtable sync done', ...counts }));
 } catch (error) {
