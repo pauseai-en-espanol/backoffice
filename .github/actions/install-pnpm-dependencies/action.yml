@@ -6,7 +6,7 @@ runs:
     - name: Install dependencies
       shell: bash
       run: |
-        # The self-hosted runner mounts a persistent pnpm store (PNPM_STORE_DIR, from its RunnerDeployment in gitops),
+        # The self-hosted runner mounts a persistent pnpm store (PNPM_STORE_DIR, from the runner's own configuration),
         # which outlives its ephemeral pods; pnpm doesn't read that variable, so it is named here. Without it (a
         # GitHub-hosted run), or if it can't be written, pnpm's own store in the workspace is used, downloaded afresh.
         store=()

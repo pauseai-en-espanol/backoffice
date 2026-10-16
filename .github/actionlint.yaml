@@ -1,4 +1,0 @@
-# Labels of the self-hosted runners on juggernaut (gitops: actions-runner-controller).
-self-hosted-runner:
-  labels:
-    - juggernaut

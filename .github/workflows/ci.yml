@@ -21,12 +21,16 @@ concurrency:
 
 # Runners (ADR-0001): every pull_request job runs on a GitHub-hosted runner, so a pull request's code, a fork's
 # included, never runs on ours; pushes to main (and a manual run) use the pauseai-en-espanol organisation's self-hosted
-# runner on juggernaut, as the release that follows them does. Each job repeats the choice: `runs-on` can't read `env`.
+# runner, as the release that follows them does. Its labels are the repository variable SELF_HOSTED_RUNS_ON (a JSON
+# array), kept out of this public repository; unset, any self-hosted runner. Each job repeats the choice: `runs-on`
+# can't read `env`.
 jobs:
   checks:
     name: Checks
     if: github.event.pull_request.draft != true
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["self-hosted", "juggernaut"]') }}
+    runs-on: >-
+      ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' ||
+      vars.SELF_HOSTED_RUNS_ON || '["self-hosted"]') }}
     timeout-minutes: 30
     env:
       # Each turbo command records the tasks it ran, so the cache saved below keeps only what this run used.
@@ -138,11 +142,13 @@ jobs:
   database:
     name: Database
     if: github.event.pull_request.draft != true
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["self-hosted", "juggernaut"]') }}
+    runs-on: >-
+      ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' ||
+      vars.SELF_HOSTED_RUNS_ON || '["self-hosted"]') }}
     timeout-minutes: 20
     services:
       postgres:
-        # Same image as compose.yaml and the cluster's halyard postgresql chart.
+        # Same image as compose.yaml and the cluster's Postgres.
         image: postgres:18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
         env:
           POSTGRES_PASSWORD: postgres
@@ -205,11 +211,13 @@ jobs:
     name: E2E smoke
     # After the checks, so the production builds come from the Turborepo cache they just saved.
     needs: checks
-    runs-on: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' || '["self-hosted", "juggernaut"]') }}
+    runs-on: >-
+      ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-24.04"]' ||
+      vars.SELF_HOSTED_RUNS_ON || '["self-hosted"]') }}
     timeout-minutes: 20
     services:
       postgres:
-        # Same image as compose.yaml and the cluster's halyard postgresql chart.
+        # Same image as compose.yaml and the cluster's Postgres.
         image: postgres:18.6@sha256:74935e72241653ca55e0414067e6d8763aceb8a810eb51b452253ec3dcfc4336
         env:
           POSTGRES_PASSWORD: postgres
@@ -293,7 +301,7 @@ jobs:
           retention-days: 7
 
   # Renovate doesn't write changesets. Once the checks pass, add a patch changeset for each package the PR touches
-  # and amend it into the PR (as aiontheballot, without pull_request_target: Renovate branches live in this
+  # and amend it into the PR (without pull_request_target: Renovate branches live in this
   # repository, so a pull_request run can get a write token). A push made with GITHUB_TOKEN doesn't trigger
   # workflows, so the amended head has no check runs of its own; its code is what the checks above just tested.
   renovate-changeset:

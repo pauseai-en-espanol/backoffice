@@ -4,7 +4,7 @@ name: 📦 Release
 #   1. version: apply the changesets (versions and changelogs) and commit the result.
 #   2. deploy: build and push the image of every deployable whose version is ahead of the umbrella chart, then write
 #      the new tags into the chart. Argo CD deploys main to production.
-# One workflow with two jobs, as aiontheballot: both jobs work on the commit CI tested, never on whatever main points
+# One workflow with two jobs: both jobs work on the commit CI tested, never on whatever main points
 # to by the time they start.
 on:
   workflow_run:
@@ -30,7 +30,8 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
-    runs-on: [self-hosted, juggernaut]
+    # The organisation's self-hosted runner, by the labels in the repository variable SELF_HOSTED_RUNS_ON (ci.yml).
+    runs-on: ${{ fromJSON(vars.SELF_HOSTED_RUNS_ON || '["self-hosted"]') }}
     timeout-minutes: 15
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
@@ -78,7 +79,8 @@ jobs:
     name: Build and deploy
     needs: version
     if: needs.version.outputs.sha != ''
-    runs-on: [self-hosted, juggernaut]
+    # The organisation's self-hosted runner, by the labels in the repository variable SELF_HOSTED_RUNS_ON (ci.yml).
+    runs-on: ${{ fromJSON(vars.SELF_HOSTED_RUNS_ON || '["self-hosted"]') }}
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -108,13 +110,15 @@ jobs:
           install: false # would write into the docker config.json
           use: true
 
-      # Tags are <version>.<short sha>, pushed to the runner's DOCKER_REGISTRY (harbor.danilupion.com), into the
-      # Harbor project `pauseai-es`. The build runs under emulation when the runner's architecture differs from the
+      # Tags are <version>.<short sha>, pushed to the runner's DOCKER_REGISTRY, into the registry project
+      # `pauseai-es`. The registry's host is masked first: this repository's Actions logs are public, and every
+      # image reference would show it. The build runs under emulation when the runner's architecture differs from the
       # cluster's, so images are built one at a time.
       - name: Build and push images
         if: steps.plan.outputs.due == 'true'
         run: |
           : "${DOCKER_REGISTRY:?The runner must set DOCKER_REGISTRY}"
+          echo "::add-mask::$DOCKER_REGISTRY"
           export DOCKER_PLATFORM="${DOCKER_PLATFORM:-linux/amd64}"
           DOCKER_TAG_SUFFIX="$(git rev-parse --short HEAD)"
           export DOCKER_TAG_SUFFIX
@@ -123,9 +127,9 @@ jobs:
           while read -r _ name _; do
             filters+=("--filter=$name")
           done < "$RUNNER_TEMP/release-plan"
-          # The shared builder's file system now and then interrupts a system call inside a build (as aiontheballot
-          # saw): the step tries again, three times in all, which BuildKit's layer cache makes quick. A build that is
-          # really broken fails all three and stops the release.
+          # The shared builder's file system now and then interrupts a system call inside a build: the step tries
+          # again, three times in all, which BuildKit's layer cache makes quick. A build that is really broken fails
+          # all three and stops the release.
           turbo="turbo@$(node -p "require('./package.json').devDependencies.turbo")"
           for attempt in 1 2 3; do
             if pnpm dlx "$turbo" run docker:push --concurrency=1 "${filters[@]}"; then
