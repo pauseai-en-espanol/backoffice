@@ -148,7 +148,13 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
 3. **Fewer stages, and dates in the past:** Por clasificar folds into Nuevo, and Contactando and En conversación
    into "En contacto" (whether they replied is on each contact attempt); "Llegó el" on each person (never in the
    future), with "Sin asignar" only for arrivals of the last 30 days; an optional date on attempts, notes and stage
-   changes for when it happened, next to when it was recorded and by whom, which stays as it is.
+   changes for when it happened, next to when it was recorded and by whom, which stays as it is. Also **"Llegó
+   por"**, where someone came from (Dani: "Email, Whatsapp, Discord for now"; Discord brings several a month), next
+   to the existing source, which stays as how they were entered: a list admins edit in Ajustes (WhatsApp, Email,
+   Discord, Formulario de PauseAI Global, Otro to start), no free text so the Panel can count it; the bot's /alta
+   assumes WhatsApp, Global's form fills its own, Añadir asks, a CSV may bring a column, existing people stay empty;
+   the Panel counts arrivals by it. And a **Discord username** as a contact detail next to phone and email, for
+   duplicates and for reaching them (nothing messages anyone on its own).
 4. **Cards that say who someone is:** the name with the province, a one-line internal summary (staff only, never
    to Telegram), and what's missing in plain words ("Falta: correo · qué quiere hacer").
 5. **Staff linked to their person:** an admin links an account to its person (suggested by a shared email); the
