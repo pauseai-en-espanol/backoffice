@@ -619,14 +619,14 @@ describe('importing from the outreach repo (M3)', () => {
     const none = await superuser.query('SELECT 1 FROM app.campaigns WHERE slug = $1', [slug]);
     expect(none.rows).toEqual([]);
 
-    expect(
-      (
-        await outreacher.who.send('POST', '/api/outreach/import', {
-          dryRun: true,
-          files: files(slug),
-        })
-      ).statusCode,
-    ).toBe(403);
+    // Admins only, in the API: with history or without (history alone the database also keeps to admins).
+    const { tracking: _history, ...noHistory } = files(slug);
+    for (const sent of [files(slug), noHistory]) {
+      expect(
+        (await outreacher.who.send('POST', '/api/outreach/import', { dryRun: true, files: sent }))
+          .statusCode,
+      ).toBe(403);
+    }
 
     const done = await admin.who.send('POST', '/api/outreach/import', {
       dryRun: false,

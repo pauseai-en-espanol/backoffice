@@ -74,8 +74,8 @@
   {
     "name": "the bot shows a nameless person as a blank",
     "file": "apps/api/src/telegram/replies.ts",
-    "old": "  name?.trim() || t('people.noName');",
-    "new": "  name ?? '';",
+    "old": "return shown ? unlinked(shown) : t('people.noName');",
+    "new": "return shown ? unlinked(shown) : '';",
     "cmd": "pnpm exec vitest run src/telegram",
     "cwd": "apps/api"
   },
