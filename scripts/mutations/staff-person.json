@@ -1,0 +1,130 @@
+[
+  {
+    "name": "one person may be linked to two accounts",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "    CONSTRAINT staff_person_id_key UNIQUE\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "admins can't link an account to its person",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "GRANT UPDATE (person_id) ON app.staff TO pauseai_backoffice_app;",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an account may be linked to a tombstone",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "WHERE p.id = NEW.person_id AND p.merged_into IS NULL AND p.anonymised_at IS NULL) THEN",
+    "new": "WHERE p.id = NEW.person_id AND p.anonymised_at IS NULL) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an account may be linked to someone erased",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "WHERE p.id = NEW.person_id AND p.merged_into IS NULL AND p.anonymised_at IS NULL) THEN",
+    "new": "WHERE p.id = NEW.person_id AND p.merged_into IS NULL) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge leaves the account on the tombstone",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "    UPDATE app.staff s SET person_id = survivor WHERE s.person_id = merged;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge takes two records each linked to an account",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "    IF EXISTS (SELECT 1 FROM app.staff s WHERE s.person_id = survivor)\n       AND EXISTS (SELECT 1 FROM app.staff s WHERE s.person_id = merged) THEN",
+    "new": "    IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "erasure leaves the account naming the erased person",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "    UPDATE app.staff s SET person_id = NULL WHERE s.person_id = ANY (chain);\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarding staff see the suggestions",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "    IF NOT private.staff_can('admin') THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    RETURN QUERY",
+    "new": "    IF NOT private.staff_can('admin', 'onboarding') THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    RETURN QUERY",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an account already linked is still suggested a person",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "     WHERE s.person_id IS NULL\n       AND NOT EXISTS",
+    "new": "     WHERE NOT EXISTS",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a person linked to another account is still suggested",
+    "file": "db/migrations/20261016170100_staff_person.sql",
+    "old": "\n       AND NOT EXISTS (SELECT 1 FROM app.staff o WHERE o.person_id = p.id)",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/staff-person.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the API doesn't say the person is gone",
+    "file": "apps/api/src/staff/staff.ts",
+    "old": "    if (!person?.live) {\n      return 'personGone';\n    }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the API doesn't say the person is another account's",
+    "file": "apps/api/src/staff/staff.ts",
+    "old": "    if (person.taken) {\n      return 'personTaken';\n    }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the API doesn't say why two team records aren't merged",
+    "file": "apps/api/src/people/people.ts",
+    "old": "  if ((rows[0]?.n ?? 0) > 1) {",
+    "new": "  if ((rows[0]?.n ?? 0) > 2) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Personas ignores the team filter",
+    "file": "apps/api/src/people/people.ts",
+    "old": "    where.push(filter.team ? team : sql`NOT ${team}`);",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "someone whose account was deactivated is still on the team",
+    "file": "apps/api/src/people/people.ts",
+    "old": "WHERE t.person_id = p.id AND t.active)`;",
+    "new": "WHERE t.person_id = p.id)`;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the staff app never asks the API for the team",
+    "file": "apps/web/src/onboarding/filters.ts",
+    "old": "    params.set('team', filters.team === 'yes' ? 'true' : 'false');",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/onboarding/filters.spec.ts",
+    "cwd": "apps/web"
+  }
+]

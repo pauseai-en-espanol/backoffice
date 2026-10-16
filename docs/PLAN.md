@@ -171,7 +171,10 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
    Mutation list `cards`.
 5. **Staff linked to their person:** an admin links an account to its person (suggested by a shared email); the
    person shows an "Equipo" badge and Personas filters by it; the link grants nothing, and the person outlives a
-   deactivated account.
+   deactivated account. **Done:** migration `20261016170100` (`staff.person_id`, unique; only someone still there;
+   `private.staff_person_suggestions`, ADR-0002); "Cuenta del equipo" on the person's page and "Su ficha" on Equipo;
+   "Del equipo" in the filters (R45, R46). When a team member joined is their person's "Llegó el" (step 3), which
+   the profile edits, so nothing more records it (Dani asked, 2026-10-16). Mutation list `staff-person`.
 6. **Private contacts and organisations:** "Solo yo" or "Equipo" on each contact, organisation and note; admins
    don't see others' private records in the app (rights requests still cover them); an admin chooses who inherits
    them when someone leaves; a private contact neither blocks nor reveals a team one, and sharing offers a merge;
@@ -391,6 +394,16 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   and the CSV export leaves it out, while a person's export (a rights request) includes it and erasure clears it. A
   merge keeps the survivor's, else takes the duplicate's. Its hint asks for no health, ideology or other sensitive
   details, as notes do.
+- **R45. Linking a team account to its person** (PLAN M5, step 5). Options: the person links themselves; an admin
+  links. **Chose an admin**, as the plan says: from the person's page ("Cuenta del equipo": the accounts not linked
+  yet, the one whose sign-in email is one of the person's emails first, chosen already) or from Equipo ("Posible
+  ficha", with a "Vincular" asked about in place). The suggestion is an exact match of emails, computed in the
+  database for admins alone, returning ids, never the email (ADR-0002). One account, one person.
+- **R46. What a link does** (PLAN M5, step 5). It grants nothing (no policy reads it), and the bot never sees it.
+  "Equipo" shows only while the account is active, and "Del equipo" counts only those; a deactivated account keeps
+  its link, said on the person's page as "(desactivada)". Only someone still there is linked; a merge moves the link
+  to the survivor and refuses two records each linked to an account (an admin unlinks one first, so a person with
+  two accounts is a decision, not an accident); erasure unlinks, so the account no longer names who they were.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).
@@ -404,4 +417,4 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 | M2        | Built, not deployed | The forms app at `unete.pauseai.es` (generic and personal links, honeypot and timing, consents with their wording version, the privacy notice as a draft); Censo, the person's census side, the Bandeja's census answers, the option lists in Ajustes; export and erasure. E2E covers a personal link end to end and the generic link. Deploying waits on the M2 steps in [deploying](runbooks/deploying.md) and the privacy notice. |
 | M3        | Built, not deployed | Campañas (board by status, templates with a preview per contact, evidence paragraphs, targets), Contactos, Organizaciones, Siguiente (take the next target, open the letter in your own mail or WhatsApp, copy buttons, "Sí, enviada"), and the one-off import from the `outreach` repo, checked against the real campaign locally (counts only). Nothing sends. E2E covers Siguiente end to end.                                    |
 | M4        | Built, not deployed | The Panel (people by stage, weekly arrivals by source, time to first contact, the unassigned for more than 48 hours). No retention job (D9) and no MCP server for now (D10). E2E covers the Panel.                                                                                                                                                                                                                                   |
-| M5        | In progress         | In progress (2026-10-16): the steps in [M5](#m5-after-first-use), in order; 1 to 3 done, and 7 (Mensajes): write a welcome in Mensajes, open a person's WhatsApp with it, and see it named in their history. E2E covers it, on a phone too.                                                                                                                                                                                          |
+| M5        | In progress         | In progress (2026-10-16): the steps in [M5](#m5-after-first-use), in order; 1 to 5 done, and 7 (Mensajes): write a welcome in Mensajes, open a person's WhatsApp with it, and see it named in their history. E2E covers it, on a phone too.                                                                                                                                                                                          |

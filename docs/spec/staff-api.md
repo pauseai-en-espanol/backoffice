@@ -194,6 +194,17 @@ Step 4, cards that say who someone is:
 - **`PATCH /api/people/:id`** also takes `summary` (one line, at most 200 characters; empty or null clears it;
   `400 invalid` otherwise). A person's export (`GET /api/people/:id/export`) includes it; the CSV export doesn't.
 
+Step 5, team accounts linked to their person:
+
+- **A person's summary** adds `team`: the linked team account, `{ userId, displayName, active }`, or null.
+- **`GET /api/people` and `/api/board`** also take `team` (`true`: linked to an active account; `false`: not).
+- **`POST /api/people/:id/merge`** answers `409 bothInTeam` when both records are linked to accounts.
+- **`GET /api/staff`**: each member adds `personId` (null when not linked).
+- **`GET /api/staff/person-suggestions`** (admins): `{ suggestions: [{ userId, person: { id, name } }] }`, for each
+  account without a person, the person (still there, not another account's) whose email is the account's.
+- **`PUT /api/staff/:userId/person`** `{ personId }` (admins; null unlinks): `204`; `404 notFound` (no such
+  account); `409 personGone` (merged or erased); `409 personTaken` (another account's).
+
 ## M3: outreach
 
 Outreach staff and admins, through the staff app ([outreach spec](outreach.md)); never the bot. Erasing a contact

@@ -53,6 +53,8 @@ once saved, never repeats contact details, and posts none in the team group
 - The UI asks staff not to record health, ideology or other sensitive details in notes, nor in a person's one-line
   internal summary (PLAN M5, step 4), which stays in the staff app: never sent to Telegram, in the person's export,
   cleared by erasure.
+- A team member's account may be linked to their own person record (PLAN M5, step 5). The link grants nothing, and
+  erasure removes it.
 - Columns holding personal data are marked as such in the database and never copied into the audit log
   ([data model §2](data-model.md#2-conventions)).
 

@@ -90,6 +90,11 @@ profile; staff only, never sent to Telegram, at most 200 characters), and what i
 correo · qué quiere hacer": a phone, an email, the province, an area they'd like to help in). Someone who left or
 was discarded is asked nothing. The person's page shows the summary and the same line under their name.
 
+Someone on the team (PLAN M5, step 5) shows "Equipo" on their card: an admin links their team account to their
+person, from the person's page ("Cuenta del equipo"), where the account sharing their email comes first, or from
+Equipo, which suggests it. Personas and the board filter by it ("Del equipo"). The link grants nothing, and a
+deactivated account keeps it without the badge.
+
 - **Hoy:** my people needing attention, then the unassigned queue with a "Me lo quedo" (claim) button.
 - **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage. Filters: owner, province, source
   ("Entró por"), "Llegó por", "Llegó el" known or not, in the community or not, needs attention.

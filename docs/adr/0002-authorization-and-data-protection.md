@@ -139,6 +139,12 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 - **Erasure** (M2 and M3, [personal data](../spec/personal-data.md)): `private.anonymise_person` and
   `private.anonymise_contact`, each `SECURITY DEFINER` to blank append-only timeline text (the owner's `app.redact`),
   each for admins through the staff app alone, checked first.
+- **A team account's own person** (PLAN M5, step 5): `staff.person_id`, which admins change through the existing
+  `admin_update` policy and a column grant (`UPDATE (person_id)` to the app role). The link grants nothing: no policy
+  reads it. A trigger (`private.staff_person_is_live`, as the caller, not a definer) refuses a tombstone or someone
+  erased. `private.staff_person_suggestions()` is `SECURITY DEFINER` to reach `auth.users`: for admins alone,
+  checked first, it returns ids (an account, and the person whose email identity is the account's sign-in email),
+  never the email. A merge moves the link to the survivor and refuses two linked records; erasure unlinks.
 - **Outreach** (M3): its tables admit outreach staff and admins through the staff app
   (`staff_can('admin', 'outreach')`), never the bot, which has no outreach command. Onboarding staff don't see it, nor
   outreach staff onboarding's. Nothing there is reached through a definer function but erasure.

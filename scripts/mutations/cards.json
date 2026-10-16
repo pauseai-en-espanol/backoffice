@@ -97,7 +97,7 @@
   },
   {
     "name": "erasure keeps the summary",
-    "file": "db/migrations/20261016170000_person_summary.sql",
+    "file": "db/migrations/20261016170100_staff_person.sql",
     "old": "interests_other = NULL, summary = NULL, owner_id",
     "new": "interests_other = NULL, owner_id",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
@@ -105,7 +105,7 @@
   },
   {
     "name": "a merge drops the duplicate's summary",
-    "file": "db/migrations/20261016170000_person_summary.sql",
+    "file": "db/migrations/20261016170100_staff_person.sql",
     "old": "           summary = coalesce(p.summary, gone.summary),\n",
     "new": "",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
@@ -113,7 +113,7 @@
   },
   {
     "name": "a merge puts the duplicate's summary over the survivor's",
-    "file": "db/migrations/20261016170000_person_summary.sql",
+    "file": "db/migrations/20261016170100_staff_person.sql",
     "old": "summary = coalesce(p.summary, gone.summary)",
     "new": "summary = coalesce(gone.summary, p.summary)",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",

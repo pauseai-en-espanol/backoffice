@@ -89,13 +89,15 @@ Tables are in `app` unless their schema is named.
 ### `app.staff`
 
 The app side of a staff account. Its key is the Better Auth user, so one person has one staff row whatever their
-roles. Losing staff access (deactivation) never deletes the row, nor the person it is linked to.
+roles. Losing staff access (deactivation) never deletes the row, nor the person it is linked to. An admin links the
+account to someone still there (never a tombstone, nor someone erased); a merge moves the link to the survivor and
+refuses two linked records; erasure unlinks (PLAN M5, step 5).
 
 | Column           | Type          | Notes                                                                |
 | ---------------- | ------------- | -------------------------------------------------------------------- |
 | `user_id`        | `uuid`        | Primary key; `auth.users.id`, foreign key                            |
 | `display_name`   | `text`        | Not null. Personal data                                              |
-| `person_id`      | `uuid`        | Null. The volunteer's own person record; foreign key added in M1     |
+| `person_id`      | `uuid`        | Null, unique. Their own person record (M5, step 5): grants nothing   |
 | `active`         | `boolean`     | Not null, default true. False: no policy admits the account          |
 | `created_at`     | `timestamptz` | Stamped                                                              |
 | `created_by`     | `uuid`        | Stamped; null when created by accepting an invitation as the invitee |
