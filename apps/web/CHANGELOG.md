@@ -1,0 +1,52 @@
+# @backoffice/web
+
+## 0.1.0
+
+### Minor Changes
+
+- 1c5bd11: Arrivals without a name (PLAN R37): most bot reports carry only a phone number, so the bot saves a phone or an email
+  alone in one step, without asking for a name, and quick-add needs a phone or an email but not a name. Such a person
+  shows as "Sin nombre" in the bot, the team group and the staff app, is greeted without a name in WhatsApp, and gets a
+  name from a later report, the census, a merge or their page; a name, once known, is never emptied.
+- e38e0f2: M4 Panel: people by stage, arrivals per week by source, how long arrivals waited for a first contact attempt, and who
+  has waited more than 48 hours with nobody on them.
+- 5cf2102: The staff web app for M0, in Spanish: sign-in with a mandatory second factor, password recovery, invitations, the
+  team (invite, roles, deactivation, password links) and the audit log for admins; the shared Panda preset.
+- 970da1b: M1 onboarding pages: Hoy (my people needing attention and the unassigned queue, with "Me lo quedo"), Personas (search,
+  filters, "Cargar más", the admins' CSV export), a person's page (contact details, WhatsApp handover, stage and owner,
+  next action, contact attempts and notes, profile, community presence, the timeline, merging), Embudo, Añadir rápido
+  (with possible duplicates as you type), the Bandeja, Importar (the Airtable sync and the CSV import with its dry run),
+  and Ajustes (linking Telegram, the onboarding settings). A menu on phones.
+- 7bbad20: M2 staff web app: Censo (progress, the generic link from CENSUS_URL, and personal links made once and sent from the
+  onboarder's own WhatsApp); a person's census answers and consents, and, for admins, exporting or erasing their data;
+  census answers in the Bandeja, shown in words; and the census's lists in Ajustes, which admins edit.
+- 54b233e: M3 staff web app: Siguiente (the next letter to send, read before sending, opened in the sender's own mail or copied
+  part by part, then "¿La has enviado?"; nothing sends on its own); Campañas, with each campaign's targets by status in
+  send order, its templates by tier, its evidence paragraphs and a preview of any contact's letter; Contactos, the
+  directory with its filters, review, hold, notes and, for admins, erasure; Organizaciones; and the admins' import of a
+  campaign from the outreach repo, with a dry run first.
+
+### Patch Changes
+
+- d978ed8: With network policies on, the web and forms pods may connect only to the API (each on the port it calls), DNS and
+  error tracking (`networkPolicy.errorTracking`), and the API's forms port moves to 3003, clear of the forms app's own
+  3002 in development.
+- Updated dependencies [5879bda]
+- Updated dependencies [6c25821]
+- Updated dependencies [9b8add8]
+- Updated dependencies [613d8ea]
+- Updated dependencies [a3e2c8f]
+- Updated dependencies [1c5bd11]
+- Updated dependencies [a4b91d0]
+- Updated dependencies [8b141b4]
+- Updated dependencies [e38e0f2]
+- Updated dependencies [e38e0f2]
+- Updated dependencies [e38e0f2]
+- Updated dependencies [f4a9480]
+- Updated dependencies [5cf2102]
+- Updated dependencies [970da1b]
+- Updated dependencies [7bbad20]
+- Updated dependencies [54b233e]
+  - @backoffice/domain@0.1.0
+  - @backoffice/i18n@0.1.0
+  - @backoffice/observability@0.1.0
