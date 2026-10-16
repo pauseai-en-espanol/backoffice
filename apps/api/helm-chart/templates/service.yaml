@@ -11,5 +11,9 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    - port: {{ .Values.service.formsPort }}
+      targetPort: forms
+      protocol: TCP
+      name: forms
   selector:
     {{- include "backoffice-api.selectorLabels" . | nindent 4 }}

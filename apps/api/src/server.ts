@@ -2,7 +2,7 @@ import { createAuthPool } from '@backoffice/db/auth-pool';
 import { createDatabase, type Database } from '@backoffice/db/client';
 import { captureException, flush } from '@sentry/node';
 
-import { buildApp } from './app.js';
+import { buildApp, buildFormsApp } from './app.js';
 import { createAuth } from './auth/auth.js';
 import { endSessions } from './auth/cleanup.js';
 import { createInvitedAccounts } from './auth/invited-accounts.js';
@@ -168,6 +168,11 @@ const server = buildApp({
     telegram: bot?.linking,
   },
   telegram: bot?.webhook,
+});
+
+// The forms app's routes, on a port of their own that only the forms app's pods reach (ADR-0002 §7).
+const formsServer = buildFormsApp({
+  logger: { level: config.logLevel },
   forms:
     config.forms && publicDb
       ? {
@@ -180,7 +185,7 @@ const server = buildApp({
 
 const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   server.log.info({ signal }, 'Shutting down');
-  await server.close();
+  await Promise.all([server.close(), formsServer.close()]);
   await app?.destroy();
   await ingest?.destroy();
   await publicDb?.destroy();
@@ -198,6 +203,7 @@ await Promise.race([
   new Promise((resolve) => setTimeout(resolve, 5_000).unref()),
 ]);
 await server.listen({ host: config.host, port: config.port });
+await formsServer.listen({ host: config.host, port: config.formsPort });
 
 if (bot && config.telegram && config.auth) {
   // Telegram is told where to send updates on every start: the same address and secret, so a restart changes nothing,

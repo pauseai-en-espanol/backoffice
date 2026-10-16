@@ -5,7 +5,11 @@ image:
   tag: ''
   pullPolicy: IfNotPresent
 service:
+  # The staff host's API and the bot's webhook: the gateway and the web app's pods.
   port: 3001
+  # The forms app's routes alone (/public/census): only the forms app's pods reach it (ADR-0002 §7). The forms chart's
+  # api.servicePort names it.
+  formsPort: 3002
 resources:
   requests:
     cpu: 100m

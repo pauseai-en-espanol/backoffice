@@ -6,6 +6,8 @@
 // - with the CI values, the API policy's rules for the web and forms apps' pods match their Deployments' pod labels
 //   (the umbrella's nameOverrides and the policy's webName and formsName must agree), or every page would hang on the
 //   API;
+// - the forms app's pods are admitted to the API's forms port alone, which is the one the forms app calls, and nobody
+//   else is admitted to it (ADR-0002 §7): a forms pod taken over reaches neither sign-in nor the staff routes;
 // - every job's pods are selected by the jobs' policy, and none carries the API's selector labels, which would let the
 //   API's Service send them requests;
 // - the bot can't be turned on without sign-in and the app role, nor the forms app's routes with half their settings.
@@ -143,6 +145,38 @@ for (const [index, [what, deployment]] of [
       `the API policy admits ${what} pods named ${name} (${instance}), but they are ${pods.name} (${pods.instance})`,
     );
   }
+}
+
+// The ingress rules, each with the pods it admits and the ports it admits them to.
+const ingress = apiPolicy.slice(apiPolicy.indexOf('  ingress:'), apiPolicy.indexOf('  egress:'));
+const rules = ingress
+  .split(/\n {4}- from:\n/)
+  .slice(1)
+  .map((rule) => ({
+    names: [...rule.matchAll(/app\.kubernetes\.io\/name: (\S+)/g)].map(([, name]) => name),
+    gateways: /namespaceSelector/.test(rule),
+    ports: [...rule.matchAll(/- port: (\d+)/g)].map(([, port]) => port),
+  }));
+const formsName = podLabels(forms).name;
+const formsRules = rules.filter((rule) => rule.names.includes(formsName));
+const formsPort = /value: "http:\/\/[^:"]+:(\d+)"/.exec(
+  forms.slice(forms.indexOf('name: API_URL')),
+)?.[1];
+if (
+  formsRules.length !== 1 ||
+  formsRules[0].names.length !== 1 ||
+  formsRules[0].gateways ||
+  formsRules[0].ports.length !== 1 ||
+  formsRules[0].ports[0] !== formsPort
+) {
+  fail(
+    `the forms app's pods must be admitted, alone, to the one port they call (${formsPort}): ${JSON.stringify(rules)}`,
+  );
+}
+if (rules.some((rule) => rule !== formsRules[0] && rule.ports.includes(formsPort))) {
+  fail(
+    `only the forms app's pods may reach the API's forms port ${formsPort}: ${JSON.stringify(rules)}`,
+  );
 }
 
 const jobsPolicy = named('NetworkPolicy', 'backoffice-api-jobs');

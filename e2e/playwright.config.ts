@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { existsSync } from 'node:fs';
 
 import {
+  API_FORMS_URL,
   API_URL,
   AUTH,
   DSNS,
@@ -70,6 +71,7 @@ export default defineConfig({
       env: {
         HOST: '127.0.0.1',
         PORT: String(PORTS.api),
+        FORMS_PORT: String(PORTS.apiForms),
         LOG_LEVEL: 'warn',
         SENTRY_DSN: DSNS.api,
         AUTH_DATABASE_URL,
@@ -91,7 +93,7 @@ export default defineConfig({
       command: `pnpm exec next start --port ${PORTS.forms} --hostname 127.0.0.1`,
       cwd: '../apps/forms',
       url: `http://127.0.0.1:${PORTS.forms}/healthz`,
-      env: { PRODUCT_NAME, API_URL, FORMS_TOKEN },
+      env: { PRODUCT_NAME, API_URL: API_FORMS_URL, FORMS_TOKEN },
     },
     {
       name: 'web',

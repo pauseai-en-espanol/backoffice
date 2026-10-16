@@ -2,7 +2,7 @@ import { createAuthPool } from '@backoffice/db/auth-pool';
 import { createDatabase } from '@backoffice/db/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { buildApp } from '../src/app.js';
+import { buildApp, buildFormsApp } from '../src/app.js';
 import { createAuth } from '../src/auth/auth.js';
 import { FORMS_TOKEN_HEADER } from '../src/census/public-routes.js';
 import {
@@ -12,6 +12,7 @@ import {
   limiterAddress,
   PASSWORD,
   SECRET,
+  STAFF_HOST,
   STAFF_ORIGIN,
   testAddress,
   TOTP_ISSUER,
@@ -59,6 +60,9 @@ const app = buildApp({
     app: appDb,
     census: { formsOrigin: 'https://unete.ejemplo.test', wordingVersion: 'v1' },
   },
+});
+/** The forms app's routes, on their own server (FORMS_PORT). */
+const formsApp = buildFormsApp({
   forms: {
     db: publicDb,
     token: FORMS_TOKEN,
@@ -100,7 +104,7 @@ const staffMember = async (...roles: string[]) => {
 
 /** The forms app, inside the cluster: its secret, and a visitor's address as the gateway gave it. */
 const forms = (path: string, body: object, visitor = '203.0.113.10', token = FORMS_TOKEN) =>
-  app.inject({
+  formsApp.inject({
     method: 'POST',
     url: `/public/census${path}`,
     headers: {
@@ -170,13 +174,30 @@ afterAll(async () => {
       [address, limiterAddress(address)],
     );
   }
-  await app.close();
+  await Promise.all([app.close(), formsApp.close()]);
   await Promise.all([appDb.destroy(), publicDb.destroy()]);
   await superuser.end();
   await authPool.end();
 });
 
 describe('the forms app’s routes (M2)', () => {
+  it('are served on their own port, which serves nothing else (ADR-0002 §7)', async () => {
+    const onStaffPort = await app.inject({
+      method: 'POST',
+      url: '/public/census/form',
+      headers: { [FORMS_TOKEN_HEADER]: FORMS_TOKEN, 'content-type': 'application/json' },
+      payload: '{}',
+    });
+    expect(onStaffPort.statusCode).toBe(404);
+    const signIn = await formsApp.inject({
+      method: 'POST',
+      url: '/api/auth/sign-in/email',
+      headers: { host: STAFF_HOST, origin: STAFF_ORIGIN, 'content-type': 'application/json' },
+      payload: JSON.stringify({ email: 'persona@ejemplo.test', password: 'una-contraseña' }),
+    });
+    expect(signIn.statusCode).toBe(404);
+  });
+
   it('answer only with the shared secret, as if they weren’t there otherwise', async () => {
     expect(
       (await forms('/form', {}, '203.0.113.11', 'otro-secreto-cualquiera-de-mas-de-32-caracteres'))

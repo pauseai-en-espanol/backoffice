@@ -82,8 +82,9 @@ Do these in order. Each step says how to check it.
 ## M2: the census form
 
 The form is its own app (`apps/forms`) on its own host, `unete.pauseai.es` by default, on gateway-public: no cookies,
-no sessions, nothing third-party. Its server calls the API's `/public/census` routes inside the cluster with a shared
-secret; the browser never reaches the API, and the host routes nothing to it (ADR-0002 §7).
+no sessions, nothing third-party. Its server calls the API's `/public/census` routes inside the cluster, on the API's
+forms port (3002, the only one the network policy lets the forms pods reach), with a shared secret; the browser never
+reaches the API, and the host routes nothing to it (ADR-0002 §7).
 
 1. **The release:** the first release after this lands builds `backoffice/forms` with the others and writes its tag
    into the umbrella's values; until then the umbrella refuses to render the forms Deployment ("image.tag is

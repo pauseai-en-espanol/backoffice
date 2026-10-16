@@ -5,7 +5,13 @@ import { readTelegram, type TelegramConfig } from './telegram/config.js';
 
 export interface ApiConfig {
   host: string;
+  /** The staff host's API and the bot's webhook, for the gateway and the web app's pods (PORT, 3001). */
   port: number;
+  /**
+   * The forms app's routes, on a port of their own (FORMS_PORT, 3002), so that the forms app's pods, public-facing,
+   * reach nothing else of the API: the network policy admits them to this port only (ADR-0002 §7).
+   */
+  formsPort: number;
   logLevel: string;
   /** GlitchTip project for the API (in-cluster Service); undefined turns error tracking off. */
   sentryDsn: Dsn | undefined;
@@ -239,6 +245,12 @@ export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
     throw new Error(`PORT must be an integer between 1 and 65535, got "${env.PORT}"`);
   }
+  const formsPort = Number(env.FORMS_PORT ?? 3002);
+  if (!Number.isInteger(formsPort) || formsPort < 1 || formsPort > 65_535 || formsPort === port) {
+    throw new Error(
+      `FORMS_PORT must be an integer between 1 and 65535 other than PORT, got "${env.FORMS_PORT}"`,
+    );
+  }
   const logLevel = env.LOG_LEVEL ?? 'info';
   if (!LOG_LEVELS.includes(logLevel)) {
     throw new Error(`LOG_LEVEL must be one of ${LOG_LEVELS.join(', ')}, got "${logLevel}"`);
@@ -246,6 +258,7 @@ export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
   return {
     host: env.HOST ?? '0.0.0.0',
     port,
+    formsPort,
     logLevel,
     sentryDsn: readDsn(env),
     auth: readAuth(env),

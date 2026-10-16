@@ -247,7 +247,8 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 - **R20. The forms app reaches the API inside the cluster only, with a shared secret.** The gateway sends nothing of
   the forms host to the API; the API's census routes also want `X-Backoffice-Forms-Token` (compared in constant time),
   so a gateway route added by mistake still reaches nothing. Options: network isolation alone; plus the secret.
-  **Chose both** (defence in depth, as aiontheballot's preview token).
+  **Chose both** (defence in depth, as aiontheballot's preview token). Since the security review of 2026-10-16 the
+  census routes have their own API port, the only one the forms app's pods may reach.
 - **R21. A filled honeypot is answered as a success and dropped**, so a bot learns nothing; an answer sent less than
   3 seconds after the form loaded is refused in words (a person can send it again).
 - **R22. Through the generic link, a census answer that matches someone never applies itself** (anyone can type

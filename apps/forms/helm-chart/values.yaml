@@ -89,4 +89,5 @@ networkPolicy:
 api:
   # Defaults to <release>-api, the API service of the same release.
   serviceName: ''
-  servicePort: 3001
+  # The API's port for the forms app's routes alone (its chart's service.formsPort): the only one these pods reach.
+  servicePort: 3002

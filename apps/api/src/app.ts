@@ -11,6 +11,10 @@ export interface AppOptions {
   api?: StaffApiOptions;
   /** The Telegram bot's webhook (ADR-0004); without it, /telegram/webhook answers 503. */
   telegram?: WebhookOptions | undefined;
+}
+
+export interface FormsAppOptions {
+  logger?: FastifyServerOptions['logger'];
   /** The forms app's routes (ADR-0002 §7); without them, /public/census answers 503. */
   forms?: CensusPublicOptions | undefined;
 }
@@ -64,12 +68,8 @@ const hooks: LoggerOptions['hooks'] = {
   },
 };
 
-export const buildApp = ({
-  logger = false,
-  api = {},
-  telegram,
-  forms,
-}: AppOptions = {}): FastifyInstance => {
+/** What both of the API's servers share: logs, limits, how an uncaught error is answered, and the liveness probe. */
+const baseApp = (logger: FastifyServerOptions['logger'] = false): FastifyInstance => {
   const app = Fastify({
     logger:
       logger === false || logger === true
@@ -98,11 +98,29 @@ export const buildApp = ({
   // Liveness only: deliberately no database or downstream checks, so a slow dependency never restarts the pod.
   // Not logged: probes run every few seconds.
   app.get('/healthz', { logLevel: 'silent' }, async () => ({ status: 'ok' }));
+  return app;
+};
 
+/** The staff host's API (PORT): sign-in and the staff routes under /api, and the bot's webhook. */
+export const buildApp = ({
+  logger = false,
+  api = {},
+  telegram,
+}: AppOptions = {}): FastifyInstance => {
+  const app = baseApp(logger);
   void app.register(staffApiRoutes(api), { prefix: '/api' });
   // The bot's webhook, outside /api, on the staff host (ADR-0004).
   void app.register(telegramWebhookRoutes(telegram));
-  // The census form's, for the forms app inside the cluster, with its shared secret (ADR-0002 §7).
+  return app;
+};
+
+/**
+ * The forms app's routes on their own server (FORMS_PORT), for the forms app inside the cluster with its shared secret
+ * (ADR-0002 §7), and nothing else: the forms app's pods, public-facing, are admitted to this port only, so one taken
+ * over reaches neither sign-in nor the staff routes.
+ */
+export const buildFormsApp = ({ logger = false, forms }: FormsAppOptions = {}): FastifyInstance => {
+  const app = baseApp(logger);
   void app.register(censusPublicRoutes(forms), { prefix: '/public/census' });
   return app;
 };

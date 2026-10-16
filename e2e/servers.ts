@@ -7,6 +7,7 @@ export const PORTS = {
   api: 4201,
   forms: 4202,
   glitchtip: 4203,
+  apiForms: 4204,
   gateway: 4205,
   smtp: 4206,
   mailbox: 4207,
@@ -14,6 +15,8 @@ export const PORTS = {
 
 export const WEB_URL = `http://127.0.0.1:${PORTS.web}`;
 export const API_URL = `http://127.0.0.1:${PORTS.api}`;
+/** The API's port for the forms app's routes alone, as in the cluster (ADR-0002 §7). */
+export const API_FORMS_URL = `http://127.0.0.1:${PORTS.apiForms}`;
 
 /** The census form (apps/forms), as visitors reach it; personal links point here. */
 export const FORMS_URL = `http://localhost:${PORTS.forms}`;

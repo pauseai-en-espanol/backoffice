@@ -1,0 +1,26 @@
+[
+  {
+    "name": "the forms app calls the staff port",
+    "file": "apps/forms/helm-chart/values.yaml",
+    "old": "  servicePort: 3002",
+    "new": "  servicePort: 3001",
+    "cmd": "helm dependency build helm-charts/backoffice >/dev/null && node scripts/check-network-policies.mjs",
+    "cwd": "."
+  },
+  {
+    "name": "the forms app's pods reach the staff port",
+    "file": "apps/api/helm-chart/templates/networkpolicy.yaml",
+    "old": "      ports:\n        - port: {{ .Values.service.formsPort }}",
+    "new": "      ports:\n        - port: {{ .Values.service.port }}",
+    "cmd": "helm dependency build helm-charts/backoffice >/dev/null && node scripts/check-network-policies.mjs",
+    "cwd": "."
+  },
+  {
+    "name": "the web app's pods reach the forms port",
+    "file": "apps/api/helm-chart/templates/networkpolicy.yaml",
+    "old": "      ports:\n        - port: {{ .Values.service.port }}\n          protocol: TCP\n    - from:",
+    "new": "      ports:\n        - port: {{ .Values.service.port }}\n          protocol: TCP\n        - port: {{ .Values.service.formsPort }}\n          protocol: TCP\n    - from:",
+    "cmd": "helm dependency build helm-charts/backoffice >/dev/null && node scripts/check-network-policies.mjs",
+    "cwd": "."
+  }
+]
