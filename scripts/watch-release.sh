@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Follows a pushed commit to production (as aiontheballot): CI on the commit, the release it triggers, then Argo CD until
+# Follows a pushed commit to production: CI on the commit, the release it triggers, then Argo CD until
 # it runs the release bot's commit, Synced and Healthy, and finally each address in WATCH_URLS (read-only throughout).
 #
 # Usage: scripts/watch-release.sh [sha]   (the pushed HEAD by default)
 #
-# Settings, from the environment or .env (none is a secret): WATCH_URLS, the addresses that must answer 200 (after
-# redirects), space-separated; KUBE_CONTEXT (default danilupion.com), ARGO_APP and APP_NAMESPACE (both backoffice by
-# default).
+# Settings, from the environment or .env (none is a secret): KUBE_CONTEXT, the cluster's kubectl context (required);
+# WATCH_URLS, the addresses that must answer 200 (after redirects), space-separated; ARGO_APP and APP_NAMESPACE (both
+# pauseai-es-backoffice by default).
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
@@ -19,9 +19,13 @@ setting() {
   echo "${value:-$2}"
 }
 WATCH_URLS=$(setting WATCH_URLS '')
-KUBE_CONTEXT=$(setting KUBE_CONTEXT danilupion.com)
-ARGO_APP=$(setting ARGO_APP backoffice)
-APP_NAMESPACE=$(setting APP_NAMESPACE backoffice)
+KUBE_CONTEXT=$(setting KUBE_CONTEXT '')
+ARGO_APP=$(setting ARGO_APP pauseai-es-backoffice)
+APP_NAMESPACE=$(setting APP_NAMESPACE pauseai-es-backoffice)
+if [ -z "$KUBE_CONTEXT" ]; then
+  echo "KUBE_CONTEXT is not set: the cluster's kubectl context, in the environment or .env" >&2
+  exit 1
+fi
 sha=$(git rev-parse "${1:-HEAD}")
 
 run_of() {
