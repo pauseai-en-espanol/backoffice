@@ -75,8 +75,9 @@ Computed on read, never stored. Each rule has a Spanish reason shown on the pers
 5. Left the community while in an open stage or `active`. ("Ha salido de la comunidad")
 6. A possible duplicate is waiting for review. ("Posible duplicado")
 
-The thresholds live in settings, not in code, but for the 30 days of "Sin asignar". "Sin respuesta" (the stage)
-comes from the attempts since the last reply, counted by the day they happened.
+The thresholds live in settings, not in code (but for the 30 days of "Sin asignar"), and so does how far back an
+arrival may be for the team group to hear of it: a week by default (ADR-0004). "Sin respuesta" (the stage) comes
+from the attempts since the last reply, counted by the day they happened.
 
 ## 4. Views
 

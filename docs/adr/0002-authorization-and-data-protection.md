@@ -128,8 +128,9 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   A trusted extension's functions belong to the bootstrap superuser, executable by PUBLIC, so the schema is what's
   closed; a catalog test keeps it so.
 - **Two exceptions without an actor**, for the team group's posts (ADR-0004 §8): `private.team_card(person)`
-  returns only what a post in the group shows (name, province, sources, stage, owner), and only for someone who
-  arrived in the last 48 hours or already has a post; `private.team_unposted(chat)` returns ids. The bot posts
+  returns only what a post in the group shows (name, province, sources, stage, owner), and only for someone added
+  in the last 48 hours who arrived within the settings' window (ADR-0004), or who already has a sent post;
+  `private.team_unposted(chat)` returns ids. The bot posts
   arrivals from every source, the hourly Airtable sync's included, which has no person behind it.
 - **Erasure** (M2 and M3, [personal data](../spec/personal-data.md)): `private.anonymise_person` and
   `private.anonymise_contact`, each `SECURITY DEFINER` to blank append-only timeline text (the owner's `app.redact`),

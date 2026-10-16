@@ -550,7 +550,19 @@ describe('onboarding through the staff API (M1)', () => {
     ).toBe(204);
     expect((await onboarder.who.send('GET', '/api/settings')).json()).toMatchObject({
       communityChats: ['Madrid', 'Online'],
+      teamPostDays: 7,
     });
+    // How far back an arrival may be to be posted to the team group (PLAN M5): admins set it, within 1 to 60 days.
+    expect((await admin.who.send('PATCH', '/api/settings', { teamPostDays: 61 })).statusCode).toBe(
+      400,
+    );
+    expect((await admin.who.send('PATCH', '/api/settings', { teamPostDays: 10 })).statusCode).toBe(
+      204,
+    );
+    expect((await onboarder.who.send('GET', '/api/settings')).json()).toMatchObject({
+      teamPostDays: 10,
+    });
+    await admin.who.send('PATCH', '/api/settings', { teamPostDays: 7 });
     expect((await onboarder.who.send('GET', '/api/export/people.csv')).statusCode).toBe(403);
     // Another site can't make an admin's browser download it, nor log an export in their name.
     for (const site of ['cross-site', 'same-site']) {

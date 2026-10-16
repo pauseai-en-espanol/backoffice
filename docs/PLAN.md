@@ -157,7 +157,9 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
    duplicates and for reaching them (nothing messages anyone on its own). "Llegó el" may be unknown ("No se sabe";
    Dani, 2026-10-16): never "Sin asignar", left out of the Panel's weeks and waits (a line counts them), filterable;
    Añadir offers today and lets it be emptied; a CSV's "Llegó el" column (dd/mm/yyyy or yyyy-mm-dd) retrofills older
-   members with their stage. **Done:** four migrations, `20261016150000` to `150300`: the Discord kind; the list
+   members with their stage. The team group hears only of arrivals within a window admins set in Ajustes, a week by
+   default (Dani, 2026-10-16: "maybe make it configurable and by default a week?"; migration `150400`), by the
+   instant post and the sweep alike. **Done:** four migrations, `20261016150000` to `150300`: the Discord kind; the list
    (`app.arrival_channels`); the dates, "Llegó por" and Discord on people, events and intakes; and the stage fold, a
    type swap that moves Por clasificar to Nuevo (their "Llegó el" stays unknown) and En conversación to En contacto,
    with a history line each. Existing people's "Llegó el" is the day they were added. The old "Llegó por" label on

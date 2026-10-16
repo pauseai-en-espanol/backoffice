@@ -84,10 +84,10 @@ A **person summary**, as lists show one:
 
 ### Admin
 
-| Route                                                                                                                                                              | Does                                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `GET /api/settings` · `PATCH /api/settings` `{ followUpDays?, unresponsiveAttempts?, unresponsiveDays?, unassignedAlertHours?, matchThreshold?, communityChats? }` | Everyone reads; admins change                                                              |
-| `GET /api/export/people.csv?…` (the Personas filters)                                                                                                              | Admins: a CSV of the people listed, with their emails and phones. Every export is recorded |
+| Route                                                                                                                                                                             | Does                                                                                       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `GET /api/settings` · `PATCH /api/settings` `{ followUpDays?, unresponsiveAttempts?, unresponsiveDays?, unassignedAlertHours?, matchThreshold?, teamPostDays?, communityChats? }` | Everyone reads; admins change                                                              |
+| `GET /api/export/people.csv?…` (the Personas filters)                                                                                                                             | Admins: a CSV of the people listed, with their emails and phones. Every export is recorded |
 
 ### Telegram
 

@@ -312,11 +312,51 @@
     "cwd": "packages/db"
   },
   {
-    "name": "the team group hears of members entered after the fact",
-    "file": "db/migrations/20261016150300_fewer_stages.sql",
-    "old": "       AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date - 2\n",
+    "name": "the team group hears of members entered after the fact (the sweep)",
+    "file": "db/migrations/20261016150400_team_post_window.sql",
+    "old": "       AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date\n                            - (SELECT s.team_post_days FROM app.settings s)\n",
     "new": "",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the team group hears of members entered after the fact (the instant post)",
+    "file": "db/migrations/20261016150400_team_post_window.sql",
+    "old": "       AND ((p.created_at > now() - interval '48 hours'\n             AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date\n                                  - (SELECT s.team_post_days FROM app.settings s))\n",
+    "new": "       AND ((p.created_at > now() - interval '48 hours')\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a reserved post counts as one already sent, so the instant post skips the window",
+    "file": "db/migrations/20261016150400_team_post_window.sql",
+    "old": "                        WHERE t.person_id = p.id AND t.message_id IS NOT NULL))",
+    "new": "                        WHERE t.person_id = p.id))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the team group's window isn't a week by default",
+    "file": "db/migrations/20261016150400_team_post_window.sql",
+    "old": "  ADD COLUMN team_post_days integer NOT NULL DEFAULT 7\n",
+    "new": "  ADD COLUMN team_post_days integer NOT NULL DEFAULT 2\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the team group's window takes any number of days",
+    "file": "db/migrations/20261016150400_team_post_window.sql",
+    "old": "    CONSTRAINT settings_team_post_days_check CHECK (team_post_days BETWEEN 1 AND 60);\n",
+    "new": "    CONSTRAINT settings_team_post_days_check CHECK (team_post_days IS NOT NULL);\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "admins can't change the team group's window",
+    "file": "db/migrations/20261016150400_team_post_window.sql",
+    "old": "GRANT UPDATE (team_post_days) ON app.settings TO pauseai_backoffice_app;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
     "cwd": "packages/db"
   },
   {

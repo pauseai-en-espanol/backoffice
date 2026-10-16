@@ -85,6 +85,7 @@ export const SETTINGS_NUMBERS = [
   ['unresponsiveDays', 1, 180, 1],
   ['unassignedAlertHours', 1, 720, 1],
   ['matchThreshold', 0.3, 1, 0.05],
+  ['teamPostDays', 1, 60, 1],
 ] as const;
 
 /** The settings' changes; a number left empty or not a number is left as it was. A decimal comma is a point. */

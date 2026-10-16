@@ -19,6 +19,8 @@ export interface SettingsText {
   unassignedAlertHours: string;
   matchThreshold: string;
   matchThresholdHint: string;
+  teamPostDays: string;
+  teamPostDaysHint: string;
   communityChats: string;
   communityChatsHint: string;
   save: string;
@@ -31,6 +33,9 @@ export interface SettingsText {
  * someone needs a follow-up or is unresponsive, when the unassigned are flagged, how alike two names must be to be a
  * possible duplicate, and the community's chats. The database checks each value's bounds again.
  */
+/** The settings that carry a hint under their field, and its text's key. */
+const HINTS = { matchThreshold: 'matchThresholdHint', teamPostDays: 'teamPostDaysHint' } as const;
+
 export const SettingsForm = ({ settings, text }: { settings: Settings; text: SettingsText }) => {
   const write = useWrite(text.errors);
   const invalid = write.refusal?.error === 'invalid' ? write.refusal.field : undefined;
@@ -62,11 +67,11 @@ export const SettingsForm = ({ settings, text }: { settings: Settings; text: Set
             required
             inputMode={step < 1 ? 'decimal' : 'numeric'}
             aria-invalid={invalid === key}
-            aria-describedby={key === 'matchThreshold' ? 'ajuste-umbral-hint' : undefined}
+            aria-describedby={key in HINTS ? `ajuste-${key}-hint` : undefined}
           />
-          {key === 'matchThreshold' ? (
-            <span id="ajuste-umbral-hint" className={ui.hint}>
-              {text.matchThresholdHint}
+          {key === 'matchThreshold' || key === 'teamPostDays' ? (
+            <span id={`ajuste-${key}-hint`} className={ui.hint}>
+              {text[HINTS[key]]}
             </span>
           ) : null}
         </div>

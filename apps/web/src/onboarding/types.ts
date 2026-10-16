@@ -178,6 +178,7 @@ export interface Settings {
   unresponsiveDays: number;
   unassignedAlertHours: number;
   matchThreshold: number;
+  teamPostDays: number;
   communityChats: string[];
 }
 
@@ -650,6 +651,7 @@ const SETTINGS_NUMBERS = [
   'unresponsiveDays',
   'unassignedAlertHours',
   'matchThreshold',
+  'teamPostDays',
 ] as const;
 
 /** `GET /api/settings`'s body: the settings themselves, or wrapped in `settings`. */
@@ -675,6 +677,7 @@ export const parseSettings = (body: unknown): Settings | undefined => {
         unresponsiveDays: numbers.unresponsiveDays ?? 0,
         unassignedAlertHours: numbers.unassignedAlertHours ?? 0,
         matchThreshold: numbers.matchThreshold ?? 0,
+        teamPostDays: numbers.teamPostDays ?? 0,
         communityChats: chats,
       }
     : undefined;

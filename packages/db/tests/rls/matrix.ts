@@ -159,6 +159,14 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         update: { set: 'follow_up_days = 6', rule: ADMIN },
         delete: NOBODY,
       },
+      {
+        // Each setting is granted on its own column: the team group's window too (PLAN M5).
+        id: "the team group's window",
+        where: 'id',
+        select: { web: ANY_STAFF },
+        update: { set: 'team_post_days = 10', rule: ADMIN },
+        delete: NOBODY,
+      },
     ],
     inserts: [
       { id: 'another row', sql: 'INSERT INTO app.settings (id) VALUES (false)', rule: NOBODY },

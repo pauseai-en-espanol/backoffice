@@ -285,18 +285,70 @@ describe("the team group's posts", () => {
     });
   });
 
-  it('leave out members entered after the fact: added now, arrived more than two days ago (PLAN M5)', async () => {
+  /** Whether the sweep queues Ana, and whether the instant post (its row reserved, not sent yet) gets her card. */
+  const announced = async (
+    client: Parameters<Parameters<typeof inRolledBackTransaction>[0]>[0],
+  ) => {
+    await client.query('SAVEPOINT announced');
+    await client.query('SET LOCAL ROLE pauseai_backoffice_app');
+    const swept = (await client.query('SELECT * FROM private.team_unposted(-100)')).rows.map(
+      (r: { team_unposted: string }) => r.team_unposted,
+    );
+    await client.query(
+      'INSERT INTO private.telegram_posts (person_id, chat_id) VALUES ($1, -100)',
+      [PEOPLE.ana],
+    );
+    const card = await client.query('SELECT * FROM private.team_card($1)', [PEOPLE.ana]);
+    await client.query('ROLLBACK TO SAVEPOINT announced');
+    return { swept: swept.includes(PEOPLE.ana), instant: card.rows.length === 1 };
+  };
+  const arrivedDaysAgo = (days: number | null) =>
+    days === null
+      ? 'UPDATE app.people SET arrived_on = NULL WHERE id = $1'
+      : `UPDATE app.people SET arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date - ${days} WHERE id = $1`;
+
+  it('leave out members entered after the fact, by the sweep and the instant post alike: arrived before the window, or on a day nobody knows (PLAN M5)', async () => {
     await inRolledBackTransaction(async (client) => {
+      await client.query(arrivedDaysAgo(7), [PEOPLE.ana]);
+      expect(await announced(client)).toEqual({ swept: true, instant: true });
+      await client.query(arrivedDaysAgo(8), [PEOPLE.ana]);
+      expect(await announced(client)).toEqual({ swept: false, instant: false });
+      await client.query(arrivedDaysAgo(null), [PEOPLE.ana]);
+      expect(await announced(client)).toEqual({ swept: false, instant: false });
+    });
+  });
+
+  it('take their window from the settings: a week by default, what admins set in Ajustes (PLAN M5)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      expect((await client.query('SELECT team_post_days FROM app.settings')).rows).toEqual([
+        { team_post_days: 7 },
+      ]);
+      await client.query(arrivedDaysAgo(10), [PEOPLE.ana]);
+      expect(await announced(client)).toEqual({ swept: false, instant: false });
+      await client.query('UPDATE app.settings SET team_post_days = 10');
+      expect(await announced(client)).toEqual({ swept: true, instant: true });
+      await client.query('UPDATE app.settings SET team_post_days = 2');
+      await client.query(arrivedDaysAgo(3), [PEOPLE.ana]);
+      expect(await announced(client)).toEqual({ swept: false, instant: false });
+      for (const days of [0, 61]) {
+        expect(await errorCode(client, `UPDATE app.settings SET team_post_days = ${days}`)).toBe(
+          '23514',
+        );
+      }
+    });
+  });
+
+  it('keep updating a post already sent, whatever the arrival day', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await client.query(arrivedDaysAgo(null), [PEOPLE.ana]);
+      await client.query('SET LOCAL ROLE pauseai_backoffice_app');
       await client.query(
-        "UPDATE app.people SET arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date - 3 WHERE id = $1",
+        'INSERT INTO private.telegram_posts (person_id, chat_id, message_id) VALUES ($1, -100, 7)',
         [PEOPLE.ana],
       );
-      await client.query('SET LOCAL ROLE pauseai_backoffice_app');
       expect(
-        (await client.query('SELECT * FROM private.team_unposted(-100)')).rows.map(
-          (r: { team_unposted: string }) => r.team_unposted,
-        ),
-      ).not.toContain(PEOPLE.ana);
+        (await client.query('SELECT * FROM private.team_card($1)', [PEOPLE.ana])).rows,
+      ).toHaveLength(1);
     });
   });
 });

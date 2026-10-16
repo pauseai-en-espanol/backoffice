@@ -130,6 +130,8 @@ const SettingsPage = async () => {
                   unassignedAlertHours: t('settings.unassignedAlertHours'),
                   matchThreshold: t('settings.matchThreshold'),
                   matchThresholdHint: t('settings.matchThresholdHint'),
+                  teamPostDays: t('settings.teamPostDays'),
+                  teamPostDaysHint: t('settings.teamPostDaysHint'),
                   communityChats: t('settings.communityChats'),
                   communityChatsHint: t('settings.communityChatsHint'),
                   save: t('settings.save'),
@@ -150,6 +152,8 @@ const SettingsPage = async () => {
                   <dd>{settings.unassignedAlertHours}</dd>
                   <dt>{t('settings.matchThreshold')}</dt>
                   <dd>{settings.matchThreshold}</dd>
+                  <dt>{t('settings.teamPostDays')}</dt>
+                  <dd>{settings.teamPostDays}</dd>
                   <dt>{t('settings.communityChats')}</dt>
                   <dd>{settings.communityChats.join(', ') || '—'}</dd>
                 </dl>

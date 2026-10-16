@@ -155,8 +155,11 @@ Agree the reporting rule with the community's admins: whoever approves or sees a
   once; the API sweeps the last 48 hours' arrivals every five minutes for the rest (the hourly Airtable sync, CSV
   imports), through `private.team_card` and `private.team_unposted`, the two functions that run without an actor
   ([ADR-0002 §4](0002-authorization-and-data-protection.md#4-row-level-security-by-module-and-channel)). Only
-  someone who arrived in the last two days ("Llegó el", PLAN M5) is an arrival: a member entered after the fact, or
-  an old Global sign-up a sync brings with its date, is not posted.
+  someone who arrived within the window admins set in Ajustes, a week by default ("Llegó el", PLAN M5; Dani,
+  2026-10-16), is an arrival: a member entered after the fact, someone whose arrival day nobody knows, or an old
+  Global sign-up a sync brings with its date, is not posted. Both ways obey it, the instant post and the sweep: a
+  reserved row whose message id is still empty doesn't count as a post already made. A post already sent keeps
+  being updated, whatever the arrival day.
 - **The digest** reads who gets one as the auth role, and each digest as that staff member through the bot's
   functions, so it holds exactly what their own `/mine` would; it goes by Telegram if they linked it, else by mail.
 

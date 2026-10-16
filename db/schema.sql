@@ -2255,8 +2255,11 @@ CREATE FUNCTION private.team_card(person uuid) RETURNS TABLE(person_id uuid, nam
       FROM app.people p
       LEFT JOIN app.staff st ON st.user_id = p.owner_id
      WHERE p.id = team_card.person AND p.merged_into IS NULL AND p.anonymised_at IS NULL
-       AND (p.created_at > now() - interval '48 hours'
-            OR EXISTS (SELECT 1 FROM private.telegram_posts t WHERE t.person_id = p.id))
+       AND ((p.created_at > now() - interval '48 hours'
+             AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date
+                                  - (SELECT s.team_post_days FROM app.settings s))
+            OR EXISTS (SELECT 1 FROM private.telegram_posts t
+                        WHERE t.person_id = p.id AND t.message_id IS NOT NULL))
   $$;
 
 
@@ -2273,7 +2276,8 @@ CREATE FUNCTION private.team_unposted(chat bigint) RETURNS SETOF uuid
     SELECT p.id
       FROM app.people p
      WHERE p.created_at > now() - interval '48 hours' AND p.merged_into IS NULL AND p.anonymised_at IS NULL
-       AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date - 2
+       AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date
+                            - (SELECT s.team_post_days FROM app.settings s)
        AND NOT EXISTS (SELECT 1 FROM private.telegram_posts t WHERE t.person_id = p.id AND t.chat_id = chat)
      ORDER BY p.created_at
      LIMIT 20
@@ -3124,10 +3128,12 @@ CREATE TABLE app.settings (
     community_chats text[] DEFAULT '{}'::text[] NOT NULL,
     updated_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    team_post_days integer DEFAULT 7 NOT NULL,
     CONSTRAINT settings_community_chats_check CHECK (((cardinality(community_chats) <= 100) AND (array_position(community_chats, NULL::text) IS NULL))),
     CONSTRAINT settings_follow_up_days_check CHECK (((follow_up_days >= 1) AND (follow_up_days <= 60))),
     CONSTRAINT settings_id_check CHECK (id),
     CONSTRAINT settings_match_threshold_check CHECK (((match_threshold >= 0.3) AND (match_threshold <= (1)::numeric))),
+    CONSTRAINT settings_team_post_days_check CHECK (((team_post_days >= 1) AND (team_post_days <= 60))),
     CONSTRAINT settings_unassigned_alert_hours_check CHECK (((unassigned_alert_hours >= 1) AND (unassigned_alert_hours <= 720))),
     CONSTRAINT settings_unresponsive_attempts_check CHECK (((unresponsive_attempts >= 1) AND (unresponsive_attempts <= 20))),
     CONSTRAINT settings_unresponsive_days_check CHECK (((unresponsive_days >= 1) AND (unresponsive_days <= 180)))
@@ -3135,6 +3141,13 @@ CREATE TABLE app.settings (
 
 
 ALTER TABLE app.settings OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN settings.team_post_days; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.settings.team_post_days IS 'Days back an arrival may be to be posted to the team group (ADR-0004, notifications)';
+
 
 --
 -- Name: people_attention; Type: VIEW; Schema: app; Owner: pauseai_backoffice_owner
@@ -7185,6 +7198,13 @@ GRANT UPDATE(match_threshold) ON TABLE app.settings TO pauseai_backoffice_app;
 --
 
 GRANT UPDATE(community_chats) ON TABLE app.settings TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN settings.team_post_days; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(team_post_days) ON TABLE app.settings TO pauseai_backoffice_app;
 
 
 --

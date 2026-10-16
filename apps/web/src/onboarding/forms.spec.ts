@@ -92,6 +92,7 @@ describe('the settings form', () => {
     unresponsiveDays: 14,
     unassignedAlertHours: 48,
     matchThreshold: 0.55,
+    teamPostDays: 7,
     communityChats: ['Madrid'],
   };
 
@@ -105,10 +106,16 @@ describe('the settings form', () => {
           unresponsiveDays: '',
           unassignedAlertHours: 'muchas',
           matchThreshold: '0,6',
+          teamPostDays: '14',
           communityChats: 'Madrid\n\n Barcelona \nMadrid',
         }),
       ),
-    ).toEqual({ followUpDays: 7, matchThreshold: 0.6, communityChats: ['Madrid', 'Barcelona'] });
+    ).toEqual({
+      followUpDays: 7,
+      matchThreshold: 0.6,
+      teamPostDays: 14,
+      communityChats: ['Madrid', 'Barcelona'],
+    });
   });
 
   it('splits lists without blanks or repeats', () => {

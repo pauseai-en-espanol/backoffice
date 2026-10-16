@@ -1002,6 +1002,7 @@ export const peopleRoutes =
               unresponsiveDays: { type: 'integer', minimum: 1, maximum: 180 },
               unassignedAlertHours: { type: 'integer', minimum: 1, maximum: 720 },
               matchThreshold: { type: 'number', minimum: 0.3, maximum: 1 },
+              teamPostDays: { type: 'integer', minimum: 1, maximum: 60 },
               communityChats: {
                 type: 'array',
                 maxItems: 100,

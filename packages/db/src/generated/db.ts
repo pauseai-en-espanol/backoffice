@@ -525,6 +525,10 @@ export interface AppSettings {
   follow_up_days: Generated<number>;
   id: Generated<boolean>;
   match_threshold: Generated<Numeric>;
+  /**
+   * Days back an arrival may be to be posted to the team group (ADR-0004, notifications)
+   */
+  team_post_days: Generated<number>;
   unassigned_alert_hours: Generated<number>;
   unresponsive_attempts: Generated<number>;
   unresponsive_days: Generated<number>;

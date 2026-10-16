@@ -9,6 +9,8 @@ export interface Settings {
   unresponsiveDays: number;
   unassignedAlertHours: number;
   matchThreshold: number;
+  /** How many days back an arrival may be to be posted to the team group (ADR-0004, notifications). */
+  teamPostDays: number;
   communityChats: string[];
 }
 
@@ -20,6 +22,7 @@ const COLUMNS: Readonly<Record<keyof Settings, string>> = {
   unresponsiveDays: 'unresponsive_days',
   unassignedAlertHours: 'unassigned_alert_hours',
   matchThreshold: 'match_threshold',
+  teamPostDays: 'team_post_days',
   communityChats: 'community_chats',
 };
 
@@ -28,7 +31,8 @@ export const readSettings = async (trx: Transaction<DB>): Promise<Settings> => {
   const { rows } = await sql<Settings>`
     SELECT follow_up_days AS "followUpDays", unresponsive_attempts AS "unresponsiveAttempts",
            unresponsive_days AS "unresponsiveDays", unassigned_alert_hours AS "unassignedAlertHours",
-           match_threshold::float8 AS "matchThreshold", community_chats AS "communityChats"
+           match_threshold::float8 AS "matchThreshold", team_post_days AS "teamPostDays",
+           community_chats AS "communityChats"
       FROM app.settings`.execute(trx);
   const [row] = rows;
   if (!row) {

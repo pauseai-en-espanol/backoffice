@@ -908,6 +908,8 @@
     "unassignedAlertHours": "Horas sin asignar antes de avisar",
     "matchThreshold": "Parecido de nombres para «Posible duplicado»",
     "matchThresholdHint": "Entre 0,3 y 1. Más alto: menos avisos, y más duplicados sin detectar.",
+    "teamPostDays": "Días hacia atrás para avisar al grupo de onboarding de una llegada",
+    "teamPostDaysHint": "De 1 a 60. Quien llegó antes, o sin fecha de llegada, se añade sin avisar al grupo: es alguien que ya estaba.",
     "communityChats": "Chats de la comunidad",
     "communityChatsHint": "Uno por línea. El bot y «Añadir rápido» los ofrecen al registrar una entrada.",
     "save": "Guardar los ajustes",
