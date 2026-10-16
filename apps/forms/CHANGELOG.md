@@ -1,5 +1,13 @@
 # @backoffice/forms
 
+## 0.1.1
+
+### Patch Changes
+
+- 888111c: The images go to Harbor's `pauseai-es` project, with PauseAI España's other apps, as `pauseai-es/backoffice-api`,
+  `-web`, `-forms` and `-migrations`; the cluster pulls them with that project's robot, in the `pauseai-es-backoffice`
+  namespace.
+
 ## 0.1.0
 
 ### Minor Changes
