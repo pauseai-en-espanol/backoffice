@@ -1,0 +1,18 @@
+[
+  {
+    "name": "connections run with JIT, which compiled Hoy's plan for ~0.6 s every time",
+    "file": "packages/db/src/pool.ts",
+    "old": "options: [config.options, '-c jit=off'].filter(Boolean).join(' ')",
+    "new": "options: config.options",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/pool.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "turning JIT off drops a caller's own options, such as Better Auth's search_path",
+    "file": "packages/db/src/pool.ts",
+    "old": "options: [config.options, '-c jit=off'].filter(Boolean).join(' ')",
+    "new": "options: '-c jit=off'",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/pool.spec.ts",
+    "cwd": "packages/db"
+  }
+]
