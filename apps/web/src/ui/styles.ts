@@ -50,32 +50,55 @@ export const productLink = css({
 
 export const muted = css({ color: 'fg.muted' });
 
+/** Below the header: the sections, then the page; on a computer, side by side (PLAN M5). */
+export const shell = css({
+  display: { base: 'block', lg: 'grid' },
+  gridTemplateColumns: { lg: '15rem minmax(0, 1fr)' },
+});
+
+/** The sections: a bar holding the menu's button on a phone, a sidebar on a computer. */
 export const nav = css({
-  paddingInline: { base: '4', md: '6' },
-  borderBlockEndWidth: '1px',
+  paddingInline: { base: '4', md: '6', lg: '3' },
+  borderBlockEndWidth: { base: '1px', lg: '0' },
+  borderInlineEndWidth: { base: '0', lg: '1px' },
   borderStyle: 'solid',
   borderColor: 'border.subtle',
   bg: 'bg.subtle',
 });
 
 /**
- * The sections: on a phone a menu that opens under its button (NavMenu), one section a line; from a tablet up a row
- * that wraps, always shown.
+ * The sections' groups: on a phone they open under the menu's button (NavMenu), one section a line; on a computer they
+ * are always shown, and stay in view as the page scrolls.
  */
-export const navList = css({
-  display: { base: 'none', md: 'flex' },
-  flexDirection: { base: 'column', md: 'row' },
-  flexWrap: { base: 'nowrap', md: 'wrap' },
-  paddingBlock: '1',
-  gap: '1',
-  listStyle: 'none',
+export const navPanel = css({
+  display: { base: 'none', lg: 'flex' },
+  flexDirection: 'column',
+  gap: '5',
+  paddingBlock: { base: '2', lg: '6' },
   '&[data-open="true"]': { display: 'flex' },
-  '& > li': { flexShrink: '0' },
+  lg: { position: 'sticky', insetBlockStart: '0', maxHeight: '100vh', overflowY: 'auto' },
 });
 
-/** The phone's menu button; from a tablet up the sections are always shown, and it is not. */
+export const navGroup = css({ display: 'flex', flexDirection: 'column', gap: '1' });
+
+/** A group's name, in words: it names the group's list (aria-labelledby). */
+export const navGroupLabel = css({
+  paddingInline: '3',
+  fontSize: 'sm',
+  fontWeight: 'bold',
+  color: 'fg.muted',
+});
+
+export const navList = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1',
+  listStyle: 'none',
+});
+
+/** The menu's button below a computer's width; on a computer the sections are always shown, and it is not. */
 export const menuButton = css({
-  display: { base: 'inline-flex', md: 'none' },
+  display: { base: 'inline-flex', lg: 'none' },
   alignItems: 'center',
   gap: '2',
   minHeight: '11',
@@ -87,16 +110,17 @@ export const menuButton = css({
   _focusVisible: focusRing,
 });
 
-/** The current section is marked by a thick underline and bold text, besides aria-current. */
+/** A section's link, one a line. The current one is bold with a thick bar at its start, besides aria-current. */
 export const navLink = css({
-  display: 'inline-flex',
+  display: 'flex',
+  width: '100%',
   alignItems: 'center',
   minHeight: '11',
   paddingInline: '3',
-  whiteSpace: 'nowrap',
   color: 'fg.default',
+  textAlign: 'start',
   textDecoration: 'none',
-  borderBlockEndWidth: '3px',
+  borderInlineStartWidth: '3px',
   borderStyle: 'solid',
   borderColor: 'transparent',
   bg: 'transparent',
@@ -107,6 +131,10 @@ export const navLink = css({
 });
 
 export const main = css({
+  // Beside the sidebar it is a grid item, centred by its margins: without a width it would size to its content, and a
+  // wide board would widen it past the screen instead of scrolling in its own frame.
+  width: '100%',
+  minWidth: 0,
   maxWidth: '72rem',
   marginInline: 'auto',
   paddingInline: { base: '4', md: '6' },

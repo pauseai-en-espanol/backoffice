@@ -6,9 +6,10 @@ import { type PropsWithChildren, useEffect, useRef, useState } from 'react';
 import * as styles from '@/ui/styles';
 
 /**
- * The sections, as a menu on a phone: one button that opens and closes the list (aria-expanded). It is open only on
- * the page it was opened on, so choosing a section closes it; Escape closes it too and puts focus back on the button.
- * From a tablet up the list is always shown and the button isn't (ui/styles navList, menuButton).
+ * The sections, in their groups (nav.ts), as a menu below a computer's width: one button that opens and closes them
+ * (aria-expanded). It is open only on the page it was opened on, so choosing a section closes it; Escape closes it too
+ * and puts focus back on the button. On a computer they are a sidebar, always shown, and the button isn't (ui/styles
+ * navPanel, menuButton).
  */
 export const NavMenu = ({ label, children }: PropsWithChildren<{ label: string }>) => {
   const path = usePathname();
@@ -43,9 +44,9 @@ export const NavMenu = ({ label, children }: PropsWithChildren<{ label: string }
         <span aria-hidden="true">{open ? '✕' : '☰'}</span>
         {label}
       </button>
-      <ul id="secciones" className={styles.navList} data-open={open}>
+      <div id="secciones" className={styles.navPanel} data-open={open}>
         {children}
-      </ul>
+      </div>
     </>
   );
 };

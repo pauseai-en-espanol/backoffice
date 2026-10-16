@@ -6,28 +6,34 @@ import Link from 'next/link';
 import type { Staff } from '@/session';
 
 import { SignOutButton } from '@/auth/SignOutButton';
+import { censusUrl } from '@/onboarding/census/data';
 import { productName } from '@/product';
 import * as styles from '@/ui/styles';
 
+import { type NavGroup, navGroups } from './nav';
 import { NavLink } from './NavLink';
 import { NavMenu } from './NavMenu';
 
 const t = getTranslator();
 
+const GROUP_LABELS = {
+  onboarding: 'web.nav.groupOnboarding',
+  outreach: 'web.nav.groupOutreach',
+  team: 'web.nav.groupTeam',
+} as const satisfies Record<NavGroup['id'], string>;
+
 /**
- * Every signed-in page's frame: the product's name, who is signed in, and the sections, a menu on a phone. The
- * onboarding sections are listed to onboarding staff and admins, the outreach ones (Siguiente, Campañas, Contactos,
- * Organizaciones) to outreach staff and admins, Registro to admins (the API refuses anyone else anyway). `bandeja`, when the page knows it, is how many records wait in the Bandeja. A skip link leads past it all to
- * the page's content.
+ * Every signed-in page's frame: the product's name, who is signed in, and the sections in groups by role (nav.ts, PLAN
+ * M5), each list named by its group's label (aria-labelledby): a sidebar on a computer, a menu on a phone. The API
+ * refuses what a role doesn't open anyway. `bandeja`, when the page knows it, is how many records wait in the Bandeja.
+ * A skip link leads past it all to the page's content.
  */
 export const AppShell = ({
   me,
   bandeja,
   children,
 }: PropsWithChildren<{ me: Staff; bandeja?: number }>) => {
-  const admin = me.staff.roles.includes('admin');
-  const onboarding = admin || me.staff.roles.includes('onboarding');
-  const outreach = admin || me.staff.roles.includes('outreach');
+  const groups = navGroups(me.staff.roles, { census: censusUrl() !== '' });
   return (
     <>
       <a className={styles.skipLink} href="#contenido">
@@ -39,78 +45,44 @@ export const AppShell = ({
         </Link>
         <span className={styles.muted}>{t('web.signedInAs', { name: me.staff.displayName })}</span>
       </header>
-      <nav className={styles.nav} aria-label={t('web.nav.label')}>
-        <NavMenu label={t('web.nav.menu')}>
-          <li>
-            <NavLink href="/" label={t('web.nav.today')} />
-          </li>
-          {onboarding ? (
-            <>
+      <div className={styles.shell}>
+        <nav className={styles.nav} aria-label={t('web.nav.label')}>
+          <NavMenu label={t('web.nav.menu')}>
+            {groups.map((group) => (
+              <div key={group.id} className={styles.navGroup}>
+                <p id={`menu-${group.id}`} className={styles.navGroupLabel}>
+                  {t(GROUP_LABELS[group.id])}
+                </p>
+                <ul className={styles.navList} aria-labelledby={`menu-${group.id}`}>
+                  {group.items.map((item) => (
+                    <li key={item.href}>
+                      <NavLink
+                        href={item.href}
+                        label={
+                          item.label === 'bandeja' && bandeja !== undefined && bandeja > 0
+                            ? t('web.nav.bandejaCount', { count: bandeja })
+                            : t(`web.nav.${item.label}`)
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+            <ul className={styles.navList}>
               <li>
-                <NavLink href="/personas" label={t('web.nav.people')} />
+                <NavLink href="/ajustes" label={t('web.nav.settings')} />
               </li>
               <li>
-                <NavLink href="/pipeline" label={t('web.nav.board')} />
+                <SignOutButton label={t('web.nav.signOut')} className={styles.navLink} />
               </li>
-              <li>
-                <NavLink href="/panel" label={t('web.nav.panel')} />
-              </li>
-              <li>
-                <NavLink href="/anadir" label={t('web.nav.add')} />
-              </li>
-              <li>
-                <NavLink
-                  href="/bandeja"
-                  label={
-                    bandeja === undefined || bandeja === 0
-                      ? t('web.nav.bandeja')
-                      : t('web.nav.bandejaCount', { count: bandeja })
-                  }
-                />
-              </li>
-              <li>
-                <NavLink href="/censo" label={t('web.nav.census')} />
-              </li>
-              <li>
-                <NavLink href="/importar" label={t('web.nav.imports')} />
-              </li>
-            </>
-          ) : null}
-          {outreach ? (
-            <>
-              <li>
-                <NavLink href="/siguiente" label={t('web.nav.next')} />
-              </li>
-              <li>
-                <NavLink href="/campanas" label={t('web.nav.campaigns')} />
-              </li>
-              <li>
-                <NavLink href="/contactos" label={t('web.nav.contacts')} />
-              </li>
-              <li>
-                <NavLink href="/organizaciones" label={t('web.nav.organisations')} />
-              </li>
-            </>
-          ) : null}
-          <li>
-            <NavLink href="/equipo" label={t('web.nav.team')} />
-          </li>
-          {admin ? (
-            <li>
-              <NavLink href="/registro" label={t('web.nav.audit')} />
-            </li>
-          ) : null}
-          <li>
-            <NavLink href="/ajustes" label={t('web.nav.settings')} />
-          </li>
-          <li>
-            <SignOutButton label={t('web.nav.signOut')} className={styles.navLink} />
-          </li>
-        </NavMenu>
-      </nav>
-      <main id="contenido" tabIndex={-1} className={styles.main}>
-        {children}
-      </main>
+            </ul>
+          </NavMenu>
+        </nav>
+        <main id="contenido" tabIndex={-1} className={styles.main}>
+          {children}
+        </main>
+      </div>
     </>
   );
 };

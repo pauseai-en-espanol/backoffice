@@ -1,0 +1,77 @@
+import type { StaffRole } from '@/staff-roles';
+
+/** A section of the staff app: its address, and the key of its name under `web.nav`. */
+export interface NavItem {
+  href: string;
+  label:
+    | 'today'
+    | 'people'
+    | 'board'
+    | 'add'
+    | 'bandeja'
+    | 'imports'
+    | 'panel'
+    | 'census'
+    | 'next'
+    | 'campaigns'
+    | 'contacts'
+    | 'organisations'
+    | 'team'
+    | 'audit';
+}
+
+/** A group of sections in the menu, named under `web.nav` (groupOnboarding, groupOutreach, groupTeam). */
+export interface NavGroup {
+  id: 'onboarding' | 'outreach' | 'team';
+  items: NavItem[];
+}
+
+/**
+ * The menu's groups for a staff member's roles (PLAN M5): Onboarding to onboarding staff and admins, Relaciones
+ * externas to outreach staff and admins, Equipo to everyone (Registro in it to admins only). Censo is listed only while
+ * the census form is configured (CENSUS_URL): with it off there is nothing to send or to read there. Ajustes and Salir
+ * follow the groups, for everyone.
+ */
+export const navGroups = (
+  roles: readonly StaffRole[],
+  { census }: { census: boolean },
+): NavGroup[] => {
+  const admin = roles.includes('admin');
+  const onboarding = admin || roles.includes('onboarding');
+  const outreach = admin || roles.includes('outreach');
+  const groups: NavGroup[] = [];
+  if (onboarding) {
+    groups.push({
+      id: 'onboarding',
+      items: [
+        { href: '/', label: 'today' },
+        { href: '/personas', label: 'people' },
+        { href: '/pipeline', label: 'board' },
+        { href: '/anadir', label: 'add' },
+        { href: '/bandeja', label: 'bandeja' },
+        { href: '/importar', label: 'imports' },
+        { href: '/panel', label: 'panel' },
+        ...(census ? [{ href: '/censo', label: 'census' } as const] : []),
+      ],
+    });
+  }
+  if (outreach) {
+    groups.push({
+      id: 'outreach',
+      items: [
+        { href: '/siguiente', label: 'next' },
+        { href: '/campanas', label: 'campaigns' },
+        { href: '/contactos', label: 'contacts' },
+        { href: '/organizaciones', label: 'organisations' },
+      ],
+    });
+  }
+  groups.push({
+    id: 'team',
+    items: [
+      { href: '/equipo', label: 'team' },
+      ...(admin ? [{ href: '/registro', label: 'audit' } as const] : []),
+    ],
+  });
+  return groups;
+};
