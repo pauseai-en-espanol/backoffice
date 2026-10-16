@@ -379,11 +379,23 @@ describe('reporting through the bot', () => {
     expect(
       calls.filter((call) => call.method === 'deleteMessage').map((call) => call.body),
     ).toEqual([{ chat_id: telegramIds.onboarder, message_id: id }]);
-    const { rows } = await superuser.query<{ id: string; full_name: string; stage: string }>(
-      `SELECT p.id, p.full_name, p.stage::text FROM app.people p
-         JOIN app.identities i ON i.person_id = p.id WHERE i.value = '+34699100200'`,
+    const { rows } = await superuser.query<{
+      id: string;
+      full_name: string;
+      stage: string;
+      arrival: string;
+      today: boolean;
+    }>(
+      `SELECT p.id, p.full_name, p.stage::text, c.key AS arrival,
+              p.arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date AS today
+         FROM app.people p JOIN app.identities i ON i.person_id = p.id
+         LEFT JOIN app.arrival_channels c ON c.id = p.arrival_channel_id
+        WHERE i.value = '+34699100200'`,
     );
-    expect(rows).toMatchObject([{ full_name: 'Persona Telegram Uno', stage: 'new' }]);
+    // The bot is for WhatsApp arrivals: that is where they came from, today (PLAN M5).
+    expect(rows).toMatchObject([
+      { full_name: 'Persona Telegram Uno', stage: 'new', arrival: 'whatsapp', today: true },
+    ]);
     const events = await superuser.query(
       'SELECT DISTINCT channel FROM app.person_events WHERE person_id = $1',
       [rows[0]?.id],

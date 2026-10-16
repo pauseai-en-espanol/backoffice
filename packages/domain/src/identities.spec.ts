@@ -3,10 +3,25 @@ import { describe, expect, it } from 'vitest';
 import {
   foldName,
   normalizeAirtableId,
+  normalizeDiscord,
   normalizeEmail,
   normalizeIdentity,
   normalizePhone,
 } from './identities.js';
+
+describe('Discord usernames (PLAN M5)', () => {
+  it('are lowercased, trimmed and stripped of a leading @', () => {
+    expect(normalizeDiscord('  @Persona_De.Ejemplo ')).toBe('persona_de.ejemplo');
+    expect(normalizeIdentity('discord', 'ab')).toBe('ab');
+    expect(normalizeDiscord('x'.repeat(32))).toBe('x'.repeat(32));
+  });
+
+  it('refuse what Discord wouldn’t make', () => {
+    for (const raw of ['', 'a', 'x'.repeat(33), 'per..sona', 'per sona', 'persona#1234', 'peña']) {
+      expect(normalizeDiscord(raw), raw).toBeUndefined();
+    }
+  });
+});
 
 describe('emails', () => {
   it('are trimmed, lowercased and stripped of mailto: and brackets', () => {

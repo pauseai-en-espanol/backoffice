@@ -1,4 +1,4 @@
-import { normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
 import { parse } from 'csv-parse/sync';
 
 import type { IntakePayload } from '../people/intake.js';
@@ -19,6 +19,9 @@ export const CSV_FIELDS = [
   'chat',
   'note',
   'stage',
+  'discord',
+  'arrival',
+  'arrivedOn',
 ] as const;
 export type CsvField = (typeof CSV_FIELDS)[number];
 
@@ -85,6 +88,9 @@ const SYNONYMS: Readonly<Record<CsvField, readonly string[]>> = {
   chat: ['chat', 'grupo', 'grupo de whatsapp'],
   note: ['nota', 'notas', 'comentario', 'comentarios', 'observaciones', 'note', 'notes'],
   stage: ['estado', 'etapa', 'stage'],
+  discord: ['discord', 'usuario de discord', 'discord username'],
+  arrival: ['llego por', 'por donde llego', 'canal', 'via', 'origen'],
+  arrivedOn: ['llego el', 'fecha de llegada', 'llegada', 'fecha de alta', 'arrived', 'arrived on'],
 };
 
 /** A first guess at which column is which field: each field at most once, the first matching column. */
@@ -104,10 +110,13 @@ export const suggestMapping = (columns: readonly string[]): Record<string, CsvFi
   return mapping;
 };
 
-/** The stages an import may set (onboarding spec: existing members come in as these), by id or Spanish label. */
+/**
+ * The stages an import may set (onboarding spec: existing members come in as these), by id or Spanish label. "Por
+ * clasificar" is no longer a stage (PLAN M5): someone so marked comes in as new.
+ */
 const STAGE_WORDS: Readonly<Record<string, IntakePayload['stage']>> = {
-  to_triage: 'to_triage',
-  'por clasificar': 'to_triage',
+  to_triage: 'new',
+  'por clasificar': 'new',
   new: 'new',
   nuevo: 'new',
   nueva: 'new',
@@ -118,6 +127,31 @@ const STAGE_WORDS: Readonly<Record<string, IntakePayload['stage']>> = {
   activa: 'active',
 };
 
+/**
+ * "Llegó el" as spreadsheets write it: day/month/year (Spain's way, with `/`, `-` or `.`, a two-digit year in this
+ * century) or year-month-day. Undefined if it isn't a real date.
+ */
+export const readDate = (raw: string): string | undefined => {
+  const text = raw.trim();
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/u.exec(text);
+  const spanish = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/u.exec(text);
+  const [year, month, day] = iso
+    ? [Number(iso[1]), Number(iso[2]), Number(iso[3])]
+    : spanish
+      ? [
+          Number(spanish[3]) + (spanish[3]?.length === 2 ? 2000 : 0),
+          Number(spanish[2]),
+          Number(spanish[1]),
+        ]
+      : [Number.NaN, Number.NaN, Number.NaN];
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+    ? date.toISOString().slice(0, 10)
+    : undefined;
+};
+
 export interface MappedRows {
   rows: { payload: IntakePayload }[];
   /** 1-based, counting the header as row 1, as a spreadsheet numbers them. */
@@ -125,8 +159,10 @@ export interface MappedRows {
 }
 
 /**
- * Applies a mapping (column → field): emails and phones normalised, stages read in Spanish or English. A row without
- * a name, or with an email, phone or stage that isn't one, is left out and listed as invalid.
+ * Applies a mapping (column → field): emails, phones and Discord usernames normalised, stages read in Spanish or
+ * English, "Llegó el" as a date (an empty cell, when the column is there: nobody knows; PLAN M5) and "Llegó por" as
+ * written (the database matches it to the list, or leaves it empty). A row without a name, or with an email, phone,
+ * Discord username, stage or date that isn't one, is left out and listed as invalid.
  */
 export const mapRows = (
   parsed: ParsedCsv,
@@ -160,6 +196,17 @@ export const mapRows = (
       invalid.push({ row: line, field: 'phone' });
       return;
     }
+    const discords = values(row, 'discord').map((raw) => normalizeDiscord(raw));
+    if (discords.some((discord) => discord === undefined)) {
+      invalid.push({ row: line, field: 'discord' });
+      return;
+    }
+    const arrivedWord = values(row, 'arrivedOn')[0];
+    const arrivedOn = arrivedWord === undefined ? undefined : readDate(arrivedWord);
+    if (arrivedWord !== undefined && arrivedOn === undefined) {
+      invalid.push({ row: line, field: 'arrivedOn' });
+      return;
+    }
     const stageWord = values(row, 'stage')[0];
     const stage =
       stageWord === undefined
@@ -175,6 +222,9 @@ export const mapRows = (
       ...(first('preferredName') ? { preferred_name: first('preferredName') } : {}),
       ...(emails.length > 0 ? { emails: [...new Set(emails as string[])] } : {}),
       ...(phones.length > 0 ? { phones: [...new Set(phones as string[])] } : {}),
+      ...(discords.length > 0 ? { discords: [...new Set(discords as string[])] } : {}),
+      ...(index.has('arrivedOn') ? { arrived_on: arrivedOn ?? null } : {}),
+      ...(first('arrival') ? { arrival: first('arrival') } : {}),
       ...(first('province') ? { province: first('province') } : {}),
       ...(first('town') ? { town: first('town') } : {}),
       ...(first('chat') ? { chat: first('chat') } : {}),

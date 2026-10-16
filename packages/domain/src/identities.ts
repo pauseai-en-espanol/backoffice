@@ -4,7 +4,7 @@ import { type CountryCode, parsePhoneNumberFromString } from 'libphonenumber-js/
  * Ways to recognise a person (onboarding spec, concepts): a normalised identity belongs to at most one person, which
  * is what keeps one human from becoming two records. The database checks the same shapes (migration onboarding).
  */
-export const IDENTITY_KINDS = ['email', 'phone', 'airtable'] as const;
+export const IDENTITY_KINDS = ['email', 'phone', 'discord', 'airtable'] as const;
 export type IdentityKind = (typeof IDENTITY_KINDS)[number];
 
 /** Spain is where the community is: a number written without a country code is Spanish. */
@@ -36,6 +36,16 @@ export const normalizePhone = (
   return parsed?.isValid() ? parsed.number : undefined;
 };
 
+/**
+ * A Discord username as Discord makes them (PLAN M5): 2 to 32 lowercase letters, digits, underscores and dots, never two
+ * dots in a row. People write it with an `@` in front, or in capitals: both go. Undefined unless it is one; the old
+ * `name#1234` form no longer exists.
+ */
+export const normalizeDiscord = (raw: string): string | undefined => {
+  const value = raw.normalize('NFC').trim().replace(/^@/u, '').toLowerCase();
+  return /^[a-z0-9_.]{2,32}$/u.test(value) && !value.includes('..') ? value : undefined;
+};
+
 /** An Airtable record id: the identity of a signup from Global's view (ADR-0005). */
 export const normalizeAirtableId = (raw: string): string | undefined => {
   const value = raw.trim();
@@ -47,7 +57,9 @@ export const normalizeIdentity = (kind: IdentityKind, raw: string): string | und
     ? normalizeEmail(raw)
     : kind === 'phone'
       ? normalizePhone(raw)
-      : normalizeAirtableId(raw);
+      : kind === 'discord'
+        ? normalizeDiscord(raw)
+        : normalizeAirtableId(raw);
 
 /**
  * The letters the database folds (private.fold_name) and their plain forms: the accents of Spanish, Catalan,

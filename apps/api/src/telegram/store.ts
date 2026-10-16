@@ -133,7 +133,9 @@ const line = (row: PersonRow): PersonLine => ({
   reasons: row.reasons,
 });
 
+/** A report's intake: the bot is for WhatsApp arrivals (ADR-0004), so that is where they came from (PLAN M5). */
 const payload = (arrival: Arrival): Record<string, unknown> => ({
+  arrival: 'whatsapp',
   ...(arrival.name ? { name: arrival.name } : {}),
   ...(arrival.phones.length > 0 ? { phones: arrival.phones } : {}),
   ...(arrival.emails.length > 0 ? { emails: arrival.emails } : {}),

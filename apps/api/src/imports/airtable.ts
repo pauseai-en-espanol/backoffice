@@ -29,6 +29,8 @@ interface Column {
 
 interface Row {
   id: string;
+  /** When the signup was made, if the view says (Airtable's own field on each record). */
+  createdTime?: unknown;
   cellValuesByColumnId: Record<string, unknown>;
 }
 
@@ -174,9 +176,24 @@ export interface MappedView {
   skipped: { noPermission: number; duplicate: number; invalid: number };
 }
 
+/** The day, in Madrid, of an Airtable timestamp; undefined if it isn't one. */
+const madridDay = (value: unknown): string | undefined => {
+  if (typeof value !== 'string' || Number.isNaN(Date.parse(value))) {
+    return undefined;
+  }
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(value));
+  return /^\d{4}-\d{2}-\d{2}$/u.test(parts) ? parts : undefined;
+};
+
 /**
  * Turns the view into intake records, copying only the mapped fields (ADR-0005): the name, emails, phone, town,
- * languages and how they heard of PauseAI. A row Global marks as a duplicate is left out; so is one without the
+ * languages and how they heard of PauseAI; where they came from is always Global's form, and they arrived the day
+ * they signed up, when the row says (PLAN M5). A row Global marks as a duplicate is left out; so is one without the
  * chapter-share permission, if `requirePermission` is set (by default it isn't: PLAN R14).
  */
 export const mapSharedView = (
@@ -237,11 +254,14 @@ export const mapSharedView = (
     ];
     const town = text(cell(row, 'city'));
     const discovery = choiceName('discovery', cell(row, 'discovery'));
+    const signedUp = madridDay(row.createdTime);
     records.push({
       external_id: id,
       payload: {
         name: name.slice(0, 200),
         airtable_id: id,
+        arrival: 'airtable',
+        ...(signedUp ? { arrived_on: signedUp } : {}),
         ...(emails.length > 0 ? { emails: [...new Set(emails)] } : {}),
         ...(phones.length > 0 ? { phones } : {}),
         ...(town ? { town: town.slice(0, 100) } : {}),

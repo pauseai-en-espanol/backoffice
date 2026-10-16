@@ -1,13 +1,12 @@
 /**
  * Where a person is in onboarding (onboarding spec, stages). Identifiers are English, as in the database
  * (`app.stage`); labels are Spanish, in packages/i18n. The order is the expected path, which the board follows; any
- * stage can move to any other by hand.
+ * stage can move to any other by hand. Fewer since PLAN M5: `contacting` ("En contacto") also covers someone who
+ * replied, which each contact attempt says.
  */
 export const STAGES = [
-  'to_triage',
   'new',
   'contacting',
-  'talking',
   'welcomed',
   'active',
   'dormant',
@@ -20,8 +19,18 @@ export type Stage = (typeof STAGES)[number];
 export const isStage = (value: unknown): value is Stage =>
   typeof value === 'string' && (STAGES as readonly string[]).includes(value);
 
+/**
+ * Stages there were before PLAN M5 folded them (Por clasificar into Nuevo, En conversación into En contacto): only
+ * older history still names them.
+ */
+export const FORMER_STAGES = ['to_triage', 'talking'] as const;
+export type FormerStage = (typeof FORMER_STAGES)[number];
+
+export const isFormerStage = (value: unknown): value is FormerStage =>
+  typeof value === 'string' && (FORMER_STAGES as readonly string[]).includes(value);
+
 /** Stages in which someone is being onboarded: each should have a next action. */
-export const OPEN_STAGES: readonly Stage[] = ['new', 'contacting', 'talking', 'welcomed'];
+export const OPEN_STAGES: readonly Stage[] = ['new', 'contacting', 'welcomed'];
 
 /** Stages that close the next action: the person left or was discarded. */
 export const CLOSED_STAGES: readonly Stage[] = ['left', 'discarded'];

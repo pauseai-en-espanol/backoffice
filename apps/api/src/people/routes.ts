@@ -5,8 +5,10 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Transaction } from 'kysely';
 
 import { withActor } from '@backoffice/db/actor';
-import { normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
 import {
+  ATTENTION_REASONS,
+  type AttentionReason,
   CONTACT_CHANNELS,
   CONTACT_OUTCOMES,
   SOURCES,
@@ -34,6 +36,12 @@ import {
 } from '../imports/csv.js';
 import { createRateLimiter } from '../rate-limit.js';
 import { schemaRefusal } from '../schema-refusal.js';
+import {
+  addArrivalChannel,
+  changeArrivalChannel,
+  listArrivalChannels,
+  orderArrivalChannels,
+} from './arrival-channels.js';
 import {
   findCandidates,
   importCsv,
@@ -132,6 +140,18 @@ const filterOf = (query: Record<string, unknown>): PeopleFilter => {
       typeof query.source === 'string' && (SOURCES as readonly string[]).includes(query.source)
         ? query.source
         : undefined,
+    arrival:
+      query.arrival === 'none' ||
+      (typeof query.arrival === 'string' && /^[0-9a-f-]{36}$/u.test(query.arrival))
+        ? query.arrival
+        : undefined,
+    arrivedOn:
+      query.arrivedOn === 'known' || query.arrivedOn === 'unknown' ? query.arrivedOn : undefined,
+    reason:
+      typeof query.reason === 'string' &&
+      (ATTENTION_REASONS as readonly string[]).includes(query.reason)
+        ? (query.reason as AttentionReason)
+        : undefined,
     province: typeof query.province === 'string' ? query.province.slice(0, 100) : undefined,
   };
 };
@@ -150,6 +170,9 @@ const FILTER_QUERY = {
     attention: TEXT(5),
     inCommunity: TEXT(5),
     source: { type: 'string', enum: [...SOURCES] },
+    arrival: TEXT(36),
+    arrivedOn: { type: 'string', enum: ['known', 'unknown'] },
+    reason: { type: 'string', enum: [...ATTENTION_REASONS] },
     province: TEXT(100),
     limit: { type: 'integer', minimum: 1, maximum: 200 },
     cursor: TEXT(200),
@@ -344,15 +367,23 @@ export const peopleRoutes =
               },
               howHeard: NULLABLE_TEXT(500),
               stage: { type: 'string', enum: [...STAGES] },
+              // The day a stage change made now happened, if another (PLAN M5).
+              stageOn: DATE,
               ownerId: { anyOf: [UUID, { type: 'null' }] },
               nextAction: NULLABLE_TEXT(300),
               nextActionDue: { anyOf: [DATE, { type: 'null' }] },
+              // "Llegó el" (null: nobody knows) and "Llegó por" (PLAN M5).
+              arrivedOn: { anyOf: [DATE, { type: 'null' }] },
+              arrivalId: { anyOf: [UUID, { type: 'null' }] },
             },
           },
         },
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
+          if (request.body.stageOn !== undefined && request.body.stage === undefined) {
+            throw new Refusal(400, 'invalid', { field: 'stageOn' });
+          }
           const changed = await onboarding(db, actor, (trx) =>
             updatePerson(trx, request.params.id, request.body),
           );
@@ -377,7 +408,7 @@ export const peopleRoutes =
         }),
     );
 
-    scope.post<{ Params: { id: string }; Body: { body: string } }>(
+    scope.post<{ Params: { id: string }; Body: { body: string; happenedOn?: string } }>(
       '/people/:id/notes',
       {
         schema: {
@@ -386,14 +417,17 @@ export const peopleRoutes =
             type: 'object',
             required: ['body'],
             additionalProperties: false,
-            properties: { body: { type: 'string', minLength: 1, maxLength: 4000, pattern: '\\S' } },
+            properties: {
+              body: { type: 'string', minLength: 1, maxLength: 4000, pattern: '\\S' },
+              happenedOn: DATE,
+            },
           },
         },
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           await onboarding(db, actor, (trx) =>
-            addNote(trx, request.params.id, request.body.body.trim()),
+            addNote(trx, request.params.id, request.body.body.trim(), request.body.happenedOn),
           );
           return reply.code(201).send();
         }),
@@ -401,7 +435,7 @@ export const peopleRoutes =
 
     scope.post<{
       Params: { id: string };
-      Body: { channel: string; outcome: string; note?: string };
+      Body: { channel: string; outcome: string; note?: string; happenedOn?: string };
     }>(
       '/people/:id/attempts',
       {
@@ -415,6 +449,7 @@ export const peopleRoutes =
               channel: { type: 'string', enum: [...CONTACT_CHANNELS] },
               outcome: { type: 'string', enum: [...CONTACT_OUTCOMES] },
               note: TEXT(4000),
+              happenedOn: DATE,
             },
           },
         },
@@ -426,7 +461,10 @@ export const peopleRoutes =
         }),
     );
 
-    scope.post<{ Params: { id: string }; Body: { kind: 'email' | 'phone'; value: string } }>(
+    scope.post<{
+      Params: { id: string };
+      Body: { kind: 'email' | 'phone' | 'discord'; value: string };
+    }>(
       '/people/:id/identities',
       {
         schema: {
@@ -435,7 +473,10 @@ export const peopleRoutes =
             type: 'object',
             required: ['kind', 'value'],
             additionalProperties: false,
-            properties: { kind: { type: 'string', enum: ['email', 'phone'] }, value: TEXT(254) },
+            properties: {
+              kind: { type: 'string', enum: ['email', 'phone', 'discord'] },
+              value: TEXT(254),
+            },
           },
         },
       },
@@ -569,11 +610,14 @@ export const peopleRoutes =
         name?: string;
         phone?: string;
         email?: string;
+        discord?: string;
         province?: string;
         town?: string;
         chat?: string;
         note?: string;
-        stage?: 'to_triage' | 'new' | 'welcomed' | 'active';
+        stage?: 'new' | 'welcomed' | 'active';
+        arrival?: string;
+        arrivedOn?: string | null;
         decision?: 'new' | 'attach';
         target?: string;
       };
@@ -588,11 +632,15 @@ export const peopleRoutes =
               name: TEXT(200),
               phone: TEXT(50),
               email: TEXT(254),
+              discord: TEXT(40),
               province: TEXT(100),
               town: TEXT(100),
               chat: TEXT(100),
               note: TEXT(4000),
-              stage: { type: 'string', enum: ['to_triage', 'new', 'welcomed', 'active'] },
+              stage: { type: 'string', enum: ['new', 'welcomed', 'active'] },
+              // "Llegó por", an entry of the list; "Llegó el": null when nobody knows, left out for today (PLAN M5).
+              arrival: UUID,
+              arrivedOn: { anyOf: [DATE, { type: 'null' }] },
               decision: { type: 'string', enum: ['new', 'attach'] },
               target: UUID,
             },
@@ -601,21 +649,37 @@ export const peopleRoutes =
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const { name, phone, email, province, town, chat, note, stage, decision, target } =
-            request.body;
+          const {
+            name,
+            phone,
+            email,
+            discord,
+            province,
+            town,
+            chat,
+            note,
+            stage,
+            arrival,
+            decision,
+            target,
+          } = request.body;
           const phones = phone?.trim() ? normalizePhone(phone) : null;
           const emails = email?.trim() ? normalizeEmail(email) : null;
+          const discords = discord?.trim() ? normalizeDiscord(discord) : null;
           if (phones === undefined) {
             throw new Refusal(400, 'invalid', { field: 'phone' });
           }
           if (emails === undefined) {
             throw new Refusal(400, 'invalid', { field: 'email' });
           }
+          if (discords === undefined) {
+            throw new Refusal(400, 'invalid', { field: 'discord' });
+          }
           if (decision === 'attach' && !target) {
             throw new Refusal(400, 'invalid', { field: 'target' });
           }
-          // A name, or a phone or an email to find them by (PLAN R37: most arrivals come with only a phone).
-          if (!name?.trim() && !phones && !emails) {
+          // A name, or a phone, an email or a Discord username to find them by (PLAN R37, M5).
+          if (!name?.trim() && !phones && !emails && !discords) {
             throw new Refusal(400, 'invalid', { field: 'name' });
           }
           const clean = (value: string | undefined) => (value?.trim() ? value.trim() : undefined);
@@ -627,6 +691,11 @@ export const peopleRoutes =
                 ...(clean(name) ? { name: clean(name) } : {}),
                 ...(phones ? { phones: [phones] } : {}),
                 ...(emails ? { emails: [emails] } : {}),
+                ...(discords ? { discords: [discords] } : {}),
+                ...(arrival ? { arrival } : {}),
+                ...('arrivedOn' in request.body
+                  ? { arrived_on: request.body.arrivedOn ?? null }
+                  : {}),
                 ...(clean(province) ? { province: clean(province) } : {}),
                 ...(clean(town) ? { town: clean(town) } : {}),
                 ...(clean(chat) ? { chat: clean(chat) } : {}),
@@ -817,10 +886,99 @@ export const peopleRoutes =
               province: row.payload.province ?? null,
               town: row.payload.town ?? null,
               stage: row.payload.stage ?? null,
+              discord: row.payload.discords?.[0] ?? null,
+              arrival: row.payload.arrival ?? null,
+              arrivedOn: row.payload.arrived_on ?? null,
             })),
             invalid: mapped.invalid,
             counts: dry,
           };
+        }),
+    );
+
+    // Where people come from ("Llegó por", PLAN M5): onboarding staff read the list, admins edit it -------------------
+
+    scope.get('/arrival-channels', async (request, reply) =>
+      signedIn(request, reply, async (db, actor) =>
+        onboarding(db, actor, async (trx) => ({ channels: await listArrivalChannels(trx) })),
+      ),
+    );
+
+    const LABEL = { type: 'string', minLength: 1, maxLength: 80, pattern: '\\S' } as const;
+
+    scope.post<{ Body: { label: string } }>(
+      '/arrival-channels',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['label'],
+            additionalProperties: false,
+            properties: { label: LABEL },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const id = await withActor(db, actor, async (trx) => {
+            await require(trx, ADMIN);
+            return addArrivalChannel(trx, request.body.label.trim());
+          });
+          return reply.code(201).send({ id });
+        }),
+    );
+
+    scope.put<{ Body: { ids: string[] } }>(
+      '/arrival-channels/order',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            required: ['ids'],
+            additionalProperties: false,
+            properties: { ids: { type: 'array', maxItems: 200, items: UUID } },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const done = await withActor(db, actor, async (trx) => {
+            await require(trx, ADMIN);
+            return orderArrivalChannels(trx, request.body.ids);
+          });
+          if (!done) {
+            throw new Refusal(409, 'changed');
+          }
+          return reply.code(204).send();
+        }),
+    );
+
+    scope.patch<{ Params: { id: string }; Body: { label?: string; active?: boolean } }>(
+      '/arrival-channels/:id',
+      {
+        schema: {
+          params: ID_PARAMS,
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            minProperties: 1,
+            properties: { label: LABEL, active: { type: 'boolean' } },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const changed = await withActor(db, actor, async (trx) => {
+            await require(trx, ADMIN);
+            return changeArrivalChannel(trx, request.params.id, {
+              label: request.body.label?.trim(),
+              active: request.body.active,
+            });
+          });
+          if (!changed) {
+            throw new Refusal(404, 'notFound');
+          }
+          return reply.code(204).send();
         }),
     );
 
@@ -892,8 +1050,11 @@ export const peopleRoutes =
                   'provincia',
                   'emails',
                   'telefonos',
+                  'discord',
                   'en_comunidad',
                   'fuentes',
+                  'llego_por',
+                  'llego_el',
                   'siguiente_paso',
                   'fecha',
                   'alta',
@@ -911,8 +1072,13 @@ export const peopleRoutes =
                     identities
                       .filter((i) => i.person_id === person.id && i.kind === 'phone')
                       .map((i) => i.value),
+                    identities
+                      .filter((i) => i.person_id === person.id && i.kind === 'discord')
+                      .map((i) => i.value),
                     person.inCommunity ? 'sí' : 'no',
                     person.sources,
+                    person.arrival?.label ?? '',
+                    person.arrivedOn ?? '',
                     person.nextAction,
                     person.nextActionDue,
                     person.createdAt,

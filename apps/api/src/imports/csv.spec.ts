@@ -68,6 +68,62 @@ describe('CSV imports', () => {
     ]);
   });
 
+  it('retrofills older members: when they arrived (empty: nobody knows), where from, Discord, and the old “Por clasificar” as new (PLAN M5)', () => {
+    expect(suggestMapping(['Llegó el', 'Llegó por', 'Discord'])).toEqual({
+      'Llegó el': 'arrivedOn',
+      'Llegó por': 'arrival',
+      Discord: 'discord',
+    });
+    const parsed = parseCsv(
+      [
+        'Nombre;Llegó el;Llegó por;Discord;Etapa',
+        'Ana;03/02/2025;WhatsApp;@Ana_Ejemplo;Activo',
+        'Bea;2024-12-31;;;Por clasificar',
+        'Carla;;Discord;carla.ejemplo;',
+        'Dani;31/02/2025;;;',
+        'Eva;5.1.24;;;',
+        'Fran;;;fran..mal;',
+      ].join('\n'),
+    );
+    const mapped = mapRows(parsed, {
+      Nombre: 'name',
+      'Llegó el': 'arrivedOn',
+      'Llegó por': 'arrival',
+      Discord: 'discord',
+      Etapa: 'stage',
+    });
+    expect(mapped.rows).toEqual([
+      {
+        payload: {
+          name: 'Ana',
+          discords: ['ana_ejemplo'],
+          arrived_on: '2025-02-03',
+          arrival: 'WhatsApp',
+          stage: 'active',
+        },
+      },
+      { payload: { name: 'Bea', arrived_on: '2024-12-31', stage: 'new' } },
+      {
+        payload: {
+          name: 'Carla',
+          discords: ['carla.ejemplo'],
+          arrived_on: null,
+          arrival: 'Discord',
+        },
+      },
+      { payload: { name: 'Eva', arrived_on: '2024-01-05' } },
+    ]);
+    expect(mapped.invalid).toEqual([
+      { row: 5, field: 'arrivedOn' },
+      { row: 7, field: 'discord' },
+    ]);
+  });
+
+  it('leaves the arrival day to the database when the file has no such column', () => {
+    const mapped = mapRows(parseCsv('Nombre\nAna\n'), { Nombre: 'name' });
+    expect(mapped.rows).toEqual([{ payload: { name: 'Ana' } }]);
+  });
+
   it('refuses an empty or unreadable file', () => {
     expect(() => parseCsv('')).toThrow(CsvError);
     expect(() => parseCsv('"sin cerrar\n')).toThrow(CsvError);

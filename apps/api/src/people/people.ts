@@ -1,7 +1,7 @@
 import type { DB } from '@backoffice/db/generated/db';
 import type { AttentionReason, Stage } from '@backoffice/domain/stages';
 
-import { normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
 import { type RawBuilder, sql, type Transaction } from 'kysely';
 
 /**
@@ -26,6 +26,10 @@ export interface PersonSummary {
   reasons: AttentionReason[];
   inCommunity: boolean;
   sources: string[];
+  /** "Llegó el": null when nobody knows (PLAN M5). */
+  arrivedOn: string | null;
+  /** "Llegó por", from the list in Ajustes. */
+  arrival: { id: string; label: string } | null;
   createdAt: string;
 }
 
@@ -42,6 +46,9 @@ interface SummaryRow {
   reasons: AttentionReason[];
   in_community: boolean;
   sources: string[];
+  arrived_on: string | null;
+  arrival_id: string | null;
+  arrival_label: string | null;
   created_at: string;
 }
 
@@ -51,12 +58,14 @@ const SUMMARY_COLUMNS = sql`
   EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = p.id AND c.left_on IS NULL) AS in_community,
   ARRAY(SELECT ps.source::text FROM app.person_sources ps WHERE ps.person_id = p.id ORDER BY ps.first_seen_at)
     AS sources,
+  to_char(p.arrived_on, 'YYYY-MM-DD') AS arrived_on, ac.id AS arrival_id, ac.label AS arrival_label,
   to_json(p.created_at)#>>'{}' AS created_at`;
 
 const SUMMARY_FROM = sql`
   app.people p
   LEFT JOIN app.people_attention a ON a.person_id = p.id
-  LEFT JOIN app.staff s ON s.user_id = p.owner_id`;
+  LEFT JOIN app.staff s ON s.user_id = p.owner_id
+  LEFT JOIN app.arrival_channels ac ON ac.id = p.arrival_channel_id`;
 
 const toSummary = (row: SummaryRow): PersonSummary => ({
   id: row.id,
@@ -70,6 +79,9 @@ const toSummary = (row: SummaryRow): PersonSummary => ({
   reasons: row.reasons,
   inCommunity: row.in_community,
   sources: row.sources,
+  arrivedOn: row.arrived_on,
+  arrival:
+    row.arrival_id && row.arrival_label ? { id: row.arrival_id, label: row.arrival_label } : null,
   createdAt: row.created_at,
 });
 
@@ -81,20 +93,31 @@ export interface PeopleFilter {
   attention?: boolean | undefined;
   inCommunity?: boolean | undefined;
   source?: string | undefined;
+  /** "Llegó por": an entry's id, or `none` for not said. */
+  arrival?: string | undefined;
+  /** Whether "Llegó el" is known. */
+  arrivedOn?: 'known' | 'unknown' | undefined;
+  /** One attention reason: Hoy's "Ver los N sin asignar" is `unassigned`. */
+  reason?: AttentionReason | undefined;
   province?: string | undefined;
 }
 
-/** The conditions a filter adds, for the actor `me`. Names match folded and typo-tolerant; phones and emails exactly. */
+/**
+ * The conditions a filter adds, for the actor `me`. Names match folded and typo-tolerant; phones, emails and Discord
+ * usernames exactly.
+ */
 const conditions = (filter: PeopleFilter, me: string): RawBuilder<unknown>[] => {
   const where: RawBuilder<unknown>[] = [sql`p.merged_into IS NULL AND p.anonymised_at IS NULL`];
   const q = filter.q?.trim();
   if (q) {
     const phone = normalizePhone(q);
     const email = normalizeEmail(q);
+    const discord = normalizeDiscord(q);
     where.push(sql`(p.name_folded LIKE '%' || private.fold_name(${q}) || '%'
                     OR extensions.similarity(p.name_folded, private.fold_name(${q})) >= 0.35
                     OR EXISTS (SELECT 1 FROM app.identities i WHERE i.person_id = p.id
-                                AND i.value IN (${phone ?? ''}, ${email ?? ''})))`);
+                                AND ((i.kind IN ('phone', 'email') AND i.value IN (${phone ?? ''}, ${email ?? ''}))
+                                     OR (i.kind = 'discord' AND i.value = ${discord ?? ''}))))`);
   }
   if (filter.stages && filter.stages.length > 0) {
     where.push(sql`p.stage::text IN (${sql.join(filter.stages)})`);
@@ -116,6 +139,19 @@ const conditions = (filter: PeopleFilter, me: string): RawBuilder<unknown>[] => 
   if (filter.source) {
     where.push(sql`EXISTS (SELECT 1 FROM app.person_sources ps WHERE ps.person_id = p.id
                             AND ps.source::text = ${filter.source})`);
+  }
+  if (filter.arrival === 'none') {
+    where.push(sql`p.arrival_channel_id IS NULL`);
+  } else if (filter.arrival) {
+    where.push(sql`p.arrival_channel_id = ${filter.arrival}`);
+  }
+  if (filter.arrivedOn) {
+    where.push(
+      filter.arrivedOn === 'known' ? sql`p.arrived_on IS NOT NULL` : sql`p.arrived_on IS NULL`,
+    );
+  }
+  if (filter.reason) {
+    where.push(sql`${filter.reason} = ANY (a.reasons)`);
   }
   if (filter.province?.trim()) {
     where.push(sql`private.fold_name(p.province) = private.fold_name(${filter.province})`);
@@ -176,10 +212,20 @@ export const summariesOf = async (
 };
 
 /**
- * The Panel (onboarding spec, views; M4): people by stage; arrivals per week (Monday to Sunday, in Madrid) by the
- * source they first came from; how long the arrivals of those weeks waited for a first contact attempt; and who has
- * waited more than 48 hours with nobody on them. Counts only, but for the unassigned, who are named so someone can
- * take them. Anonymised people count where they were; merged duplicates don't.
+ * When someone arrived, as a moment: the time they were added, if they arrived that day, else the start of the day
+ * they arrived (Madrid). Null when nobody knows.
+ */
+const ARRIVAL_AT = sql`CASE WHEN p.arrived_on IS NULL THEN NULL
+                            WHEN p.arrived_on = (p.created_at AT TIME ZONE 'Europe/Madrid')::date THEN p.created_at
+                            ELSE (p.arrived_on::timestamp AT TIME ZONE 'Europe/Madrid') END`;
+
+/**
+ * The Panel (onboarding spec, views; M4, PLAN M5): people by stage; arrivals per week (Monday to Sunday, in Madrid), by
+ * the day they arrived ("Llegó el"), by the source they first came in through and by where they came from ("Llegó
+ * por"); how long the arrivals of those weeks waited for a first contact attempt (by the day it happened, if it says);
+ * and who has waited more than 48 hours with nobody on them. Whoever's arrival nobody knows is left out of the weeks
+ * and the waits, and counted apart. Counts only, but for the unassigned, who are named so someone can take them.
+ * Anonymised people count where they were; merged duplicates don't.
  */
 export const panel = async (trx: Transaction<DB>, weeks: number) => {
   const stages = Object.fromEntries(
@@ -189,24 +235,31 @@ export const panel = async (trx: Transaction<DB>, weeks: number) => {
          WHERE merged_into IS NULL GROUP BY 1`.execute(trx)
     ).rows.map((row) => [row.stage, row.n]),
   );
-  const since = sql`(date_trunc('week', now() AT TIME ZONE 'Europe/Madrid') - make_interval(weeks => ${weeks - 1}))
-                      AT TIME ZONE 'Europe/Madrid'`;
-  const arrivals = (
-    await sql<{ week: string; counts: Record<string, number> }>`
+  const since = sql`(date_trunc('week', now() AT TIME ZONE 'Europe/Madrid') - make_interval(weeks => ${weeks - 1}))::date`;
+  const weekly = (
+    await sql<{ week: string; counts: Record<string, number>; channels: Record<string, number> }>`
       WITH weeks AS (
         SELECT (date_trunc('week', now() AT TIME ZONE 'Europe/Madrid') - make_interval(weeks => g))::date AS week
           FROM generate_series(0, ${weeks - 1}) AS g),
       arrived AS (
-        SELECT date_trunc('week', p.created_at AT TIME ZONE 'Europe/Madrid')::date AS week,
+        SELECT date_trunc('week', p.arrived_on)::date AS week,
                coalesce((SELECT ps.source::text FROM app.person_sources ps WHERE ps.person_id = p.id
-                          ORDER BY ps.first_seen_at LIMIT 1), 'manual') AS source
+                          ORDER BY ps.first_seen_at LIMIT 1), 'manual') AS source,
+               coalesce(p.arrival_channel_id::text, 'none') AS channel
           FROM app.people p
-         WHERE p.merged_into IS NULL AND p.created_at >= ${since}),
-      tally AS (SELECT week, source, count(*)::int AS n FROM arrived GROUP BY 1, 2)
+         WHERE p.merged_into IS NULL AND p.arrived_on >= ${since}),
+      by_source AS (SELECT week, source, count(*)::int AS n FROM arrived GROUP BY 1, 2),
+      by_channel AS (SELECT week, channel, count(*)::int AS n FROM arrived GROUP BY 1, 2)
       SELECT to_char(w.week, 'YYYY-MM-DD') AS week,
-             coalesce(jsonb_object_agg(t.source, t.n) FILTER (WHERE t.source IS NOT NULL), '{}') AS counts
-        FROM weeks w LEFT JOIN tally t ON t.week = w.week
-       GROUP BY w.week ORDER BY w.week`.execute(trx)
+             coalesce((SELECT jsonb_object_agg(t.source, t.n) FROM by_source t WHERE t.week = w.week), '{}') AS counts,
+             coalesce((SELECT jsonb_object_agg(c.channel, c.n) FROM by_channel c WHERE c.week = w.week), '{}')
+               AS channels
+        FROM weeks w
+       ORDER BY w.week`.execute(trx)
+  ).rows;
+  const channels = (
+    await sql<{ id: string; label: string; active: boolean }>`
+      SELECT id, label, active FROM app.arrival_channels ORDER BY position, label`.execute(trx)
   ).rows;
   const [waited] = (
     await sql<{
@@ -216,30 +269,46 @@ export const panel = async (trx: Transaction<DB>, weeks: number) => {
       p90_hours: number | null;
     }>`
       WITH arrivals AS (
-        SELECT p.created_at,
-               (SELECT min(e.created_at) FROM app.person_events e
+        SELECT ${ARRIVAL_AT} AS arrived_at,
+               (SELECT min(CASE WHEN e.happened_on IS NULL THEN e.created_at
+                                ELSE (e.happened_on::timestamp AT TIME ZONE 'Europe/Madrid') END)
+                  FROM app.person_events e
                  WHERE e.person_id = p.id AND e.kind = 'contact_attempt') AS first_contact
           FROM app.people p
-         WHERE p.merged_into IS NULL AND p.created_at >= ${since})
-      SELECT count(*)::int AS arrived, count(first_contact)::int AS contacted,
-             (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY extract(epoch FROM first_contact - created_at) / 3600)
-                FROM arrivals WHERE first_contact IS NOT NULL) AS median_hours,
-             (SELECT percentile_cont(0.9) WITHIN GROUP (ORDER BY extract(epoch FROM first_contact - created_at) / 3600)
-                FROM arrivals WHERE first_contact IS NOT NULL) AS p90_hours
-        FROM arrivals`.execute(trx)
+         WHERE p.merged_into IS NULL AND p.arrived_on >= ${since}),
+      waits AS (
+        SELECT greatest(extract(epoch FROM first_contact - arrived_at) / 3600, 0) AS hours
+          FROM arrivals WHERE first_contact IS NOT NULL)
+      SELECT (SELECT count(*)::int FROM arrivals) AS arrived,
+             (SELECT count(*)::int FROM waits) AS contacted,
+             (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY hours) FROM waits) AS median_hours,
+             (SELECT percentile_cont(0.9) WITHIN GROUP (ORDER BY hours) FROM waits) AS p90_hours`.execute(
+      trx,
+    )
+  ).rows;
+  const [unknown] = (
+    await sql<{ n: number }>`
+      SELECT count(*)::int AS n FROM app.people p
+       WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.arrived_on IS NULL`.execute(
+      trx,
+    )
   ).rows;
   const unassigned = await sql<SummaryRow & { total: number }>`
     SELECT ${SUMMARY_COLUMNS}, count(*) OVER ()::int AS total FROM ${SUMMARY_FROM}
-     WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.stage = 'new' AND p.owner_id IS NULL
-       AND p.created_at < now() - interval '48 hours'
-     ORDER BY p.created_at
+     WHERE 'unassigned' = ANY (a.reasons) AND ${ARRIVAL_AT} < now() - interval '48 hours'
+     ORDER BY p.arrived_on, p.created_at
      LIMIT 50`.execute(trx);
   const hours = (value: number | null | undefined) =>
     value === null || value === undefined ? null : Math.round(Number(value) * 10) / 10;
   return {
     weeks,
     stages,
-    arrivals,
+    arrivals: weekly.map(({ week, counts }) => ({ week, counts })),
+    arrivalsByChannel: {
+      channels,
+      weeks: weekly.map(({ week, channels: counts }) => ({ week, counts })),
+    },
+    unknownArrival: unknown?.n ?? 0,
     firstContact: {
       arrived: waited?.arrived ?? 0,
       contacted: waited?.contacted ?? 0,
@@ -263,16 +332,14 @@ export const today = async (trx: Transaction<DB>, me: string) => {
      LIMIT 100`.execute(trx);
   const unassigned = await sql<SummaryRow>`
     SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
-     WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.stage = 'new' AND p.owner_id IS NULL
-     ORDER BY p.created_at
+     WHERE 'unassigned' = ANY (a.reasons)
+     ORDER BY p.arrived_on, p.created_at
      LIMIT 100`.execute(trx);
   const [counts] = (
     await sql<{ mine: number; unassigned: number; bandeja: number }>`
       SELECT (SELECT count(*)::int FROM app.people p JOIN app.people_attention a ON a.person_id = p.id
                WHERE p.owner_id = ${me} AND cardinality(a.reasons) > 0) AS mine,
-             (SELECT count(*)::int FROM app.people p
-               WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.stage = 'new'
-                 AND p.owner_id IS NULL) AS unassigned,
+             (SELECT count(*)::int FROM app.people_attention a WHERE 'unassigned' = ANY (a.reasons)) AS unassigned,
              (SELECT count(*)::int FROM app.intake_records i WHERE i.status IN ('review', 'conflict')) AS bandeja`.execute(
       trx,
     )
@@ -312,6 +379,8 @@ export interface TimelineEvent {
   channel: 'web' | 'bot' | null;
   body: string | null;
   data: Record<string, unknown>;
+  /** The day it happened, when someone said it wasn't the day it was written (PLAN M5). */
+  happenedOn: string | null;
 }
 
 /**
@@ -397,12 +466,14 @@ export const getPerson = async (trx: Transaction<DB>, id: string) => {
       channel: 'web' | 'bot' | null;
       body: string | null;
       data: Record<string, unknown>;
+      happened_on: string | null;
     }>`
       SELECT e.id, e.kind::text AS kind, to_json(e.created_at)#>>'{}' AS at, e.actor_id, s.display_name AS actor_name,
-             e.channel, e.body, e.data
+             e.channel, e.body, e.data, to_char(e.happened_on, 'YYYY-MM-DD') AS happened_on
         FROM app.person_events e LEFT JOIN app.staff s ON s.user_id = e.actor_id
        WHERE e.person_id = ANY (${[survivor, ...tombstones]}::uuid[])
-       ORDER BY e.created_at DESC, e.id DESC
+       ORDER BY coalesce(e.happened_on, (e.created_at AT TIME ZONE 'Europe/Madrid')::date) DESC, e.created_at DESC,
+                e.id DESC
        LIMIT 500`.execute(trx)
   ).rows.map((row): TimelineEvent => ({
     id: row.id,
@@ -412,6 +483,7 @@ export const getPerson = async (trx: Transaction<DB>, id: string) => {
     channel: row.channel,
     body: row.body,
     data: row.data,
+    happenedOn: row.happened_on,
   }));
   const phone = identities.find((identity) => identity.kind === 'phone')?.value;
   return {
@@ -459,9 +531,14 @@ export const PROFILE_FIELDS = {
   ownerId: 'owner_id',
   nextAction: 'next_action',
   nextActionDue: 'next_action_due',
+  arrivedOn: 'arrived_on',
+  arrivalId: 'arrival_channel_id',
 } as const;
 
-export type PersonChange = Partial<Record<keyof typeof PROFILE_FIELDS, unknown>>;
+export type PersonChange = Partial<Record<keyof typeof PROFILE_FIELDS, unknown>> & {
+  /** The day a stage change made now happened, if another (PLAN M5): its timeline event says so. */
+  stageOn?: string | undefined;
+};
 
 /** Changes a person; false if RLS shows none that may change (a tombstone, someone gone). */
 export const updatePerson = async (
@@ -481,8 +558,11 @@ export const updatePerson = async (
       if (column === 'availability') {
         return sql`availability = ${cleared}::app.availability`;
       }
-      if (column === 'next_action_due') {
-        return sql`next_action_due = ${cleared}::date`;
+      if (column === 'next_action_due' || column === 'arrived_on') {
+        return sql`${sql.ref(column)} = ${cleared}::date`;
+      }
+      if (column === 'arrival_channel_id') {
+        return sql`arrival_channel_id = ${cleared}::uuid`;
       }
       if (column === 'languages') {
         return sql`languages = ${cleared ?? []}::text[]`;
@@ -492,8 +572,12 @@ export const updatePerson = async (
   if (sets.length === 0) {
     return true;
   }
+  if (change.stageOn && change.stage) {
+    await sql`SELECT set_config('app.happened_on', ${change.stageOn}, true)`.execute(trx);
+  }
   const { rows } = await sql<{ id: string }>`
     UPDATE app.people SET ${sql.join(sets)} WHERE id = ${id} RETURNING id`.execute(trx);
+  await sql`SELECT set_config('app.happened_on', '', true)`.execute(trx);
   return rows.length === 1;
 };
 
@@ -502,35 +586,51 @@ export const claimPerson = async (trx: Transaction<DB>, id: string): Promise<boo
   (await sql<{ done: boolean }>`SELECT private.claim_person(${id}) AS done`.execute(trx)).rows[0]
     ?.done === true;
 
-export const addNote = async (trx: Transaction<DB>, id: string, body: string): Promise<void> => {
-  await sql`INSERT INTO app.person_events (person_id, kind, body) VALUES (${id}, 'note', ${body})`.execute(
-    trx,
-  );
+/** A note; `happenedOn` when what it tells happened another day (PLAN M5). */
+export const addNote = async (
+  trx: Transaction<DB>,
+  id: string,
+  body: string,
+  happenedOn?: string,
+): Promise<void> => {
+  await sql`
+    INSERT INTO app.person_events (person_id, kind, body, happened_on)
+    VALUES (${id}, 'note', ${body}, ${happenedOn ?? null}::date)`.execute(trx);
 };
 
+/** A contact attempt; `happenedOn` when it was made another day (PLAN M5), which the rules then count. */
 export const addAttempt = async (
   trx: Transaction<DB>,
   id: string,
-  attempt: { channel: string; outcome: string; note?: string | undefined },
+  attempt: {
+    channel: string;
+    outcome: string;
+    note?: string | undefined;
+    happenedOn?: string | undefined;
+  },
 ): Promise<void> => {
   await sql`
-    INSERT INTO app.person_events (person_id, kind, body, data)
+    INSERT INTO app.person_events (person_id, kind, body, data, happened_on)
     VALUES (${id}, 'contact_attempt', ${attempt.note?.trim() || null},
-            ${JSON.stringify({ channel: attempt.channel, outcome: attempt.outcome })}::jsonb)`.execute(
-    trx,
-  );
+            ${JSON.stringify({ channel: attempt.channel, outcome: attempt.outcome })}::jsonb,
+            ${attempt.happenedOn ?? null}::date)`.execute(trx);
 };
 
 export type AddIdentityResult = { id: string } | { taken: string | null } | 'invalid';
 
-/** Adds an email or phone, normalised; refused if someone else holds it. */
+/** Adds an email, phone or Discord username, normalised; refused if someone else holds it. */
 export const addIdentity = async (
   trx: Transaction<DB>,
   person: string,
-  kind: 'email' | 'phone',
+  kind: 'email' | 'phone' | 'discord',
   raw: string,
 ): Promise<AddIdentityResult> => {
-  const value = kind === 'email' ? normalizeEmail(raw) : normalizePhone(raw);
+  const value =
+    kind === 'email'
+      ? normalizeEmail(raw)
+      : kind === 'phone'
+        ? normalizePhone(raw)
+        : normalizeDiscord(raw);
   if (!value) {
     return 'invalid';
   }

@@ -49,7 +49,7 @@ export const censusProgress = async (trx: Transaction<DB>) => {
     await sql<{ id: string }>`
       SELECT p.id FROM app.people p
        WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.profile_completed_at IS NULL
-         AND p.stage IN ('to_triage', 'new', 'contacting', 'talking', 'welcomed', 'active')
+         AND p.stage IN ('new', 'contacting', 'welcomed', 'active')
        ORDER BY p.created_at
        LIMIT 200`.execute(trx)
   ).rows.map((row) => row.id);
@@ -274,10 +274,11 @@ export const exportPerson = async (
   const chain = await mergedChain(trx, person);
   const [survivor, ...merged] = chain;
   const profileOf = (id: string) => sql`
-    SELECT id, full_name, preferred_name, province, town, languages, pronouns, availability, how_heard, skills_other,
-           interests_other, stage, owner_id, next_action, next_action_due, profile_completed_at, merged_into,
-           anonymised_at, created_at, updated_at
-      FROM app.people WHERE id = ${id}`;
+    SELECT p.id, p.full_name, p.preferred_name, p.province, p.town, p.languages, p.pronouns, p.availability,
+           p.how_heard, p.skills_other, p.interests_other, p.stage, p.owner_id, p.next_action, p.next_action_due,
+           to_char(p.arrived_on, 'YYYY-MM-DD') AS arrived_on, c.label AS arrived_through, p.profile_completed_at,
+           p.merged_into, p.anonymised_at, p.created_at, p.updated_at
+      FROM app.people p LEFT JOIN app.arrival_channels c ON c.id = p.arrival_channel_id WHERE p.id = ${id}`;
   const [profile] = survivor ? await one(profileOf(survivor)) : [];
   if (!profile) {
     return undefined;

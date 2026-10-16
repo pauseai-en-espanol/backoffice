@@ -47,6 +47,8 @@ export interface IntakePayload {
   preferred_name?: string;
   emails?: string[];
   phones?: string[];
+  /** Discord usernames, normalised (PLAN M5). */
+  discords?: string[];
   airtable_id?: string;
   province?: string;
   town?: string;
@@ -54,8 +56,12 @@ export interface IntakePayload {
   how_heard?: string;
   chat?: string;
   note?: string;
-  stage?: 'to_triage' | 'new' | 'welcomed' | 'active';
+  stage?: 'new' | 'welcomed' | 'active';
   joined_on?: string;
+  /** "Llegó el", YYYY-MM-DD; null when nobody knows; left out, today (PLAN M5). */
+  arrived_on?: string | null;
+  /** "Llegó por": an entry of the list by id, key or label (PLAN M5). */
+  arrival?: string;
 }
 
 export interface Submitted {

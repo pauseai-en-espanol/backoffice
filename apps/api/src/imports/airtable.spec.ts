@@ -41,6 +41,8 @@ const view: SharedView = {
   rows: [
     {
       id: 'recEjemplo0000001',
+      // Late on 1 March in UTC: already 2 March in Madrid.
+      createdTime: '2026-03-01T23:30:00.000Z',
       cellValuesByColumnId: {
         fldName: ' Ana Ejemplo ',
         fldEmail: 'Ana@Ejemplo.test',
@@ -70,7 +72,7 @@ const view: SharedView = {
 };
 
 describe('mapping Global’s view', () => {
-  it('copies only the mapped fields, normalised, of rows with the chapter permission', () => {
+  it('copies only the mapped fields, normalised, of rows with the chapter permission; Global’s form is where they came from, the day they signed up (in Madrid) when they arrived', () => {
     const mapped = mapSharedView(view, { requirePermission: true });
     expect(mapped.records).toEqual([
       {
@@ -78,6 +80,8 @@ describe('mapping Global’s view', () => {
         payload: {
           name: 'Ana Ejemplo',
           airtable_id: 'recEjemplo0000001',
+          arrival: 'airtable',
+          arrived_on: '2026-03-02',
           emails: ['ana@ejemplo.test'],
           phones: ['+34612345678'],
           town: 'Ciudad de ejemplo',
@@ -94,6 +98,16 @@ describe('mapping Global’s view', () => {
     expect(
       mapSharedView(view, { requirePermission: false }).records.map((r) => r.external_id),
     ).toEqual(['recEjemplo0000001', 'recEjemplo0000002']);
+  });
+
+  it('leaves the arrival day to the database when a row doesn’t say when it was made (PLAN M5)', () => {
+    const [, other] = mapSharedView(view, { requirePermission: false }).records;
+    expect(other?.payload).toEqual({
+      name: 'Sin permiso',
+      airtable_id: 'recEjemplo0000002',
+      arrival: 'airtable',
+      emails: ['b@ejemplo.test'],
+    });
   });
 
   it('fails loudly when the columns it needs are gone', () => {

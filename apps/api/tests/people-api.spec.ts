@@ -308,7 +308,7 @@ describe('onboarding through the staff API (M1)', () => {
       };
       timeline: { kind: string; channel: string }[];
     }>();
-    expect(page.person.stage).toBe('talking');
+    expect(page.person.stage).toBe('contacting');
     expect(page.person.owner.userId).toBe(onboarder.id);
     expect(page.person.identities.map((i) => i.value)).toEqual([`+34${phone}`]);
     expect(page.person.whatsapp).toBe(`https://wa.me/34${phone}`);
@@ -454,7 +454,7 @@ describe('onboarding through the staff API (M1)', () => {
     people.push(...rows.map((r) => r.person_id));
   });
 
-  it('shows the Panel: by stage, arrivals by week and source, time to first contact, the unassigned', async () => {
+  it('shows the Panel: by stage, arrivals by week, source and where from, time to first contact, the unassigned, and who has no arrival day', async () => {
     const add = async (name: string) => {
       const added = await onboarder.who.send('POST', '/api/intake', {
         name,
@@ -467,13 +467,18 @@ describe('onboarding through the staff API (M1)', () => {
     };
     const waiting = await add(`Panel Esperando ${suffix()}`);
     const contacted = await add(`Panel Contactada ${suffix()}`);
-    // Arrived three days ago: as superuser, past the stamp that dates rows now.
-    await superuser.query("SET session_replication_role = 'replica'");
-    await superuser.query(
-      "UPDATE app.people SET created_at = now() - interval '3 days' WHERE id = ANY($1::uuid[])",
-      [[waiting, contacted]],
-    );
-    await superuser.query("SET session_replication_role = 'origin'");
+    const undated = await add(`Panel Sin Fecha ${suffix()}`);
+    // Arrived three days ago, as the staff app says it (PLAN M5); and one whose arrival nobody knows.
+    const threeDaysAgo = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+    for (const id of [waiting, contacted]) {
+      expect(
+        (await onboarder.who.send('PATCH', `/api/people/${id}`, { arrivedOn: threeDaysAgo }))
+          .statusCode,
+      ).toBe(204);
+    }
+    expect(
+      (await onboarder.who.send('PATCH', `/api/people/${undated}`, { arrivedOn: null })).statusCode,
+    ).toBe(204);
     expect(
       (
         await onboarder.who.send('POST', `/api/people/${contacted}/attempts`, {
@@ -489,6 +494,11 @@ describe('onboarding through the staff API (M1)', () => {
       weeks: number;
       stages: Record<string, number>;
       arrivals: { week: string; counts: Record<string, number> }[];
+      arrivalsByChannel: {
+        channels: { id: string; label: string }[];
+        weeks: { week: string; counts: Record<string, number> }[];
+      };
+      unknownArrival: number;
       firstContact: { arrived: number; contacted: number; medianHours: number | null };
       unassigned: { count: number; people: { id: string }[] };
     }>();
@@ -501,10 +511,21 @@ describe('onboarding through the staff API (M1)', () => {
     expect(new Date(`${shown.arrivals[0]?.week ?? ''}T12:00:00Z`).getUTCDay()).toBe(1);
     const total = shown.arrivals.reduce((sum, week) => sum + (week.counts.manual ?? 0), 0);
     expect(total).toBeGreaterThanOrEqual(2);
+    expect(shown.arrivalsByChannel.channels.map((c) => c.label)).toContain('WhatsApp');
+    expect(shown.arrivalsByChannel.weeks.map((week) => week.week)).toEqual(
+      shown.arrivals.map((week) => week.week),
+    );
+    const notSaid = shown.arrivalsByChannel.weeks.reduce(
+      (sum, week) => sum + (week.counts.none ?? 0),
+      0,
+    );
+    expect(notSaid).toBeGreaterThanOrEqual(2);
+    expect(shown.unknownArrival).toBeGreaterThanOrEqual(1);
     expect(shown.firstContact.contacted).toBeGreaterThanOrEqual(1);
     expect(shown.firstContact.medianHours).not.toBeNull();
     const unassigned = shown.unassigned.people.map((person) => person.id);
     expect(unassigned).toContain(waiting);
+    expect(unassigned).not.toContain(undated);
     // Contacted, though still nobody's: the attempt moved them on from new.
     expect(unassigned).not.toContain(contacted);
     expect((await outreacher.who.send('GET', '/api/panel')).statusCode).toBe(403);
@@ -547,5 +568,162 @@ describe('onboarding through the staff API (M1)', () => {
       [admin.id],
     );
     expect(rows).toEqual([{ kind: 'people_csv', row_count: expect.any(Number) }]);
+  });
+});
+
+describe('when and where from, and Discord (PLAN M5)', () => {
+  const channelsFor = async (who: typeof onboarder) =>
+    (await who.who.send('GET', '/api/arrival-channels')).json<{
+      channels: { id: string; key: string | null; label: string; active: boolean }[];
+    }>().channels;
+
+  it('quick-adds someone from Discord, with where from and when, and finds them by their username', async () => {
+    const discord = (await channelsFor(onboarder)).find((channel) => channel.key === 'discord');
+    expect(discord?.label).toBe('Discord');
+    const username = `persona_disc_${suffix()}`;
+    const added = await onboarder.who.send('POST', '/api/intake', {
+      name: `Desde Discord ${suffix()}`,
+      discord: `@${username.toUpperCase()}`,
+      arrival: discord?.id,
+      arrivedOn: '2025-01-15',
+    });
+    expect(added.statusCode).toBe(201);
+    const { personId } = added.json<{ personId: string }>();
+    people.push(personId);
+    const page = (await onboarder.who.send('GET', `/api/people/${personId}`)).json<{
+      person: {
+        arrivedOn: string | null;
+        arrival: { label: string } | null;
+        identities: { kind: string; value: string }[];
+        reasons: string[];
+      };
+    }>();
+    expect(page.person.arrivedOn).toBe('2025-01-15');
+    expect(page.person.arrival?.label).toBe('Discord');
+    expect(page.person.identities).toMatchObject([{ kind: 'discord', value: username }]);
+    // Arrived long ago: not someone to take from Hoy.
+    expect(page.person.reasons).not.toContain('unassigned');
+    const ids = async (query: string) =>
+      (await onboarder.who.send('GET', `/api/people?${query}`))
+        .json<{ people: { id: string }[] }>()
+        .people.map((person) => person.id);
+    expect(await ids(`q=${encodeURIComponent(`@${username}`)}`)).toEqual([personId]);
+    expect(await ids(`arrival=${discord?.id}&limit=200`)).toContain(personId);
+    expect(await ids('arrival=none&limit=200')).not.toContain(personId);
+    expect(await ids('arrivedOn=unknown&limit=200')).not.toContain(personId);
+    expect(
+      (await onboarder.who.send('POST', '/api/intake', { name: 'Mal usuario', discord: 'a' }))
+        .statusCode,
+    ).toBe(400);
+  });
+
+  it('may not know when someone arrived: never unassigned, and found by that (Dani, 2026-10-16)', async () => {
+    const added = await onboarder.who.send('POST', '/api/intake', {
+      name: `Sin fecha ${suffix()}`,
+      email: `sin.fecha.${suffix()}@ejemplo.test`,
+      arrivedOn: null,
+    });
+    const { personId } = added.json<{ personId: string }>();
+    people.push(personId);
+    const page = (await onboarder.who.send('GET', `/api/people/${personId}`)).json<{
+      person: { arrivedOn: string | null; reasons: string[] };
+    }>();
+    expect(page.person).toMatchObject({ arrivedOn: null, reasons: ['no_next_step'] });
+    const unknown = (await onboarder.who.send('GET', '/api/people?arrivedOn=unknown&limit=200'))
+      .json<{ people: { id: string }[] }>()
+      .people.map((person) => person.id);
+    expect(unknown).toContain(personId);
+    const unassigned = (await onboarder.who.send('GET', '/api/people?reason=unassigned&limit=200'))
+      .json<{ people: { id: string }[] }>()
+      .people.map((person) => person.id);
+    expect(unassigned).not.toContain(personId);
+  });
+
+  it('dates what happened another day: stage changes, attempts and notes; never a day to come', async () => {
+    const added = await onboarder.who.send('POST', '/api/intake', {
+      name: `Con historia ${suffix()}`,
+      email: `historia.${suffix()}@ejemplo.test`,
+    });
+    const { personId } = added.json<{ personId: string }>();
+    people.push(personId);
+    const url = `/api/people/${personId}`;
+    const tomorrow = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+    expect(
+      (await onboarder.who.send('PATCH', url, { stage: 'welcomed', stageOn: '2025-03-03' }))
+        .statusCode,
+    ).toBe(204);
+    expect((await onboarder.who.send('PATCH', url, { stageOn: '2025-03-03' })).statusCode).toBe(
+      400,
+    );
+    expect(
+      (
+        await onboarder.who.send('POST', `${url}/attempts`, {
+          channel: 'whatsapp',
+          outcome: 'replied',
+          happenedOn: '2025-03-01',
+        })
+      ).statusCode,
+    ).toBe(201);
+    expect(
+      (await onboarder.who.send('POST', `${url}/notes`, { body: 'Hablamos', happenedOn: tomorrow }))
+        .statusCode,
+    ).toBe(422);
+    expect((await onboarder.who.send('PATCH', url, { arrivedOn: tomorrow })).statusCode).toBe(422);
+    expect(
+      (await onboarder.who.send('POST', `${url}/identities`, { kind: 'discord', value: 'x' }))
+        .statusCode,
+    ).toBe(400);
+    const { timeline } = (await onboarder.who.send('GET', url)).json<{
+      timeline: { kind: string; happenedOn: string | null }[];
+    }>();
+    expect(
+      timeline
+        .filter((event) => event.happenedOn !== null)
+        .map((event) => [event.kind, event.happenedOn]),
+    ).toEqual([
+      ['stage_changed', '2025-03-03'],
+      ['contact_attempt', '2025-03-01'],
+    ]);
+  });
+
+  it('lets admins edit where people come from, onboarding staff read it, and nobody else', async () => {
+    expect((await outreacher.who.send('GET', '/api/arrival-channels')).statusCode).toBe(403);
+    expect(
+      (await onboarder.who.send('POST', '/api/arrival-channels', { label: 'Por la radio' }))
+        .statusCode,
+    ).toBe(403);
+    const label = `Evento ${suffix()}`;
+    const added = await admin.who.send('POST', '/api/arrival-channels', { label });
+    expect(added.statusCode).toBe(201);
+    const { id } = added.json<{ id: string }>();
+    try {
+      expect((await admin.who.send('POST', '/api/arrival-channels', { label })).statusCode).toBe(
+        409,
+      );
+      expect(
+        (
+          await admin.who.send('PATCH', `/api/arrival-channels/${id}`, {
+            label: `${label} (charla)`,
+            active: false,
+          })
+        ).statusCode,
+      ).toBe(204);
+      const all = await channelsFor(onboarder);
+      expect(all.find((channel) => channel.id === id)).toMatchObject({
+        label: `${label} (charla)`,
+        active: false,
+      });
+      const reversed = all.map((channel) => channel.id).reverse();
+      expect(
+        (await admin.who.send('PUT', '/api/arrival-channels/order', { ids: reversed })).statusCode,
+      ).toBe(204);
+      expect((await channelsFor(onboarder)).map((channel) => channel.id)).toEqual(reversed);
+      await admin.who.send('PUT', '/api/arrival-channels/order', { ids: reversed.reverse() });
+      expect(
+        (await admin.who.send('PUT', '/api/arrival-channels/order', { ids: [id] })).statusCode,
+      ).toBe(409);
+    } finally {
+      await superuser.query('DELETE FROM app.arrival_channels WHERE id = $1', [id]);
+    }
   });
 });
