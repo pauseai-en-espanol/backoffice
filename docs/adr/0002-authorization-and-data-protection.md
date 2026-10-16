@@ -106,13 +106,20 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 - **M1's narrow functions** (migration `intake`), each `SECURITY DEFINER`, each checking its caller and channel
   first, and listed in the catalog tests' allowlists:
   - `private.submit_intake`: a report through the staff app (`manual`) or the bot (`telegram`), each through its
-    own channel only, by onboarding staff and admins; then the matcher.
+    own channel only: through the staff app by onboarding staff and admins, through the bot by the onboarding role
+    alone (D13); then the matcher.
   - `private.resolve_intake`, `private.import_csv`, `private.merge_people`: the staff app only.
   - `private.claim_person`, `private.report_leave`: the staff app or the bot.
   - `private.bot_people`, `private.bot_candidates`: the bot's reads (and the staff app's duplicate check): names,
     stages, owners and attention reasons, never contact details.
   - `private.ingest_airtable`: the ingest role's only grant ([ADR-0005](0005-airtable-intake.md)).
-    The bot reaches people only through these; no table policy names `bot_can`.
+    The bot reaches people only through these; no table policy names `bot_can`. Through the bot they answer the
+    onboarding role alone (`private.may_intake`, D13).
+- **Telegram links** (D13): `private.telegram_needs_onboarding`, a trigger that refuses a link code or a link for
+  anyone but active staff with the onboarding role (Better Auth's role, which writes them, doesn't see the staff
+  tables), and `private.unlink_telegram`, a trigger that unlinks an account and drops its unused codes when it loses
+  that role or is deactivated (the app role, through which admins do both, doesn't reach `auth`). Both are
+  `SECURITY DEFINER`, executable by no runtime role.
 - **pg_trgm** lives in an `extensions` schema of its own: only the app role may look in it (for names' similarity).
   A trusted extension's functions belong to the bootstrap superuser, executable by PUBLIC, so the schema is what's
   closed; a catalog test keeps it so.

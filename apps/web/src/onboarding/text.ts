@@ -79,6 +79,7 @@ export const sourceName = (t: Translator, source: string): string =>
 export const onboardingErrors = (t: Translator): Record<string, string> => ({
   unexpected: t('errors.unexpected'),
   forbidden: t('errors.forbidden'),
+  onboardingOnly: t('errors.onboardingOnly'),
   stale: t('errors.stale'),
   incomplete: t('errors.incomplete'),
   taken: t('errors.taken'),

@@ -1485,7 +1485,7 @@ CREATE FUNCTION private.may_intake(bot boolean) RETURNS boolean
     LANGUAGE sql STABLE
     SET search_path TO ''
     AS $$
-    SELECT private.staff_can('admin', 'onboarding') OR (bot AND private.bot_can('admin', 'onboarding'))
+    SELECT private.staff_can('admin', 'onboarding') OR (bot AND private.bot_can('onboarding'))
   $$;
 
 
@@ -2039,7 +2039,7 @@ CREATE FUNCTION private.submit_intake(source app.source_kind, external_id text, 
     made uuid;
   BEGIN
     IF NOT ((submit_intake.source = 'manual' AND private.staff_can('admin', 'onboarding'))
-            OR (submit_intake.source = 'telegram' AND private.bot_can('admin', 'onboarding'))) THEN
+            OR (submit_intake.source = 'telegram' AND private.bot_can('onboarding'))) THEN
       RAISE EXCEPTION 'not allowed to report through % here', submit_intake.source
         USING ERRCODE = 'insufficient_privilege';
     END IF;
@@ -2194,6 +2194,28 @@ CREATE FUNCTION private.team_unposted(chat bigint) RETURNS SETOF uuid
 ALTER FUNCTION private.team_unposted(chat bigint) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: telegram_needs_onboarding(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.telegram_needs_onboarding() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    PERFORM 1 FROM app.staff s JOIN app.staff_roles r ON r.user_id = s.user_id
+     WHERE s.user_id = NEW.user_id AND s.active AND r.role = 'onboarding'
+       FOR SHARE OF s, r;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'the Telegram bot is for the onboarding team' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.telegram_needs_onboarding() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: template_version(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -2211,6 +2233,27 @@ CREATE FUNCTION private.template_version() RETURNS trigger
 
 
 ALTER FUNCTION private.template_version() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: unlink_telegram(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.unlink_telegram() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM app.staff s JOIN app.staff_roles r ON r.user_id = s.user_id
+                    WHERE s.user_id = OLD.user_id AND s.active AND r.role = 'onboarding') THEN
+      DELETE FROM auth.telegram_links l WHERE l.user_id = OLD.user_id;
+      DELETE FROM auth.telegram_link_codes c WHERE c.user_id = OLD.user_id;
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.unlink_telegram() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: audit_log; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -4441,6 +4484,20 @@ CREATE TRIGGER transition BEFORE UPDATE ON app.invitations FOR EACH ROW EXECUTE 
 
 
 --
+-- Name: staff unlinks_telegram; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER unlinks_telegram AFTER UPDATE OF active ON app.staff FOR EACH ROW WHEN ((old.active AND (NOT new.active))) EXECUTE FUNCTION private.unlink_telegram();
+
+
+--
+-- Name: staff_roles unlinks_telegram; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER unlinks_telegram AFTER DELETE OR UPDATE ON app.staff_roles FOR EACH ROW WHEN ((old.role = 'onboarding'::app.staff_role)) EXECUTE FUNCTION private.unlink_telegram();
+
+
+--
 -- Name: campaign_templates version; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4452,6 +4509,20 @@ CREATE TRIGGER version BEFORE UPDATE ON app.campaign_templates FOR EACH ROW EXEC
 --
 
 CREATE TRIGGER aal2_needs_second_factor BEFORE INSERT OR UPDATE OF aal ON auth.sessions FOR EACH ROW WHEN ((new.aal = 2)) EXECUTE FUNCTION private.session_needs_second_factor();
+
+
+--
+-- Name: telegram_link_codes needs_onboarding; Type: TRIGGER; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER needs_onboarding BEFORE INSERT ON auth.telegram_link_codes FOR EACH ROW EXECUTE FUNCTION private.telegram_needs_onboarding();
+
+
+--
+-- Name: telegram_links needs_onboarding; Type: TRIGGER; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER needs_onboarding BEFORE INSERT ON auth.telegram_links FOR EACH ROW EXECUTE FUNCTION private.telegram_needs_onboarding();
 
 
 --
@@ -5812,10 +5883,24 @@ GRANT ALL ON FUNCTION private.team_unposted(chat bigint) TO pauseai_backoffice_a
 
 
 --
+-- Name: FUNCTION telegram_needs_onboarding(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.telegram_needs_onboarding() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION template_version(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
 REVOKE ALL ON FUNCTION private.template_version() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION unlink_telegram(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.unlink_telegram() FROM PUBLIC;
 
 
 --

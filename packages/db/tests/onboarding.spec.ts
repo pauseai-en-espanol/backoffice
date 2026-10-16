@@ -262,6 +262,8 @@ describe('submitting intake', () => {
         [web(USERS.onboarder), 'telegram'],
         [web(USERS.outreacher), 'manual'],
         [bot(USERS.outreacher), 'telegram'],
+        // The bot is the onboarding role's alone (Dani, 2026-10-16): admin isn't enough.
+        [bot(USERS.adminA), 'telegram'],
         [web(USERS.onboarder), 'airtable'],
         [{ ...web(USERS.onboarder), aal: 1 as const }, 'manual'],
         [web(USERS.inactive), 'manual'],
@@ -378,6 +380,34 @@ describe('the bot', () => {
           crypto.randomUUID(),
         ]),
       ).toBe('42501');
+    });
+  });
+
+  it('is the onboarding role’s alone: an admin without it gets nothing through the bot (Dani, 2026-10-16)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const made = await submit(
+        client,
+        bot(USERS.onboarder),
+        { name: 'Hugo Ejemplo' },
+        { source: 'telegram' },
+      );
+      await actAs(client, 'pauseai_backoffice_app', bot(USERS.adminA));
+      for (const sql of [
+        "SELECT * FROM private.bot_people('unassigned')",
+        "SELECT * FROM private.bot_candidates('Hugo Ejemplo', NULL, '{}', '{}')",
+        'SELECT * FROM private.bot_summary()',
+        `SELECT private.claim_person('${made.person_id}')`,
+        `SELECT private.report_leave('${made.person_id}')`,
+      ]) {
+        expect(await errorCode(client, sql), sql).toBe('42501');
+      }
+      await client.query('RESET ROLE');
+      // Admin and onboarding: the bot is theirs.
+      expect(
+        await as(client, bot(USERS.adminB), 'SELECT private.claim_person($1) AS done', [
+          made.person_id,
+        ]),
+      ).toEqual([{ done: true }]);
     });
   });
 

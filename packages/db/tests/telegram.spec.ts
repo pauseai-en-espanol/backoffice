@@ -98,7 +98,7 @@ describe('Telegram links and their codes (ADR-0004)', () => {
         await errorCode(
           client,
           'INSERT INTO auth.telegram_links (user_id, telegram_user_id) VALUES ($1, 1001)',
-          [USERS.adminA],
+          [USERS.adminB],
         ),
       ).toBe('23505');
       expect(
@@ -111,6 +111,100 @@ describe('Telegram links and their codes (ADR-0004)', () => {
       expect(
         await errorCode(client, 'UPDATE auth.telegram_links SET telegram_user_id = 1003'),
       ).toBe('42501');
+    });
+  });
+
+  it('make a code and a link only for active staff with the onboarding role (Dani, 2026-10-16)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const users = [
+        USERS.onboarder,
+        USERS.adminB,
+        USERS.adminA,
+        USERS.outreacher,
+        USERS.noRole,
+        USERS.inactive,
+      ];
+      const sessions = new Map<string, string>();
+      for (const user of users) {
+        sessions.set(user, await sessionOf(client, user));
+      }
+      await client.query('SET LOCAL ROLE pauseai_backoffice_auth');
+      const outcomes: Record<string, [string | null, string | null]> = {};
+      for (const [index, user] of users.entries()) {
+        const code = await errorCode(
+          client,
+          `INSERT INTO auth.telegram_link_codes (code_hash, user_id, session_id, expires_at)
+           VALUES ($1, $2, $3, now() + interval '10 minutes')`,
+          [String(index).repeat(64), user, sessions.get(user)],
+        );
+        const link = await errorCode(
+          client,
+          'INSERT INTO auth.telegram_links (user_id, telegram_user_id) VALUES ($1, $2)',
+          [user, 2001 + index],
+        );
+        outcomes[user] = [code, link];
+      }
+      expect(outcomes).toEqual({
+        [USERS.onboarder]: [null, null],
+        // Admin and onboarding: theirs too.
+        [USERS.adminB]: [null, null],
+        // Admin alone isn't enough; nor outreach, no role, or a deactivated onboarder.
+        [USERS.adminA]: ['42501', '42501'],
+        [USERS.outreacher]: ['42501', '42501'],
+        [USERS.noRole]: ['42501', '42501'],
+        [USERS.inactive]: ['42501', '42501'],
+      });
+    });
+  });
+
+  it('unlink an account, and drop its codes, when it loses the onboarding role or is deactivated', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const session = await sessionOf(client, USERS.onboarder);
+      await client.query('SET LOCAL ROLE pauseai_backoffice_auth');
+      for (const [user, telegramId] of [
+        [USERS.onboarder, 3001],
+        [USERS.adminB, 3002],
+        [USERS.both, 3003],
+      ] as const) {
+        await client.query(
+          'INSERT INTO auth.telegram_links (user_id, telegram_user_id) VALUES ($1, $2)',
+          [user, telegramId],
+        );
+      }
+      await client.query(
+        `INSERT INTO auth.telegram_link_codes (code_hash, user_id, session_id, expires_at)
+         VALUES ($1, $2, $3, now() + interval '10 minutes')`,
+        [CODE, USERS.onboarder, session],
+      );
+      await client.query('RESET ROLE');
+      // An admin, through the staff app: a role taken away, another kept, and a staff member deactivated.
+      await actAs(client, 'pauseai_backoffice_app', {
+        userId: USERS.adminA,
+        aal: 2,
+        channel: 'web',
+      });
+      await client.query("DELETE FROM app.staff_roles WHERE user_id = $1 AND role = 'onboarding'", [
+        USERS.onboarder,
+      ]);
+      await client.query("DELETE FROM app.staff_roles WHERE user_id = $1 AND role = 'outreach'", [
+        USERS.both,
+      ]);
+      await client.query('UPDATE app.staff SET active = false WHERE user_id = $1', [USERS.adminB]);
+      await client.query('RESET ROLE');
+      // An edit that keeps the role (the owner's: the staff app can't edit one) keeps the link.
+      await client.query(
+        "UPDATE app.staff_roles SET role = 'onboarding' WHERE user_id = $1 AND role = 'onboarding'",
+        [USERS.both],
+      );
+      const links = await client.query<{ user_id: string }>(
+        'SELECT user_id FROM auth.telegram_links WHERE telegram_user_id IN (3001, 3002, 3003)',
+      );
+      expect(links.rows).toEqual([{ user_id: USERS.both }]);
+      const codes = await client.query(
+        'SELECT 1 FROM auth.telegram_link_codes WHERE user_id = $1',
+        [USERS.onboarder],
+      );
+      expect(codes.rows).toEqual([]);
     });
   });
 

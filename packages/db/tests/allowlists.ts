@@ -56,9 +56,13 @@ export const SECURITY_DEFINER_ALLOWLIST: readonly string[] = [
   'private.staff_can',
   'private.submit_census',
   'private.submit_intake',
+  // The bot is the onboarding team's (ADR-0004): codes and links only for it, unlinked when the role or the
+  // account goes. Triggers, reading the staff tables for Better Auth's role and reaching `auth` for the app role.
+  'private.telegram_needs_onboarding',
   // The team group's posts (ADR-0004): without an actor, only what a post shows, of the last 48 hours' arrivals.
   'private.team_card',
   'private.team_unposted',
+  'private.unlink_telegram',
 ];
 
 /**

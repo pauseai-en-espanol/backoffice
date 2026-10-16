@@ -70,6 +70,10 @@ export interface BotStore {
   linkedUser(telegramUserId: number): Promise<string | undefined>;
   /** Uses a one-time link code for a Telegram account: the account it linked, or undefined if the code is spent. */
   redeemCode(code: string, telegramUserId: number): Promise<string | undefined>;
+  /**
+   * What the bot may do for a linked account: `onboarding` only with the onboarding role (Dani, 2026-10-16: admin
+   * alone isn't enough), `staff` for other active staff, who are told it isn't for them.
+   */
   access(userId: string): Promise<BotAccess>;
   candidates(userId: string, arrival: Arrival): Promise<Candidate[]>;
   submit(
@@ -180,7 +184,7 @@ export const createBotStore = ({ app, auth }: { app: Database; auth: AuthPool })
   access: async (userId) =>
     withActor(app, asBot(userId), async (trx) => {
       const { rows } = await sql<{ onboarding: boolean; staff: boolean }>`
-        SELECT private.bot_can('admin', 'onboarding') AS onboarding,
+        SELECT private.bot_can('onboarding') AS onboarding,
                private.bot_can('admin', 'onboarding', 'outreach') AS staff`.execute(trx);
       const [row] = rows;
       return row?.onboarding ? 'onboarding' : row?.staff ? 'staff' : 'none';

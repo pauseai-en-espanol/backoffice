@@ -40,7 +40,8 @@ export const makeLinkCode = (): string => randomBytes(32).toString('base64url');
 /**
  * Linking a staff member's Telegram account (ADR-0004), under /api, signed in with the second factor: whether they
  * are linked; a one-time code, valid ten minutes and stored only as its hash, in a `t.me` deep link that opens the
- * bot with `/start <code>`; and unlinking. Only active staff get a code.
+ * bot with `/start <code>`; and unlinking. Only active onboarding staff get a code: the bot is the onboarding team's
+ * (Dani, 2026-10-16), which the database holds too.
  */
 export const telegramLinkRoutes =
   ({ linking, app, staffOrigin, signedIn }: LinkRoutesOptions) =>
@@ -74,8 +75,12 @@ export const telegramLinkRoutes =
       if (!linking || !app) {
         return reply.code(503).send({ error: 'unavailable' });
       }
-      if (!(await withActor(app, actor, (trx) => staffSelf(trx, actor.userId)))) {
+      const self = await withActor(app, actor, (trx) => staffSelf(trx, actor.userId));
+      if (!self) {
         return reply.code(403).send({ error: 'forbidden' });
+      }
+      if (!self.roles.includes('onboarding')) {
+        return reply.code(403).send({ error: 'onboardingOnly' });
       }
       if (!allowCode(actor.userId)) {
         return reply.code(429).send({ error: 'limit' });

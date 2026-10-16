@@ -24,6 +24,7 @@
   "errors": {
     "unexpected": "Algo ha fallado. Vuelve a intentarlo en un momento.",
     "forbidden": "No tienes permiso para hacer esto. Si crees que deberías, pídeselo a quien administra el equipo.",
+    "onboardingOnly": "El bot de Telegram es solo para el equipo de onboarding. Si lo necesitas, pide a quien administra el equipo que te dé ese permiso.",
     "stale": "Alguien ha cambiado esto mientras lo tenías abierto. Recarga la página y vuelve a intentarlo.",
     "incomplete": "Faltan datos para guardar esto. Revisa el formulario.",
     "taken": "Ya existe algo con esos datos.",
@@ -908,6 +909,7 @@
     "title": "Bot de Telegram",
     "intro": "Con el bot avisas de quién entra o sale de la comunidad desde el móvil, y recibes lo que tienes pendiente.",
     "notConfigured": "El bot aún no está configurado.",
+    "onboardingOnly": "El bot es solo para el equipo de onboarding: con tu permiso no puedes conectarlo.",
     "linked": "Tu cuenta de Telegram está conectada con @{bot}.",
     "notLinked": "Tu cuenta de Telegram no está conectada.",
     "connect": "Conectar Telegram",

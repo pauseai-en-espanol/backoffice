@@ -9,6 +9,7 @@ import { OptionsEditor, type OptionsEditorText } from '@/onboarding/census/Optio
 import * as census from '@/onboarding/census/styles';
 import { getSettings, getTelegramLink } from '@/onboarding/data';
 import { SettingsForm } from '@/onboarding/settings/SettingsForm';
+import { usesTelegramBot } from '@/onboarding/settings/telegram-access';
 import { TelegramLink } from '@/onboarding/settings/TelegramLink';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, isAdmin, onboardingErrors } from '@/onboarding/text';
@@ -22,15 +23,17 @@ const t = getTranslator();
 export const metadata: Metadata = { title: t('settings.title') };
 
 /**
- * Ajustes: everyone links (or unlinks) their Telegram account to the bot (ADR-0004); onboarding staff see the
- * onboarding settings, which admins change; everyone sees the census's lists, which admins edit.
+ * Ajustes: onboarding staff link (or unlink) their Telegram account to the bot, which is theirs alone (ADR-0004);
+ * onboarding staff and admins see the onboarding settings, which admins change; everyone sees the census's lists,
+ * which admins edit.
  */
 const SettingsPage = async () => {
   const me = await requireStaff();
   const admin = isAdmin(me);
   const onboarder = canOnboard(me);
+  const botUser = usesTelegramBot(me.staff.roles);
   const [telegram, settings, options] = await Promise.all([
-    getTelegramLink(),
+    botUser ? getTelegramLink() : Promise.resolve(undefined),
     onboarder ? getSettings() : Promise.resolve(undefined),
     getCensusOptions(),
   ]);
@@ -77,7 +80,9 @@ const SettingsPage = async () => {
             {t('telegramLink.title')}
           </h2>
           <p className={styles.hint}>{t('telegramLink.intro')}</p>
-          {isUnavailable(telegram) ? (
+          {telegram === undefined ? (
+            <p className={styles.notice}>{t('telegramLink.onboardingOnly')}</p>
+          ) : isUnavailable(telegram) ? (
             <p className={styles.notice}>{t('web.unavailable.body')}</p>
           ) : !telegram.configured ? (
             <p className={styles.notice}>{t('telegramLink.notConfigured')}</p>

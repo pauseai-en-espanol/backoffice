@@ -138,18 +138,19 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 
 ## Decided
 
-| ID      | Decision                                                                                                                              | By               |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **D1**  | WhatsApp joins and leaves are reported to a Telegram bot by whoever sees them. No WhatsApp integration for now                        | Dani, 2026-10-15 |
-| **D2**  | Airtable is read through Global's shared view link, kept as configuration (a sealed secret) ([ADR-0005](adr/0005-airtable-intake.md)) | Dani, 2026-10-15 |
-| **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                | Dani, 2026-10-15 |
-| **D4**  | The staff UI is on the public gateway with mandatory two-factor (no VPN)                                                              | Dani, 2026-10-15 |
-| **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                          | Dani, 2026-10-16 |
-| **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                   | Dani, 2026-10-16 |
-| **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                           | Dani, 2026-10-15 |
-| **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                             | Dani, 2026-10-16 |
-| —       | Backups are handled in gitops, separately from this plan                                                                              | Dani, 2026-10-15 |
-| —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                 | Dani, 2026-10-15 |
+| ID      | Decision                                                                                                                                                          | By               |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **D1**  | WhatsApp joins and leaves are reported to a Telegram bot by whoever sees them. No WhatsApp integration for now                                                    | Dani, 2026-10-15 |
+| **D2**  | Airtable is read through Global's shared view link, kept as configuration (a sealed secret) ([ADR-0005](adr/0005-airtable-intake.md))                             | Dani, 2026-10-15 |
+| **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                                            | Dani, 2026-10-15 |
+| **D4**  | The staff UI is on the public gateway with mandatory two-factor (no VPN)                                                                                          | Dani, 2026-10-15 |
+| **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                                                      | Dani, 2026-10-16 |
+| **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                                               | Dani, 2026-10-16 |
+| **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                                                       | Dani, 2026-10-15 |
+| **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                                                         | Dani, 2026-10-16 |
+| **D13** | The Telegram bot is the onboarding team's alone: only staff with the onboarding role link and use it, not an admin without it; losing the role unlinks (ADR-0004) | Dani, 2026-10-16 |
+| —       | Backups are handled in gitops, separately from this plan                                                                                                          | Dani, 2026-10-15 |
+| —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                             | Dani, 2026-10-15 |
 
 ## Open decisions
 

@@ -52,10 +52,15 @@ Dani chose 1d (D1) and 4b (D11). 2b and 3b are Claude's, as that bot. Dani chose
 
 - In the web app, signed in with the second factor, a staff member taps "Conectar Telegram". The app makes a
   one-time code (valid 10 minutes, stored as a hash) and opens `https://t.me/<bot>?start=<code>`.
+- **The bot is the onboarding team's alone** (D13, Dani, 2026-10-16: "only people from onboarding should be able to
+  interact with the bot"; an admin without the onboarding role neither). Only active staff with the onboarding role
+  see "Conectar Telegram" and get a code; the database holds it whatever the app does: a code or a link for anyone
+  else is refused (`needs_onboarding`), and the bot's functions answer the onboarding role alone.
 - The bot receives `/start <code>` and links that Telegram user ID to the staff member (`auth.telegram_links`).
 - Messages from Telegram users who aren't linked are ignored without a reply, as by that bot.
-- An account is unlinked from the web app, by an admin, or automatically when the staff member is deactivated or
-  their password or second factor is reset.
+- An account is unlinked from the web app, by an admin, or automatically when the staff member loses the onboarding
+  role or is deactivated (in the database, `unlinks_telegram`, which also drops their unused codes), or their
+  password or second factor is reset.
 
 ### 2. What the bot does
 
@@ -129,10 +134,10 @@ Agree the reporting rule with the community's admins: whoever approves or sees a
   ([rotating the bot's token](../runbooks/rotating-the-bot-token.md)). An update is recorded before it is handled, and
   acknowledged with 200 even when handling it failed, which is reported (by its kind, never with what anyone wrote)
   and told to the person.
-- **Who it listens to:** unlinked accounts and deactivated staff get no answer; staff without `onboarding` or
-  `admin` are told they may not. Every call runs as the linked staff member through the bot channel, and reaches
-  people only through `private.bot_people`, `bot_candidates`, `bot_summary`, `submit_intake`, `claim_person` and
-  `report_leave`.
+- **Who it listens to:** unlinked accounts and deactivated staff get no answer; staff without the onboarding role,
+  admins included, can't be linked (D13), and one linked from before is told they may not. Every call runs as the
+  linked staff member through the bot channel, and reaches people only through `private.bot_people`,
+  `bot_candidates`, `bot_summary`, `submit_intake`, `claim_person` and `report_leave`.
 - **Contact details:** a `/joined` is saved only after the reporter confirms; its external id is
   `tg:<chat>:<first message>`, so a repeated confirmation saves once. Then every message of the conversation that
   held a phone or email is deleted, and the bot says whether it could. A `/left` or `/search` by phone deletes its

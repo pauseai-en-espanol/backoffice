@@ -1,0 +1,106 @@
+[
+  {
+    "name": "a link code without the onboarding role",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "CREATE TRIGGER needs_onboarding BEFORE INSERT ON auth.telegram_link_codes\n  FOR EACH ROW EXECUTE FUNCTION private.telegram_needs_onboarding();\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a Telegram link without the onboarding role",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "CREATE TRIGGER needs_onboarding BEFORE INSERT ON auth.telegram_links\n  FOR EACH ROW EXECUTE FUNCTION private.telegram_needs_onboarding();\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "admin is enough for a link",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "     WHERE s.user_id = NEW.user_id AND s.active AND r.role = 'onboarding'\n",
+    "new": "     WHERE s.user_id = NEW.user_id AND s.active AND r.role IN ('onboarding', 'admin')\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a deactivated onboarder still links",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "     WHERE s.user_id = NEW.user_id AND s.active AND r.role = 'onboarding'\n",
+    "new": "     WHERE s.user_id = NEW.user_id AND r.role = 'onboarding'\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "losing the onboarding role keeps the link",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "CREATE TRIGGER unlinks_telegram AFTER DELETE OR UPDATE ON app.staff_roles\n  FOR EACH ROW WHEN (OLD.role = 'onboarding') EXECUTE FUNCTION private.unlink_telegram();\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "deactivation keeps the link",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "CREATE TRIGGER unlinks_telegram AFTER UPDATE OF active ON app.staff\n  FOR EACH ROW WHEN (OLD.active AND NOT NEW.active) EXECUTE FUNCTION private.unlink_telegram();\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "unlinking keeps the unused codes",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "      DELETE FROM auth.telegram_link_codes c WHERE c.user_id = OLD.user_id;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "any role change unlinks",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "    IF NOT EXISTS (SELECT 1 FROM app.staff s JOIN app.staff_roles r ON r.user_id = s.user_id\n                    WHERE s.user_id = OLD.user_id AND s.active AND r.role = 'onboarding') THEN\n",
+    "new": "    IF true THEN\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an admin without onboarding uses the bot's functions",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "    SELECT private.staff_can('admin', 'onboarding') OR (bot AND private.bot_can('onboarding'))\n",
+    "new": "    SELECT private.staff_can('admin', 'onboarding') OR (bot AND private.bot_can('admin', 'onboarding'))\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an admin without onboarding reports through the bot",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "            OR (submit_intake.source = 'telegram' AND private.bot_can('onboarding'))) THEN\n",
+    "new": "            OR (submit_intake.source = 'telegram' AND private.bot_can('admin', 'onboarding'))) THEN\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the API asks the database for a code without checking the role",
+    "file": "apps/api/src/telegram/linking.ts",
+    "old": "      if (!self.roles.includes('onboarding')) {\n        return reply.code(403).send({ error: 'onboardingOnly' });\n      }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the bot takes an admin for onboarding",
+    "file": "apps/api/src/telegram/store.ts",
+    "old": "        SELECT private.bot_can('onboarding') AS onboarding,\n",
+    "new": "        SELECT private.bot_can('admin', 'onboarding') AS onboarding,\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Ajustes offers the bot to admins",
+    "file": "apps/web/src/onboarding/settings/telegram-access.ts",
+    "old": "roles.includes('onboarding');",
+    "new": "roles.includes('onboarding') || roles.includes('admin');",
+    "cmd": "pnpm exec vitest run src/onboarding/settings",
+    "cwd": "apps/web"
+  }
+]

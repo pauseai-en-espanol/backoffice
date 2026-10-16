@@ -176,7 +176,12 @@ const buttonsOf = (call: Call | undefined) =>
     )?.inline_keyboard ?? []
   ).flat();
 
-const telegramIds = { onboarder: 5_000_001, outreach: 5_000_002, stranger: 5_000_003 };
+const telegramIds = {
+  onboarder: 5_000_001,
+  outreach: 5_000_002,
+  stranger: 5_000_003,
+  admin: 5_000_004,
+};
 let onboarder: Awaited<ReturnType<typeof staffMember>>;
 
 beforeAll(async () => {
@@ -337,6 +342,15 @@ describe('linking', () => {
     expect(lastText(telegramIds.onboarder)).toContain('/joined (/alta) — ');
   });
 
+  it('gives a code only to onboarding staff: admin or outreach alone is refused (Dani, 2026-10-16)', async () => {
+    for (const roles of [['admin'], ['outreach']]) {
+      const member = await staffMember(roles);
+      const refused = await member.who.send('POST', '/api/telegram/link');
+      expect(refused.statusCode, roles.join()).toBe(403);
+      expect(refused.json()).toEqual({ error: 'onboardingOnly' });
+    }
+  });
+
   it('processes each update once', async () => {
     updateId += 1;
     const update = {
@@ -472,12 +486,24 @@ describe('erasure and the team group', () => {
 });
 
 describe('who may use the bot', () => {
-  it('tells staff without onboarding they may not, and ignores a deactivated member', async () => {
+  it('tells staff without onboarding they may not, admins included, and ignores a deactivated member', async () => {
     const outreach = await staffMember(['outreach']);
-    await authPool.query('INSERT INTO telegram_links (user_id, telegram_user_id) VALUES ($1, $2)', [
-      outreach.id,
-      telegramIds.outreach,
-    ]);
+    const admin = await staffMember(['admin']);
+    // Links from before the bot was the onboarding team's alone: the database refuses them now, so they're made with
+    // its triggers off. The bot still refuses whoever lacks the role (Dani, 2026-10-16: admin isn't enough).
+    const client = await superuser.connect();
+    try {
+      await client.query("SET session_replication_role = 'replica'");
+      await client.query(
+        'INSERT INTO telegram_links (user_id, telegram_user_id) VALUES ($1, $2), ($3, $4)',
+        [outreach.id, telegramIds.outreach, admin.id, telegramIds.admin],
+      );
+    } finally {
+      await client.query('RESET session_replication_role');
+      client.release();
+    }
+    await message(telegramIds.admin, '/mios');
+    expect(lastText(telegramIds.admin)).toMatch(/no tiene permiso de acogida/u);
     await message(telegramIds.outreach, '/mios');
     expect(lastText(telegramIds.outreach)).toMatch(/no tiene permiso de acogida/u);
     await press(telegramIds.outreach, `claim:${ANA}`, { id: TEAM_CHAT, type: 'supergroup' });
