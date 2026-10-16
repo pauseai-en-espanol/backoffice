@@ -169,7 +169,9 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 - GlitchTip through the Sentry SDKs, with aiontheballot's privacy options: no cookies, headers, bodies or query
   strings; users dropped; emails redacted.
 - pino redaction for phone numbers, emails and tokens. Request bodies, Telegram messages included, are never
-  logged.
+  logged. As built: requests log their method and path only; errors their kind, code and constraint, with message and
+  stack redacted and a database error's `detail` and `where` (which quote rows) dropped; every log line's own words
+  are redacted too (`apps/api/src/app.ts`). An error no route caught answers `{"error":"internal"}`, never its words.
 - OpenTelemetry instrumentation from day one, export off until the cluster has a backend.
 
 ### 9. Changing this model

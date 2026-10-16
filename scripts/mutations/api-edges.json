@@ -22,5 +22,37 @@
     "new": "        false\n",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
     "cwd": "apps/api"
+  },
+  {
+    "name": "errors are logged as Fastify does",
+    "file": "apps/api/src/app.ts",
+    "old": "  err: serializeError,\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/app.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a log line keeps an address",
+    "file": "apps/api/src/app.ts",
+    "old": "serializers: { ...serializers, ...logger.serializers }, hooks }",
+    "new": "serializers: { ...serializers, ...logger.serializers } }",
+    "cmd": "pnpm exec vitest run src/app.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a 500 answers with the error's words",
+    "file": "apps/api/src/app.ts",
+    "old": "return reply.code(500).send({ error: 'internal' });",
+    "new": "return reply.code(500).send({ error: error.message });",
+    "cmd": "pnpm exec vitest run src/app.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a logged error keeps its detail",
+    "file": "apps/api/src/app.ts",
+    "old": "    message: redactText(error.message),\n",
+    "new": "    message: redactText(error.message),\n    detail: (error as { detail?: unknown }).detail,\n",
+    "cmd": "pnpm exec vitest run src/app.spec.ts",
+    "cwd": "apps/api"
   }
 ]
