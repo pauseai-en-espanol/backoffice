@@ -273,7 +273,6 @@ describe('organisations', () => {
       kind: 'other',
       territory: null,
       website: null,
-      notes: null,
       createdAt: '',
     };
     expect(

@@ -1,7 +1,7 @@
 import { getTranslator } from '@backoffice/i18n/messages';
 import { describe, expect, it } from 'vitest';
 
-import { describeContactEvent } from './timeline';
+import { byHappened, describeContactEvent } from './timeline';
 
 const t = getTranslator();
 const names: Readonly<Record<string, string>> = { u1: 'Ana Ejemplo' };
@@ -58,5 +58,23 @@ describe('the outreach timeline in words', () => {
       'Relación: de «—» a «Aliado»',
     );
     expect(describe_('owner_changed', { to: 'u9' }).title).toBe('Responsable: alguien');
+  });
+});
+
+describe('the order of a timeline (PLAN M5, step 6)', () => {
+  it('goes by the day things happened, else the day they were written, newest first', () => {
+    const entries = [
+      { id: 'written today', happenedOn: null, at: '2026-10-17T09:00:00Z' },
+      { id: 'in March', happenedOn: '2026-03-01', at: '2026-10-17T10:00:00Z' },
+      { id: 'written later today', happenedOn: null, at: '2026-10-17T11:00:00Z' },
+      // Past midnight in Madrid, though not yet in UTC: the 18th.
+      { id: 'late at night', happenedOn: null, at: '2026-10-17T22:30:00Z' },
+    ];
+    expect([...entries].sort(byHappened).map((entry) => entry.id)).toEqual([
+      'late at night',
+      'written later today',
+      'written today',
+      'in March',
+    ]);
   });
 });

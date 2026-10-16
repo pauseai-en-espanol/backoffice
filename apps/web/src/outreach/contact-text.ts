@@ -1,5 +1,7 @@
 import type { getTranslator } from '@backoffice/i18n/messages';
 
+import { madridToday } from '@/onboarding/format';
+
 import type { ContactFormText } from './ContactForm';
 import type { EraseText, HoldText, NoteText, ReviewText } from './ContactPanels';
 import type { OrganisationFormText } from './OrganisationForm';
@@ -90,10 +92,15 @@ export const holdText = (t: Translator): HoldText => ({
 export const noteText = (t: Translator): NoteText => ({
   note: t('contacts.note'),
   warning: t('contacts.notesWarning'),
+  happened: {
+    label: t('contacts.happenedOn'),
+    hint: t('contacts.happenedOnHint'),
+    today: madridToday(),
+  },
   save: t('contacts.saveNote'),
   saved: t('contacts.noteSaved'),
   missing: t('contacts.noteMissing'),
-  errors: outreachErrors(t),
+  errors: { ...outreachErrors(t), incomplete: t('contacts.happenedOnFuture') },
 });
 
 /** Erasing, the contact's name filled in where the question names them. */
@@ -115,8 +122,6 @@ export const organisationFormText = (t: Translator): OrganisationFormText => ({
   territory: t('organisations.territory'),
   territoryHint: t('organisations.territoryHint'),
   website: t('organisations.website'),
-  notes: t('organisations.notes'),
-  notesWarning: t('contacts.notesWarning'),
   create: t('organisations.create'),
   edit: t('organisations.edit'),
   save: t('organisations.save'),

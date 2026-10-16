@@ -17,8 +17,9 @@ import {
 } from '@/outreach/contact-text';
 import { ContactEditor } from '@/outreach/ContactForm';
 import { ContactFlags } from '@/outreach/ContactItem';
-import { ContactNote, EraseContact, HoldPanel, ReviewPanel } from '@/outreach/ContactPanels';
+import { EraseContact, HoldPanel, NoteForm, ReviewPanel } from '@/outreach/ContactPanels';
 import { getContact, getOrganisations } from '@/outreach/data';
+import { EntryWhen } from '@/outreach/EntryWhen';
 import { contactName, isWebLink } from '@/outreach/format';
 import { OutreachForbidden, OutreachOnly, Unavailable } from '@/outreach/OutreachOnly';
 import * as outreach from '@/outreach/styles';
@@ -31,7 +32,7 @@ import {
   summaryWords,
   treatmentNames,
 } from '@/outreach/text';
-import { describeContactEvent } from '@/outreach/timeline';
+import { byHappened, describeContactEvent } from '@/outreach/timeline';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { getTeam } from '@/team/data';
@@ -224,7 +225,7 @@ const ContactPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                   <h2 id="nota" className={styles.h3}>
                     {t('contacts.noteTitle')}
                   </h2>
-                  <ContactNote contactId={contact.id} text={noteText(t)} />
+                  <NoteForm on={{ kind: 'contact', id: contact.id }} text={noteText(t)} />
                 </section>
               </>
             )}
@@ -351,29 +352,27 @@ const ContactPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 <p className={styles.hint}>{t('contacts.timelineNone')}</p>
               ) : (
                 <ol className={onboarding.timeline} reversed>
-                  {[...timeline]
-                    .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
-                    .map((event) => {
-                      const described = describeContactEvent(event, {
-                        t,
-                        staffName,
-                        campaignName,
-                      });
-                      return (
-                        <li key={event.id}>
-                          <strong>{described.title}</strong>
-                          <span className={`${styles.block} ${styles.hint}`}>
-                            {who(event.actor)}
-                            {event.channel === 'bot'
-                              ? ` ${t('outreach.events.viaBot')}`
-                              : ''} · <time dateTime={event.at}>{formatInstant(event.at)}</time>
-                          </span>
-                          {described.detail ? (
-                            <p className={onboarding.timelineBody}>{described.detail}</p>
-                          ) : null}
-                        </li>
-                      );
-                    })}
+                  {[...timeline].sort(byHappened).map((event) => {
+                    const described = describeContactEvent(event, {
+                      t,
+                      staffName,
+                      campaignName,
+                    });
+                    return (
+                      <li key={event.id}>
+                        <strong>{described.title}</strong>
+                        <EntryWhen
+                          happenedOn={event.happenedOn}
+                          at={event.at}
+                          who={who(event.actor)}
+                          viaBot={event.channel === 'bot'}
+                        />
+                        {described.detail ? (
+                          <p className={onboarding.timelineBody}>{described.detail}</p>
+                        ) : null}
+                      </li>
+                    );
+                  })}
                 </ol>
               )}
             </section>

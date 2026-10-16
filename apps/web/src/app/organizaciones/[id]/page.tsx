@@ -7,13 +7,16 @@ import { isUnavailable } from '@/data';
 import { isForbidden } from '@/onboarding/data';
 import { formatInstantDay } from '@/onboarding/format';
 import * as onboarding from '@/onboarding/styles';
-import { contactFormText, organisationFormText } from '@/outreach/contact-text';
+import { contactFormText, noteText, organisationFormText } from '@/outreach/contact-text';
 import { NewContactForm } from '@/outreach/ContactForm';
 import { ContactItem } from '@/outreach/ContactItem';
+import { NoteForm } from '@/outreach/ContactPanels';
 import { getOrganisation } from '@/outreach/data';
+import { EntryWhen } from '@/outreach/EntryWhen';
 import { OrganisationEditor } from '@/outreach/OrganisationForm';
 import { OutreachForbidden, OutreachOnly, Unavailable } from '@/outreach/OutreachOnly';
 import { canOutreach, kindNames, outreachOwners, summaryWords } from '@/outreach/text';
+import { byHappened } from '@/outreach/timeline';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { getTeam } from '@/team/data';
@@ -25,8 +28,8 @@ const t = getTranslator();
 export const metadata: Metadata = { title: t('organisations.title') };
 
 /**
- * An organisation (outreach spec §1): its kind, territory, website and notes, edited in place; its contacts; and a new
- * contact there, its organisation already chosen.
+ * An organisation (outreach spec §1): its kind, territory and website, edited in place; its timeline of notes, each
+ * dated when it happened (PLAN M5, step 6); its contacts; and a new contact there, its organisation already chosen.
  */
 const OrganisationPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   const me = await requireStaff();
@@ -45,9 +48,19 @@ const OrganisationPage = async ({ params }: { params: Promise<{ id: string }> })
     );
   }
 
-  const { organisation, contacts } = page;
+  const { organisation, contacts, notes } = page;
   const words = summaryWords(t);
-  const owners = outreachOwners(isUnavailable(team) ? [] : team.staff);
+  const members = isUnavailable(team) ? [] : team.staff;
+  const owners = outreachOwners(members);
+  const who = (actor: (typeof notes)[number]['actor']): string => {
+    const id = typeof actor === 'string' ? actor : actor?.userId;
+    const named = typeof actor === 'object' && actor !== null ? actor.displayName : '';
+    return actor === null
+      ? t('outreach.events.system')
+      : named ||
+          (members.find((member) => member.userId === id)?.displayName ??
+            t('outreach.events.someone'));
+  };
 
   return (
     <AppShell me={me}>
@@ -94,14 +107,34 @@ const OrganisationPage = async ({ params }: { params: Promise<{ id: string }> })
                 </dd>
               </>
             ) : null}
-            {organisation.notes ? (
-              <>
-                <dt>{t('organisations.notes')}</dt>
-                <dd className={onboarding.timelineBody}>{organisation.notes}</dd>
-              </>
-            ) : null}
           </dl>
           <OrganisationEditor organisation={organisation} text={organisationFormText(t)} />
+        </section>
+
+        <section className={onboarding.section} aria-labelledby="notas">
+          <h2 id="notas" className={styles.h3}>
+            {t('organisations.timeline')}
+          </h2>
+          {notes.length === 0 ? (
+            <p className={styles.hint}>{t('organisations.timelineNone')}</p>
+          ) : (
+            <ol className={onboarding.timeline} reversed>
+              {[...notes].sort(byHappened).map((note) => (
+                <li key={note.id}>
+                  <strong>{t('outreach.events.note')}</strong>
+                  <EntryWhen
+                    happenedOn={note.happenedOn}
+                    at={note.at}
+                    who={who(note.actor)}
+                    viaBot={note.channel === 'bot'}
+                  />
+                  {note.body ? <p className={onboarding.timelineBody}>{note.body}</p> : null}
+                </li>
+              ))}
+            </ol>
+          )}
+          <h3 className={styles.h3}>{t('contacts.noteTitle')}</h3>
+          <NoteForm on={{ kind: 'organisation', id: organisation.id }} text={noteText(t)} />
         </section>
 
         <section aria-labelledby="sus-contactos">

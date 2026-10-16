@@ -269,6 +269,7 @@ export interface AppContactEvents {
   contact_id: string;
   created_at: Generated<Timestamp>;
   data: Generated<Json>;
+  happened_on: Timestamp | null;
   id: Generated<string>;
   kind: AppContactEventKind;
 }
@@ -435,6 +436,19 @@ export interface AppMessageTemplates {
   updated_at: Generated<Timestamp>;
   updated_by: string | null;
   version: Generated<number>;
+}
+
+export interface AppOrganisationNotes {
+  actor_id: string | null;
+  /**
+   * personal data
+   */
+  body: string | null;
+  channel: string | null;
+  created_at: Generated<Timestamp>;
+  happened_on: Timestamp | null;
+  id: Generated<string>;
+  organisation_id: string;
 }
 
 export interface AppOrganisations {
@@ -618,6 +632,7 @@ export interface DB {
   'app.intake_records': AppIntakeRecords;
   'app.invitations': AppInvitations;
   'app.message_templates': AppMessageTemplates;
+  'app.organisation_notes': AppOrganisationNotes;
   'app.organisations': AppOrganisations;
   'app.people': AppPeople;
   'app.people_attention': AppPeopleAttention;

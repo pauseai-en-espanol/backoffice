@@ -16,6 +16,7 @@ import { schemaRefusal } from '../schema-refusal.js';
 import { importCampaign, type ImportFiles } from './import.js';
 import {
   addContactNote,
+  addOrganisationNote,
   addTargets,
   campaignExists,
   type CampaignInput,
@@ -37,6 +38,7 @@ import {
   markSent,
   nextTarget,
   ORGANISATION_KINDS,
+  organisationExists,
   type OrganisationInput,
   type OrganisationKind,
   putAnchor,
@@ -119,7 +121,15 @@ const ORGANISATION_PROPERTIES = {
   kind: { type: 'string', enum: [...ORGANISATION_KINDS] },
   territory: NULLABLE_TEXT(100),
   website: WEBSITE,
-  notes: NULLABLE_TEXT(4000),
+} as const;
+
+const DATE = { type: 'string', format: 'date' } as const;
+/** A note on a timeline: what it says and, optionally, the day it happened (PLAN M5, step 6). */
+const NOTE_BODY = {
+  type: 'object',
+  required: ['body'],
+  additionalProperties: false,
+  properties: { body: REQUIRED_TEXT(4000), happenedOn: DATE },
 } as const;
 
 const CAMPAIGN_PROPERTIES = {
@@ -354,6 +364,24 @@ export const outreachRoutes =
         }),
     );
 
+    scope.post<{ Params: { id: string }; Body: { body: string; happenedOn?: string } }>(
+      '/outreach/organisations/:id/notes',
+      { schema: { params: ID_PARAMS, body: NOTE_BODY } },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          await outreach(db, actor, async (trx) => {
+            found(await organisationExists(trx, request.params.id));
+            await addOrganisationNote(
+              trx,
+              request.params.id,
+              request.body.body.trim(),
+              request.body.happenedOn,
+            );
+          });
+          return reply.code(201).send({});
+        }),
+    );
+
     // Contacts --------------------------------------------------------------------------------------------------
 
     scope.get<{ Querystring: Record<string, string | undefined> }>(
@@ -449,24 +477,19 @@ export const outreachRoutes =
         }),
     );
 
-    scope.post<{ Params: { id: string }; Body: { body: string } }>(
+    scope.post<{ Params: { id: string }; Body: { body: string; happenedOn?: string } }>(
       '/outreach/contacts/:id/notes',
-      {
-        schema: {
-          params: ID_PARAMS,
-          body: {
-            type: 'object',
-            required: ['body'],
-            additionalProperties: false,
-            properties: { body: REQUIRED_TEXT(4000) },
-          },
-        },
-      },
+      { schema: { params: ID_PARAMS, body: NOTE_BODY } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           await outreach(db, actor, async (trx) => {
             found(await getContact(trx, request.params.id));
-            await addContactNote(trx, request.params.id, request.body.body.trim());
+            await addContactNote(
+              trx,
+              request.params.id,
+              request.body.body.trim(),
+              request.body.happenedOn,
+            );
           });
           return reply.code(201).send({});
         }),

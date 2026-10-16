@@ -173,12 +173,32 @@ describe('outreach answers', () => {
     expect(
       parseOrganisations({ organisations: [{ ...organisation, kind: 'club' }] }),
     ).toBeUndefined();
+    const page = parseOrganisationPage({
+      organisation: { ...organisation, createdAt: '2026-10-15T10:00:00Z' },
+      contacts: [summary],
+      notes: [
+        {
+          id: 'n1',
+          body: 'Su junta nos recibió',
+          happenedOn: '2026-02-10',
+          at: '2026-10-15T10:00:00Z',
+          actor: ana,
+          channel: 'web',
+        },
+        { id: 'n2', body: 'Del campo de notas', happenedOn: null, at: '2026-10-15T09:00:00Z' },
+      ],
+    });
+    expect(page?.contacts).toHaveLength(1);
+    expect(page?.notes.map((note) => [note.happenedOn, note.actor])).toEqual([
+      ['2026-02-10', ana],
+      [null, null],
+    ]);
     expect(
       parseOrganisationPage({
-        organisation: { ...organisation, notes: null, createdAt: '2026-10-15T10:00:00Z' },
-        contacts: [summary],
-      })?.contacts,
-    ).toHaveLength(1);
+        organisation: { ...organisation, createdAt: '' },
+        notes: [{ id: 'n3', body: 'Sin fecha de escritura' }],
+      }),
+    ).toBeUndefined();
   });
 
   it('reads campaigns with their counts, keeping only the statuses it knows', () => {

@@ -8,7 +8,7 @@ import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
 
-import { addContactNote, eraseContact, updateContact } from './actions';
+import { addNote, eraseContact, updateContact } from './actions';
 import { Field } from './Field';
 import { type ContactInput, listFrom, mustStayInReview } from './forms';
 
@@ -184,14 +184,25 @@ export const HoldPanel = ({
 export interface NoteText {
   note: string;
   warning: string;
+  /** "Cuándo fue (opcional)": its label, hint, and today's date in Madrid, the latest it takes. */
+  happened: { label: string; hint: string; today: string };
   save: string;
   saved: string;
   missing: string;
   errors: Readonly<Record<string, string>>;
 }
 
-/** A note on the contact's timeline, with the reminder not to write down what the relationship doesn't need. */
-export const ContactNote = ({ contactId, text }: { contactId: string; text: NoteText }) => {
+/**
+ * A note on a timeline, a contact's or an organisation's, with the reminder not to write down what the relationship
+ * doesn't need, and the day the conversation it tells happened, if not today (PLAN M5, step 6): never a day to come.
+ */
+export const NoteForm = ({
+  on,
+  text,
+}: {
+  on: { kind: 'contact' | 'organisation'; id: string };
+  text: NoteText;
+}) => {
   const write = useWrite({ ...text.errors, body: text.missing });
   const [missing, setMissing] = useState(false);
 
@@ -203,7 +214,8 @@ export const ContactNote = ({ contactId, text }: { contactId: string; text: Note
     if (body === '') {
       return;
     }
-    const answer = await write.run(() => addContactNote(contactId, body), { done: text.saved });
+    const happenedOn = formText(form, 'happenedOn').trim();
+    const answer = await write.run(() => addNote(on, body, happenedOn), { done: text.saved });
     if (answer?.ok) {
       form.reset();
     }
@@ -222,6 +234,22 @@ export const ContactNote = ({ contactId, text }: { contactId: string; text: Note
         invalid={missing}
         errorId={error ? 'nota-error' : undefined}
       />
+      <div className={ui.field}>
+        <label className={ui.label} htmlFor="nota-fecha">
+          {text.happened.label}
+        </label>
+        <input
+          id="nota-fecha"
+          className={ui.input}
+          type="date"
+          name="happenedOn"
+          max={text.happened.today}
+          aria-describedby="nota-fecha-hint"
+        />
+        <span id="nota-fecha-hint" className={ui.hint}>
+          {text.happened.hint}
+        </span>
+      </div>
       <FormError id="nota-error" message={error} />
       <div>
         <button type="submit" className={ui.button} aria-disabled={write.pending}>

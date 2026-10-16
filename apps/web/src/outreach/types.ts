@@ -149,6 +149,8 @@ export interface ContactEvent {
   campaignId: string | null;
   body: string | null;
   data: Record<string, unknown>;
+  /** A note's day, when it happened another day than written (PLAN M5, step 6). */
+  happenedOn: string | null;
 }
 
 export interface ContactPage {
@@ -173,13 +175,24 @@ export interface Organisation {
   kind: OrganisationKind;
   territory: string | null;
   website: string | null;
-  notes: string | null;
   createdAt: string;
+}
+
+/** A note on an organisation's timeline (PLAN M5, step 6). */
+export interface OrganisationNote {
+  id: string;
+  body: string | null;
+  happenedOn: string | null;
+  at: string;
+  actor: StaffRef | string | null;
+  channel: 'web' | 'bot' | null;
 }
 
 export interface OrganisationPage {
   organisation: Organisation;
   contacts: ContactSummary[];
+  /** Newest first, by the day they happened. */
+  notes: OrganisationNote[];
 }
 
 export interface CampaignItem {
@@ -528,7 +541,13 @@ export const parseContactEvent = (value: unknown): ContactEvent | undefined => {
   const actor = refOrId(value.actor);
   const campaignId = nullable(value.campaignId);
   const body = nullable(value.body);
-  if (actor === undefined || campaignId === undefined || body === undefined) {
+  const happenedOn = nullable(value.happenedOn);
+  if (
+    actor === undefined ||
+    campaignId === undefined ||
+    body === undefined ||
+    happenedOn === undefined
+  ) {
     return undefined;
   }
   return {
@@ -540,6 +559,7 @@ export const parseContactEvent = (value: unknown): ContactEvent | undefined => {
     campaignId,
     body,
     data: isRecord(value.data) ? value.data : {},
+    happenedOn,
   };
 };
 
@@ -586,8 +606,7 @@ const parseOrganisation = (value: unknown): Organisation | undefined => {
   }
   const territory = nullable(value.territory);
   const website = nullable(value.website);
-  const notes = nullable(value.notes);
-  return territory === undefined || website === undefined || notes === undefined
+  return territory === undefined || website === undefined
     ? undefined
     : {
         id: value.id,
@@ -595,8 +614,26 @@ const parseOrganisation = (value: unknown): Organisation | undefined => {
         kind: value.kind,
         territory,
         website,
-        notes,
         createdAt: str(value.createdAt) ? value.createdAt : '',
+      };
+};
+
+const parseOrganisationNote = (value: unknown): OrganisationNote | undefined => {
+  if (!isRecord(value) || !str(value.id) || !str(value.at)) {
+    return undefined;
+  }
+  const body = nullable(value.body);
+  const happenedOn = nullable(value.happenedOn);
+  const actor = refOrId(value.actor);
+  return body === undefined || happenedOn === undefined || actor === undefined
+    ? undefined
+    : {
+        id: value.id,
+        body,
+        happenedOn,
+        at: value.at,
+        actor,
+        channel: value.channel === 'web' || value.channel === 'bot' ? value.channel : null,
       };
 };
 
@@ -607,7 +644,8 @@ export const parseOrganisationPage = (body: unknown): OrganisationPage | undefin
   }
   const organisation = parseOrganisation(body.organisation);
   const contacts = body.contacts === undefined ? [] : every(body.contacts, parseContactSummary);
-  return organisation && contacts ? { organisation, contacts } : undefined;
+  const notes = body.notes === undefined ? [] : every(body.notes, parseOrganisationNote);
+  return organisation && contacts && notes ? { organisation, contacts, notes } : undefined;
 };
 
 /** A campaign's targets by status: the numbers only, under a status the page knows. */

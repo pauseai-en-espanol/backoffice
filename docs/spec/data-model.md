@@ -69,13 +69,14 @@ specified in the M1 and M3 migrations.
 | `census_links`             | Personal links: person, token hash, expiry, used at; the message it went in (M5)           | Onboarding |
 | `message_templates`        | Mensajes: the team's WhatsApp messages by purpose, title, versions, retired (M5)           | Onboarding |
 | `skills`, `interests`      | Lists edited in settings, and the people linked to them                                    | Onboarding |
-| `organisations`            | Outreach organisations                                                                     | Outreach   |
+| `organisations`            | Outreach organisations (their `notes` column, no longer written, became their first note)  | Outreach   |
+| `organisation_notes`       | An organisation's timeline of notes. Append-only. `happened_on`: its day (M5, step 6)      | Outreach   |
 | `contacts`                 | Outreach contacts, tier, relationship stage, sources, `needs_review`                       | Outreach   |
 | `campaigns`                | Goal, language, sender, status, owner                                                      | Outreach   |
 | `campaign_templates`       | Per tier: subject, body with merge fields, word limit, version                             | Outreach   |
 | `campaign_anchors`         | Evidence paragraphs and their sources                                                      | Outreach   |
 | `campaign_targets`         | Contact × campaign: status, owner, priority, dates, next action                            | Outreach   |
-| `contact_events`           | The outreach timeline                                                                      | Outreach   |
+| `contact_events`           | The outreach timeline. A note's `happened_on`: its day, never to come (M5, step 6)         | Outreach   |
 | `private.telegram_updates` | Each processed `update_id`, so redeliveries are harmless; kept a week                      | Bot        |
 | `private.telegram_dialogs` | A conversation in progress; deleted after an hour                                          | Bot        |
 | `private.telegram_posts`   | Team-group messages per person, so a claim can edit them                                   | Bot        |

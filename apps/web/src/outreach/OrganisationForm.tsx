@@ -22,8 +22,6 @@ export interface OrganisationFormText {
   territory: string;
   territoryHint: string;
   website: string;
-  notes: string;
-  notesWarning: string;
   create: string;
   edit: string;
   save: string;
@@ -82,15 +80,6 @@ const OrganisationFields = ({
       maxLength={500}
       invalid={refused === 'website'}
       errorId={refused === 'website' ? errorId : undefined}
-    />
-    <Field
-      id={`${prefix}-notas`}
-      name="notes"
-      label={text.notes}
-      hint={text.notesWarning}
-      defaultValue={organisation?.notes}
-      multiline
-      maxLength={4000}
     />
   </>
 );

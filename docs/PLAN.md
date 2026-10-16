@@ -424,6 +424,11 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   who changed it, never what it was. Ajustes shows who set it and when, and how the last run went (the counts, or why
   it imported nothing, by its kind). Trade-off: any admin account can point the sync at another view; mitigated by
   mandatory two-factor sign-in, the `airtable.com` check and the audit log. Mutation list `airtable-link`.
+- **R50. An organisation's old notes** (PLAN M5, step 6). Options: keep the field beside the timeline; move it into
+  the timeline. **Chose to move it** (expand/contract): each organisation's notes became its first note, by nobody
+  known, dated the day the organisation was last changed (the nearest to when they were written that the database
+  has); the column is no longer written (its grants are revoked) and a later migration drops it. Contacts keep their
+  own notes field, which the edit form shows; only their timeline notes take a date.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

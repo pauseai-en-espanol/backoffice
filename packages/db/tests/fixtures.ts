@@ -88,6 +88,8 @@ export const OUTREACH = {
   campaign: '0190f8c4-0000-7000-8000-0000000005c1',
   pendingTarget: '0190f8c4-0000-7000-8000-0000000005d1',
   sentTarget: '0190f8c4-0000-7000-8000-0000000005d2',
+  /** A note on the organisation's timeline (PLAN M5, step 6). */
+  organisationNote: '0190f8c4-0000-7000-8000-0000000005e1',
 } as const;
 
 /** Loads the fixtures as superuser, through the same triggers the app runs. */
@@ -193,6 +195,11 @@ export const loadFixtures = async (client: pg.Client): Promise<void> => {
     await client.query(
       `INSERT INTO app.organisations (id, name, kind, territory) VALUES ($1, 'Asociación Ejemplo', 'association', 'Aragón')`,
       [OUTREACH.organisation],
+    );
+    await client.query(
+      `INSERT INTO app.organisation_notes (id, organisation_id, body)
+       VALUES ($1, $2, 'Una nota de ejemplo sobre la asociación')`,
+      [OUTREACH.organisationNote, OUTREACH.organisation],
     );
     await client.query(
       `INSERT INTO app.contacts (id, organisation_id, org_display, person_name, role, email, tier, anchor, owner_id,

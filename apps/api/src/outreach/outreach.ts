@@ -59,6 +59,11 @@ const pattern = (q: string): string => `%${q.trim().replaceAll(/[\\%_]/gu, (c) =
 
 const instant = (column: RawBuilder<unknown>) => sql`to_json(${column})#>>'{}'`;
 
+/** A timeline's order: by the day things happened (the day given, else the day written), newest first. */
+const byDay = (alias: RawBuilder<unknown>) =>
+  sql`coalesce(${alias}.happened_on, (${alias}.created_at AT TIME ZONE 'Europe/Madrid')::date) DESC,
+      ${alias}.created_at DESC, ${alias}.id DESC`;
+
 // Contacts ----------------------------------------------------------------------------------------------------------
 
 const CONTACT_COLUMNS = sql`
@@ -316,12 +321,13 @@ export const getContact = async (trx: Transaction<DB>, id: string) => {
       campaign_id: string | null;
       body: string | null;
       data: Record<string, unknown>;
+      happened_on: string | null;
     }>`
       SELECT e.id, e.kind::text AS kind, ${instant(sql`e.created_at`)} AS at, e.actor_id, s.display_name AS actor_name,
-             e.channel, e.campaign_id, e.body, e.data
+             e.channel, e.campaign_id, e.body, e.data, to_char(e.happened_on, 'YYYY-MM-DD') AS happened_on
         FROM app.contact_events e LEFT JOIN app.staff s ON s.user_id = e.actor_id
        WHERE e.contact_id = ${id}
-       ORDER BY e.created_at DESC, e.id DESC
+       ORDER BY ${byDay(sql`e`)}
        LIMIT 500`.execute(trx)
   ).rows.map((event) => ({
     id: event.id,
@@ -332,6 +338,7 @@ export const getContact = async (trx: Transaction<DB>, id: string) => {
     campaignId: event.campaign_id,
     body: event.body,
     data: event.data,
+    happenedOn: event.happened_on,
   }));
   return {
     contact: {
@@ -356,14 +363,16 @@ export const getContact = async (trx: Transaction<DB>, id: string) => {
   };
 };
 
+/** A note on a contact's timeline; `happenedOn` when what it tells happened another day (PLAN M5, step 6). */
 export const addContactNote = async (
   trx: Transaction<DB>,
   id: string,
   body: string,
+  happenedOn?: string,
 ): Promise<void> => {
-  await sql`INSERT INTO app.contact_events (contact_id, kind, body) VALUES (${id}, 'note', ${body})`.execute(
-    trx,
-  );
+  await sql`
+    INSERT INTO app.contact_events (contact_id, kind, body, happened_on)
+    VALUES (${id}, 'note', ${body}, ${happenedOn ?? null}::date)`.execute(trx);
 };
 
 /** Erasure, through the database's own function (admins only): whether it was done now. */
@@ -373,12 +382,12 @@ export const eraseContact = async (trx: Transaction<DB>, id: string): Promise<bo
 
 // Organisations -----------------------------------------------------------------------------------------------------
 
+/** An organisation's fields; its notes are a timeline of their own (PLAN M5, step 6). */
 export const ORGANISATION_FIELDS = {
   name: ['name', 'text'],
   kind: ['kind', 'app.organisation_kind'],
   territory: ['territory', 'text'],
   website: ['website', 'text'],
-  notes: ['notes', 'text'],
 } as const;
 
 export type OrganisationInput = Partial<Record<keyof typeof ORGANISATION_FIELDS, unknown>>;
@@ -421,10 +430,9 @@ export const getOrganisation = async (trx: Transaction<DB>, id: string) => {
       kind: OrganisationKind;
       territory: string | null;
       website: string | null;
-      notes: string | null;
       created_at: string;
     }>`
-      SELECT id, name, kind::text AS kind, territory, website, notes, ${instant(sql`created_at`)} AS created_at
+      SELECT id, name, kind::text AS kind, territory, website, ${instant(sql`created_at`)} AS created_at
         FROM app.organisations WHERE id = ${id}`.execute(trx)
   ).rows[0];
   if (!organisation) {
@@ -436,8 +444,47 @@ export const getOrganisation = async (trx: Transaction<DB>, id: string) => {
        WHERE c.organisation_id = ${id}
        ORDER BY c.org_display, c.person_name NULLS FIRST, c.id`.execute(trx)
   ).rows.map(toContactSummary);
+  const notes = (
+    await sql<{
+      id: string;
+      body: string | null;
+      happened_on: string | null;
+      at: string;
+      actor_id: string | null;
+      actor_name: string | null;
+      channel: 'web' | 'bot' | null;
+    }>`
+      SELECT n.id, n.body, to_char(n.happened_on, 'YYYY-MM-DD') AS happened_on, ${instant(sql`n.created_at`)} AS at,
+             n.actor_id, s.display_name AS actor_name, n.channel
+        FROM app.organisation_notes n LEFT JOIN app.staff s ON s.user_id = n.actor_id
+       WHERE n.organisation_id = ${id}
+       ORDER BY ${byDay(sql`n`)}
+       LIMIT 500`.execute(trx)
+  ).rows.map((note) => ({
+    id: note.id,
+    body: note.body,
+    happenedOn: note.happened_on,
+    at: note.at,
+    actor: note.actor_id ? { userId: note.actor_id, displayName: note.actor_name } : null,
+    channel: note.channel,
+  }));
   const { created_at: createdAt, ...rest } = organisation;
-  return { organisation: { ...rest, createdAt }, contacts };
+  return { organisation: { ...rest, createdAt }, contacts, notes };
+};
+
+export const organisationExists = async (trx: Transaction<DB>, id: string): Promise<boolean> =>
+  (await sql`SELECT 1 FROM app.organisations WHERE id = ${id}`.execute(trx)).rows.length === 1;
+
+/** A note on an organisation's timeline; `happenedOn` when what it tells happened another day (PLAN M5, step 6). */
+export const addOrganisationNote = async (
+  trx: Transaction<DB>,
+  id: string,
+  body: string,
+  happenedOn?: string,
+): Promise<void> => {
+  await sql`
+    INSERT INTO app.organisation_notes (organisation_id, body, happened_on)
+    VALUES (${id}, ${body}, ${happenedOn ?? null}::date)`.execute(trx);
 };
 
 export const createOrganisation = async (

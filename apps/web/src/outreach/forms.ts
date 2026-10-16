@@ -353,10 +353,9 @@ export interface OrganisationInput {
   kind?: OrganisationKind;
   territory?: string | null;
   website?: string | null;
-  notes?: string | null;
 }
 
-const ORGANISATION_TEXTS = ['territory', 'website', 'notes'] as const;
+const ORGANISATION_TEXTS = ['territory', 'website'] as const;
 
 export const newOrganisation = (read: Read): OrganisationInput => {
   const kind = read('kind');

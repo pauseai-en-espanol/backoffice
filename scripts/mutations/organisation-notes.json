@@ -1,0 +1,98 @@
+[
+  {
+    "name": "a contact's note may be dated tomorrow",
+    "file": "db/migrations/20261017120000_organisation_notes.sql",
+    "old": "CREATE TRIGGER happened BEFORE INSERT ON app.contact_events\n  FOR EACH ROW WHEN (NEW.happened_on IS NOT NULL) EXECUTE FUNCTION private.happened_rules();",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an organisation's note may be dated tomorrow",
+    "file": "db/migrations/20261017120000_organisation_notes.sql",
+    "old": "CREATE TRIGGER happened BEFORE INSERT ON app.organisation_notes\n  FOR EACH ROW WHEN (NEW.happened_on IS NOT NULL) EXECUTE FUNCTION private.happened_rules();",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a stage change written by the database takes a date someone gave",
+    "file": "db/migrations/20261017120000_organisation_notes.sql",
+    "old": "  CHECK (happened_on IS NULL OR kind = 'note');",
+    "new": "  CHECK (true);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an organisation's note can be changed afterwards",
+    "file": "db/migrations/20261017120000_organisation_notes.sql",
+    "old": "GRANT SELECT, INSERT (organisation_id, body, happened_on) ON app.organisation_notes TO pauseai_backoffice_app;",
+    "new": "GRANT SELECT, UPDATE, INSERT (organisation_id, body, happened_on) ON app.organisation_notes TO pauseai_backoffice_app;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an organisation's note may say nothing",
+    "file": "db/migrations/20261017120000_organisation_notes.sql",
+    "old": "  body             text CHECK (btrim(body) <> '' AND length(body) <= 4000),",
+    "new": "  body             text CHECK (length(body) <= 4000),",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the old notes field is still written beside the timeline",
+    "file": "db/migrations/20261017120000_organisation_notes.sql",
+    "old": "REVOKE INSERT (notes), UPDATE (notes) ON app.organisations FROM pauseai_backoffice_app;",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a contact's note forgets the day it happened",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "    INSERT INTO app.contact_events (contact_id, kind, body, happened_on)\n    VALUES (${id}, 'note', ${body}, ${happenedOn ?? null}::date)`.execute(trx);",
+    "new": "    INSERT INTO app.contact_events (contact_id, kind, body, happened_on)\n    VALUES (${id}, 'note', ${body}, ${null}::date)`.execute(trx);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an organisation's note forgets the day it happened",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "    VALUES (${id}, ${body}, ${happenedOn ?? null}::date)`.execute(trx);",
+    "new": "    VALUES (${id}, ${body}, ${null}::date)`.execute(trx);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the API's timelines go by when things were written, not when they happened",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "  sql`coalesce(${alias}.happened_on, (${alias}.created_at AT TIME ZONE 'Europe/Madrid')::date) DESC,\n      ${alias}.created_at DESC, ${alias}.id DESC`;",
+    "new": "  sql`${alias}.created_at DESC, ${alias}.id DESC`;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an organisation's page loses its notes",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "  return { organisation: { ...rest, createdAt }, contacts, notes };",
+    "new": "  return { organisation: { ...rest, createdAt }, contacts, notes: [] };",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the staff app's timelines go by when things were written",
+    "file": "apps/web/src/outreach/timeline.ts",
+    "old": "    `${entry.happenedOn ?? formatMadridDay(entry.at)} ${entry.at}`;",
+    "new": "    `${entry.at}`;",
+    "cmd": "pnpm exec vitest run src/outreach/timeline.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the staff app takes an organisation's page without its notes",
+    "file": "apps/web/src/outreach/types.ts",
+    "old": "  const notes = body.notes === undefined ? [] : every(body.notes, parseOrganisationNote);",
+    "new": "  const notes: OrganisationNote[] = [];",
+    "cmd": "pnpm exec vitest run src/outreach/types.spec.ts",
+    "cwd": "apps/web"
+  }
+]

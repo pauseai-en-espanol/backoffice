@@ -90,6 +90,90 @@ describe('contacts', () => {
   });
 });
 
+describe('notes on contacts and organisations (PLAN M5, step 6)', () => {
+  it('may say the day they happened, never one to come, and only a note says one', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      await client.query(
+        `INSERT INTO app.contact_events (contact_id, kind, body, happened_on)
+         VALUES ($1, 'note', 'Hablamos en una jornada', DATE '2026-03-01')`,
+        [OUTREACH.berta],
+      );
+      await client.query(
+        `INSERT INTO app.organisation_notes (organisation_id, body, happened_on)
+         VALUES ($1, 'Reunión con su junta', DATE '2026-03-02')`,
+        [OUTREACH.organisation],
+      );
+      const tomorrow = "(now() AT TIME ZONE 'Europe/Madrid')::date + 1";
+      expect(
+        await errorCode(
+          client,
+          `INSERT INTO app.contact_events (contact_id, kind, body, happened_on)
+           VALUES ($1, 'note', 'Mañana', ${tomorrow})`,
+          [OUTREACH.berta],
+        ),
+      ).toBe('23514');
+      expect(
+        await errorCode(
+          client,
+          `INSERT INTO app.organisation_notes (organisation_id, body, happened_on)
+           VALUES ($1, 'Mañana', ${tomorrow})`,
+          [OUTREACH.organisation],
+        ),
+      ).toBe('23514');
+    });
+    await inRolledBackTransaction(async (client) => {
+      // A stage change, written by the database, is dated by when it was written.
+      expect(
+        await errorCode(
+          client,
+          `INSERT INTO app.contact_events (contact_id, kind, data, happened_on)
+           VALUES ($1, 'stage_changed', '{}', DATE '2026-03-01')`,
+          [OUTREACH.berta],
+        ),
+      ).toBe('23514');
+    });
+  });
+
+  it("keep an organisation's notes with who wrote them and when, never changed afterwards", async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      const { rows } = await client.query<{ id: string }>(
+        `INSERT INTO app.organisation_notes (organisation_id, body)
+         VALUES ($1, 'Les interesa una charla') RETURNING id`,
+        [OUTREACH.organisation],
+      );
+      const id = rows[0]?.id;
+      expect(
+        (
+          await client.query(
+            'SELECT actor_id, channel, created_at IS NOT NULL AS dated FROM app.organisation_notes WHERE id = $1',
+            [id],
+          )
+        ).rows,
+      ).toEqual([{ actor_id: USERS.outreacher, channel: 'web', dated: true }]);
+      expect(
+        await errorCode(client, "UPDATE app.organisation_notes SET body = 'Otra' WHERE id = $1", [
+          id,
+        ]),
+      ).toBe('42501');
+      expect(
+        await errorCode(
+          client,
+          "INSERT INTO app.organisation_notes (organisation_id, body) VALUES ($1, '  ')",
+          [OUTREACH.organisation],
+        ),
+      ).toBe('23514');
+      // The old notes field isn't written any more: the timeline is.
+      expect(
+        await errorCode(client, "UPDATE app.organisations SET notes = 'Otra' WHERE id = $1", [
+          OUTREACH.organisation,
+        ]),
+      ).toBe('42501');
+    });
+  });
+});
+
 describe('campaign targets', () => {
   it('are never made ready or sent while their contact needs review or is held', async () => {
     await inRolledBackTransaction(async (client) => {

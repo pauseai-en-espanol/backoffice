@@ -2,6 +2,8 @@ import type { getTranslator } from '@backoffice/i18n/messages';
 
 import type { Described } from '@/onboarding/timeline';
 
+import { formatMadridDay } from '@/onboarding/format';
+
 import { type ContactEvent, isRelationshipStage, isTargetStatus } from './types';
 
 type Translator = ReturnType<typeof getTranslator>;
@@ -85,4 +87,17 @@ export const describeContactEvent = (
     default:
       return { title: t('outreach.events.unknown'), detail: body };
   }
+};
+
+/**
+ * A timeline's order (PLAN M5, step 6): by the day each entry happened (a day someone gave, else the day it was
+ * written, in Madrid), newest first; on the same day, the one written last first.
+ */
+export const byHappened = (
+  a: { happenedOn: string | null; at: string },
+  b: { happenedOn: string | null; at: string },
+): number => {
+  const key = (entry: { happenedOn: string | null; at: string }) =>
+    `${entry.happenedOn ?? formatMadridDay(entry.at)} ${entry.at}`;
+  return key(a) < key(b) ? 1 : key(a) > key(b) ? -1 : 0;
 };

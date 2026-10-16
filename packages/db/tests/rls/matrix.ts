@@ -502,6 +502,25 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
       },
     ],
   },
+  'app.organisation_notes': {
+    rows: [
+      {
+        id: "an organisation's note",
+        where: `id = ${quote(OUTREACH.organisationNote)}`,
+        select: OUTREACH_STAFF,
+        update: { set: "body = 'Cambiada'", rule: NOBODY },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a note, dated',
+        sql: `INSERT INTO app.organisation_notes (organisation_id, body, happened_on)
+              VALUES (${quote(OUTREACH.organisation)}, 'Una nota', DATE '2026-01-15')`,
+        rule: OUTREACH_STAFF,
+      },
+    ],
+  },
   'app.contacts': {
     rows: [
       {
@@ -617,6 +636,12 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         id: 'a note',
         sql: `INSERT INTO app.contact_events (contact_id, kind, body)
               VALUES (${quote(OUTREACH.berta)}, 'note', 'Una nota')`,
+        rule: OUTREACH_STAFF,
+      },
+      {
+        id: 'a note, dated',
+        sql: `INSERT INTO app.contact_events (contact_id, kind, body, happened_on)
+              VALUES (${quote(OUTREACH.berta)}, 'note', 'Una nota', DATE '2026-01-15')`,
         rule: OUTREACH_STAFF,
       },
       {

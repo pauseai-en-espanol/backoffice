@@ -2888,9 +2888,11 @@ CREATE TABLE app.contact_events (
     channel text,
     body text,
     data jsonb DEFAULT '{}'::jsonb NOT NULL,
+    happened_on date,
     CONSTRAINT contact_events_body_check CHECK ((length(body) <= 4000)),
     CONSTRAINT contact_events_channel_check CHECK ((channel = ANY (ARRAY['web'::text, 'bot'::text]))),
-    CONSTRAINT contact_events_data_check CHECK ((jsonb_typeof(data) = 'object'::text))
+    CONSTRAINT contact_events_data_check CHECK ((jsonb_typeof(data) = 'object'::text)),
+    CONSTRAINT contact_events_happened_on_check CHECK (((happened_on IS NULL) OR (kind = 'note'::app.contact_event_kind)))
 );
 
 
@@ -3203,6 +3205,32 @@ END, ''::text, 'g'::text) !~ '[{}]'::text)),
 
 
 ALTER TABLE app.message_templates OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: organisation_notes; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.organisation_notes (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    organisation_id uuid NOT NULL,
+    body text,
+    happened_on date,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    actor_id uuid,
+    channel text,
+    CONSTRAINT organisation_notes_body_check CHECK (((btrim(body) <> ''::text) AND (length(body) <= 4000))),
+    CONSTRAINT organisation_notes_channel_check CHECK ((channel = ANY (ARRAY['web'::text, 'bot'::text])))
+);
+
+
+ALTER TABLE app.organisation_notes OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN organisation_notes.body; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.organisation_notes.body IS 'personal data';
+
 
 --
 -- Name: organisations; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -4087,6 +4115,14 @@ ALTER TABLE ONLY app.message_templates
 
 
 --
+-- Name: organisation_notes organisation_notes_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.organisation_notes
+    ADD CONSTRAINT organisation_notes_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: organisations organisations_external_ref_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4393,6 +4429,13 @@ CREATE INDEX invitations_created_by_idx ON app.invitations USING btree (created_
 
 
 --
+-- Name: organisation_notes_organisation_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX organisation_notes_organisation_id_idx ON app.organisation_notes USING btree (organisation_id, created_at DESC);
+
+
+--
 -- Name: people_name_folded_trgm_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4617,6 +4660,13 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.message_templates F
 
 
 --
+-- Name: organisation_notes audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.organisation_notes FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
 -- Name: organisations audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4750,6 +4800,13 @@ CREATE TRIGGER forbid_mutation BEFORE DELETE OR UPDATE ON app.contact_events FOR
 
 
 --
+-- Name: organisation_notes forbid_mutation; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER forbid_mutation BEFORE DELETE OR UPDATE ON app.organisation_notes FOR EACH ROW EXECUTE FUNCTION private.forbid_mutation();
+
+
+--
 -- Name: person_events forbid_mutation; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4778,10 +4835,31 @@ CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.contact_events FOR EACH ST
 
 
 --
+-- Name: organisation_notes forbid_truncate; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.organisation_notes FOR EACH STATEMENT EXECUTE FUNCTION private.forbid_mutation();
+
+
+--
 -- Name: person_events forbid_truncate; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER forbid_truncate BEFORE TRUNCATE ON app.person_events FOR EACH STATEMENT EXECUTE FUNCTION private.forbid_mutation();
+
+
+--
+-- Name: contact_events happened; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER happened BEFORE INSERT ON app.contact_events FOR EACH ROW WHEN ((new.happened_on IS NOT NULL)) EXECUTE FUNCTION private.happened_rules();
+
+
+--
+-- Name: organisation_notes happened; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER happened BEFORE INSERT ON app.organisation_notes FOR EACH ROW WHEN ((new.happened_on IS NOT NULL)) EXECUTE FUNCTION private.happened_rules();
 
 
 --
@@ -4967,6 +5045,13 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.message_templates FOR EACH R
 
 
 --
+-- Name: organisation_notes stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT ON app.organisation_notes FOR EACH ROW EXECUTE FUNCTION private.stamp('actor_id', 'created_at');
+
+
+--
 -- Name: organisations stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5020,6 +5105,13 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.staff_roles FOR EACH ROW EXE
 --
 
 CREATE TRIGGER stamp_channel BEFORE INSERT ON app.contact_events FOR EACH ROW EXECUTE FUNCTION private.stamp_channel();
+
+
+--
+-- Name: organisation_notes stamp_channel; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp_channel BEFORE INSERT ON app.organisation_notes FOR EACH ROW EXECUTE FUNCTION private.stamp_channel();
 
 
 --
@@ -5316,6 +5408,14 @@ ALTER TABLE ONLY app.invitations
 
 ALTER TABLE ONLY app.invitations
     ADD CONSTRAINT invitations_created_by_fkey FOREIGN KEY (created_by) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: organisation_notes organisation_notes_organisation_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.organisation_notes
+    ADD CONSTRAINT organisation_notes_organisation_id_fkey FOREIGN KEY (organisation_id) REFERENCES app.organisations(id);
 
 
 --
@@ -5879,6 +5979,12 @@ CREATE POLICY onboarding_update ON app.people FOR UPDATE TO pauseai_backoffice_a
 
 
 --
+-- Name: organisation_notes; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.organisation_notes ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: organisations; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5941,6 +6047,13 @@ CREATE POLICY outreach_insert ON app.contacts FOR INSERT TO pauseai_backoffice_a
 
 
 --
+-- Name: organisation_notes outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_insert ON app.organisation_notes FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (body IS NOT NULL)));
+
+
+--
 -- Name: organisations outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5987,6 +6100,13 @@ CREATE POLICY outreach_read ON app.contact_events FOR SELECT TO pauseai_backoffi
 --
 
 CREATE POLICY outreach_read ON app.contacts FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: organisation_notes outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY outreach_read ON app.organisation_notes FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
 
 
 --
@@ -7258,6 +7378,13 @@ GRANT INSERT(data) ON TABLE app.contact_events TO pauseai_backoffice_app;
 
 
 --
+-- Name: COLUMN contact_events.happened_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(happened_on) ON TABLE app.contact_events TO pauseai_backoffice_app;
+
+
+--
 -- Name: TABLE contacts; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -7601,6 +7728,34 @@ GRANT INSERT(active),UPDATE(active) ON TABLE app.message_templates TO pauseai_ba
 
 
 --
+-- Name: TABLE organisation_notes; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.organisation_notes TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisation_notes.organisation_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(organisation_id) ON TABLE app.organisation_notes TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisation_notes.body; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(body) ON TABLE app.organisation_notes TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisation_notes.happened_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(happened_on) ON TABLE app.organisation_notes TO pauseai_backoffice_app;
+
+
+--
 -- Name: TABLE organisations; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -7633,13 +7788,6 @@ GRANT INSERT(territory),UPDATE(territory) ON TABLE app.organisations TO pauseai_
 --
 
 GRANT INSERT(website),UPDATE(website) ON TABLE app.organisations TO pauseai_backoffice_app;
-
-
---
--- Name: COLUMN organisations.notes; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
---
-
-GRANT INSERT(notes),UPDATE(notes) ON TABLE app.organisations TO pauseai_backoffice_app;
 
 
 --

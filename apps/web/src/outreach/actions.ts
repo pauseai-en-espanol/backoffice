@@ -38,8 +38,17 @@ export const createContact = (input: ContactInput) => send('POST', CONTACTS, inp
 export const updateContact = (id: string, change: ContactInput) =>
   send('PATCH', at(CONTACTS, id), change);
 
-export const addContactNote = (id: string, body: string) =>
-  send('POST', `${at(CONTACTS, id)}/notes`, { body });
+/** A note on a timeline, a contact's or an organisation's; `happenedOn` when it happened another day (PLAN M5). */
+export const addNote = (
+  on: { kind: 'contact' | 'organisation'; id: string },
+  body: string,
+  happenedOn: string,
+) =>
+  send(
+    'POST',
+    `${at(on.kind === 'contact' ? CONTACTS : ORGANISATIONS, on.id)}/notes`,
+    happenedOn === '' ? { body } : { body, happenedOn },
+  );
 
 /** Admins: the contact's details, notes and timeline words go for good; they stay held. */
 export const eraseContact = (id: string) => send('POST', `${at(CONTACTS, id)}/erase`);

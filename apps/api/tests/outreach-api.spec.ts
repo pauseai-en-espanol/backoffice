@@ -105,9 +105,12 @@ afterAll(async () => {
   await superuser.query(`DELETE FROM app.campaign_templates WHERE campaign_id IN ${campaigns}`);
   await superuser.query("DELETE FROM app.campaigns WHERE slug LIKE 'prueba-%'");
   await superuser.query(`DELETE FROM app.contacts WHERE id IN ${contacts}`);
+  const organisations = `(SELECT id FROM app.organisations
+                            WHERE name LIKE 'Prueba %' OR external_ref LIKE 'outreach-org:Prueba %')`;
   await superuser.query(
-    "DELETE FROM app.organisations WHERE name LIKE 'Prueba %' OR external_ref LIKE 'outreach-org:Prueba %'",
+    `DELETE FROM app.organisation_notes WHERE organisation_id IN ${organisations}`,
   );
+  await superuser.query(`DELETE FROM app.organisations WHERE id IN ${organisations}`);
   await superuser.query('DELETE FROM app.staff_roles WHERE user_id = ANY($1::uuid[])', [accounts]);
   await superuser.query('DELETE FROM app.staff WHERE user_id = ANY($1::uuid[])', [accounts]);
   await superuser.query("SET session_replication_role = 'origin'");
@@ -229,6 +232,82 @@ describe('organisations and contacts (M3)', () => {
 
     expect((await onboarder.who.send('GET', '/api/outreach/contacts')).statusCode).toBe(403);
     expect((await onboarder.who.send('GET', `/api/outreach/contacts/${id}`)).statusCode).toBe(403);
+  });
+
+  it('keep notes on a timeline, an organisation’s too, each dated when it happened if not today (PLAN M5)', async () => {
+    const org = await outreacher.who.send('POST', '/api/outreach/organisations', {
+      name: `Prueba Fundación ${unique()}`,
+      kind: 'ngo',
+    });
+    const organisationId = org.json<{ id: string }>().id;
+    const id = await newContact({ organisationId });
+    const note = (path: string, body: Record<string, unknown>) =>
+      outreacher.who.send('POST', `/api/outreach/${path}/notes`, body);
+
+    expect(
+      (await note(`contacts/${id}`, { body: 'Nos vimos en una jornada', happenedOn: '2026-03-01' }))
+        .statusCode,
+    ).toBe(201);
+    expect((await note(`contacts/${id}`, { body: 'Hoy' })).statusCode).toBe(201);
+    const timeline = (await outreacher.who.send('GET', `/api/outreach/contacts/${id}`)).json<{
+      timeline: { kind: string; body: string | null; happenedOn: string | null }[];
+    }>().timeline;
+    // By the day it happened: today's first, the one in March last, after the contact was created today.
+    expect(timeline.map(({ kind, body, happenedOn }) => ({ kind, body, happenedOn }))).toEqual([
+      { kind: 'note', body: 'Hoy', happenedOn: null },
+      { kind: 'created', body: null, happenedOn: null },
+      { kind: 'note', body: 'Nos vimos en una jornada', happenedOn: '2026-03-01' },
+    ]);
+
+    // Written today, then one from February: the day it happened orders them, not when they were written.
+    expect(
+      (await note(`organisations/${organisationId}`, { body: 'Quieren una charla' })).statusCode,
+    ).toBe(201);
+    expect(
+      (
+        await note(`organisations/${organisationId}`, {
+          body: 'Su junta nos recibió',
+          happenedOn: '2026-02-10',
+        })
+      ).statusCode,
+    ).toBe(201);
+    const page = (
+      await outreacher.who.send('GET', `/api/outreach/organisations/${organisationId}`)
+    ).json<{
+      organisation: Record<string, unknown>;
+      notes: { body: string; happenedOn: string | null; actor: { userId: string } }[];
+    }>();
+    expect(page.organisation).not.toHaveProperty('notes');
+    expect(page.notes.map(({ body, happenedOn }) => ({ body, happenedOn }))).toEqual([
+      { body: 'Quieren una charla', happenedOn: null },
+      { body: 'Su junta nos recibió', happenedOn: '2026-02-10' },
+    ]);
+    expect(page.notes[0]?.actor.userId).toBe(outreacher.id);
+
+    // Never a day to come, never empty; the notes field is the timeline's now; outsiders can't.
+    const tomorrow = new Date(Date.now() + 2 * 86_400_000).toISOString().slice(0, 10);
+    for (const path of [`contacts/${id}`, `organisations/${organisationId}`]) {
+      expect((await note(path, { body: 'Mañana', happenedOn: tomorrow })).statusCode).toBe(422);
+      expect((await note(path, { body: '  ' })).statusCode).toBe(400);
+      expect((await note(path, { body: 'Una', happenedOn: '1 de marzo' })).statusCode).toBe(400);
+    }
+    expect(
+      (
+        await outreacher.who.send('PATCH', `/api/outreach/organisations/${organisationId}`, {
+          notes: 'Otra',
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect((await note(`organisations/${crypto.randomUUID()}`, { body: 'Nadie' })).statusCode).toBe(
+      404,
+    );
+    expect(
+      (
+        await onboarder.who.send('POST', `/api/outreach/organisations/${organisationId}/notes`, {
+          body: 'Yo',
+        })
+      ).statusCode,
+    ).toBe(403);
   });
 
   it('say why they matter, unless they are still to review, and take valid details only', async () => {

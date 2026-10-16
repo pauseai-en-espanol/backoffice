@@ -18,7 +18,9 @@ relationship stands.
   by tools start with `needs_review` set.
 - **Campaign:** a goal, a language, a sender, templates by tier, evidence paragraphs ("anchors") with their
   sources, and a list of **targets** (contact × campaign).
-- **Timeline:** the same append-only pattern as onboarding.
+- **Timeline:** the same append-only pattern as onboarding. Contacts and organisations both have one (PLAN M5,
+  step 6): notes, each with the day the conversation it tells happened if not the day it was written (never one to
+  come), shown next to who wrote it and when, so extracts from past conversations can be kept. Ordered by that day.
 
 ## 2. Stages
 

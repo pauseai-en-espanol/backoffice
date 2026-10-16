@@ -1743,6 +1743,9 @@
     "saveNote": "Guardar la nota",
     "noteSaved": "Nota guardada.",
     "noteMissing": "Escribe la nota.",
+    "happenedOn": "Cuándo fue (opcional)",
+    "happenedOnHint": "El día de la conversación, si no fue hoy: para guardar lo hablado en otro momento. Nunca una fecha futura.",
+    "happenedOnFuture": "Esa fecha aún no ha llegado: pon el día en que fue.",
     "rights": "Sus datos",
     "rightsIntro": "Si la persona pide que se borren sus datos, quien administra los borra aquí.",
     "erase": "Borrar sus datos",
@@ -1769,7 +1772,6 @@
     "territory": "Territorio",
     "territoryHint": "Estado, comunidad autónoma o provincia.",
     "website": "Web",
-    "notes": "Notas",
     "contactsCount": "{count, plural, =0 {Sin contactos} one {# contacto} other {# contactos}}",
     "new": "Nueva organización",
     "kindHint": "Las importadas del repositorio llegan como «Otra»: pon la que sea.",
@@ -1784,7 +1786,9 @@
     "createdOn": "En el directorio desde el {date}",
     "contacts": "Sus contactos",
     "contactsNone": "Aún no tiene contactos.",
-    "addContact": "Nuevo contacto"
+    "addContact": "Nuevo contacto",
+    "timeline": "Notas",
+    "timelineNone": "Aún no hay notas."
   },
   "campaignImport": {
     "title": "Importar del repositorio",
