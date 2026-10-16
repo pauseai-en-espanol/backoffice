@@ -1,5 +1,18 @@
 # @backoffice/api
 
+## 0.6.0
+
+### Minor Changes
+
+- a88d283: Censo lists everyone waiting, 50 at a time ("Ver las siguientes"), with a search by name, phone, email or Discord and
+  the count of everyone waiting: it used to stop at the 200 oldest, so with more the newest never showed. On a computer
+  the sidebar is tighter, so an admin's whole menu, Ajustes and Salir included, fits a 1280×720 screen.
+
+### Patch Changes
+
+- Updated dependencies [a88d283]
+  - @backoffice/i18n@0.7.0
+
 ## 0.5.1
 
 ### Patch Changes
