@@ -95,6 +95,10 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   staff who choose from them and changed by admins only, never deleted. "Llegó por" adds no function the runtime
   roles run: the intake functions resolve it as their owner (`private.arrival_channel`), and the bot names no entry
   but WhatsApp's key.
+- **Mensajes** (`app.message_templates`, PLAN M5): the WhatsApp messages newcomers receive are read and written by
+  onboarding staff and admins, who send them; never deleted, and their purpose and version aren't writable. The bot
+  gets nothing. The triggers that check which message went out (on a contact attempt and a census link) run as the
+  writer, who can read the templates; no new function for the runtime roles.
 - **Helpers** (`SECURITY DEFINER`, so policies on `staff` and `staff_roles` don't recurse into their own RLS):
   - `private.staff_can(VARIADIC roles)`: true only for the web channel, at aal 2, for an active staff member who
     holds one of the roles.

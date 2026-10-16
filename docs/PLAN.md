@@ -176,6 +176,17 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
    they have one notes field), and notes on both take an optional date for when the conversation happened (as in
    step 3), so extracts from past conversations can be kept, privately or for the team (Dani, 2026-10-16). Waits on
    the outreach contacts' legal basis for notes quoting conversations.
+7. **Mensajes: the WhatsApp messages newcomers receive, written by the team, not in code** (D15; Dani, 2026-10-16:
+   "it should be a template that we craft somewhere (not code)"). A page in the Onboarding group where the onboarding
+   team writes the welcome (a person's "Abrir WhatsApp") and the census link's message (Censo), several per purpose,
+   each with a title, picked when WhatsApp is opened. Placeholders `{nombre}`, `{yo}` and the census link's
+   `{enlace}`, which it must carry; anything else is said as it's typed and refused by the database. A version for
+   someone without a name when `{nombre}` is used, drafted from the message; a preview with an example person; every
+   change a new version, and the contact attempt (and the census link) naming the message and version that went out,
+   which the history shows by title. Retired, never deleted. The code keeps a neutral message for a purpose with none
+   in use, which no longer says "onboarding". The texts themselves come from Dani's Google Doc, entered in the page.
+   Choices in R39 to R42. **Done:** migrations `20261016160000` to `160200` (the table; attempts and census links
+   naming their message); mutation list `message-templates`.
 
 ## Decided
 
@@ -191,6 +202,7 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
 | **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                                                         | Dani, 2026-10-16 |
 | **D13** | The Telegram bot is the onboarding team's alone: only staff with the onboarding role link and use it, not an admin without it; losing the role unlinks (ADR-0004) | Dani, 2026-10-16 |
 | **D14** | The staff app and the bot say "onboarding", not "acogida"; the board by stage is the "Onboarding Pipeline", at `/pipeline`                                        | Dani, 2026-10-16 |
+| **D15** | The WhatsApp messages newcomers receive are written by the team in the staff app (Mensajes), not in code; the code keeps a neutral fallback (PLAN M5)             | Dani, 2026-10-16 |
 | —       | Backups are handled in gitops, separately from this plan                                                                                                          | Dani, 2026-10-15 |
 | —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                             | Dani, 2026-10-15 |
 
@@ -348,6 +360,22 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   is in English, described in Spanish in both (D6); the sealing script no longer sets it. Spanish by default so that
   Catalan, Galician or Basque Telegram sees the Spanish names too (Dani, 2026-10-16). Replies name a command by both
   names, English first: "/joined (/alta)".
+- **R39. Who writes the messages in Mensajes** (D15). Options: admins only; the onboarding team. **Chose onboarding
+  staff and admins**, like every onboarding table (ADR-0002 §4): they are the ones who send them, and every change is
+  versioned and audited. Restricting writing to admins is a forward migration on the insert and update policies.
+- **R40. Someone without a name** (R37). Options: take `{nombre}` out when the message goes; a second version of the
+  message. **Chose a second version**, required exactly when the message uses `{nombre}` and never naming anyone: a
+  sentence with the name cut out can read wrong, so the team writes (and previews) what goes out. The page drafts it
+  from the message ("Hola, {nombre}:" reads "Hola:") until it's touched.
+- **R41. Placeholders, order and retiring.** Placeholders are Spanish words in braces, the purpose's only; any other
+  brace is refused (a message can't carry a literal brace), so "{nombe}" never reaches a newcomer. A purpose's
+  messages are offered in the order they were written, the first already picked; there is no reordering yet (retire
+  the first to change it). A message is retired, never deleted, since the history names it.
+- **R42. Recording what went out.** Options: the version at the moment "Sí, lo he enviado" is pressed; the one the
+  page opened WhatsApp with. **Chose the one opened**: the contact attempt's data carries `templateId` and
+  `templateVersion`, which the database checks (a version that template has had); a census link records its message
+  when it's made (its URL is shown only then, inside it), and its attempt names the same. A census link message
+  retired between loading Censo and pressing the button is refused (`409 stale`), never swapped for another.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).
@@ -361,4 +389,4 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 | M2        | Built, not deployed | The forms app at `unete.pauseai.es` (generic and personal links, honeypot and timing, consents with their wording version, the privacy notice as a draft); Censo, the person's census side, the Bandeja's census answers, the option lists in Ajustes; export and erasure. E2E covers a personal link end to end and the generic link. Deploying waits on the M2 steps in [deploying](runbooks/deploying.md) and the privacy notice. |
 | M3        | Built, not deployed | Campañas (board by status, templates with a preview per contact, evidence paragraphs, targets), Contactos, Organizaciones, Siguiente (take the next target, open the letter in your own mail or WhatsApp, copy buttons, "Sí, enviada"), and the one-off import from the `outreach` repo, checked against the real campaign locally (counts only). Nothing sends. E2E covers Siguiente end to end.                                    |
 | M4        | Built, not deployed | The Panel (people by stage, weekly arrivals by source, time to first contact, the unassigned for more than 48 hours). No retention job (D9) and no MCP server for now (D10). E2E covers the Panel.                                                                                                                                                                                                                                   |
-| M5        | In progress         | In progress (2026-10-16): the six steps in [M5](#m5-after-first-use), in order; 1 to 3 done.                                                                                                                                                                                                                                                                                                                                         |
+| M5        | In progress         | In progress (2026-10-16): the steps in [M5](#m5-after-first-use), in order; 1 to 3 done, and 7 (Mensajes): write a welcome in Mensajes, open a person's WhatsApp with it, and see it named in their history. E2E covers it, on a phone too.                                                                                                                                                                                          |

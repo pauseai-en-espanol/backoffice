@@ -134,8 +134,8 @@ gateway gave it to the forms app; the API counts submissions per address. Both r
 
 ## M5: after first use
 
-Additions and changes for step 3 of [PLAN M5](../PLAN.md#m5-after-first-use): fewer stages, when and where from,
-Discord usernames. Everything else above stands.
+Additions and changes for steps 3 and 7 of [PLAN M5](../PLAN.md#m5-after-first-use): fewer stages, when and where
+from, Discord usernames; the team's WhatsApp messages. Everything else above stands.
 
 - **Stages:** `to_triage` and `talking` are gone; a summary's `stage` is one of `new`, `contacting`, `welcomed`,
   `active`, `dormant`, `unresponsive`, `left`, `discarded`. Older timeline events may still name the old two.
@@ -164,6 +164,27 @@ Discord usernames. Everything else above stands.
   yyyy-mm-dd; an empty cell in a mapped column means unknown). The export adds `discord`, `llego_por` and `llego_el`.
 - **Hoy and the bot's `/unassigned`** list the "Sin asignar" rule's people: new, nobody's, arrived in the last 30
   days.
+
+Mensajes ([PLAN M5](../PLAN.md#m5-after-first-use), step 7): the WhatsApp messages the team writes, for onboarding
+staff and admins; never the bot.
+
+- **`GET /api/message-templates`**: `{ templates: [{ id, purpose, title, body, bodyNameless, active, version,
+updatedAt, updatedBy: { userId, displayName } | null }] }`, by purpose (`welcome`, `census_link`), those in use
+  first, each purpose's in the order they were written (the order they're offered).
+- **`POST /api/message-templates`** `{ purpose, title, body, bodyNameless? }` (`201 { id }`) and
+  **`PATCH /api/message-templates/:id`** `{ title?, body?, bodyNameless?, active? }` (`204`, `404` for no such
+  message). Text is trimmed, and a blank `bodyNameless` is none. The database refuses, `422 incomplete` with the rule's
+  name in `constraint`: a placeholder the purpose doesn't have or a stray brace
+  (`message_templates_placeholders_check`), a census link's message without `{enlace}` in either version
+  (`message_templates_link_check`), and a message with `{nombre}` without a version for someone without a name, or one
+  without `{nombre}` with one (`message_templates_nameless_check`). A title in use for the purpose: `409 taken`.
+  Every change to `body` or `bodyNameless` adds a version; the purpose and version can't be written. Never deleted:
+  `active: false` retires one.
+- **`POST /api/people/:id/attempts`** also takes `templateId` and `templateVersion`, both or neither: the message
+  that went out, one the template has had (`422` otherwise).
+- **`POST /api/people/:id/census-link`** takes an optional body `{ templateId? }`: the census link message to write it
+  in, else the first in use, else the code's own. `409 stale` when the one asked for is retired or isn't a census
+  link's. The link records the message and its version, and `/sent`'s contact attempt names them.
 
 ## M3: outreach
 

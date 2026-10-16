@@ -1,0 +1,212 @@
+[
+  {
+    "name": "a message takes any placeholder, typos and stray braces included",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "                   '', 'g') !~ '[{}]'),",
+    "new": "                   '', 'g') IS NOT NULL),",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a welcome takes the census link's {enlace}",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "ELSE '\\{(nombre|yo)\\}' END,",
+    "new": "ELSE '\\{(nombre|yo|enlace)\\}' END,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a census link's message goes without {enlace}",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "    purpose <> 'census_link'\n    OR (",
+    "new": "    true\n    OR (",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a census link's message has {enlace} only with a name",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": " AND (body_nameless IS NULL OR strpos(body_nameless, '{enlace}') > 0)",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a message with {nombre} goes without its version for someone without a name",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "         THEN body_nameless IS NOT NULL AND strpos(body_nameless, '{nombre}') = 0",
+    "new": "         THEN strpos(coalesce(body_nameless, ''), '{nombre}') = 0",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the version without a name names someone",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "THEN body_nameless IS NOT NULL AND strpos(body_nameless, '{nombre}') = 0",
+    "new": "THEN body_nameless IS NOT NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a message that names nobody keeps a version without a name",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "         ELSE body_nameless IS NULL END)",
+    "new": "         ELSE true END)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a change to the version without a name keeps the version",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "    IF NEW.body IS DISTINCT FROM OLD.body OR NEW.body_nameless IS DISTINCT FROM OLD.body_nameless THEN",
+    "new": "    IF NEW.body IS DISTINCT FROM OLD.body THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff write the version",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "UPDATE (title, body, body_nameless, active)",
+    "new": "UPDATE (title, body, body_nameless, active, version)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff change a message's purpose",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "UPDATE (title, body, body_nameless, active)",
+    "new": "UPDATE (purpose, title, body, body_nameless, active)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff delete a message",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "GRANT SELECT, INSERT (purpose, title, body, body_nameless, active), UPDATE (title, body, body_nameless, active)\n  ON app.message_templates TO pauseai_backoffice_app;",
+    "new": "GRANT SELECT, DELETE, INSERT (purpose, title, body, body_nameless, active), UPDATE (title, body, body_nameless, active)\n  ON app.message_templates TO pauseai_backoffice_app;\nCREATE POLICY onboarding_delete ON app.message_templates FOR DELETE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "outreach staff read the messages",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding')));",
+    "new": "FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot writes a message",
+    "file": "db/migrations/20261016160000_message_templates.sql",
+    "old": "FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'onboarding')));",
+    "new": "FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'onboarding') OR private.bot_can('onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an attempt names a version its template hasn't reached",
+    "file": "db/migrations/20261016160100_attempts_name_their_message.sql",
+    "old": "                      AND m.version >= (NEW.data ->> 'templateVersion')::integer) THEN",
+    "new": "                      AND (NEW.data ->> 'templateVersion')::integer > 0) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an attempt names a template without its version",
+    "file": "db/migrations/20261016160100_attempts_name_their_message.sql",
+    "old": "    IF jsonb_typeof(NEW.data -> 'templateId') IS DISTINCT FROM 'string'\n       OR jsonb_typeof(NEW.data -> 'templateVersion') IS DISTINCT FROM 'number'\n       OR (NEW.data ->> 'templateVersion') !~ '^[1-9][0-9]{0,8}$' THEN",
+    "new": "    IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a census link names a welcome",
+    "file": "db/migrations/20261016160200_census_links_name_their_message.sql",
+    "old": " AND m.purpose = 'census_link'",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a census link names a template without its version",
+    "file": "db/migrations/20261016160200_census_links_name_their_message.sql",
+    "old": "  ADD CONSTRAINT census_links_template_check CHECK ((template_id IS NULL) = (template_version IS NULL));",
+    "new": "  ADD CONSTRAINT census_links_template_check CHECK (true);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a census link's message is changed after it's made",
+    "file": "db/migrations/20261016160200_census_links_name_their_message.sql",
+    "old": "GRANT SELECT (template_id, template_version), INSERT (template_id, template_version)",
+    "new": "GRANT SELECT (template_id, template_version), INSERT (template_id, template_version), UPDATE (template_version)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the census link ignores the message asked for",
+    "file": "apps/api/src/census/routes.ts",
+    "old": "const message = await messageFor(trx, 'census_link', request.body.templateId);",
+    "new": "const message = await messageFor(trx, 'census_link');",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the census link doesn't record its message",
+    "file": "apps/api/src/census/routes.ts",
+    "old": "const link = await createCensusLink(trx, request.params.id, token, message);",
+    "new": "const link = await createCensusLink(trx, request.params.id, token);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a census link sent logs no message",
+    "file": "apps/api/src/census/census.ts",
+    "old": "        : { templateId: link.template_id, templateVersion: link.template_version }),",
+    "new": "        : {}),",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an attempt logs no message",
+    "file": "apps/api/src/people/people.ts",
+    "old": "    ...(attempt.templateId === undefined ? {} : { templateId: attempt.templateId }),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the staff app lets a placeholder typo through",
+    "file": "packages/domain/src/message-templates.ts",
+    "old": "      if (!allowed.includes(token.slice(1, -1))) {",
+    "new": "      if (token === '{}') {",
+    "cmd": "pnpm exec vitest run src/message-templates.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "someone without a name is greeted with an empty name",
+    "file": "packages/domain/src/message-templates.ts",
+    "old": "  const text = named || template.bodyNameless === null ? template.body : template.bodyNameless;",
+    "new": "  const text = template.body;",
+    "cmd": "pnpm exec vitest run src/message-templates.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "the history doesn't name the message that went out",
+    "file": "apps/web/src/onboarding/timeline.ts",
+    "old": "      if (templateId === undefined || typeof version !== 'number') {",
+    "new": "      if (templateId !== '') {",
+    "cmd": "pnpm exec vitest run src/onboarding/timeline.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the person page's WhatsApp logs no message",
+    "file": "apps/web/src/onboarding/person/WhatsApp.tsx",
+    "old": "                      ...(template === null\n                        ? {}\n                        : { templateId: template.id, templateVersion: template.version }),\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/messages.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  }
+]

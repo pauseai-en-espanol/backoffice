@@ -64,7 +64,8 @@ specified in the M1 and M3 migrations.
 | `person_events`            | The timeline. Append-only; only anonymisation redacts it. `happened_on`: its day, M5     | Onboarding |
 | `intake_records`           | Every imported or reported record: source, external ID, minimised payload, status, match | Onboarding |
 | `imports`                  | Each import or sync run: who, when, file hash, counts, dry-run diff                      | Onboarding |
-| `census_links`             | Personal links: person, token hash, expiry, used at                                      | Onboarding |
+| `census_links`             | Personal links: person, token hash, expiry, used at; the message it went in (M5)         | Onboarding |
+| `message_templates`        | Mensajes: the team's WhatsApp messages by purpose, title, versions, retired (M5)         | Onboarding |
 | `skills`, `interests`      | Lists edited in settings, and the people linked to them                                  | Onboarding |
 | `organisations`            | Outreach organisations                                                                   | Outreach   |
 | `contacts`                 | Outreach contacts, tier, relationship stage, sources, `needs_review`                     | Outreach   |
