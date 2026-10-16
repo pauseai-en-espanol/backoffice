@@ -10,7 +10,7 @@ builds and pushes images, and holds no cluster credentials.
 
 - **This repository:** the umbrella chart (`helm-charts/backoffice`), CI and the release workflow, and the sealing
   scripts. Nothing has been pushed.
-- **gitops:** a local branch `backoffice`, not pushed, with three commits:
+- **gitops:** a local branch `backoffice`, not pushed, with four commits:
   1. _Onboard backoffice on danilupion-com_: the ApplicationSet, the `apps` project's repository and namespace, the
      default ServiceAccount (pulling with `backoffice-harbor-pull`), the `pauseai_backoffice` database with its owner
      and four extra roles, and, sealed by `scripts/seal-gitops-secrets.sh`, the five database passwords, their
@@ -21,6 +21,7 @@ builds and pushes images, and holds no cluster credentials.
   3. _Backoffice: the census form at unete.pauseai.es_: the forms app's values (M2) and its shared secret
      `backoffice-forms-token`, sealed by `scripts/seal-forms-token.sh` against the cluster's certificate; the API's
      census settings. The privacy notice address is a TODO: until it is set, the form links its own draft.
+  4. _Backoffice: Censo shows the census form's generic link_: the web app's `censusUrl`.
 
 ## First deploy (M0)
 
@@ -94,18 +95,17 @@ secret; the browser never reaches the API, and the host routes nothing to it (AD
 3. **The host:** `unete.pauseai.es` is under gateway-public's `*.pauseai.es` wildcard; external-dns publishes the
    record. Another host means changing `backoffice-forms.route.hostnames` and `backoffice-api.census.formsOrigin`
    together (personal links point at the latter).
-4. **The privacy notice: review before sharing the form widely.** Until `backoffice-forms.privacyNoticeUrl` is set
-   (an https address), the form links its own notice at `/privacidad`, marked _Borrador pendiente de revisión_: the
-   controller (Asociación Pausemos La IA), GDPR art. 9.2.d with the LOPDGDD, no recipients outside the association,
-   how long data is kept (D9: until erased, so this needs the association's wording), rights and the AEPD. Have the
+4. **The privacy notice: review before sharing the form widely.** Until `backoffice-forms.privacyNoticeUrl` is set (an
+   https address), the form links its own notice at `/privacidad`, marked _Borrador pendiente de revisión_: the
+   controller (Asociación Pausemos La IA), GDPR art. 9.2.d with the LOPDGDD, no recipients outside the association, how
+   long data is kept (D9: until erased, so this needs the association's wording), rights and the AEPD. Have the
    association read it, then either set `contactEmail` (the address it shows for privacy questions) and keep it, or
-   publish the association's own and set its address. When
-   the wording changes, raise `wordingVersion` under both `backoffice-api.census` and `backoffice-forms`: each
-   consent is recorded with it.
-5. **Push gitops.** Check: `https://unete.pauseai.es/healthz` answers 200; the form loads its lists (**Censo** in
-   the staff app sets them); an answer with fictional data shows "¡Gracias!" and appears in **Censo**; a personal
-   link made from a person's page opens with their name and updates their record. The gateway's ceilings (10 answers,
-   60 form loads a minute per address) sit above the API's own limit (5 answers per address every 10 minutes).
+   publish the association's own and set its address. When the wording changes, raise `wordingVersion` under both
+   `backoffice-api.census` and `backoffice-forms`: each consent is recorded with it.
+5. **Push gitops.** Check: `https://unete.pauseai.es/healthz` answers 200; the form loads its lists (**Censo** in the
+   staff app sets them); an answer with fictional data shows "Hemos recibido tus respuestas." and appears in **Censo**;
+   a personal link made from a person's page opens with their name and updates their record. The gateway's ceilings (10
+   answers, 60 form loads a minute per address) sit above the API's own limit (5 answers per address every 10 minutes).
 
 ## Rotating
 
