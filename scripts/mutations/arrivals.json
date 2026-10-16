@@ -1,0 +1,330 @@
+[
+  {
+    "name": "a doubled dot passes in a Discord username, in the staff app and the API",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  return /^[a-z0-9_.]{2,32}$/u.test(value) && !value.includes('..') ? value : undefined;",
+    "new": "  return /^[a-z0-9_.]{2,32}$/u.test(value) ? value : undefined;",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a stage’s day is taken without a stage",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "          if (request.body.stageOn !== undefined && request.body.stage === undefined) {",
+    "new": "          if (request.body.stageOn === null) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Personas ignores the reason it is asked for",
+    "file": "apps/api/src/people/people.ts",
+    "old": "    where.push(sql`${filter.reason} = ANY (a.reasons)`);",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an impossible arrival day passes in a CSV",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "  return date.getUTCFullYear() === year &&\n    date.getUTCMonth() === month - 1 &&\n    date.getUTCDate() === day\n",
+    "new": "  return !Number.isNaN(date.getTime())\n",
+    "cmd": "pnpm exec vitest run src/imports",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an empty “Llegó el” cell in a CSV is today",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "      ...(index.has('arrivedOn') ? { arrived_on: arrivedOn ?? null } : {}),",
+    "new": "      ...(arrivedOn ? { arrived_on: arrivedOn } : {}),",
+    "cmd": "pnpm exec vitest run src/imports",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Global’s sign-up day is read in UTC",
+    "file": "apps/api/src/imports/airtable.ts",
+    "old": "    timeZone: 'Europe/Madrid',",
+    "new": "    timeZone: 'UTC',",
+    "cmd": "pnpm exec vitest run src/imports",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the bot’s arrivals don’t say WhatsApp",
+    "file": "apps/api/src/telegram/store.ts",
+    "old": "  arrival: 'whatsapp',\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Hoy’s link lists everyone new and nobody’s again",
+    "file": "apps/web/src/onboarding/today.ts",
+    "old": "            href: `/personas${pageQuery({ ...NO_FILTERS, reason: 'unassigned' })}`,",
+    "new": "            href: `/personas${pageQuery({ ...NO_FILTERS, stages: ['new'], owner: 'none' })}`,",
+    "cmd": "pnpm exec vitest run src/onboarding",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "an emptied arrival day isn’t sent as unknown",
+    "file": "apps/web/src/onboarding/forms.ts",
+    "old": "  if (arrivedOn !== profile.arrivedOn) {",
+    "new": "  if (arrivedOn !== null && arrivedOn !== profile.arrivedOn) {",
+    "cmd": "pnpm exec vitest run src/onboarding",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "a Discord username isn’t enough in Añadir",
+    "file": "apps/web/src/onboarding/forms.ts",
+    "old": "  if (values.phone.trim() === '' && values.email.trim() === '' && discord.trim() === '') {",
+    "new": "  if (values.phone.trim() === '' && values.email.trim() === '') {",
+    "cmd": "pnpm exec vitest run src/onboarding",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "older history loses the folded stages’ names",
+    "file": "apps/web/src/onboarding/timeline.ts",
+    "old": "        ? t(`formerStages.${value}`)",
+    "new": "        ? '—'",
+    "cmd": "pnpm exec vitest run src/onboarding",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the reason isn’t read from the address",
+    "file": "apps/web/src/onboarding/filters.ts",
+    "old": "    reason: reason ?? '',",
+    "new": "    reason: '',",
+    "cmd": "pnpm exec vitest run src/onboarding",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "someone can arrive in the future",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "    IF NEW.arrived_on > (now() AT TIME ZONE 'Europe/Madrid')::date THEN",
+    "new": "    IF NEW.arrived_on > (now() AT TIME ZONE 'Europe/Madrid')::date + 1 THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "something can happen in the future",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "    IF NEW.happened_on > (now() AT TIME ZONE 'Europe/Madrid')::date THEN",
+    "new": "    IF NEW.happened_on > (now() AT TIME ZONE 'Europe/Madrid')::date + 1 THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "any event may say when it happened",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "  CHECK (happened_on IS NULL OR kind IN ('contact_attempt', 'note', 'stage_changed'));",
+    "new": "  CHECK (true);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an intake’s arrival day isn’t checked",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "       AND (jsonb_typeof(payload -> 'arrived_on') <> 'string' OR (payload ->> 'arrived_on') !~ '^\\d{4}-\\d{2}-\\d{2}$') THEN",
+    "new": "       AND false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an intake can’t say nobody knows when they arrived",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "            CASE WHEN jsonb_typeof(intake.payload -> 'arrived_on') = 'null' THEN NULL",
+    "new": "            CASE WHEN false THEN NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a later arrival day replaces an earlier one",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "            OR least((payload ->> 'arrived_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date) < subject.arrived_on) THEN",
+    "new": "            OR least((payload ->> 'arrived_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date) > subject.arrived_on) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a known arrival day doesn’t fill an unknown one",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "       AND (subject.arrived_on IS NULL\n",
+    "new": "       AND (false\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a stage changed by hand loses the day it happened",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "              nullif(current_setting('app.happened_on', true), '')::date);",
+    "new": "              NULL);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge keeps the survivor’s arrival day, even a later or unknown one",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "           arrived_on = least(p.arrived_on, gone.arrived_on),",
+    "new": "           arrived_on = p.arrived_on,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a report replaces where someone came from",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "    IF channel IS NOT NULL AND subject.arrival_channel_id IS NULL THEN",
+    "new": "    IF channel IS NOT NULL THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge drops the duplicate’s where-from",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "           arrival_channel_id = coalesce(p.arrival_channel_id, gone.arrival_channel_id)",
+    "new": "           arrival_channel_id = p.arrival_channel_id",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a retired entry is still chosen",
+    "file": "db/migrations/20261016150100_arrival_channels.sql",
+    "old": "     WHERE c.active AND coalesce(btrim(word), '') <> ''",
+    "new": "     WHERE coalesce(btrim(word), '') <> ''",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarding staff edit the list",
+    "file": "db/migrations/20261016150100_arrival_channels.sql",
+    "old": "CREATE POLICY admin_update ON app.arrival_channels FOR UPDATE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin')))\n  WITH CHECK ((SELECT private.staff_can('admin')));",
+    "new": "CREATE POLICY admin_update ON app.arrival_channels FOR UPDATE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding')))\n  WITH CHECK ((SELECT private.staff_can('admin', 'onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarding staff add to the list",
+    "file": "db/migrations/20261016150100_arrival_channels.sql",
+    "old": "CREATE POLICY admin_insert ON app.arrival_channels FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin')));",
+    "new": "CREATE POLICY admin_insert ON app.arrival_channels FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "outreach staff read the list",
+    "file": "db/migrations/20261016150100_arrival_channels.sql",
+    "old": "  USING ((SELECT private.staff_can('admin', 'onboarding')));\nCREATE POLICY admin_insert",
+    "new": "  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach')));\nCREATE POLICY admin_insert",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "doubled dots pass in a Discord username",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "    WHEN 'discord' THEN value ~ '^[a-z0-9_.]{2,32}$' AND position('..' IN value) = 0",
+    "new": "    WHEN 'discord' THEN value ~ '^[a-z0-9_.]{2,32}$'",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a one-letter Discord username passes",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "'^[a-z0-9_.]{2,32}$' AND position",
+    "new": "'^[a-z0-9_.]{1,32}$' AND position",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "Discord usernames aren’t taken from an intake",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "    SELECT 'discord'::app.identity_kind, d FROM jsonb_array_elements_text(coalesce(payload -> 'discords', '[]')) d\n    UNION\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a Discord username alone isn’t enough to save someone",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "WHERE x.kind IN ('phone', 'email', 'discord') AND btrim(x.value) <> ''",
+    "new": "WHERE x.kind IN ('phone', 'email') AND btrim(x.value) <> ''",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "Por clasificar comes back",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "  'new', 'contacting', 'welcomed', 'active', 'dormant', 'unresponsive', 'left', 'discarded'\n);",
+    "new": "  'to_triage', 'new', 'contacting', 'welcomed', 'active', 'dormant', 'unresponsive', 'left', 'discarded'\n);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "anyone new and unowned is Sin asignar, however long ago they arrived",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "                     AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date - 30\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot’s unassigned are everyone new and unowned",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "             WHEN 'unassigned' THEN 'unassigned' = ANY (a.reasons)",
+    "new": "             WHEN 'unassigned' THEN p.stage = 'new' AND p.owner_id IS NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an answered attempt still asks to follow up",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "           CASE WHEN p.stage = 'contacting' AND latest.outcome IS DISTINCT FROM 'replied'",
+    "new": "           CASE WHEN p.stage = 'contacting'",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the latest attempt is the latest written, not the latest that happened",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "       ORDER BY 1 DESC, e.created_at DESC\n       LIMIT 1) latest ON true",
+    "new": "       ORDER BY e.created_at DESC\n       LIMIT 1) latest ON true",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a reply doesn’t bring back someone who had stopped answering",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "      IF current IN ('new', 'unresponsive') THEN",
+    "new": "      IF current IN ('new') THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "unanswered attempts before the last reply count too",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "         AND (replied.on_day IS NULL\n",
+    "new": "         AND (true\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "attempts count by the day written, not the day they happened",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "      SELECT count(*), min(coalesce(e.happened_on, (e.created_at AT TIME ZONE 'Europe/Madrid')::date))",
+    "new": "      SELECT count(*), min((e.created_at AT TIME ZONE 'Europe/Madrid')::date)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the team group hears of members entered after the fact",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "       AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date - 2\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the digest counts who was added yesterday, not who arrived",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "               AND p.arrived_on = (now() AT TIME ZONE 'Europe/Madrid')::date - 1);",
+    "new": "               AND (p.created_at AT TIME ZONE 'Europe/Madrid')::date = (now() AT TIME ZONE 'Europe/Madrid')::date - 1);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  }
+]

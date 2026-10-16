@@ -154,7 +154,14 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
    Discord, Formulario de PauseAI Global, Otro to start), no free text so the Panel can count it; the bot's /alta
    assumes WhatsApp, Global's form fills its own, Añadir asks, a CSV may bring a column, existing people stay empty;
    the Panel counts arrivals by it. And a **Discord username** as a contact detail next to phone and email, for
-   duplicates and for reaching them (nothing messages anyone on its own).
+   duplicates and for reaching them (nothing messages anyone on its own). "Llegó el" may be unknown ("No se sabe";
+   Dani, 2026-10-16): never "Sin asignar", left out of the Panel's weeks and waits (a line counts them), filterable;
+   Añadir offers today and lets it be emptied; a CSV's "Llegó el" column (dd/mm/yyyy or yyyy-mm-dd) retrofills older
+   members with their stage. **Done:** four migrations, `20261016150000` to `150300`: the Discord kind; the list
+   (`app.arrival_channels`); the dates, "Llegó por" and Discord on people, events and intakes; and the stage fold, a
+   type swap that moves Por clasificar to Nuevo (their "Llegó el" stays unknown) and En conversación to En contacto,
+   with a history line each. Existing people's "Llegó el" is the day they were added. The old "Llegó por" label on
+   sources is now "Entró por". Mutation list `arrivals`.
 4. **Cards that say who someone is:** the name with the province, a one-line internal summary (staff only, never
    to Telegram), and what's missing in plain words ("Falta: correo · qué quiere hacer").
 5. **Staff linked to their person:** an admin links an account to its person (suggested by a shared email); the
@@ -352,4 +359,4 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 | M2        | Built, not deployed | The forms app at `unete.pauseai.es` (generic and personal links, honeypot and timing, consents with their wording version, the privacy notice as a draft); Censo, the person's census side, the Bandeja's census answers, the option lists in Ajustes; export and erasure. E2E covers a personal link end to end and the generic link. Deploying waits on the M2 steps in [deploying](runbooks/deploying.md) and the privacy notice. |
 | M3        | Built, not deployed | Campañas (board by status, templates with a preview per contact, evidence paragraphs, targets), Contactos, Organizaciones, Siguiente (take the next target, open the letter in your own mail or WhatsApp, copy buttons, "Sí, enviada"), and the one-off import from the `outreach` repo, checked against the real campaign locally (counts only). Nothing sends. E2E covers Siguiente end to end.                                    |
 | M4        | Built, not deployed | The Panel (people by stage, weekly arrivals by source, time to first contact, the unassigned for more than 48 hours). No retention job (D9) and no MCP server for now (D10). E2E covers the Panel.                                                                                                                                                                                                                                   |
-| M5        | In progress         | In progress (2026-10-16): the six steps in [M5](#m5-after-first-use), in order.                                                                                                                                                                                                                                                                                                                                                      |
+| M5        | In progress         | In progress (2026-10-16): the six steps in [M5](#m5-after-first-use), in order; 1 to 3 done.                                                                                                                                                                                                                                                                                                                                         |

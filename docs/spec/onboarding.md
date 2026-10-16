@@ -14,10 +14,17 @@ Airtable's mechanics and security are in their ADRs; this spec says what they do
   languages, skills, availability, interests, consent). Someone reported through the bot or quick-add may have no
   name yet, only a phone or an email (PLAN R37); a later report, the census or a merge fills it, and a name, once
   known, is never emptied.
-- **Identity.** A way to recognise a person: an email, a phone number (E.164), an Airtable record ID. A normalised
-  identity belongs to at most one person, which is what prevents duplicates.
-- **Source.** Where we learned about a person: `airtable`, `telegram` (reported to the bot), `census`, `manual`
-  (the web app), `csv`. A person keeps all of them, each with a date and who reported it.
+- **Identity.** A way to recognise a person: an email, a phone number (E.164), a Discord username (2 to 32 lowercase
+  letters, digits, `_` and `.`, never `..`; PLAN M5), an Airtable record ID. A normalised identity belongs to at most
+  one person, which is what prevents duplicates.
+- **Source** ("Entró por"). How we learned about a person: `airtable`, `telegram` (reported to the bot), `census`,
+  `manual` (the web app), `csv`. A person keeps all of them, each with a date and who reported it.
+- **Arrival** (PLAN M5). "Llegó el": the day someone arrived, by default the day they're added, never in the future,
+  and empty ("No se sabe") when nobody knows, as for older members entered after the fact (Dani, 2026-10-16).
+  "Llegó por": where they came from, from a list admins edit in Ajustes (WhatsApp, Email, Discord, Formulario de
+  PauseAI Global, Otro to start), never free text; the bot's reports say WhatsApp, Global's form says itself, Añadir
+  asks, a CSV may bring a column. Not the same as the source: someone who wrote on WhatsApp and was reported through
+  the bot came from WhatsApp, and entered through the bot.
 - **Community presence.** The periods during which a person was in the WhatsApp community: joined at, left at,
   who reported it. Optionally the chat they joined, from a list in settings (a local chat hints at a province).
   Leaving is a signal, not a deletion.
@@ -27,43 +34,49 @@ Airtable's mechanics and security are in their ADRs; this spec says what they do
   should have one.
 - **Timeline.** An append-only history per person: notes, contact attempts with their channel and outcome, stage
   and owner changes, joins and leaves, form submissions, imports, merges. It is what lets someone else pick up a
-  person.
+  person. Attempts, notes and stage changes made by hand may say the day they happened ("Fecha", never in the
+  future; PLAN M5): the history goes by that day, and still shows when each was written and by whom.
 
 ## 2. Stages
 
 Identifiers are English in the database. Labels are Spanish in the UI.
 
-| Stage          | UI label         | Meaning                                                      | Leaves when                         |
-| -------------- | ---------------- | ------------------------------------------------------------ | ----------------------------------- |
-| `to_triage`    | Por clasificar   | Already in the community before the backoffice; not reviewed | Someone classifies them             |
-| `new`          | Nuevo            | Arrived; nobody has engaged yet                              | The first contact attempt is logged |
-| `contacting`   | Contactando      | At least one attempt, no reply yet                           | They reply, or the attempts run out |
-| `talking`      | En conversación  | They replied; welcome pending                                | Welcome done                        |
-| `welcomed`     | Bienvenida hecha | First conversation done; pointed to a team or a first task   | They contribute                     |
-| `active`       | Activo           | Contributing                                                 | No activity for 90 days             |
-| `dormant`      | Inactivo         | Was active or welcomed, quiet for a long time                | They come back                      |
-| `unresponsive` | Sin respuesta    | Three attempts over at least 14 days without reply           | They reply                          |
-| `left`         | Baja             | Left the community or asked to leave                         | They come back                      |
-| `discarded`    | Descartado       | Spam, duplicate or not a fit                                 | Never (reopened manually)           |
+| Stage          | UI label         | Meaning                                                        | Leaves when                           |
+| -------------- | ---------------- | -------------------------------------------------------------- | ------------------------------------- |
+| `new`          | Nuevo            | Arrived, or already there and not reviewed; nobody has engaged | The first contact attempt is logged   |
+| `contacting`   | En contacto      | We've written; whether they replied is on each attempt         | Welcome done, or the attempts run out |
+| `welcomed`     | Bienvenida hecha | First conversation done; pointed to a team or a first task     | They contribute                       |
+| `active`       | Activo           | Contributing                                                   | No activity for 90 days               |
+| `dormant`      | Inactivo         | Was active or welcomed, quiet for a long time                  | They come back                        |
+| `unresponsive` | Sin respuesta    | Three attempts over at least 14 days without reply             | They reply                            |
+| `left`         | Baja             | Left the community or asked to leave                           | They come back                        |
+| `discarded`    | Descartado       | Spam, duplicate or not a fit                                   | Never (reopened manually)             |
 
 - Any stage can move to any other by hand. The table is the expected path, not a state machine that blocks
   people.
 - Every change goes to the timeline with who made it.
 - `left` and `discarded` close the next action. `unresponsive` keeps the person reachable for a later campaign.
 - Unless told otherwise, `welcomed` means "first conversation done and pointed to a team or a first task".
+- **Fewer since PLAN M5** (Dani, 2026-10-16): `to_triage` (Por clasificar) folded into `new`, and `talking` (En
+  conversación) into `contacting`, now "En contacto". People in them moved with them; older history keeps the old
+  names, with a line saying the stages were simplified. A reply no longer moves anyone out of `contacting`; it brings
+  someone `unresponsive` back to it.
 
 ## 3. "Needs attention" rules
 
 Computed on read, never stored. Each rule has a Spanish reason shown on the person's card and in the bot:
 
-1. In `new` with no owner. ("Sin asignar")
+1. In `new` with no owner, arrived in the last 30 days (someone whose arrival nobody knows never is). ("Sin
+   asignar")
 2. Next action due today or overdue. ("Acción pendiente")
-3. In an open stage (`new`, `contacting`, `talking`, `welcomed`) with no next action. ("Sin siguiente paso")
-4. In `contacting` with the last attempt more than 5 days ago. ("Toca seguimiento")
+3. In an open stage (`new`, `contacting`, `welcomed`) with no next action. ("Sin siguiente paso")
+4. In `contacting`, and the latest attempt (by the day it happened) went unanswered more than 5 days ago. ("Toca
+   seguimiento")
 5. Left the community while in an open stage or `active`. ("Ha salido de la comunidad")
 6. A possible duplicate is waiting for review. ("Posible duplicado")
 
-The thresholds live in settings, not in code.
+The thresholds live in settings, not in code, but for the 30 days of "Sin asignar". "Sin respuesta" (the stage)
+comes from the attempts since the last reply, counted by the day they happened.
 
 ## 4. Views
 
@@ -71,22 +84,23 @@ Reporting happens mostly through the bot. The web app is where the work is follo
 mobile-first all the same.
 
 - **Hoy:** my people needing attention, then the unassigned queue with a "Me lo quedo" (claim) button.
-- **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage. Filters: owner, province, source, in
-  the community or not, needs attention.
+- **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage. Filters: owner, province, source
+  ("Entró por"), "Llegó por", "Llegó el" known or not, in the community or not, needs attention.
 - **Personas:** a searchable list (name, email, phone; typo-tolerant). Exportable to CSV by admins only, and
   every export is audited.
 - **Persona:** profile, identities, community presence, timeline. Quick actions: log a contact attempt (channel
   and outcome presets), set the next action, change stage, assign, add a note, open a WhatsApp chat with a
   prepared message ([§7.3](#73-whatsapp-handover-links)), copy the email address.
-- **Añadir rápido:** a phone or email, the name if known, source, optional note. Duplicates are checked as you
-  type.
+- **Añadir rápido:** a phone, an email or a Discord username, the name if known, "Llegó por", "Llegó el" (today,
+  emptied when nobody knows), optional note. Duplicates are checked as you type.
 - **Bandeja:** records awaiting a decision: possible duplicates and conflicting values.
 - **Importar:** "Sincronizar Airtable ahora" with the last run's result; upload a CSV, preview, dry-run diff,
   apply ([§5.3](#53-web-and-csv-m1)).
 - **Censo:** progress of the census, and the queue of personal links still to send ([§7](#7-the-census)).
 - **Ajustes → Telegram:** link or unlink my Telegram account.
-- **Panel:** counts by stage, arrivals per week by source, time to first contact, unassigned for more than
-  48 hours.
+- **Panel:** counts by stage, arrivals per week (by "Llegó el") by source and by "Llegó por", time to first
+  contact, unassigned for more than 48 hours; people with no arrival day are left out of the weeks and the waits, and
+  counted in a line of their own.
 
 ## 5. Intake sources
 
@@ -134,8 +148,11 @@ to everyone else. Replies are in Spanish, and name a command by both names, Engl
 
 ### 5.3 Web and CSV (M1)
 
-- **Quick-add** in the web app, for whoever prefers it to the bot. A phone or an email is required; the name only if
-  known (PLAN R37).
+- **Quick-add** in the web app, for whoever prefers it to the bot. A phone, an email or a Discord username is
+  required; the name only if known (PLAN R37, M5).
+- **CSV columns for older members** (PLAN M5): "Llegó el" (dd/mm/yyyy or yyyy-mm-dd; an empty cell in a mapped
+  column means nobody knows), "Llegó por" (matched to the list by name) and Discord, with the stage, so they can be
+  retrofilled in bulk.
 - **CSV import** with a column mapping, a preview, a dry run and an apply step. It covers any one-off list, and
   Airtable whenever the shared-view sync breaks.
 
@@ -162,9 +179,9 @@ How the 106 are recovered (G3), and how every new member is profiled afterwards.
 There is no list of the community's members to import, so they come in three ways:
 
 1. **Airtable:** those who signed up through Global are already there after the first import.
-2. **Admins and volunteers** add the people they know, through the bot or the web app, as `to_triage`, or straight
-   to `active` or `welcomed`.
-3. **The census itself:** a submission from someone not yet in the system creates them in `to_triage`.
+2. **Admins and volunteers** add the people they know, through the bot or the web app, as `new`, or straight to
+   `active` or `welcomed`, with "Llegó el" empty when nobody knows when they arrived (PLAN M5).
+3. **The census itself:** a submission from someone not yet in the system creates them in `new`.
 
 ### 7.2 The form (M2)
 

@@ -17,15 +17,15 @@
   },
   {
     "name": "a report with neither name nor contact makes a person",
-    "file": "db/migrations/20261016070000_nameless_arrivals.sql",
-    "old": "AND EXISTS (SELECT 1 FROM private.intake_identities(intake.payload) x\n                             WHERE x.kind IN ('phone', 'email') AND btrim(x.value) <> ''))",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "old": "AND EXISTS (SELECT 1 FROM private.intake_identities(intake.payload) x\n                             WHERE x.kind IN ('phone', 'email', 'discord') AND btrim(x.value) <> ''))",
     "new": "AND true)",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
   {
     "name": "Airtable and the CSV import make nameless people",
-    "file": "db/migrations/20261016070000_nameless_arrivals.sql",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
     "old": "intake.source IN ('telegram', 'manual')",
     "new": "intake.source IN ('telegram', 'manual', 'csv', 'airtable')",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -33,7 +33,7 @@
   },
   {
     "name": "the staff app can't save a nameless person",
-    "file": "db/migrations/20261016070000_nameless_arrivals.sql",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
     "old": "intake.source IN ('telegram', 'manual')",
     "new": "intake.source IN ('telegram')",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -41,7 +41,7 @@
   },
   {
     "name": "a later report leaves the name missing",
-    "file": "db/migrations/20261016070000_nameless_arrivals.sql",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
     "old": "ELSIF subject.full_name IS NULL THEN\n      UPDATE app.people p SET full_name = left(btrim(payload ->> 'name'), 200) WHERE p.id = person;",
     "new": "ELSIF subject.full_name IS NULL THEN\n      NULL;",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -49,7 +49,7 @@
   },
   {
     "name": "a merge drops the tombstone's name",
-    "file": "db/migrations/20261016070000_nameless_arrivals.sql",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
     "old": "SET full_name = coalesce(p.full_name, gone.full_name),\n           owner_id",
     "new": "SET owner_id",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -90,15 +90,15 @@
   {
     "name": "quick-add needs a name again",
     "file": "apps/web/src/onboarding/forms.ts",
-    "old": "  if (values.phone.trim() === '' && values.email.trim() === '') {\n    problems.push('contact');",
-    "new": "  if (values.name.trim() === '' || (values.phone.trim() === '' && values.email.trim() === '')) {\n    problems.push('contact');",
+    "old": "  if (values.phone.trim() === '' && values.email.trim() === '' && discord.trim() === '') {\n    problems.push('contact');",
+    "new": "  if (values.name.trim() === '' || (values.phone.trim() === '' && values.email.trim() === '' && discord.trim() === '')) {\n    problems.push('contact');",
     "cmd": "pnpm exec vitest run src/onboarding",
     "cwd": "apps/web"
   },
   {
     "name": "the API refuses a quick-add with only a phone",
     "file": "apps/api/src/people/routes.ts",
-    "old": "          if (!name?.trim() && !phones && !emails) {",
+    "old": "          if (!name?.trim() && !phones && !emails && !discords) {",
     "new": "          if (!name?.trim()) {",
     "cmd": "pnpm exec vitest run --config vitest.db.config.ts tests/people-api.spec.ts",
     "cwd": "apps/api"

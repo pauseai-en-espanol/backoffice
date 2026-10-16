@@ -22,7 +22,11 @@ PostgreSQL 18, database `pauseai_backoffice`.
 - **Times** are `timestamptz`.
 - **Actor and time columns** (`created_by`, `created_at`, `updated_by`, `updated_at`, `*_by`, `*_at` of an event)
   are set by the `private.stamp(...)` trigger from the session (`app.user_id`) and the transaction time. Whatever
-  the caller sends is overwritten, so nobody can act in someone else's name or backdate anything.
+  the caller sends is overwritten, so nobody can act in someone else's name or backdate a record.
+- **When something happened** is a second, separate date (PLAN M5): `people.arrived_on` ("Llegó el", null when
+  nobody knows) and `person_events.happened_on` ("Fecha", on contact attempts, notes and stage changes made by hand;
+  a stage change takes it from the transaction's `app.happened_on`). Both are what someone says, never in the future
+  (triggers refuse it), and shown next to the record's own `created_at` and actor, which stay as above.
 - **Personal data.** Every column that holds personal data is commented `personal data`. The audit trigger never
   copies those columns into `audit_log`; an update that changes only such a column is logged with its name and no
   values. A catalog test keeps the list of such columns honest.
@@ -51,10 +55,13 @@ specified in the M1 and M3 migrations.
 | `settings`                 | Thresholds, community chats list, skills and interests lists, digest time (M1)           | Core       |
 | `audit_log`                | Every write: actor, channel (web or bot), table, row, what changed. Append-only          | Core       |
 | `people`                   | Profile, stage, owner, next action and due date, `profile_completed_at`, anonymised flag | Onboarding |
-| `identities`               | `(kind, value)` unique, `person_id`, verified, source, first seen                        | Onboarding |
+|                            | "Llegó el" (`arrived_on`, null: unknown) and "Llegó por" (`arrival_channel_id`), M5      |            |
+| `arrival_channels`         | "Llegó por"'s list, edited by admins in Ajustes; `key` marks the bot's and Global's (M5) | Onboarding |
+| `identities`               | `(kind, value)` unique, `person_id`, verified, source, first seen; kinds: email, phone,  | Onboarding |
+|                            | Discord username (M5), Airtable record                                                   |            |
 | `person_sources`           | Each source a person came from, with date, reporter and external reference               | Onboarding |
 | `community_presence`       | `(person_id, joined_at, left_at, chat, reported_by)`                                     | Onboarding |
-| `person_events`            | The timeline. Append-only; only anonymisation redacts it                                 | Onboarding |
+| `person_events`            | The timeline. Append-only; only anonymisation redacts it. `happened_on`: its day, M5     | Onboarding |
 | `intake_records`           | Every imported or reported record: source, external ID, minimised payload, status, match | Onboarding |
 | `imports`                  | Each import or sync run: who, when, file hash, counts, dry-run diff                      | Onboarding |
 | `census_links`             | Personal links: person, token hash, expiry, used at                                      | Onboarding |

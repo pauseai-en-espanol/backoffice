@@ -75,7 +75,7 @@ A **person summary**, as lists show one:
 | Route                                                                                                      | Does                                                                                                                                                                                                                                                                                                                                            |
 | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/candidates?name&phone&email&province`                                                            | Añadir rápido, as you type: `{ candidates: [{ personId, name, stage, owner, exact }] }`; `400 invalid { field }` for a phone or email that isn't one                                                                                                                                                                                            |
-| `POST /api/intake` `{ name?, phone?, email?, province?, town?, chat?, note?, stage?, decision?, target? }` | Quick-add: `201 { intakeId, status, personId }`; `400 invalid { field: 'name' }` with neither a name nor a phone or email. `stage` is `to_triage`, `new` (default), `welcomed` or `active`. `decision` is `new` or `attach` (with `target`), when the person saw the candidates. `status`: `created`, `attached`, `conflict` or `review`        |
+| `POST /api/intake` `{ name?, phone?, email?, province?, town?, chat?, note?, stage?, decision?, target? }` | Quick-add: `201 { intakeId, status, personId }`; `400 invalid { field: 'name' }` with neither a name nor a phone or email. `stage` is `new` (default), `welcomed` or `active` (PLAN M5). `decision` is `new` or `attach` (with `target`), when the person saw the candidates. `status`: `created`, `attached`, `conflict` or `review`           |
 | `GET /api/bandeja`                                                                                         | `{ items: [{ id, source, status: 'review' \| 'conflict', name, province, town, reportedBy, createdAt, candidates: [summary], person: summary \| null, conflicts: { [field]: { current, proposed } } }] }`. Never the payload's contact details                                                                                                  |
 | `POST /api/bandeja/:id` `{ decision, target? }`                                                            | `review`: `attach` (one of the candidates), `new` or `discard`; `conflict`: `apply` or `keep`. `200 { status }`                                                                                                                                                                                                                                 |
 | `GET /api/imports`                                                                                         | `{ imports: [{ id, kind, startedAt, finishedAt, startedBy, counts }], airtable: { configured, lastRun } }`                                                                                                                                                                                                                                      |
@@ -131,6 +131,39 @@ gateway gave it to the forms app; the API counts submissions per address. Both r
 | Route                  | Does                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/panel?weeks` | The Panel (M4), for onboarding staff: `{ weeks, stages: { [stage]: n }, arrivals: [{ week, counts: { [source]: n } }], firstContact: { arrived, contacted, medianHours, p90Hours }, unassigned: { count, people: [summary] } }`. `weeks` (1 to 52, 12 by default) are Monday to Sunday in Madrid, oldest first; an arrival counts under the source it first came from; `firstContact` is over those weeks' arrivals; `unassigned` are those new and nobody's for more than 48 hours, oldest first, at most 50 |
+
+## M5: after first use
+
+Additions and changes for step 3 of [PLAN M5](../PLAN.md#m5-after-first-use): fewer stages, when and where from,
+Discord usernames. Everything else above stands.
+
+- **Stages:** `to_triage` and `talking` are gone; a summary's `stage` is one of `new`, `contacting`, `welcomed`,
+  `active`, `dormant`, `unresponsive`, `left`, `discarded`. Older timeline events may still name the old two.
+- **A person's summary** adds `arrivedOn` (`YYYY-MM-DD`, or null when nobody knows) and `arrival` (`{ id, label }` or
+  null): "Llegó el" and "Llegó por". A timeline event adds `happenedOn` (`YYYY-MM-DD` or null); the timeline is in
+  that day's order, else the day it was written. `identities[].kind` may be `discord`.
+- **`GET /api/people` and `/api/board`** also take `arrival` (an entry's id, or `none`), `arrivedOn` (`known` or
+  `unknown`) and `reason` (one attention reason, such as `unassigned`). `q` also matches a Discord username exactly.
+- **`PATCH /api/people/:id`** also takes `arrivedOn` (a date, or null for unknown; never a day to come: `422`),
+  `arrivalId` (an entry's id, or null) and `stageOn` (with `stage` only, else `400 invalid { field: 'stageOn' }`):
+  the day a stage change happened, which its timeline event carries.
+- **`POST /api/people/:id/notes`** and **`/attempts`** also take `happenedOn` (a date, never a day to come: `422`).
+- **`POST /api/people/:id/identities`** takes `kind: 'discord'` too (2 to 32 lowercase letters, digits, `_` and `.`,
+  never `..`; a leading `@` and capitals are fine).
+- **`POST /api/intake`** also takes `discord` (enough without a name, a phone or an email; `400 invalid { field:
+'discord' }` if it isn't one), `arrival` (an entry's id) and `arrivedOn` (a date; null when nobody knows; left out,
+  today).
+- **`GET /api/arrival-channels`** (onboarding staff and admins): `{ channels: [{ id, key, label, active, position }] }`,
+  in order. **`POST /api/arrival-channels`** `{ label }` (`201 { id }`, `409 taken` for a label in use),
+  **`PATCH /api/arrival-channels/:id`** `{ label?, active? }` (`204`) and **`PUT /api/arrival-channels/order`**
+  `{ ids }` (`204`, `409 changed` if they aren't exactly the list): admins only.
+- **`GET /api/panel`** adds `arrivalsByChannel: { channels: [{ id, label, active }], weeks: [{ week, counts }] }`
+  (counts by entry id, `none` for not said) and `unknownArrival` (people with no arrival day). Weeks and
+  `firstContact` go by "Llegó el" and leave out whoever has none; `unassigned` is the "Sin asignar" rule's.
+- **CSV imports** map three more fields: `discord`, `arrival` ("Llegó por", by label) and `arrivedOn` (dd/mm/yyyy or
+  yyyy-mm-dd; an empty cell in a mapped column means unknown). The export adds `discord`, `llego_por` and `llego_el`.
+- **Hoy and the bot's `/unassigned`** list the "Sin asignar" rule's people: new, nobody's, arrived in the last 30
+  days.
 
 ## M3: outreach
 

@@ -25,7 +25,7 @@
   },
   {
     "name": "the bot merges people",
-    "file": "db/migrations/20261016070000_nameless_arrivals.sql",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
     "old": "    IF NOT private.staff_can('admin', 'onboarding') THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    IF survivor = merged THEN",
     "new": "    IF NOT private.may_intake(true) THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    IF survivor = merged THEN",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -49,7 +49,7 @@
   },
   {
     "name": "a disagreeing value overwrites the person's",
-    "file": "db/migrations/20261016070000_nameless_arrivals.sql",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
     "old": "      ELSIF private.fold_name(held) <> private.fold_name(proposed) THEN\n        conflicts := conflicts || jsonb_build_object(field, jsonb_build_object('current', held, 'proposed', proposed));",
     "new": "      ELSIF private.fold_name(held) <> private.fold_name(proposed) THEN\n        EXECUTE format('UPDATE app.people SET %I = $1 WHERE id = $2', field) USING proposed, person;",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -65,7 +65,7 @@
   },
   {
     "name": "the bot's search lists everyone",
-    "file": "db/migrations/20261016000200_intake.sql",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
     "old": "             WHEN 'search' THEN\n               EXISTS",
     "new": "             WHEN 'search' THEN true OR\n               EXISTS",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -73,7 +73,7 @@
   },
   {
     "name": "a payload carries any field",
-    "file": "db/migrations/20261016000200_intake.sql",
+    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
     "old": "    IF extra IS NOT NULL THEN\n      RAISE EXCEPTION 'an intake payload takes no %', extra USING ERRCODE = 'invalid_parameter_value';\n    END IF;",
     "new": "",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -81,8 +81,8 @@
   },
   {
     "name": "unassigned people need no attention",
-    "file": "db/migrations/20261016000200_intake.sql",
-    "old": "         CASE WHEN p.stage = 'new' AND p.owner_id IS NULL THEN 'unassigned' END,",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "CASE WHEN p.stage = 'new' AND p.owner_id IS NULL\n                     AND p.arrived_on >= (now() AT TIME ZONE 'Europe/Madrid')::date - 30\n                THEN 'unassigned' END,",
     "new": "",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
@@ -120,9 +120,9 @@
     "cwd": "packages/db"
   },
   {
-    "name": "a reply doesn't move the person to talking",
-    "file": "db/migrations/20261016000100_people.sql",
-    "old": "      IF current IN ('new', 'contacting', 'unresponsive') THEN\n        UPDATE app.people p SET stage = 'talking' WHERE p.id = NEW.person_id;\n      END IF;",
+    "name": "a reply doesn't move the person to contacting",
+    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "old": "      IF current IN ('new', 'unresponsive') THEN\n        UPDATE app.people p SET stage = 'contacting' WHERE p.id = NEW.person_id;\n      END IF;",
     "new": "",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"

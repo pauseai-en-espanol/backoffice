@@ -91,6 +91,10 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 
 - **By module role:** onboarding tables need `onboarding` or `admin`; outreach tables `outreach` or `admin`;
   `audit_log`, exports and erasure `admin` only; staff and invitations are managed by `admin`.
+- **Lists edited in Ajustes** (the census's options; "Llegó por", `app.arrival_channels`, PLAN M5) are read by the
+  staff who choose from them and changed by admins only, never deleted. "Llegó por" adds no function the runtime
+  roles run: the intake functions resolve it as their owner (`private.arrival_channel`), and the bot names no entry
+  but WhatsApp's key.
 - **Helpers** (`SECURITY DEFINER`, so policies on `staff` and `staff_roles` don't recurse into their own RLS):
   - `private.staff_can(VARIADIC roles)`: true only for the web channel, at aal 2, for an active staff member who
     holds one of the roles.

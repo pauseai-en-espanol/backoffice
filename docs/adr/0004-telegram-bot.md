@@ -154,7 +154,9 @@ Agree the reporting rule with the community's admins: whoever approves or sees a
   until sent), so two senders never post one arrival twice. Arrivals the bot or the staff app made are posted at
   once; the API sweeps the last 48 hours' arrivals every five minutes for the rest (the hourly Airtable sync, CSV
   imports), through `private.team_card` and `private.team_unposted`, the two functions that run without an actor
-  ([ADR-0002 §4](0002-authorization-and-data-protection.md#4-row-level-security-by-module-and-channel)).
+  ([ADR-0002 §4](0002-authorization-and-data-protection.md#4-row-level-security-by-module-and-channel)). Only
+  someone who arrived in the last two days ("Llegó el", PLAN M5) is an arrival: a member entered after the fact, or
+  an old Global sign-up a sync brings with its date, is not posted.
 - **The digest** reads who gets one as the auth role, and each digest as that staff member through the bot's
   functions, so it holds exactly what their own `/mine` would; it goes by Telegram if they linked it, else by mail.
 
