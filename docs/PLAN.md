@@ -136,6 +136,30 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
 - ~~**An MCP server with member tokens**~~ Not now (D10).
 - ~~**Retention automation**~~ Not built: D9 decided no automatic erasure.
 
+### M5: After first use
+
+What Dani found using the deployed backoffice (2026-10-16), in the order he agreed:
+
+1. **The phone:** a person's page opens with its quick actions (Me lo quedo, Abrir WhatsApp, the stage), then the
+   next step, contact, profile and history, with adding a phone or email behind a button; Hoy shows the ten oldest
+   unassigned, then "Ver los N sin asignar".
+2. **The menu in groups by role:** Onboarding, Outreach, Equipo, then Ajustes and Salir; a sidebar on a computer,
+   the same groups in "Menú" on a phone; Censo hidden while the census form is off.
+3. **Fewer stages, and dates in the past:** Por clasificar folds into Nuevo, and Contactando and En conversación
+   into "En contacto" (whether they replied is on each contact attempt); "Llegó el" on each person (never in the
+   future), with "Sin asignar" only for arrivals of the last 30 days; an optional date on attempts, notes and stage
+   changes for when it happened, next to when it was recorded and by whom, which stays as it is.
+4. **Cards that say who someone is:** the name with the province, a one-line internal summary (staff only, never
+   to Telegram), and what's missing in plain words ("Falta: correo · qué quiere hacer").
+5. **Staff linked to their person:** an admin links an account to its person (suggested by a shared email); the
+   person shows an "Equipo" badge and Personas filters by it; the link grants nothing, and the person outlives a
+   deactivated account.
+6. **Private contacts and organisations:** "Solo yo" or "Equipo" on each contact, organisation and note; admins
+   don't see others' private records in the app (rights requests still cover them); an admin chooses who inherits
+   them when someone leaves; a private contact neither blocks nor reveals a team one, and sharing offers a merge;
+   campaigns target shared contacts only. Waits on the outreach contacts' legal basis for notes quoting
+   conversations.
+
 ## Decided
 
 | ID      | Decision                                                                                                                                                          | By               |
@@ -320,3 +344,4 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 | M2        | Built, not deployed | The forms app at `unete.pauseai.es` (generic and personal links, honeypot and timing, consents with their wording version, the privacy notice as a draft); Censo, the person's census side, the Bandeja's census answers, the option lists in Ajustes; export and erasure. E2E covers a personal link end to end and the generic link. Deploying waits on the M2 steps in [deploying](runbooks/deploying.md) and the privacy notice. |
 | M3        | Built, not deployed | Campañas (board by status, templates with a preview per contact, evidence paragraphs, targets), Contactos, Organizaciones, Siguiente (take the next target, open the letter in your own mail or WhatsApp, copy buttons, "Sí, enviada"), and the one-off import from the `outreach` repo, checked against the real campaign locally (counts only). Nothing sends. E2E covers Siguiente end to end.                                    |
 | M4        | Built, not deployed | The Panel (people by stage, weekly arrivals by source, time to first contact, the unassigned for more than 48 hours). No retention job (D9) and no MCP server for now (D10). E2E covers the Panel.                                                                                                                                                                                                                                   |
+| M5        | In progress         | In progress (2026-10-16): the six steps in [M5](#m5-after-first-use), in order.                                                                                                                                                                                                                                                                                                                                                      |
