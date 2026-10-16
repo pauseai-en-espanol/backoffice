@@ -26,6 +26,9 @@ if ! git rev-parse --verify --quiet "$base^{commit}" > /dev/null; then
   echo "Base $base isn't in this clone (a new branch or a force push?), so releases can't be checked" >&2
   exit 1
 fi
+# The full SHA from here on: changeset's argument parser reads a short SHA made only of digits and one `e`, such as
+# 81015e2, as a number (8101500), and then finds no such ref.
+base=$(git rev-parse "$base^{commit}")
 
 deployables=$(
   sed -n "s|^ *repository: *['\"]\{0,1\}file://\([^'\"]*\)['\"]\{0,1\} *$|\1|p" "$umbrella/Chart.yaml" |
