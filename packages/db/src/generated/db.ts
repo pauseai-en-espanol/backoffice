@@ -37,6 +37,8 @@ export type AppIdentityKind = 'airtable' | 'discord' | 'email' | 'phone';
 export type AppIntakeStatus =
   'attached' | 'conflict' | 'created' | 'discarded' | 'pending' | 'review';
 
+export type AppMessagePurpose = 'census_link' | 'welcome';
+
 export type AppOrganisationKind =
   | 'association'
   | 'company'
@@ -197,6 +199,8 @@ export interface AppCensusLinks {
   person_id: string;
   sent_at: Timestamp | null;
   sent_by: string | null;
+  template_id: string | null;
+  template_version: number | null;
   token_hash: string;
   used_at: Timestamp | null;
 }
@@ -403,6 +407,20 @@ export interface AppInvitations {
   token_hash: string;
 }
 
+export interface AppMessageTemplates {
+  active: Generated<boolean>;
+  body: string;
+  body_nameless: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  id: Generated<string>;
+  purpose: AppMessagePurpose;
+  title: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+  version: Generated<number>;
+}
+
 export interface AppOrganisations {
   created_at: Generated<Timestamp>;
   created_by: string | null;
@@ -574,6 +592,7 @@ export interface DB {
   'app.imports': AppImports;
   'app.intake_records': AppIntakeRecords;
   'app.invitations': AppInvitations;
+  'app.message_templates': AppMessageTemplates;
   'app.organisations': AppOrganisations;
   'app.people': AppPeople;
   'app.people_attention': AppPeopleAttention;

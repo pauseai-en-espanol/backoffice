@@ -193,6 +193,18 @@ CREATE TYPE app.intake_status AS ENUM (
 ALTER TYPE app.intake_status OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: message_purpose; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.message_purpose AS ENUM (
+    'welcome',
+    'census_link'
+);
+
+
+ALTER TYPE app.message_purpose OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: organisation_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -474,6 +486,38 @@ CREATE FUNCTION private.arrival_rules() RETURNS trigger
 
 
 ALTER FUNCTION private.arrival_rules() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: attempt_template(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.attempt_template() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $_$
+  BEGIN
+    IF NOT (NEW.data ? 'templateId' OR NEW.data ? 'templateVersion') THEN
+      RETURN NEW;
+    END IF;
+    -- One test at a time: the version is cast only once it is known to be a whole number.
+    IF jsonb_typeof(NEW.data -> 'templateId') IS DISTINCT FROM 'string'
+       OR jsonb_typeof(NEW.data -> 'templateVersion') IS DISTINCT FROM 'number'
+       OR (NEW.data ->> 'templateVersion') !~ '^[1-9][0-9]{0,8}$' THEN
+      RAISE EXCEPTION 'A message that went out names a template and a version it has had'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM app.message_templates m
+                    WHERE m.id::text = NEW.data ->> 'templateId'
+                      AND m.version >= (NEW.data ->> 'templateVersion')::integer) THEN
+      RAISE EXCEPTION 'A message that went out names a template and a version it has had'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END
+  $_$;
+
+
+ALTER FUNCTION private.attempt_template() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: audit(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -783,6 +827,29 @@ CREATE FUNCTION private.census_link_sent() RETURNS trigger
 
 
 ALTER FUNCTION private.census_link_sent() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: census_link_template(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.census_link_template() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NEW.template_id IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM app.message_templates m
+                        WHERE m.id = NEW.template_id AND m.purpose = 'census_link'
+                          AND m.version >= NEW.template_version) THEN
+      RAISE EXCEPTION 'A census link names a census link message and a version it has had'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.census_link_template() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: check_census(jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -1649,6 +1716,25 @@ CREATE FUNCTION private.merge_people(survivor uuid, merged uuid) RETURNS void
 
 
 ALTER FUNCTION private.merge_people(survivor uuid, merged uuid) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: message_template_version(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.message_template_version() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NEW.body IS DISTINCT FROM OLD.body OR NEW.body_nameless IS DISTINCT FROM OLD.body_nameless THEN
+      NEW.version := OLD.version + 1;
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.message_template_version() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: pending_invitation(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -2543,7 +2629,11 @@ CREATE TABLE app.census_links (
     sent_at timestamp with time zone,
     sent_by uuid,
     used_at timestamp with time zone,
+    template_id uuid,
+    template_version integer,
     CONSTRAINT census_links_check CHECK (((expires_at > created_at) AND (expires_at <= (created_at + '30 days'::interval)))),
+    CONSTRAINT census_links_template_check CHECK (((template_id IS NULL) = (template_version IS NULL))),
+    CONSTRAINT census_links_template_version_check CHECK ((template_version > 0)),
     CONSTRAINT census_links_token_hash_check CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))
 );
 
@@ -2911,6 +3001,42 @@ ALTER TABLE app.invitations OWNER TO pauseai_backoffice_owner;
 
 COMMENT ON COLUMN app.invitations.email IS 'personal data';
 
+
+--
+-- Name: message_templates; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.message_templates (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    purpose app.message_purpose NOT NULL,
+    title text NOT NULL,
+    body text NOT NULL,
+    body_nameless text,
+    active boolean DEFAULT true NOT NULL,
+    version integer DEFAULT 1 NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT message_templates_body_check CHECK (((btrim(body) <> ''::text) AND (length(body) <= 2000))),
+    CONSTRAINT message_templates_body_nameless_check CHECK (((btrim(body_nameless) <> ''::text) AND (length(body_nameless) <= 2000))),
+    CONSTRAINT message_templates_link_check CHECK (((purpose <> 'census_link'::app.message_purpose) OR ((strpos(body, '{enlace}'::text) > 0) AND ((body_nameless IS NULL) OR (strpos(body_nameless, '{enlace}'::text) > 0))))),
+    CONSTRAINT message_templates_nameless_check CHECK (
+CASE
+    WHEN (strpos(body, '{nombre}'::text) > 0) THEN ((body_nameless IS NOT NULL) AND (strpos(body_nameless, '{nombre}'::text) = 0))
+    ELSE (body_nameless IS NULL)
+END),
+    CONSTRAINT message_templates_placeholders_check CHECK ((regexp_replace(((body || '
+'::text) || COALESCE(body_nameless, ''::text)),
+CASE purpose
+    WHEN 'census_link'::app.message_purpose THEN '\{(nombre|yo|enlace)\}'::text
+    ELSE '\{(nombre|yo)\}'::text
+END, ''::text, 'g'::text) !~ '[{}]'::text)),
+    CONSTRAINT message_templates_title_check CHECK (((btrim(title) <> ''::text) AND (length(title) <= 80)))
+);
+
+
+ALTER TABLE app.message_templates OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: organisations; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -3754,6 +3880,22 @@ ALTER TABLE ONLY app.invitations
 
 
 --
+-- Name: message_templates message_templates_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.message_templates
+    ADD CONSTRAINT message_templates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: message_templates message_templates_purpose_title_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.message_templates
+    ADD CONSTRAINT message_templates_purpose_title_key UNIQUE (purpose, title);
+
+
+--
 -- Name: organisations organisations_external_ref_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3982,6 +4124,13 @@ CREATE INDEX census_links_person_id_idx ON app.census_links USING btree (person_
 
 
 --
+-- Name: census_links_template_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX census_links_template_id_idx ON app.census_links USING btree (template_id);
+
+
+--
 -- Name: community_presence_open_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4136,6 +4285,13 @@ CREATE TRIGGER arrival BEFORE INSERT OR UPDATE OF arrived_on ON app.people FOR E
 
 
 --
+-- Name: person_events attempt_template; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER attempt_template BEFORE INSERT ON app.person_events FOR EACH ROW WHEN ((new.kind = 'contact_attempt'::app.event_kind)) EXECUTE FUNCTION private.attempt_template();
+
+
+--
 -- Name: arrival_channels audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4245,6 +4401,13 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.intake_records FOR 
 --
 
 CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.invitations FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: message_templates audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.message_templates FOR EACH ROW EXECUTE FUNCTION private.audit();
 
 
 --
@@ -4570,6 +4733,13 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.invitations FOR EACH ROW EXE
 
 
 --
+-- Name: message_templates stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.message_templates FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
+
+
+--
 -- Name: organisations stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4633,6 +4803,13 @@ CREATE TRIGGER stamp_channel BEFORE INSERT ON app.person_events FOR EACH ROW EXE
 
 
 --
+-- Name: census_links template; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER template BEFORE INSERT ON app.census_links FOR EACH ROW EXECUTE FUNCTION private.census_link_template();
+
+
+--
 -- Name: campaign_targets timeline; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4686,6 +4863,13 @@ CREATE TRIGGER unlinks_telegram AFTER DELETE OR UPDATE ON app.staff_roles FOR EA
 --
 
 CREATE TRIGGER version BEFORE UPDATE ON app.campaign_templates FOR EACH ROW EXECUTE FUNCTION private.template_version();
+
+
+--
+-- Name: message_templates version; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER version BEFORE UPDATE ON app.message_templates FOR EACH ROW EXECUTE FUNCTION private.message_template_version();
 
 
 --
@@ -4777,6 +4961,14 @@ ALTER TABLE ONLY app.campaigns
 
 ALTER TABLE ONLY app.census_links
     ADD CONSTRAINT census_links_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
+
+
+--
+-- Name: census_links census_links_template_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.census_links
+    ADD CONSTRAINT census_links_template_id_fkey FOREIGN KEY (template_id) REFERENCES app.message_templates(id);
 
 
 --
@@ -5251,6 +5443,12 @@ ALTER TABLE app.intake_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app.invitations ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: message_templates; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.message_templates ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: identities onboarding_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5283,6 +5481,13 @@ CREATE POLICY onboarding_insert ON app.community_presence FOR INSERT TO pauseai_
 --
 
 CREATE POLICY onboarding_insert ON app.identities FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can) AND (source = 'manual'::app.source_kind)));
+
+
+--
+-- Name: message_templates onboarding_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_insert ON app.message_templates FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
 
 
 --
@@ -5349,6 +5554,13 @@ CREATE POLICY onboarding_read ON app.intake_records FOR SELECT TO pauseai_backof
 
 
 --
+-- Name: message_templates onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_read ON app.message_templates FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: people onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5395,6 +5607,13 @@ CREATE POLICY onboarding_update ON app.community_presence FOR UPDATE TO pauseai_
 --
 
 CREATE POLICY onboarding_update ON app.identities FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: message_templates onboarding_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY onboarding_update ON app.message_templates FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
 
 
 --
@@ -5710,6 +5929,13 @@ REVOKE ALL ON FUNCTION private.arrival_rules() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION attempt_template(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.attempt_template() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION audit(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -5775,6 +6001,13 @@ REVOKE ALL ON FUNCTION private.census_link_person(token_hash text) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION private.census_link_sent() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION census_link_template(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.census_link_template() FROM PUBLIC;
 
 
 --
@@ -5965,6 +6198,13 @@ REVOKE ALL ON FUNCTION private.may_intake(bot boolean) FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION private.merge_people(survivor uuid, merged uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION private.merge_people(survivor uuid, merged uuid) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION message_template_version(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.message_template_version() FROM PUBLIC;
 
 
 --
@@ -6508,6 +6748,20 @@ GRANT SELECT(used_at) ON TABLE app.census_links TO pauseai_backoffice_app;
 
 
 --
+-- Name: COLUMN census_links.template_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(template_id),INSERT(template_id) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN census_links.template_version; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT(template_version),INSERT(template_version) ON TABLE app.census_links TO pauseai_backoffice_app;
+
+
+--
 -- Name: TABLE census_options; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -6939,6 +7193,48 @@ GRANT INSERT(expires_at) ON TABLE app.invitations TO pauseai_backoffice_app;
 --
 
 GRANT UPDATE(revoked_at) ON TABLE app.invitations TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE message_templates; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.message_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN message_templates.purpose; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(purpose) ON TABLE app.message_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN message_templates.title; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(title),UPDATE(title) ON TABLE app.message_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN message_templates.body; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(body),UPDATE(body) ON TABLE app.message_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN message_templates.body_nameless; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(body_nameless),UPDATE(body_nameless) ON TABLE app.message_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN message_templates.active; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(active),UPDATE(active) ON TABLE app.message_templates TO pauseai_backoffice_app;
 
 
 --

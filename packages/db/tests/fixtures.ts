@@ -73,6 +73,8 @@ export const EXPORT_ID = '0190f8c4-0000-7000-8000-0000000004c1';
 export const CENSUS_LINK_ID = '0190f8c4-0000-7000-8000-0000000004d1';
 /** Ana's personal census link's token; only its hash is stored. */
 export const CENSUS_TOKEN = 'token-de-censo-de-ana';
+/** A welcome message the team wrote (PLAN M5, Mensajes), at version 1, with its version for someone without a name. */
+export const MESSAGE_TEMPLATE_ID = '0190f8c4-0000-7000-8000-0000000004e1';
 
 /** Outreach (M3): an organisation, its contacts, and a campaign with a template, an anchor and two targets. */
 export const OUTREACH = {
@@ -182,6 +184,11 @@ export const loadFixtures = async (client: pg.Client): Promise<void> => {
       `INSERT INTO app.census_links (id, person_id, token_hash, expires_at)
        VALUES ($1, $2, $3, now() + interval '30 days')`,
       [CENSUS_LINK_ID, PEOPLE.ana, tokenHash(CENSUS_TOKEN)],
+    );
+    await client.query(
+      `INSERT INTO app.message_templates (id, purpose, title, body, body_nameless)
+       VALUES ($1, 'welcome', 'Bienvenida de ejemplo', 'Hola, {nombre}: soy {yo}.', 'Hola: soy {yo}.')`,
+      [MESSAGE_TEMPLATE_ID],
     );
     await client.query(
       `INSERT INTO app.organisations (id, name, kind, territory) VALUES ($1, 'Asociación Ejemplo', 'association', 'Aragón')`,

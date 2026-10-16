@@ -7,6 +7,7 @@ import {
   IMPORT_ID,
   INTAKE_ID,
   INVITATION_IDS,
+  MESSAGE_TEMPLATE_ID,
   OUTREACH,
   PEOPLE,
   type StaffRole,
@@ -426,6 +427,31 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         id: 'a link',
         sql: `INSERT INTO app.census_links (person_id, token_hash, expires_at)
               VALUES (${ana}, '${'c'.repeat(64)}', now() + interval '30 days')`,
+        rule: ONBOARDING,
+      },
+    ],
+  },
+  'app.message_templates': {
+    rows: [
+      {
+        id: 'a welcome message',
+        where: `id = '${MESSAGE_TEMPLATE_ID}'`,
+        select: ONBOARDING,
+        update: { set: "title = 'Bienvenida cambiada'", rule: ONBOARDING },
+        delete: NOBODY,
+      },
+      {
+        id: 'retiring a welcome message',
+        where: `id = '${MESSAGE_TEMPLATE_ID}'`,
+        select: ONBOARDING,
+        update: { set: 'active = false', rule: ONBOARDING },
+      },
+    ],
+    inserts: [
+      {
+        id: 'a census link message',
+        sql: `INSERT INTO app.message_templates (purpose, title, body)
+              VALUES ('census_link', 'Censo de ejemplo', 'Soy {yo}: {enlace}')`,
         rule: ONBOARDING,
       },
     ],
