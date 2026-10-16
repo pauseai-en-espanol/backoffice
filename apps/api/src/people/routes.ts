@@ -142,6 +142,7 @@ const filterOf = (query: Record<string, unknown>): PeopleFilter => {
         : undefined,
     attention: flag(query.attention) === true ? true : undefined,
     inCommunity: flag(query.inCommunity),
+    team: flag(query.team),
     source:
       typeof query.source === 'string' && (SOURCES as readonly string[]).includes(query.source)
         ? query.source
@@ -175,6 +176,7 @@ const FILTER_QUERY = {
     owner: TEXT(36),
     attention: TEXT(5),
     inCommunity: TEXT(5),
+    team: TEXT(5),
     source: { type: 'string', enum: [...SOURCES] },
     arrival: TEXT(36),
     arrivedOn: { type: 'string', enum: ['known', 'unknown'] },
@@ -578,9 +580,12 @@ export const peopleRoutes =
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          await onboarding(db, actor, (trx) =>
+          const merged = await onboarding(db, actor, (trx) =>
             mergePeople(trx, request.params.id, request.body.mergedId),
           );
+          if (merged === 'bothInTeam') {
+            throw new Refusal(409, 'bothInTeam');
+          }
           return reply.code(204).send();
         }),
     );

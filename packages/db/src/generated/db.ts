@@ -568,6 +568,10 @@ export interface AppStaff {
    */
   display_name: string;
   invited_by: string | null;
+  /**
+   * The staff member's own person record (PLAN M5): grants nothing
+   */
+  person_id: string | null;
   user_id: string;
 }
 

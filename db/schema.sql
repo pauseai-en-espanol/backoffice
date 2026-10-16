@@ -423,6 +423,8 @@ CREATE FUNCTION private.anonymise_person(person uuid) RETURNS boolean
     DELETE FROM app.identities i WHERE i.person_id = ANY (chain);
     DELETE FROM app.person_options o WHERE o.person_id = ANY (chain);
     DELETE FROM app.census_links l WHERE l.person_id = ANY (chain);
+    -- The account stays (it is someone's sign-in), but no longer names who they were.
+    UPDATE app.staff s SET person_id = NULL WHERE s.person_id = ANY (chain);
     -- Their own records forget the payload, and keep only a hash of their external id (above).
     UPDATE app.intake_records r
        SET payload = '{}', conflicts = '{}', candidates = '{}',
@@ -1669,6 +1671,12 @@ CREATE FUNCTION private.merge_people(survivor uuid, merged uuid) RETURNS void
        OR kept.anonymised_at IS NOT NULL OR gone.anonymised_at IS NOT NULL THEN
       RAISE EXCEPTION 'both people must exist, and be neither merged nor anonymised' USING ERRCODE = 'restrict_violation';
     END IF;
+    -- One account, one person: two records each linked to an account are two people, or one with two accounts, for an
+    -- admin to sort out by unlinking one first.
+    IF EXISTS (SELECT 1 FROM app.staff s WHERE s.person_id = survivor)
+       AND EXISTS (SELECT 1 FROM app.staff s WHERE s.person_id = merged) THEN
+      RAISE EXCEPTION 'both people are linked to team accounts' USING ERRCODE = 'restrict_violation';
+    END IF;
 
     INSERT INTO app.person_events (person_id, kind, data)
     VALUES (merged, 'merged', jsonb_build_object('into', survivor, 'snapshot', to_jsonb(gone) - 'name_folded',
@@ -1710,6 +1718,8 @@ CREATE FUNCTION private.merge_people(survivor uuid, merged uuid) RETURNS void
            arrived_on = least(p.arrived_on, gone.arrived_on),
            arrival_channel_id = coalesce(p.arrival_channel_id, gone.arrival_channel_id)
      WHERE p.id = survivor;
+    -- The account follows its person to the survivor.
+    UPDATE app.staff s SET person_id = survivor WHERE s.person_id = merged;
     UPDATE app.people p SET merged_into = survivor, owner_id = NULL, next_action = NULL, next_action_due = NULL
      WHERE p.id = merged;
   END
@@ -2068,6 +2078,54 @@ CREATE FUNCTION private.staff_can(VARIADIC roles app.staff_role[]) RETURNS boole
 
 
 ALTER FUNCTION private.staff_can(VARIADIC roles app.staff_role[]) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: staff_person_is_live(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.staff_person_is_live() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NEW.person_id IS NOT NULL AND NOT EXISTS (
+         SELECT 1 FROM app.people p
+          WHERE p.id = NEW.person_id AND p.merged_into IS NULL AND p.anonymised_at IS NULL) THEN
+      RAISE EXCEPTION 'a team account links only to someone still there' USING ERRCODE = 'restrict_violation';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.staff_person_is_live() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: staff_person_suggestions(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.staff_person_suggestions() RETURNS TABLE(user_id uuid, person_id uuid)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT private.staff_can('admin') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN QUERY
+    SELECT DISTINCT s.user_id, p.id
+      FROM app.staff s
+      JOIN auth.users u ON u.id = s.user_id
+      JOIN app.identities i ON i.kind = 'email' AND lower(i.value) = lower(btrim(u.email))
+      JOIN app.people p ON p.id = i.person_id AND p.merged_into IS NULL AND p.anonymised_at IS NULL
+     WHERE s.person_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM app.staff o WHERE o.person_id = p.id)
+     ORDER BY s.user_id, p.id;
+  END
+  $$;
+
+
+ALTER FUNCTION private.staff_person_suggestions() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: stamp(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -3374,6 +3432,7 @@ CREATE TABLE app.staff (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     deactivated_at timestamp with time zone,
     deactivated_by uuid,
+    person_id uuid,
     CONSTRAINT staff_check CHECK ((active = (deactivated_at IS NULL))),
     CONSTRAINT staff_display_name_check CHECK (((btrim(display_name) <> ''::text) AND (length(display_name) <= 200)))
 );
@@ -3386,6 +3445,13 @@ ALTER TABLE app.staff OWNER TO pauseai_backoffice_owner;
 --
 
 COMMENT ON COLUMN app.staff.display_name IS 'personal data';
+
+
+--
+-- Name: COLUMN staff.person_id; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.staff.person_id IS 'The staff member''s own person record (PLAN M5): grants nothing';
 
 
 --
@@ -3959,6 +4025,14 @@ ALTER TABLE ONLY app.person_sources
 
 ALTER TABLE ONLY app.settings
     ADD CONSTRAINT settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: staff staff_person_id_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.staff
+    ADD CONSTRAINT staff_person_id_key UNIQUE (person_id);
 
 
 --
@@ -4610,6 +4684,13 @@ CREATE TRIGGER keep_an_admin AFTER DELETE ON app.staff_roles FOR EACH ROW WHEN (
 
 
 --
+-- Name: staff person_is_live; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER person_is_live BEFORE INSERT OR UPDATE OF person_id ON app.staff FOR EACH ROW EXECUTE FUNCTION private.staff_person_is_live();
+
+
+--
 -- Name: campaign_targets rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5171,6 +5252,14 @@ ALTER TABLE ONLY app.person_sources
 
 ALTER TABLE ONLY app.staff
     ADD CONSTRAINT staff_invited_by_fkey FOREIGN KEY (invited_by) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: staff staff_person_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.staff
+    ADD CONSTRAINT staff_person_id_fkey FOREIGN KEY (person_id) REFERENCES app.people(id);
 
 
 --
@@ -6303,6 +6392,21 @@ REVOKE ALL ON FUNCTION private.staff_activation() FROM PUBLIC;
 
 REVOKE ALL ON FUNCTION private.staff_can(VARIADIC roles app.staff_role[]) FROM PUBLIC;
 GRANT ALL ON FUNCTION private.staff_can(VARIADIC roles app.staff_role[]) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION staff_person_is_live(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.staff_person_is_live() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION staff_person_suggestions(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.staff_person_suggestions() FROM PUBLIC;
+GRANT ALL ON FUNCTION private.staff_person_suggestions() TO pauseai_backoffice_app;
 
 
 --
@@ -7574,6 +7678,13 @@ GRANT UPDATE(display_name) ON TABLE app.staff TO pauseai_backoffice_app;
 --
 
 GRANT UPDATE(active) ON TABLE app.staff TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN staff.person_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(person_id) ON TABLE app.staff TO pauseai_backoffice_app;
 
 
 --

@@ -36,6 +36,8 @@ export interface PersonSummary {
   summary: string | null;
   /** What the card says is missing ("Falta: correo · qué quiere hacer"), from what the database knows. */
   missing: MissingDetail[];
+  /** The team account linked to this person (PLAN M5, step 5), active or not; the link grants nothing. */
+  team: { userId: string; displayName: string; active: boolean } | null;
 }
 
 interface SummaryRow {
@@ -59,6 +61,9 @@ interface SummaryRow {
   has_phone: boolean;
   has_email: boolean;
   has_interests: boolean;
+  team_user_id: string | null;
+  team_name: string | null;
+  team_active: boolean | null;
 }
 
 const SUMMARY_COLUMNS = sql`
@@ -73,13 +78,15 @@ const SUMMARY_COLUMNS = sql`
   EXISTS (SELECT 1 FROM app.identities i WHERE i.person_id = p.id AND i.kind = 'email') AS has_email,
   p.interests_other IS NOT NULL
     OR EXISTS (SELECT 1 FROM app.person_options po JOIN app.census_options o ON o.id = po.option_id
-                WHERE po.person_id = p.id AND o.kind = 'interest') AS has_interests`;
+                WHERE po.person_id = p.id AND o.kind = 'interest') AS has_interests,
+  tm.user_id AS team_user_id, tm.display_name AS team_name, tm.active AS team_active`;
 
 const SUMMARY_FROM = sql`
   app.people p
   LEFT JOIN app.people_attention a ON a.person_id = p.id
   LEFT JOIN app.staff s ON s.user_id = p.owner_id
-  LEFT JOIN app.arrival_channels ac ON ac.id = p.arrival_channel_id`;
+  LEFT JOIN app.arrival_channels ac ON ac.id = p.arrival_channel_id
+  LEFT JOIN app.staff tm ON tm.person_id = p.id`;
 
 const toSummary = (row: SummaryRow): PersonSummary => ({
   id: row.id,
@@ -105,6 +112,13 @@ const toSummary = (row: SummaryRow): PersonSummary => ({
     province: row.province,
     hasInterests: row.has_interests,
   }),
+  team: row.team_user_id
+    ? {
+        userId: row.team_user_id,
+        displayName: row.team_name ?? '',
+        active: row.team_active === true,
+      }
+    : null,
 });
 
 export interface PeopleFilter {
@@ -114,6 +128,8 @@ export interface PeopleFilter {
   owner?: string | undefined;
   attention?: boolean | undefined;
   inCommunity?: boolean | undefined;
+  /** Whether they are on the team: linked to an active team account (PLAN M5, step 5). */
+  team?: boolean | undefined;
   source?: string | undefined;
   /** "Llegó por": an entry's id, or `none` for not said. */
   arrival?: string | undefined;
@@ -157,6 +173,10 @@ const conditions = (filter: PeopleFilter, me: string): RawBuilder<unknown>[] => 
   if (filter.inCommunity !== undefined) {
     const open = sql`EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = p.id AND c.left_on IS NULL)`;
     where.push(filter.inCommunity ? open : sql`NOT ${open}`);
+  }
+  if (filter.team !== undefined) {
+    const team = sql`EXISTS (SELECT 1 FROM app.staff t WHERE t.person_id = p.id AND t.active)`;
+    where.push(filter.team ? team : sql`NOT ${team}`);
   }
   if (filter.source) {
     where.push(sql`EXISTS (SELECT 1 FROM app.person_sources ps WHERE ps.person_id = p.id
@@ -732,6 +752,15 @@ export const mergePeople = async (
   trx: Transaction<DB>,
   survivor: string,
   merged: string,
-): Promise<void> => {
+): Promise<'merged' | 'bothInTeam'> => {
+  // Two records each linked to a team account (PLAN M5, step 5): the database refuses it too; this says why.
+  const { rows } = await sql<{ n: number }>`
+    SELECT count(*)::int AS n FROM app.staff WHERE person_id IN (${survivor}, ${merged})`.execute(
+    trx,
+  );
+  if ((rows[0]?.n ?? 0) > 1) {
+    return 'bothInTeam';
+  }
   await sql`SELECT private.merge_people(${survivor}, ${merged})`.execute(trx);
+  return 'merged';
 };

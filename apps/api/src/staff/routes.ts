@@ -30,7 +30,9 @@ import {
 import {
   displayNameOf,
   isAdmin,
+  linkPerson,
   listStaff,
+  personSuggestions,
   STAFF_ROLES,
   type StaffChange,
   updateStaff,
@@ -194,6 +196,48 @@ export const staffDataRoutes =
           // Signed out everywhere at once, not only refused by the database from now on.
           if (change.active === false && endSessions) {
             await endSessions(userId);
+          }
+          return reply.code(204).send();
+        }),
+    );
+
+    // A team account's own person record (PLAN M5, step 5): the suggestions by a shared email, and the link.
+    scope.get('/staff/person-suggestions', async (request, reply) =>
+      signedIn(request, reply, async (db, actor) =>
+        withActor(db, actor, async (trx) => {
+          await requireAdmin(trx);
+          return { suggestions: await personSuggestions(trx) };
+        }),
+      ),
+    );
+
+    scope.put<{ Params: { userId: string }; Body: { personId: string | null } }>(
+      '/staff/:userId/person',
+      {
+        schema: {
+          params: { type: 'object', properties: { userId: UUID } },
+          body: {
+            type: 'object',
+            required: ['personId'],
+            additionalProperties: false,
+            properties: { personId: { anyOf: [UUID, { type: 'null' }] } },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const result = await withActor(db, actor, async (trx) => {
+            await requireAdmin(trx);
+            return linkPerson(trx, request.params.userId, request.body.personId);
+          });
+          if (result === 'notFound') {
+            throw new Refusal(404, 'notFound');
+          }
+          if (result === 'personGone') {
+            throw new Refusal(409, 'personGone');
+          }
+          if (result === 'personTaken') {
+            throw new Refusal(409, 'personTaken');
           }
           return reply.code(204).send();
         }),

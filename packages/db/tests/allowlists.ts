@@ -21,6 +21,7 @@ export const EXECUTE_ALLOWLIST: readonly string[] = [
   'pauseai_backoffice_app private.report_leave(person uuid, left_on date)',
   'pauseai_backoffice_app private.resolve_intake(intake_id uuid, decision text, target uuid)',
   'pauseai_backoffice_app private.staff_can(VARIADIC roles app.staff_role[])',
+  'pauseai_backoffice_app private.staff_person_suggestions()',
   'pauseai_backoffice_app private.submit_intake(source app.source_kind, external_id text, payload jsonb, decision text, target uuid)',
   'pauseai_backoffice_app private.team_card(person uuid)',
   'pauseai_backoffice_app private.team_unposted(chat bigint)',
@@ -54,6 +55,8 @@ export const SECURITY_DEFINER_ALLOWLIST: readonly string[] = [
   'private.report_leave',
   'private.resolve_intake',
   'private.staff_can',
+  // A team account's person, suggested by a shared email (PLAN M5): admins only, ids only, reaching `auth`.
+  'private.staff_person_suggestions',
   'private.submit_census',
   'private.submit_intake',
   // The bot is the onboarding team's (ADR-0004): codes and links only for it, unlinked when the role or the

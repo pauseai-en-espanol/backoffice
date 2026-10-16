@@ -897,3 +897,99 @@ describe('cards that say who someone is (PLAN M5, step 4)', () => {
     expect((await card()).missing).toEqual([]);
   });
 });
+
+describe('team accounts linked to their person (PLAN M5, step 5)', () => {
+  type Team = { userId: string; displayName: string; active: boolean } | null;
+  const addPerson = async (fields: Record<string, string>) => {
+    const { personId } = (
+      await admin.who.send('POST', '/api/intake', { ...fields, decision: 'new' })
+    ).json<{ personId: string }>();
+    people.push(personId);
+    return personId;
+  };
+  const teamOf = async (personId: string) =>
+    (await onboarder.who.send('GET', `/api/people/${personId}`)).json<{ person: { team: Team } }>()
+      .person.team;
+  const listed = async (team: 'yes' | 'no') =>
+    (await onboarder.who.send('GET', `/api/people?team=${team}&limit=200`))
+      .json<{ people: { id: string }[] }>()
+      .people.map((person) => person.id);
+
+  it('lets an admin link an account to its person, suggested by a shared email, and Personas filter by it', async () => {
+    const personId = await addPerson({
+      name: `Persona Del Equipo ${suffix()}`,
+      email: onboarder.email,
+    });
+    expect((await onboarder.who.send('GET', '/api/staff/person-suggestions')).statusCode).toBe(403);
+    const { suggestions } = (await admin.who.send('GET', '/api/staff/person-suggestions')).json<{
+      suggestions: { userId: string; person: { id: string } }[];
+    }>();
+    expect(suggestions).toContainEqual({
+      userId: onboarder.id,
+      person: { id: personId, name: expect.any(String) },
+    });
+
+    const link = (who: typeof admin, userId: string, id: string | null) =>
+      who.who.send('PUT', `/api/staff/${userId}/person`, { personId: id });
+    expect((await link(onboarder, onboarder.id, personId)).statusCode).toBe(403);
+    expect((await link(admin, onboarder.id, personId)).statusCode).toBe(204);
+    const taken = await link(admin, outreacher.id, personId);
+    expect([taken.statusCode, taken.json<{ error: string }>().error]).toEqual([409, 'personTaken']);
+
+    const team = (await onboarder.who.send('GET', '/api/staff')).json<{
+      staff: { userId: string; personId: string | null }[];
+    }>();
+    expect(team.staff.find((member) => member.userId === onboarder.id)?.personId).toBe(personId);
+    expect(await teamOf(personId)).toMatchObject({ userId: onboarder.id, active: true });
+    expect(await listed('yes')).toContain(personId);
+    expect(await listed('no')).not.toContain(personId);
+
+    // Two records each linked to an account aren't merged: an admin unlinks one first.
+    const other = await addPerson({ name: `Otra Del Equipo ${suffix()}` });
+    expect((await link(admin, outreacher.id, other)).statusCode).toBe(204);
+    const merged = await admin.who.send('POST', `/api/people/${personId}/merge`, {
+      mergedId: other,
+    });
+    expect([merged.statusCode, merged.json<{ error: string }>().error]).toEqual([
+      409,
+      'bothInTeam',
+    ]);
+    // A deactivated account keeps its person, who is no longer on the team.
+    await superuser.query('UPDATE app.staff SET active = false WHERE user_id = $1', [
+      outreacher.id,
+    ]);
+    try {
+      expect(await teamOf(other)).toMatchObject({ userId: outreacher.id, active: false });
+      expect(await listed('yes')).not.toContain(other);
+    } finally {
+      await superuser.query('UPDATE app.staff SET active = true WHERE user_id = $1', [
+        outreacher.id,
+      ]);
+    }
+    expect((await link(admin, outreacher.id, null)).statusCode).toBe(204);
+    expect(await teamOf(other)).toBeNull();
+  });
+
+  it('never links someone merged away, and an account that is not staff is not found', async () => {
+    const survivor = await addPerson({ name: `Persona Que Queda ${suffix()}` });
+    const gone = await addPerson({ name: `Persona Fusionada ${suffix()}` });
+    expect(
+      (await admin.who.send('POST', `/api/people/${survivor}/merge`, { mergedId: gone }))
+        .statusCode,
+    ).toBe(204);
+    const refused = await admin.who.send('PUT', `/api/staff/${outreacher.id}/person`, {
+      personId: gone,
+    });
+    expect([refused.statusCode, refused.json<{ error: string }>().error]).toEqual([
+      409,
+      'personGone',
+    ]);
+    expect(
+      (
+        await admin.who.send('PUT', `/api/staff/${crypto.randomUUID()}/person`, {
+          personId: survivor,
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+});

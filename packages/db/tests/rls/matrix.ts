@@ -79,6 +79,12 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         select: { web: ANY_STAFF },
         update: { set: 'active = false', rule: ADMIN },
       },
+      {
+        id: 'linking an onboarder to their person',
+        where: `user_id = ${user('onboarder')}`,
+        select: { web: ANY_STAFF },
+        update: { set: `person_id = ${ana}`, rule: ADMIN },
+      },
     ],
     inserts: [
       {

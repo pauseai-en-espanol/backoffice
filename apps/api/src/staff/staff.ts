@@ -18,6 +18,8 @@ export interface StaffMember {
   invitedBy: string | null;
   createdAt: string;
   deactivatedAt: string | null;
+  /** Their own person record, if an admin linked it (PLAN M5, step 5); it grants nothing. */
+  personId: string | null;
 }
 
 const instant = (column: string) => sql<string>`to_json(${sql.ref(column)})#>>'{}'`;
@@ -35,6 +37,7 @@ export const listStaff = async (trx: Transaction<DB>): Promise<StaffMember[]> =>
       's.display_name',
       's.active',
       's.invited_by',
+      's.person_id',
       instant('s.created_at').as('created_at'),
       sql<string | null>`to_json(s.deactivated_at)#>>'{}'`.as('deactivated_at'),
       sql<
@@ -53,6 +56,55 @@ export const listStaff = async (trx: Transaction<DB>): Promise<StaffMember[]> =>
     invitedBy: row.invited_by,
     createdAt: row.created_at,
     deactivatedAt: row.deactivated_at,
+    personId: row.person_id,
+  }));
+};
+
+export type PersonLinkResult = 'linked' | 'notFound' | 'personGone' | 'personTaken';
+
+/**
+ * Links a team account to its own person record, or unlinks it with null (PLAN M5, step 5), in the admin's
+ * transaction (RLS lets only admins). Said in words first: an account that isn't there, a person no longer there
+ * (merged or erased) or linked to another account; the database keeps the same rules if two admins race.
+ */
+export const linkPerson = async (
+  trx: Transaction<DB>,
+  userId: string,
+  personId: string | null,
+): Promise<PersonLinkResult> => {
+  if (personId !== null) {
+    const { rows } = await sql<{ live: boolean; taken: boolean }>`
+      SELECT p.merged_into IS NULL AND p.anonymised_at IS NULL AS live,
+             EXISTS (SELECT 1 FROM app.staff s WHERE s.person_id = p.id AND s.user_id <> ${userId}) AS taken
+        FROM app.people p WHERE p.id = ${personId}`.execute(trx);
+    const person = rows[0];
+    if (!person?.live) {
+      return 'personGone';
+    }
+    if (person.taken) {
+      return 'personTaken';
+    }
+  }
+  const linked = await trx
+    .updateTable('app.staff')
+    .set({ person_id: personId })
+    .where('user_id', '=', userId)
+    .returning('user_id')
+    .executeTakeFirst();
+  return linked ? 'linked' : 'notFound';
+};
+
+/** For each account without a person, the person who shares its sign-in email (admins only, the database's own). */
+export const personSuggestions = async (
+  trx: Transaction<DB>,
+): Promise<{ userId: string; person: { id: string; name: string | null } }[]> => {
+  const { rows } = await sql<{ user_id: string; person_id: string; name: string | null }>`
+    SELECT s.user_id, s.person_id, coalesce(p.preferred_name, p.full_name) AS name
+      FROM private.staff_person_suggestions() s JOIN app.people p ON p.id = s.person_id
+     ORDER BY s.user_id, s.person_id`.execute(trx);
+  return rows.map((row) => ({
+    userId: row.user_id,
+    person: { id: row.person_id, name: row.name },
   }));
 };
 
