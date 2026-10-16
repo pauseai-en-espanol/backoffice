@@ -28,6 +28,8 @@ relationship stands.
 **Target (per contact in a campaign):** `pending` → `ready` (rendered, reviewed) → `sent` → `replied` → `meeting`;
 or `declined`, `bounced`, `no_response`. Each target has an owner, a priority (1 goes first; none sorts last), a
 next action and its dates. These are the outreach CLI's statuses, so its tracking sheets import as they are.
+A target starts in the queue (`pending`, `ready` or `skip`, nothing dated); one already written to comes in only
+through the import, which is an admin's. Once someone wrote to it, it never goes back to the queue.
 
 ## 3. Sending: a person always sends
 

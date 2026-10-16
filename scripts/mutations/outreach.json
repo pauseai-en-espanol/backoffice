@@ -118,5 +118,29 @@
     "new": "phone = NULL, notes = NULL,",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
+  },
+  {
+    "name": "a volunteer adds a target already sent to",
+    "file": "db/migrations/20261016061929_outreach_targets_start_in_the_queue.sql",
+    "old": "AND ((status IN ('pending', 'ready', 'skip')\n",
+    "new": "AND ((status IS NOT NULL\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a volunteer adds a target with a reply dated",
+    "file": "db/migrations/20261016061929_outreach_targets_start_in_the_queue.sql",
+    "old": "AND sent_at IS NULL AND replied_at IS NULL AND meeting_at IS NULL)",
+    "new": "AND sent_at IS NULL AND meeting_at IS NULL)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the importer can't add history",
+    "file": "db/migrations/20261016061929_outreach_targets_start_in_the_queue.sql",
+    "old": "OR (SELECT private.staff_can('admin'))));",
+    "new": "OR false));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
   }
 ]

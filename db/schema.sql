@@ -5052,7 +5052,7 @@ CREATE POLICY outreach_insert ON app.campaign_anchors FOR INSERT TO pauseai_back
 -- Name: campaign_targets outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_insert ON app.campaign_targets FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY outreach_insert ON app.campaign_targets FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (((status = ANY (ARRAY['pending'::app.target_status, 'ready'::app.target_status, 'skip'::app.target_status])) AND (sent_at IS NULL) AND (replied_at IS NULL) AND (meeting_at IS NULL)) OR ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can))));
 
 
 --

@@ -219,6 +219,31 @@ describe('history', () => {
       expect(deleted.rowCount).toBe(0);
     });
   });
+
+  it('starts in the queue: only an admin (the importer) adds a target already written to', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      const insert = (columns: string, values: string) =>
+        errorCode(
+          client,
+          `INSERT INTO app.campaign_targets (campaign_id, contact_id, ${columns}) VALUES ($1, $2, ${values})`,
+          [OUTREACH.campaign, OUTREACH.unreviewed],
+        );
+      expect(await insert('status', "'sent'")).toBe('42501');
+      expect(await insert('status', "'replied'")).toBe('42501');
+      expect(await insert('sent_at', "now() - interval '1 day'")).toBe('42501');
+      expect(await insert('replied_at', "now() - interval '1 day'")).toBe('42501');
+      expect(await insert('meeting_at', "now() - interval '1 day'")).toBe('42501');
+      expect(await insert('status', "'skip'")).toBeNull();
+      await client.query('DELETE FROM app.campaign_targets WHERE contact_id = $1', [
+        OUTREACH.unreviewed,
+      ]);
+      await asStaff(client, USERS.adminA);
+      expect(
+        await insert('status, sent_at, replied_at', "'replied', now() - interval '2 days', now()"),
+      ).toBeNull();
+    });
+  });
 });
 
 describe('templates', () => {

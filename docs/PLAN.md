@@ -292,8 +292,8 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 - **R36. Erasure reaches the team group too**: the bot deletes its posts about the person, or, past Telegram's
   48 hours, blanks them to "Persona anonimizada", and forgets them.
 - **Open from the review** (low, for later): two simultaneous generic answers with the same new email can make the
-  second fail; the census link travels in the wa.me message (by design: the person sends it); the app role may insert
-  a target already dated (only the importer does).
+  second fail; the census link travels in the wa.me message (by design: the person sends it). ~~The app role may
+  insert a target already dated~~: fixed, only an admin (the importer) adds history.
 
 ## Tracking
 
