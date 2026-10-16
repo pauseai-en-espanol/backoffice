@@ -1,5 +1,18 @@
 # @backoffice/migrations
 
+## 0.7.0
+
+### Minor Changes
+
+- d6f6e86: Organisations have a timeline of notes, as contacts do, and a note on either may say the day the conversation it tells
+  happened ("Cuándo fue"), never one to come, shown next to who wrote it and when; timelines go by that day. Each
+  organisation's old notes field became its first note (PLAN M5, step 6).
+- 43e95f1: Outreach contacts, organisations and notes can be kept "Solo yo": nobody else sees them, admins neither. Sharing one
+  makes it the team's for good, and a contact the team already has (an email or the phone in common) is offered to
+  merge into. Campaigns write to team contacts only. In Contactos, admins answer a rights request across private
+  contacts too (download or erase); in Equipo, they hand a departed member's private records to someone in outreach,
+  seeing how many, never what (PLAN M5, step 6).
+
 ## 0.6.0
 
 ### Minor Changes
