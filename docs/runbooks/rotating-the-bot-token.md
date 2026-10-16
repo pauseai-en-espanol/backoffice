@@ -17,9 +17,9 @@ do anything ([ADR-0004](../adr/0004-telegram-bot.md)). Neither is ever logged.
    Telegram, and seals it with a new webhook secret: both rotate together.
 3. **Deploy:** commit and push gitops. The API's pods restart with the new values and register the webhook with the
    new secret on start.
-4. **Check:** in the API's log, `Telegram webhook registered`; or run
+4. **Check:** in the API's log, `Telegram webhook registered` and `Telegram commands registered`; or run
    `kubectl exec -n backoffice deploy/backoffice-api -- node dist/telegram-webhook.js`, which prints `ok`. Then send
-   `/ayuda` to the bot: it answers.
+   `/help` (or `/ayuda`) to the bot: it answers.
 
 ## What doesn't change
 

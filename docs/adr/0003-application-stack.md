@@ -119,8 +119,8 @@ not shared as dependencies. The repos then evolve separately.
   - Unit tests for `packages/domain`, especially bot message parsing, matching and attention rules, with
     fictional fixtures.
   - Database tests for RLS, the bot channel's limits, triggers and grants, on Postgres 18.
-  - Playwright for the main flows: sign-in with TOTP, linking Telegram, `/alta` through a fake Bot API, claim from
-    the team group, quick-add, CSV import, log attempt, census submission, merge. axe on every page.
+  - Playwright for the main flows: sign-in with TOTP, linking Telegram, `/joined` (`/alta`) through a fake Bot API,
+    claim from the team group, quick-add, CSV import, log attempt, census submission, merge. axe on every page.
 - **Accessibility:** WCAG 2.2 AA. Stages are never shown by colour alone.
 - **Dependencies:** latest stable only, checked on npm when added. Renovate with the 3-day minimum release age.
 - **Process:** `pnpm verify` before push; a changeset per change; the RLS matrix updated with every new table.

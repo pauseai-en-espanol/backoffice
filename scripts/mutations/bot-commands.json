@@ -1,0 +1,42 @@
+[
+  {
+    "name": "a Spanish name is dropped",
+    "file": "packages/domain/src/bot-message.ts",
+    "old": "  sync: 'sincronizar',\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/bot-message.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "Spanish names stop working",
+    "file": "packages/domain/src/bot-message.ts",
+    "old": "    : BY_SPANISH_NAME.get(name ?? '');",
+    "new": "    : undefined;",
+    "cmd": "pnpm exec vitest run src/bot-message.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "the Spanish menu shows the English names",
+    "file": "apps/api/src/telegram/commands.ts",
+    "old": "      command: SPANISH_NAMES[command],",
+    "new": "      command,",
+    "cmd": "pnpm exec vitest run src/telegram",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the Spanish menu is not for Spanish Telegram",
+    "file": "apps/api/src/telegram/commands.ts",
+    "old": "    languageCode: 'es',",
+    "new": "    languageCode: 'en',",
+    "cmd": "pnpm exec vitest run src/telegram",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "replies name a command by its English name only",
+    "file": "apps/api/src/telegram/replies.ts",
+    "old": "  `/${command} (/${SPANISH_NAMES[command]})`;",
+    "new": "  `/${command}`;",
+    "cmd": "pnpm exec vitest run src/telegram",
+    "cwd": "apps/api"
+  }
+]

@@ -1,11 +1,12 @@
 import { loadConfig } from './config.js';
 import { createTelegramClient, TelegramError } from './telegram/client.js';
+import { registerCommands } from './telegram/commands.js';
 import { webhookUrl } from './telegram/setup.js';
 
 /**
- * The owner's command that points Telegram at the bot's webhook (ADR-0004; docs/runbooks/rotating-the-bot-token.md).
- * The API does it on every start; this is for doing it by hand, after rotating the secret or the token. Run inside an
- * API pod, which has the bot's settings:
+ * The owner's command that points Telegram at the bot's webhook and sets its command menu (ADR-0004, PLAN R38;
+ * docs/runbooks/rotating-the-bot-token.md). The API does both on every start; this is for doing it by hand, after
+ * rotating the secret or the token. Run inside an API pod, which has the bot's settings:
  *
  *   kubectl exec -n backoffice deploy/backoffice-api -- node dist/telegram-webhook.js
  *
@@ -19,11 +20,11 @@ if (!config.telegram || !config.auth) {
   process.exit(1);
 }
 try {
-  await createTelegramClient(config.telegram).setWebhook(
-    webhookUrl(config.auth.staffOrigin),
-    config.telegram.webhookSecret,
-  );
+  const client = createTelegramClient(config.telegram);
+  await client.setWebhook(webhookUrl(config.auth.staffOrigin), config.telegram.webhookSecret);
   console.log(`ok: Telegram sends updates to ${webhookUrl(config.auth.staffOrigin)}`);
+  await registerCommands(client);
+  console.log('ok: the command menu is set, in English and in Spanish');
 } catch (error) {
   console.error(`failed: ${error instanceof TelegramError ? error.message : 'the request failed'}`);
   process.exitCode = 1;

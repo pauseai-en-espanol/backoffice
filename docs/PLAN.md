@@ -100,8 +100,8 @@ that fixes the immediate problem. Backups are Dani's, in gitops, separately from
   messages with contact details, the bot channel's limits in RLS.
 - **Notifications:** the team group (optional, D11), the daily digest (Telegram, email fallback).
 - **Jobs:** the Airtable sync, the daily digest, the dialog clean-up.
-- **E2E:** linking Telegram, `/alta` through a fake Bot API, claim from the team group, quick-add, CSV import, log
-  attempt, merge.
+- **E2E:** linking Telegram, `/joined` (`/alta`) through a fake Bot API, claim from the team group, quick-add, CSV
+  import, log attempt, merge.
 
 ### M2: Census
 
@@ -297,6 +297,13 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   nombre" everywhere (the bot, the team group, the staff app) until a later report, the census, a merge or staff
   name them; a name, once known, is never emptied, and a nameless person is never matched on name. Airtable, the CSV
   import and the census still always carry a name.
+- **R38. The bot's commands in English, with Spanish names that work the same** (Dani, 2026-10-16: "i would prefer
+  the commands in english or better yet both spanish and english"). `/joined` (`/alta`), `/left` (`/baja`), `/mine`
+  (`/mios`), `/unassigned` (`/libres`), `/search` (`/buscar`), `/sync` (`/sincronizar`), `/help` (`/ayuda`),
+  `/cancel` (`/cancelar`). Options for the menu: one list; one per Telegram language. **Chose one per language**: the
+  API sets the menu on every start with the English names by default and the Spanish ones for people whose Telegram
+  is in Spanish, described in Spanish in both (D6); the sealing script no longer sets it. Replies name a command by
+  both names, English first: "/joined (/alta)".
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).
@@ -306,7 +313,7 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 | Milestone | Status              | Demo note                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | --------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | M0        | Built, not deployed | Sign-in with TOTP, invitations by email, the team, the audit log; Helm chart, CI and release workflows, gitops branch prepared (not pushed). Locally: `pnpm db:reset`, `pnpm build`, `pnpm test:e2e` (sign-in, invitation, access, axe). Deploying waits on Dani's steps in [deploying](runbooks/deploying.md).                                                                                                                      |
-| M1        | Built, not deployed | Hoy, Personas, Persona, Embudo, Añadir rápido, Bandeja, Importar (CSV, and the Airtable sync, checked against the real view's structure), Ajustes; the Telegram bot (linking, /alta, /baja, /mios, /libres, /buscar, /sincronizar, the team group, the digest). E2E covers the web flows; the bot is covered by API tests against a fake Bot API.                                                                                    |
+| M1        | Built, not deployed | Hoy, Personas, Persona, Embudo, Añadir rápido, Bandeja, Importar (CSV, and the Airtable sync, checked against the real view's structure), Ajustes; the Telegram bot (linking, /joined, /left, /mine, /unassigned, /search, /sync, each also by its Spanish name, the team group, the digest). E2E covers the web flows; the bot is covered by API tests against a fake Bot API.                                                      |
 | M2        | Built, not deployed | The forms app at `unete.pauseai.es` (generic and personal links, honeypot and timing, consents with their wording version, the privacy notice as a draft); Censo, the person's census side, the Bandeja's census answers, the option lists in Ajustes; export and erasure. E2E covers a personal link end to end and the generic link. Deploying waits on the M2 steps in [deploying](runbooks/deploying.md) and the privacy notice. |
 | M3        | Built, not deployed | Campañas (board by status, templates with a preview per contact, evidence paragraphs, targets), Contactos, Organizaciones, Siguiente (take the next target, open the letter in your own mail or WhatsApp, copy buttons, "Sí, enviada"), and the one-off import from the `outreach` repo, checked against the real campaign locally (counts only). Nothing sends. E2E covers Siguiente end to end.                                    |
 | M4        | Built, not deployed | The Panel (people by stage, weekly arrivals by source, time to first contact, the unassigned for more than 48 hours). No retention job (D9) and no MCP server for now (D10). E2E covers the Panel.                                                                                                                                                                                                                                   |

@@ -59,13 +59,16 @@ Dani chose 1d (D1) and 4b (D11). 2b and 3b are Claude's, as aisafety-newsroom. D
 
 ### 2. What the bot does
 
-The commands (`/alta`, `/baja`, `/mios`, `/libres`, `/buscar`, `/sincronizar`, `/ayuda`) and their replies are in
-the [onboarding spec §5.2](../spec/onboarding.md#52-the-telegram-bot-m1). They work in a private chat with the bot;
-replies are in Spanish.
+The commands (`/joined`, `/left`, `/mine`, `/unassigned`, `/search`, `/sync`, `/help`, `/cancel`, each also by its
+Spanish name: `/alta`, `/baja`, `/mios`, `/libres`, `/buscar`, `/sincronizar`, `/ayuda`, `/cancelar`; PLAN R38) and
+their replies are in the [onboarding spec §5.2](../spec/onboarding.md#52-the-telegram-bot-m1). They work in a
+private chat with the bot; replies are in Spanish, and name a command by both names, English first: "/joined
+(/alta)". The API sets Telegram's command menu on every start (`setMyCommands`): the English names by default, the
+Spanish ones for people whose Telegram is in Spanish (`language_code: es`), described in Spanish in both.
 
-- A message that isn't a command but contains a phone number or email is taken as a draft `/alta`, and is only
+- A message that isn't a command but contains a phone number or email is taken as a draft `/joined`, and is only
   saved after confirmation.
-- **Contact details don't stay in the chat.** After an `/alta` is saved, the bot deletes the reporter's messages
+- **Contact details don't stay in the chat.** After a `/joined` is saved, the bot deletes the reporter's messages
   that contained the phone or email (the Bot API allows it in a private chat within 48 hours). Its own replies
   never repeat contact details.
 - The state of a conversation in progress lives in the database (`private.telegram_dialogs`) and expires after an
@@ -129,9 +132,9 @@ Agree the reporting rule with the community's admins: whoever approves or sees a
   `admin` are told they may not. Every call runs as the linked staff member through the bot channel, and reaches
   people only through `private.bot_people`, `bot_candidates`, `bot_summary`, `submit_intake`, `claim_person` and
   `report_leave`.
-- **Contact details:** an `/alta` is saved only after the reporter confirms; its external id is
+- **Contact details:** a `/joined` is saved only after the reporter confirms; its external id is
   `tg:<chat>:<first message>`, so a repeated confirmation saves once. Then every message of the conversation that
-  held a phone or email is deleted, and the bot says whether it could. A `/baja` or `/buscar` by phone deletes its
+  held a phone or email is deleted, and the bot says whether it could. A `/left` or `/search` by phone deletes its
   message too.
 - **The team group:** posts are claimed by inserting their row first (`private.telegram_posts`, message id empty
   until sent), so two senders never post one arrival twice. Arrivals the bot or the staff app made are posted at
@@ -139,7 +142,7 @@ Agree the reporting rule with the community's admins: whoever approves or sees a
   imports), through `private.team_card` and `private.team_unposted`, the two functions that run without an actor
   ([ADR-0002 §4](0002-authorization-and-data-protection.md#4-row-level-security-by-module-and-channel)).
 - **The digest** reads who gets one as the auth role, and each digest as that staff member through the bot's
-  functions, so it holds exactly what their own `/mios` would; it goes by Telegram if they linked it, else by mail.
+  functions, so it holds exactly what their own `/mine` would; it goes by Telegram if they linked it, else by mail.
 
 ## Consequences
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Sets up the Telegram bot (M1, ADR-0004) in one run, for the danilupion.com cluster (as aisafety-newsroom's script):
 #   1. checks the bot token with Telegram (getMe) before anything is sealed, and says which bot it belongs to;
-#   2. sets the bot's command list in Spanish (setMyCommands), so BotFather needs no /setcommands;
-#   3. seals the token and a new webhook secret into a gitops checkout;
-#   4. prints the values to put under backoffice-api.telegram in the gitops values.
+#   2. seals the token and a new webhook secret into a gitops checkout;
+#   3. prints the values to put under backoffice-api.telegram in the gitops values.
+# The command menu needs nothing here either: the API sets it on every start, in English and, for Spanish Telegram,
+# in Spanish (PLAN R38), from packages/i18n.
 # Nothing secret is printed or written unencrypted: the token lives in a shell variable, reaches curl through stdin and
 # kubectl through /dev/fd, never argv or a file. Who may use the bot isn't configured here: only Telegram accounts
 # linked to a staff member from the web app (with the second factor) are listened to.
@@ -39,21 +40,6 @@ echo
 username="$(bot_api getMe '{}' | jq -r 'if .ok then .result.username else empty end' 2>/dev/null || true)"
 [ -n "$username" ] || { echo "Telegram doesn't accept that token: check it in BotFather" >&2; exit 1; }
 echo "Telegram knows this token as @$username"
-
-# The commands of the onboarding spec (intake sources, the Telegram bot), as Telegram's menu shows them.
-commands='{"commands":[
-  {"command":"alta","description":"Alguien ha entrado en la comunidad"},
-  {"command":"baja","description":"Alguien ha salido de la comunidad"},
-  {"command":"mios","description":"Mis personas que necesitan atención"},
-  {"command":"libres","description":"Personas sin asignar"},
-  {"command":"buscar","description":"Buscar a alguien: /buscar <texto>"},
-  {"command":"sincronizar","description":"Traer ahora las altas de Airtable"},
-  {"command":"ayuda","description":"Cómo usar el bot"}]}'
-if [ "$(bot_api setMyCommands "$commands" | jq -r '.ok' 2>/dev/null || true)" = true ]; then
-  echo "set @$username's command list"
-else
-  echo "Couldn't set the command list (BotFather's /setcommands can do it); carrying on" >&2
-fi
 
 # 64 hex characters: within what Telegram takes as a secret_token (1 to 256 of A-Z, a-z, 0-9, '_', '-').
 WEBHOOK_SECRET="$(openssl rand -hex 32)"

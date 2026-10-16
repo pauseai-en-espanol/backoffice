@@ -25,7 +25,8 @@ export interface Bot {
 
 /**
  * The bot as the API runs it (ADR-0004): its client, store, team group and webhook, from its configuration, the
- * staff origin, and the app and auth pools. `sync` runs the Airtable sync for /sincronizar, when it is configured.
+ * staff origin, and the app and auth pools. `sync` runs the Airtable sync for /sync (/sincronizar), when it is
+ * configured.
  */
 export const createBot = ({
   config,

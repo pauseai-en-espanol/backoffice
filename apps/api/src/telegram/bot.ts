@@ -17,6 +17,7 @@ import {
   confirmArrival,
   confirmLeave,
   freeList,
+  helpText,
   leaveOptions,
   mineList,
   nameOf,
@@ -35,7 +36,7 @@ export interface BotDeps {
   staffOrigin: string;
   /** The team group, told of arrivals and claims (D11); a no-op without one. */
   notifier: Notifier;
-  /** Runs the Airtable sync now (ADR-0005), for /sincronizar; without it, the bot says it isn't configured. */
+  /** Runs the Airtable sync now (ADR-0005), for /sync (/sincronizar); without it, the bot says it isn't configured. */
   sync?: (() => Promise<Record<string, unknown>>) | undefined;
   /** Where a failure is reported: never with what anyone wrote. */
   onError?: ((error: unknown) => void) | undefined;
@@ -105,7 +106,7 @@ const deleteContactMessages = async (
   await ctx.say(all ? t('bot.alta.deleted') : t('bot.alta.notDeleted'));
 };
 
-// /alta ------------------------------------------------------------------------------------------------------------
+// /joined (/alta) ---------------------------------------------------------------------------------------------------
 
 /**
  * Asks for what the arrival still lacks, then offers the candidates or asks to confirm. A phone or an email is enough
@@ -228,7 +229,7 @@ const saveAlta = async (
   }
 };
 
-// /baja ------------------------------------------------------------------------------------------------------------
+// /left (/baja) -----------------------------------------------------------------------------------------------------
 
 const searchLeave = async (dialog: BajaDialog, text: string, ctx: Context): Promise<void> => {
   const query = searchQuery(text);
@@ -260,20 +261,20 @@ const runCommand = async (command: ParsedCommand, ctx: Context): Promise<void> =
   const { store, staffOrigin, sync } = ctx.deps;
   switch (command.command) {
     case 'start':
-    case 'ayuda':
-      await ctx.say(t('bot.help'));
+    case 'help':
+      await ctx.say(helpText());
       return;
-    case 'cancelar': {
+    case 'cancel': {
       const dialog = await store.dialog(ctx.telegramUserId);
       await store.endDialog(ctx.telegramUserId);
       await ctx.say(dialog ? t('bot.cancelled') : t('bot.nothingToCancel'));
       return;
     }
-    case 'alta':
+    case 'joined':
       await store.endDialog(ctx.telegramUserId);
       await startAlta(parseArrival(command.args), ctx);
       return;
-    case 'baja': {
+    case 'left': {
       await store.endDialog(ctx.telegramUserId);
       const dialog: BajaDialog = {
         kind: 'baja',
@@ -289,15 +290,15 @@ const runCommand = async (command: ParsedCommand, ctx: Context): Promise<void> =
       await searchLeave(dialog, command.args, ctx);
       return;
     }
-    case 'mios':
+    case 'mine':
       await ctx.say(mineList(staffOrigin, await store.people(ctx.userId, 'mine')));
       return;
-    case 'libres': {
+    case 'unassigned': {
       const { text, keyboard } = freeList(await store.people(ctx.userId, 'unassigned'));
       await ctx.say(text, keyboard);
       return;
     }
-    case 'buscar': {
+    case 'search': {
       if (command.args === '') {
         await ctx.say(t('bot.search.usage'));
         return;
@@ -312,7 +313,7 @@ const runCommand = async (command: ParsedCommand, ctx: Context): Promise<void> =
       }
       return;
     }
-    case 'sincronizar': {
+    case 'sync': {
       if (!sync) {
         await ctx.say(t('bot.sync.notConfigured'));
         return;
@@ -395,7 +396,7 @@ const handleMessage = async (message: TelegramMessage, deps: BotDeps): Promise<v
   } else if (dialog) {
     await say(t('bot.pressButton'));
   } else if (looksLikeArrival(text)) {
-    // A phone or an email with no command: a draft /alta, saved only once confirmed.
+    // A phone or an email with no command: a draft /joined (/alta), saved only once confirmed.
     await startAlta(parseArrival(text), ctx);
   } else {
     await say(t('bot.notUnderstood'));

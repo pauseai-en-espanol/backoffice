@@ -63,14 +63,15 @@ Do these in order. Each step says how to check it.
 ## M1: the bot and the Airtable sync
 
 1. **The bot:** create it with BotFather (BRIEF, this week), then run
-   `scripts/seal-telegram-secret.sh ~/Workspace/gitops`. It checks the token, sets the command list and prints the
-   values to add: `telegram:` under `backoffice-api`, and `route.telegramWebhook: true` under `backoffice-web`. Set
-   `route.trafficPolicy.rateLimit.telegramWebhook` to a ceiling well above the team's updates (Telegram delivers
-   from a few addresses: 600 is generous). Turn on `digest` and `dialogCleanup` with it. Commit and push; the API
-   registers the webhook on start. To post arrivals to the onboarding team's group (optional, D11), add the bot to
-   the group, find the group's id (a negative number) and set `telegram.teamChatId`. Check: in the staff app,
-   **Ajustes → Telegram → Conectar**; the bot answers "Listo"; `/alta` with a fictional name and number saves it and
-   deletes your message. To register the webhook by hand (after a rotation, say):
+   `scripts/seal-telegram-secret.sh ~/Workspace/gitops`. It checks the token and prints the values to add (the API
+   sets the command menu itself on start, in English and in Spanish): `telegram:` under `backoffice-api`, and
+   `route.telegramWebhook: true` under `backoffice-web`. Set `route.trafficPolicy.rateLimit.telegramWebhook` to a
+   ceiling well above the team's updates (Telegram delivers from a few addresses: 600 is generous). Turn on `digest`
+   and `dialogCleanup` with it. Commit and push; the API registers the webhook on start. To post arrivals to the
+   onboarding team's group (optional, D11), add the bot to the group, find the group's id (a negative number) and set
+   `telegram.teamChatId`. Check: in the staff app, **Ajustes → Telegram → Conectar**; the bot answers "Listo";
+   `/joined` (or `/alta`) with a fictional name and number saves it and deletes your message; Telegram's menu lists
+   the commands. To register the webhook by hand (after a rotation, say):
    `kubectl exec -n backoffice deploy/backoffice-api -- node dist/telegram-webhook.js`, which prints `ok` or
    Telegram's reason ([rotating the bot's token](rotating-the-bot-token.md)).
 2. **The Airtable sync**, once its spike says the shared view can be read without a browser (ADR-0005):

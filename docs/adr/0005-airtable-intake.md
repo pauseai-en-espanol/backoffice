@@ -66,7 +66,7 @@ read-only token.
 
 4. **The sync** runs as `pauseai_backoffice_ingest`, which may only execute `private.ingest_airtable(records)`
    (it inserts the import run and the intake records and runs the matcher, as the owner); no table grants:
-   - **When:** hourly (a CronJob), plus on demand from `/sincronizar` in the bot or a button in Importar. A Postgres
+   - **When:** hourly (a CronJob), plus on demand from `/sync` (`/sincronizar`) in the bot or a button in Importar. A Postgres
      advisory lock stops two runs overlapping.
    - **Idempotent:** the Airtable record ID is the identity; re-running a sync changes nothing.
    - **Fails loudly:** a run that can't read the view, or finds the columns changed, imports nothing and tells the

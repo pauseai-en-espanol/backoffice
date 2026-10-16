@@ -14,6 +14,7 @@ import { initErrorTracking } from './error-tracking.js';
 import { runAirtableSync } from './imports/airtable-sync.js';
 import { createMailer, mailFailure } from './mail/mailer.js';
 import { createInvitationSender } from './staff/invitations.js';
+import { registerCommands } from './telegram/commands.js';
 import { botFailure } from './telegram/failure.js';
 import { createBot, webhookUrl } from './telegram/setup.js';
 
@@ -99,7 +100,7 @@ const reportBotFailure = (error: unknown): void => {
   console.error(failure.message);
   captureException(failure);
 };
-// The Airtable sync on demand, from Importar and /sincronizar (ADR-0005), as the ingest role.
+// The Airtable sync on demand, from Importar and /sync (/sincronizar) (ADR-0005), as the ingest role.
 const syncAirtable =
   config.airtable && ingest
     ? () =>
@@ -201,6 +202,11 @@ if (bot && config.telegram && config.auth) {
   bot.client
     .setWebhook(webhookUrl(config.auth.staffOrigin), config.telegram.webhookSecret)
     .then(() => server.log.info('Telegram webhook registered'), reportBotFailure);
+  // The command menu, in English and, for Spanish Telegram, in Spanish (PLAN R38), from packages/i18n each start.
+  registerCommands(bot.client).then(
+    () => server.log.info('Telegram commands registered'),
+    reportBotFailure,
+  );
   // Arrivals from every source reach the team group (D11): those the bot or the staff app made at once, the rest
   // (the hourly Airtable sync, CSV imports) within five minutes.
   const sweep = (): void => {

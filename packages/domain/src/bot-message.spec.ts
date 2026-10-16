@@ -1,16 +1,48 @@
 import { describe, expect, it } from 'vitest';
 
-import { looksLikeArrival, parseArrival, parseCommand } from './bot-message.js';
+import {
+  COMMANDS,
+  looksLikeArrival,
+  parseArrival,
+  parseCommand,
+  SPANISH_NAMES,
+} from './bot-message.js';
 
 describe('parseCommand', () => {
   it('reads our commands, with or without the bot name and arguments', () => {
-    expect(parseCommand('/alta')).toEqual({ command: 'alta', args: '' });
-    expect(parseCommand('/ALTA@EjemploBot  Ana García 612 345 678 ')).toEqual({
-      command: 'alta',
+    expect(parseCommand('/joined')).toEqual({ command: 'joined', args: '' });
+    expect(parseCommand('/JOINED@EjemploBot  Ana García 612 345 678 ')).toEqual({
+      command: 'joined',
       args: 'Ana García 612 345 678',
     });
-    expect(parseCommand('/buscar\nGarcía')).toEqual({ command: 'buscar', args: 'García' });
+    expect(parseCommand('/search\nGarcía')).toEqual({ command: 'search', args: 'García' });
     expect(parseCommand('/start abc123')).toEqual({ command: 'start', args: 'abc123' });
+  });
+
+  it.each([
+    ['alta', 'joined'],
+    ['baja', 'left'],
+    ['mios', 'mine'],
+    ['libres', 'unassigned'],
+    ['buscar', 'search'],
+    ['sincronizar', 'sync'],
+    ['ayuda', 'help'],
+    ['cancelar', 'cancel'],
+  ])('reads the Spanish /%s as /%s, exactly the same (PLAN R38)', (spanish, english) => {
+    expect(parseCommand(`/${spanish}`)).toEqual({ command: english, args: '' });
+    expect(parseCommand(`/${spanish.toUpperCase()}@EjemploBot uno dos`)).toEqual({
+      command: english,
+      args: 'uno dos',
+    });
+  });
+
+  it('gives every command but /start a Spanish name, none of them an English one', () => {
+    expect(Object.keys(SPANISH_NAMES).sort()).toEqual(
+      COMMANDS.filter((command) => command !== 'start').sort(),
+    );
+    for (const spanish of Object.values(SPANISH_NAMES)) {
+      expect(COMMANDS as readonly string[]).not.toContain(spanish);
+    }
   });
 
   it('ignores what is not one of ours', () => {

@@ -20,9 +20,9 @@ export interface DigestCounts {
  * pending.
  *
  * It reads each person's digest as that person, through the bot's channel and its narrow functions (bot_people,
- * bot_summary): the database gives each digest exactly what that staff member's own /mios would, and nobody else's.
- * Who may get one is the database's answer too (bot_can); accounts come from the auth role, the only one that knows
- * emails and Telegram links.
+ * bot_summary): the database gives each digest exactly what that staff member's own /mine (/mios) would, and nobody
+ * else's. Who may get one is the database's answer too (bot_can); accounts come from the auth role, the only one that
+ * knows emails and Telegram links.
  */
 export const sendDigests = async ({
   auth,

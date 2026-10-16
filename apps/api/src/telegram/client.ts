@@ -9,6 +9,12 @@ export type InlineButton = { text: string; data: string } | { text: string; url:
 /** Rows of buttons. */
 export type Keyboard = readonly (readonly InlineButton[])[];
 
+/** A command as Telegram's menu shows it: its name, without the slash, and what it does. */
+export interface BotCommand {
+  command: string;
+  description: string;
+}
+
 export interface TelegramClient {
   /** Sends a message and returns its id. */
   sendMessage(chatId: number, text: string, options?: { keyboard?: Keyboard }): Promise<number>;
@@ -28,6 +34,8 @@ export interface TelegramClient {
   answerCallbackQuery(callbackQueryId: string, text?: string): Promise<void>;
   /** Points Telegram at the webhook, with the secret it must send back, for messages and button presses only. */
   setWebhook(url: string, secretToken: string): Promise<void>;
+  /** Sets the command menu: the default one, or the one for people whose Telegram is in `languageCode`. */
+  setMyCommands(commands: readonly BotCommand[], languageCode?: string): Promise<void>;
 }
 
 /**
@@ -142,6 +150,12 @@ export const createTelegramClient = (
         secret_token: secretToken,
         allowed_updates: ['message', 'callback_query'],
         drop_pending_updates: false,
+      });
+    },
+    setMyCommands: async (commands, languageCode) => {
+      await call('setMyCommands', {
+        commands,
+        ...(languageCode === undefined ? {} : { language_code: languageCode }),
       });
     },
   };

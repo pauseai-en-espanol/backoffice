@@ -5,18 +5,35 @@ import { normalizeEmail, normalizePhone } from './identities.js';
  * every way people write is tested here; the API decides what to ask next.
  */
 
+/** The bot's commands by their English names (PLAN R38), in the order the menu and /help show them. */
 export const COMMANDS = [
   'start',
-  'alta',
-  'baja',
-  'mios',
-  'libres',
-  'buscar',
-  'sincronizar',
-  'ayuda',
-  'cancelar',
+  'joined',
+  'left',
+  'mine',
+  'unassigned',
+  'search',
+  'sync',
+  'help',
+  'cancel',
 ] as const;
 export type Command = (typeof COMMANDS)[number];
+
+/** Each command's Spanish name, which works exactly as the English one (PLAN R38). `/start` is Telegram's own. */
+export const SPANISH_NAMES: Readonly<Record<Exclude<Command, 'start'>, string>> = {
+  joined: 'alta',
+  left: 'baja',
+  mine: 'mios',
+  unassigned: 'libres',
+  search: 'buscar',
+  sync: 'sincronizar',
+  help: 'ayuda',
+  cancel: 'cancelar',
+};
+
+const BY_SPANISH_NAME: ReadonlyMap<string, Command> = new Map(
+  Object.entries(SPANISH_NAMES).map(([command, spanish]) => [spanish, command as Command]),
+);
 
 export interface ParsedCommand {
   command: Command;
@@ -25,17 +42,20 @@ export interface ParsedCommand {
 }
 
 /**
- * A command, as Telegram sends one: `/alta`, `/alta@NombreDelBot`, then anything. Case doesn't matter. Undefined for a
- * message that isn't one of ours.
+ * A command, as Telegram sends one: `/joined`, `/joined@NombreDelBot`, then anything; or its Spanish name (`/alta`),
+ * which reads as the English one. Case doesn't matter. Undefined for a message that isn't one of ours.
  */
 export const parseCommand = (text: string): ParsedCommand | undefined => {
   const trimmed = text.trim();
   const match = /^\/([a-z]+)(?:@\w+)?(?=\s|$)/iu.exec(trimmed);
   const name = match?.[1]?.toLowerCase();
-  if (!match || !name || !(COMMANDS as readonly string[]).includes(name)) {
+  const command = (COMMANDS as readonly string[]).includes(name ?? '')
+    ? (name as Command)
+    : BY_SPANISH_NAME.get(name ?? '');
+  if (!match || !command) {
     return undefined;
   }
-  return { command: name as Command, args: trimmed.slice(match[0].length).trim() };
+  return { command, args: trimmed.slice(match[0].length).trim() };
 };
 
 /** An arrival as the bot read it from one message: what it found, which the reporter then confirms or completes. */

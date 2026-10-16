@@ -1,5 +1,6 @@
 import type { AttentionReason, Stage } from '@backoffice/domain/stages';
 
+import { type Command, COMMANDS, SPANISH_NAMES } from '@backoffice/domain/bot-message';
 import { getTranslator } from '@backoffice/i18n/messages';
 
 import type { Keyboard } from './client.js';
@@ -22,6 +23,28 @@ export const BUTTON_DATA = {
   bajaNo: 'baja:no',
   claim: (personId: string) => `claim:${personId}`,
 } as const;
+
+/** The commands Telegram's menu and /help show: all but /start, which Telegram sends itself. */
+export const MENU_COMMANDS = COMMANDS.filter(
+  (command): command is Exclude<Command, 'start'> => command !== 'start',
+);
+
+/** A command by both its names, English first (PLAN R38): "/joined (/alta)". */
+export const commandNames = (command: Exclude<Command, 'start'>): string =>
+  `/${command} (/${SPANISH_NAMES[command]})`;
+
+/** What a command does, in Spanish (D6), for the menu and /help. */
+export const commandDescription = (command: Exclude<Command, 'start'>): string =>
+  t(`bot.commands.${command}`);
+
+/** /help (/ayuda): each command by both its names and what it does, then that a plain phone number works too. */
+export const helpText = (): string =>
+  [
+    t('bot.help'),
+    ...MENU_COMMANDS.map((command) => `${commandNames(command)} — ${commandDescription(command)}`),
+    '',
+    t('bot.helpFree'),
+  ].join('\n');
 
 export const personLink = (staffOrigin: string, personId: string): string =>
   `${staffOrigin}/personas/${personId}`;

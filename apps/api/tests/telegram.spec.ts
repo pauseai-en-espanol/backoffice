@@ -299,7 +299,7 @@ describe('the webhook', () => {
   });
 
   it('ignores unlinked accounts without a reply', async () => {
-    await message(telegramIds.stranger, '/ayuda');
+    await message(telegramIds.stranger, '/help');
     await message(telegramIds.stranger, 'Ana 600 123 456');
     expect(calls).toEqual([]);
   });
@@ -332,8 +332,9 @@ describe('linking', () => {
     // Once only: a stranger with the same code is told it's spent, and stays unlinked.
     await message(telegramIds.stranger, `/start ${code}`);
     expect(lastText(telegramIds.stranger)).toMatch(/ya no vale/u);
+    // Each command by its English name and its Spanish one (PLAN R38).
     await message(telegramIds.onboarder, '/ayuda');
-    expect(lastText(telegramIds.onboarder)).toMatch(/\/alta/u);
+    expect(lastText(telegramIds.onboarder)).toContain('/joined (/alta) — ');
   });
 
   it('processes each update once', async () => {

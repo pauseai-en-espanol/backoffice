@@ -60,6 +60,7 @@ const fakeClient = () => {
       answered.push({ id, text });
     },
     setWebhook: async () => undefined,
+    setMyCommands: async () => undefined,
   };
   return { client, sent, edited, deleted, answered };
 };
@@ -196,10 +197,10 @@ const buttons = (message: Sent | undefined) => (message?.keyboard ?? []).flat();
 describe('who the bot listens to', () => {
   it('ignores unlinked accounts without a word, and tells staff without onboarding they may not', async () => {
     const bot = setup();
-    await bot.say('/ayuda', TG_STRANGER);
+    await bot.say('/help', TG_STRANGER);
     await bot.say(`Ana ${PHONE_AS_TYPED}`, TG_STRANGER);
     expect(bot.sent).toEqual([]);
-    await bot.say('/mios', TG_OUTREACH);
+    await bot.say('/mine', TG_OUTREACH);
     expect(bot.sent.at(-1)?.text).toMatch(/no tiene permiso de acogida/u);
   });
 
@@ -223,11 +224,11 @@ describe('who the bot listens to', () => {
   });
 });
 
-describe('/alta', () => {
+describe('/joined (/alta)', () => {
   it('reads one message, confirms, saves, says so without contact details, and deletes the message', async () => {
     const bot = setup();
     const id = await bot.say(
-      `/alta Nueva Persona ${PHONE_AS_TYPED}, ${EMAIL}\nchat: Chat de ejemplo`,
+      `/joined Nueva Persona ${PHONE_AS_TYPED}, ${EMAIL}\nchat: Chat de ejemplo`,
     );
     const question = bot.sent.at(-1);
     expect(question?.text).toBe(
@@ -313,7 +314,7 @@ describe('/alta', () => {
     expect(bot.deleted).toEqual([{ chatId: TG, messageId: id }]);
     expect(bot.told.arrivals).toEqual([NEW_PERSON]);
     const command = setup();
-    await command.say(`/alta ${EMAIL}`);
+    await command.say(`/joined ${EMAIL}`);
     expect(command.sent.at(-1)?.text).toBe('¿Doy de alta a alguien sin nombre (con correo)?');
   });
 
@@ -335,10 +336,10 @@ describe('/alta', () => {
   });
 });
 
-describe('/baja', () => {
+describe('/left (/baja)', () => {
   it('searches by phone, offers buttons, confirms and records the leave', async () => {
     const bot = setup();
-    const id = await bot.say(`/baja ${PHONE_AS_TYPED}`);
+    const id = await bot.say(`/left ${PHONE_AS_TYPED}`);
     expect(buttons(bot.sent.at(-1)).map((b) => b.text)).toEqual([
       'Ana Ejemplo · Nuevo',
       'Cancelar',
@@ -365,7 +366,7 @@ describe('/baja', () => {
 describe('lists', () => {
   it('lists my people with their reasons and links, and the unassigned with a button each', async () => {
     const bot = setup();
-    await bot.say('/mios');
+    await bot.say('/mine');
     expect(bot.sent.at(-1)?.text).toBe(
       `Tus personas que necesitan algo (1):\n• Ana Ejemplo: Sin asignar\n  ${ORIGIN}/personas/${ANA}`,
     );
@@ -383,14 +384,42 @@ describe('lists', () => {
 
   it('searches, says the sync is not configured, and explains itself', async () => {
     const bot = setup();
-    await bot.say('/buscar ana');
+    await bot.say('/search ana');
     expect(bot.sent.at(-1)?.text).toContain('• Ana Ejemplo: Nuevo, sin asignar');
-    await bot.say('/sincronizar');
+    await bot.say('/sync');
     expect(bot.sent.at(-1)?.text).toMatch(/no está configurada/u);
-    await bot.say('/ayuda');
-    expect(bot.sent.at(-1)?.text).toMatch(/\/alta/u);
+    await bot.say('/help');
+    const help = bot.sent.at(-1)?.text ?? '';
+    expect(help).toContain('/joined (/alta) — Alguien ha entrado en la comunidad');
+    expect(help).toContain('/search (/buscar) — Buscar a alguien por nombre o teléfono');
+    expect(help).toContain('/cancel (/cancelar) — Dejar lo que estábamos haciendo');
+    await bot.say('/search');
+    expect(bot.sent.at(-1)?.text).toBe(
+      'Escribe /search (/buscar) seguido de un nombre o un teléfono.',
+    );
     await bot.say('hola');
-    expect(bot.sent.at(-1)?.text).toMatch(/No te he entendido/u);
+    expect(bot.sent.at(-1)?.text).toBe(
+      'No te he entendido. Escribe /help (/ayuda) para ver qué puedo hacer.',
+    );
+  });
+});
+
+describe('both names (PLAN R38)', () => {
+  it.each([
+    ['joined', 'alta'],
+    ['left', 'baja'],
+    ['mine', 'mios'],
+    ['unassigned', 'libres'],
+    ['search', 'buscar'],
+    ['sync', 'sincronizar'],
+    ['help', 'ayuda'],
+    ['cancel', 'cancelar'],
+  ])('answers /%s and /%s the same', async (english, spanish) => {
+    const [inEnglish, inSpanish] = [setup(), setup()];
+    await inEnglish.say(`/${english}`);
+    await inSpanish.say(`/${spanish}`);
+    expect(inEnglish.sent.length).toBeGreaterThan(0);
+    expect(inSpanish.sent).toEqual(inEnglish.sent);
   });
 });
 
@@ -399,11 +428,11 @@ describe('contact details', () => {
     const bot = setup([
       { personId: ANA, name: 'Ana Ejemplo', stage: 'new', ownerName: null, exact: true },
     ]);
-    await bot.say(`/alta Nueva Persona ${PHONE_AS_TYPED} ${EMAIL}`);
+    await bot.say(`/joined Nueva Persona ${PHONE_AS_TYPED} ${EMAIL}`);
     await bot.press('alta:new');
     await bot.say(`${EMAIL}`);
     await bot.press('alta:cancel');
-    await bot.say(`/buscar ${PHONE_AS_TYPED}`);
+    await bot.say(`/search ${PHONE_AS_TYPED}`);
     await bot.say(`/baja ${EMAIL}`);
     await bot.say('/alta');
     await bot.say(`Otra Persona`);
