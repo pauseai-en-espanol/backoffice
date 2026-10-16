@@ -367,8 +367,9 @@ describe('the bot', () => {
 
   it('can’t read people directly, merge, or resolve the Bandeja', async () => {
     await inRolledBackTransaction(async (client) => {
-      expect(await as(client, bot(USERS.adminA), 'SELECT id FROM app.people')).toEqual([]);
-      await actAs(client, 'pauseai_backoffice_app', bot(USERS.adminA));
+      // As someone the bot otherwise serves: its onboarding staff, admin too (D13).
+      expect(await as(client, bot(USERS.adminB), 'SELECT id FROM app.people')).toEqual([]);
+      await actAs(client, 'pauseai_backoffice_app', bot(USERS.adminB));
       expect(
         await errorCode(client, 'SELECT private.merge_people($1, $2)', [
           PEOPLE.ana,

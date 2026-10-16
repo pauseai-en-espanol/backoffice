@@ -1,15 +1,15 @@
 [
   {
     "name": "the staff app reports as the bot",
-    "file": "db/migrations/20261016000200_intake.sql",
-    "old": "OR (submit_intake.source = 'telegram' AND private.bot_can('admin', 'onboarding'))",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
+    "old": "OR (submit_intake.source = 'telegram' AND private.bot_can('onboarding'))",
     "new": "OR (submit_intake.source = 'telegram' AND private.may_intake(true))",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
   {
     "name": "the bot reports as the staff app",
-    "file": "db/migrations/20261016000200_intake.sql",
+    "file": "db/migrations/20261016112836_bot_for_the_onboarding_team.sql",
     "old": "IF NOT ((submit_intake.source = 'manual' AND private.staff_can('admin', 'onboarding'))",
     "new": "IF NOT ((submit_intake.source = 'manual' AND private.may_intake(true))",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
