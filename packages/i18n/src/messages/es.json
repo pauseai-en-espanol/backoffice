@@ -57,7 +57,10 @@
       "next": "Siguiente",
       "campaigns": "Campañas",
       "contacts": "Contactos",
-      "organisations": "Organizaciones"
+      "organisations": "Organizaciones",
+      "groupOnboarding": "Onboarding",
+      "groupOutreach": "Relaciones externas",
+      "groupTeam": "Equipo"
     },
     "home": {
       "title": "Hoy",
@@ -490,6 +493,7 @@
     "claimFor": "Me quedo a {name}",
     "claimed": "Ahora {name} está a tu cargo.",
     "claimTaken": "Alguien ha sido más rápido: {name} ya tiene responsable.",
+    "seeAllUnassigned": "Ver los {count} sin asignar",
     "add": "Añadir a alguien"
   },
   "person": {
@@ -535,6 +539,7 @@
     "verified": "Comprobado",
     "noIdentities": "Sin teléfono ni correo todavía.",
     "addIdentity": "Añadir teléfono o correo",
+    "addAnotherIdentity": "Añadir otro teléfono o correo",
     "identityKind": "Tipo",
     "identityValue": "Teléfono o correo",
     "identityValueHint": "Se guarda en un formato único, para encontrar duplicados.",
@@ -564,6 +569,8 @@
     "leftDone": "Salida registrada.",
     "joinedDone": "Entrada registrada.",
     "stageTitle": "Etapa y responsable",
+    "quickTitle": "Acciones rápidas",
+    "recordTitle": "Intentos y notas",
     "changeStage": "Cambiar la etapa",
     "saveStage": "Guardar la etapa",
     "stageChanged": "Etapa cambiada.",

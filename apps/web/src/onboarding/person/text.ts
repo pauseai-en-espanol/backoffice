@@ -50,6 +50,7 @@ export const personPageText = (t: Translator) => {
     },
     identities: {
       add: t('person.addIdentity'),
+      addAnother: t('person.addAnotherIdentity'),
       kind: t('person.identityKind'),
       value: t('person.identityValue'),
       valueHint: t('person.identityValueHint'),
@@ -87,9 +88,6 @@ export const personPageText = (t: Translator) => {
       noOwner: t('person.noOwner'),
       saveOwner: t('person.saveOwner'),
       ownerChanged: t('person.ownerChanged'),
-      claim: t('person.claim'),
-      claimed: raw('today.claimed'),
-      taken: raw('today.claimTaken'),
     },
     nextAction: {
       title: t('person.nextActionTitle'),

@@ -26,6 +26,11 @@ test('a person’s page fits a phone’s screen, passes axe, and can be claimed 
   expect(overflow, `the person's page scrolls sideways by ${overflow}px`).toBeLessThanOrEqual(0);
   await expectAccessible(page);
 
-  await page.getByRole('button', { name: 'Me lo quedo' }).click();
+  // What is done most is on the first screen (PLAN M5): claiming, WhatsApp and the stage.
+  const claim = page.getByRole('button', { name: 'Me lo quedo' });
+  await expect(claim).toBeInViewport();
+  await expect(page.getByRole('link', { name: 'Abrir WhatsApp' })).toBeInViewport();
+  await expect(page.getByRole('heading', { level: 2, name: 'Acciones rápidas' })).toBeInViewport();
+  await claim.click();
   await expect(page.getByText(`Ahora ${name} está a tu cargo.`)).toBeVisible();
 });

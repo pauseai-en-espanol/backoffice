@@ -1,11 +1,8 @@
 'use client';
 
 import { STAGES } from '@backoffice/domain/stages';
-import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 
-import { fill } from '@/fill';
-import { useAnnounce } from '@/ui/announce';
 import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
@@ -13,13 +10,13 @@ import { useWrite } from '@/ui/useWrite';
 import type { StaffRef } from '../types';
 import type { PersonPageText } from './text';
 
-import { claim, updatePerson } from '../actions';
+import { updatePerson } from '../actions';
 import * as styles from '../styles';
 
 /**
  * A person's stage and owner (onboarding spec, stages): any stage can move to any other by hand, the expected path is
  * only a guide, so the selector offers them all, with what the chosen one means. The owner is any active onboarder, or
- * nobody; "Me lo quedo" when nobody owns them.
+ * nobody. "Me lo quedo" sits by the owner line at the top of the page (ClaimButton).
  */
 export const StageOwner = ({
   person,
@@ -31,11 +28,8 @@ export const StageOwner = ({
   text: PersonPageText;
 }) => {
   const t = text.stage;
-  const router = useRouter();
-  const announce = useAnnounce();
   const stageWrite = useWrite(text.errors);
   const ownerWrite = useWrite(text.errors);
-  const claimWrite = useWrite(text.errors);
   const [stage, setStage] = useState(person.stage);
 
   const saveStage = async (event: FormEvent<HTMLFormElement>) => {
@@ -110,30 +104,11 @@ export const StageOwner = ({
             ))}
           </select>
         </div>
-        <FormError message={ownerWrite.error ?? claimWrite.error} />
-        <div className={ui.rowActions}>
+        <FormError message={ownerWrite.error} />
+        <div>
           <button type="submit" className={ui.secondaryButton} aria-disabled={ownerWrite.pending}>
             {t.saveOwner}
           </button>
-          {person.owner === null ? (
-            <button
-              type="button"
-              className={ui.button}
-              aria-disabled={claimWrite.pending}
-              onClick={async () => {
-                const answer = await claimWrite.run(() => claim(person.id), {
-                  done: fill(t.claimed, { name: person.name }),
-                });
-                if (answer?.status === 409) {
-                  claimWrite.clear();
-                  announce(fill(t.taken, { name: person.name }));
-                  router.refresh();
-                }
-              }}
-            >
-              {t.claim}
-            </button>
-          ) : null}
         </div>
       </form>
     </>

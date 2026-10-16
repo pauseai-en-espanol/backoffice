@@ -13,6 +13,7 @@ import { personName } from '@/onboarding/names';
 import { PersonItem } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, onboardingErrors, personLabels } from '@/onboarding/text';
+import { unassignedQueue } from '@/onboarding/today';
 import { canOutreach } from '@/outreach/text';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
@@ -25,8 +26,8 @@ export const metadata: Metadata = { title: t('web.home.title') };
 
 /**
  * Hoy (onboarding spec, views): where signing in ends. The staff member's people needing attention, each with why,
- * then the unassigned queue, oldest first, with "Me lo quedo". Staff without the onboarding role see the team and
- * their settings from here.
+ * then the unassigned queue, its ten oldest with "Me lo quedo" and a link to all of them in Personas (PLAN M5). Staff
+ * without the onboarding role see the team and their settings from here.
  */
 const Today = async () => {
   const me = await requireStaff();
@@ -76,6 +77,10 @@ const Today = async () => {
     };
   };
 
+  const queue = isUnavailable(today)
+    ? undefined
+    : unassignedQueue(today.unassigned, today.counts.unassigned);
+
   return (
     <AppShell me={me} bandeja={isUnavailable(today) ? undefined : today.counts.bandeja}>
       <h1 className={styles.h1}>{t('web.home.title')}</h1>
@@ -118,11 +123,11 @@ const Today = async () => {
               {t('today.unassigned')}
             </h2>
             <p className={styles.text}>{t('today.unassignedIntro')}</p>
-            {today.unassigned.length === 0 ? (
+            {queue === undefined || queue.shown.length === 0 ? (
               <p className={styles.text}>{t('today.unassignedNone')}</p>
             ) : (
               <ul className={onboarding.personList}>
-                {today.unassigned.map((person) => (
+                {queue.shown.map((person) => (
                   <PersonItem
                     key={person.id}
                     person={person}
@@ -132,6 +137,13 @@ const Today = async () => {
                   />
                 ))}
               </ul>
+            )}
+            {queue?.more === undefined ? null : (
+              <p className={styles.text}>
+                <Link className={styles.link} href={queue.more.href}>
+                  {t('today.seeAllUnassigned', { count: queue.more.count })}
+                </Link>
+              </p>
             )}
           </section>
           <p>

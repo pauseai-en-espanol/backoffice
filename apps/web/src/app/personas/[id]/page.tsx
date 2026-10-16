@@ -9,6 +9,7 @@ import type { StaffRef } from '@/onboarding/types';
 import { isUnavailable } from '@/data';
 import { consentText } from '@/onboarding/census/format';
 import * as census from '@/onboarding/census/styles';
+import { ClaimButton } from '@/onboarding/ClaimButton';
 import { getPerson, getSettings, isForbidden } from '@/onboarding/data';
 import { formatDay, formatInstant } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
@@ -32,6 +33,7 @@ import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { getTeam } from '@/team/data';
 import { Announcer } from '@/ui/Announcer';
+import { Disclosure } from '@/ui/Disclosure';
 import * as styles from '@/ui/styles';
 
 const t = getTranslator();
@@ -39,10 +41,12 @@ const t = getTranslator();
 export const metadata: Metadata = { title: t('people.title') };
 
 /**
- * A person (onboarding spec, views: Persona): what the onboarder needs to act first (contact, WhatsApp, stage and
- * owner, next action, a contact attempt or a note), then the profile, the community, the history that lets anyone
- * pick them up, and merging. A tombstone (merged into another record) is shown as such, read only, with a link to the
- * record that stays.
+ * A person (onboarding spec, views: Persona), led by what is done most, which is what a phone shows first, opened
+ * from the bot's "Abrir" (PLAN M5): "Me lo quedo" by the owner line, then the quick actions (WhatsApp, the stage and
+ * the owner), the next step, and a contact attempt or a note behind their buttons. Then what is known: contact (adding
+ * another phone or email folded), the profile, the census, the community, the history that lets anyone pick them up,
+ * and merging. A tombstone (merged into another record) is shown as such, read only, with a link to the record that
+ * stays.
  */
 const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   const me = await requireStaff();
@@ -133,6 +137,20 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
           <li>
             {t('person.owner')}: {person.owner?.displayName ?? t('person.noOwner')}
           </li>
+          {person.owner === null && !readOnly ? (
+            <li>
+              <ClaimButton
+                personId={person.id}
+                text={{
+                  label: t('person.claim'),
+                  visible: t('person.claim'),
+                  claimed: t('today.claimed', { name: shown.name }),
+                  taken: t('today.claimTaken', { name: shown.name }),
+                  errors: text.errors,
+                }}
+              />
+            </li>
+          ) : null}
           <li>{open ? t('person.inCommunity') : t('person.notInCommunity')}</li>
         </ul>
         <p>
@@ -153,6 +171,37 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
         ) : null}
 
         <div className={onboarding.personPage}>
+          {readOnly ? null : (
+            <div>
+              <section className={onboarding.section} aria-labelledby="acciones">
+                <h2 id="acciones" className={styles.h3}>
+                  {t('person.quickTitle')}
+                </h2>
+                {link === undefined ? null : (
+                  <WhatsAppHandover personId={person.id} link={link} text={text} />
+                )}
+                <StageOwner person={shown} team={owners} text={text} />
+              </section>
+              <section className={onboarding.section} aria-labelledby="siguiente">
+                <h2 id="siguiente" className={styles.h3}>
+                  {t('person.nextActionTitle')}
+                </h2>
+                <NextActionForm person={person} text={text} />
+              </section>
+              <section className={onboarding.section} aria-labelledby="registrar">
+                <h2 id="registrar" className={styles.h3}>
+                  {t('person.recordTitle')}
+                </h2>
+                <Disclosure id="registrar-intento" label={t('person.attemptTitle')}>
+                  <AttemptForm personId={person.id} text={text} />
+                </Disclosure>
+                <Disclosure id="registrar-nota" label={t('person.noteTitle')}>
+                  <NoteForm personId={person.id} text={text} />
+                </Disclosure>
+              </section>
+            </div>
+          )}
+
           <div>
             <section className={onboarding.section} aria-labelledby="contacto">
               <h2 id="contacto" className={styles.h3}>
@@ -173,43 +222,6 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 <Identities personId={person.id} identities={person.identities} text={text} />
               )}
             </section>
-            {readOnly ? null : (
-              <>
-                <section className={onboarding.section} aria-labelledby="whatsapp">
-                  <h2 id="whatsapp" className={styles.h3}>
-                    {t('person.whatsappTitle')}
-                  </h2>
-                  <WhatsAppHandover personId={person.id} link={link} text={text} />
-                </section>
-                <section className={onboarding.section} aria-labelledby="etapa">
-                  <h2 id="etapa" className={styles.h3}>
-                    {t('person.stageTitle')}
-                  </h2>
-                  <StageOwner person={shown} team={owners} text={text} />
-                </section>
-                <section className={onboarding.section} aria-labelledby="siguiente">
-                  <h2 id="siguiente" className={styles.h3}>
-                    {t('person.nextActionTitle')}
-                  </h2>
-                  <NextActionForm person={person} text={text} />
-                </section>
-                <section className={onboarding.section} aria-labelledby="intento">
-                  <h2 id="intento" className={styles.h3}>
-                    {t('person.attemptTitle')}
-                  </h2>
-                  <AttemptForm personId={person.id} text={text} />
-                </section>
-                <section className={onboarding.section} aria-labelledby="nota">
-                  <h2 id="nota" className={styles.h3}>
-                    {t('person.noteTitle')}
-                  </h2>
-                  <NoteForm personId={person.id} text={text} />
-                </section>
-              </>
-            )}
-          </div>
-
-          <div>
             <section className={onboarding.section} aria-labelledby="perfil">
               <h2 id="perfil" className={styles.h3}>
                 {t('person.profile')}

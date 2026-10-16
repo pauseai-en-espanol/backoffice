@@ -5,8 +5,19 @@ import { expect, test } from '../test.js';
 
 const tag = () => crypto.randomUUID().slice(0, 6);
 
-test('quick-add someone, find them unassigned in Hoy, and claim them', async ({ page }) => {
+test('quick-add someone, find them through Hoy’s unassigned queue, and claim from it', async ({
+  page,
+}) => {
   await signedInStaff(page, ['onboarding']);
+  const origin = new URL(page.url()).origin;
+  // More than Hoy lists (PLAN M5): it shows the ten oldest, and links to all of them.
+  for (let index = 0; index < 11; index += 1) {
+    const response = await page.request.post('/api/intake', {
+      headers: { origin },
+      data: { name: uniqueName(), decision: 'new' },
+    });
+    expect(response.status()).toBe(201);
+  }
   await page.goto('/anadir');
   await expectAccessible(page);
   const name = uniqueName();
@@ -20,11 +31,19 @@ test('quick-add someone, find them unassigned in Hoy, and claim them', async ({ 
 
   await page.goto('/');
   await expectAccessible(page);
+  const queue = page.getByRole('region', { name: 'Sin asignar' });
+  await expect(queue.getByRole('button', { name: /^Me quedo a /u })).toHaveCount(10);
+  await queue.getByRole('link', { name: /^Ver los \d+ sin asignar$/u }).click();
+  await expect(page).toHaveURL(/\/personas\?etapa=new&responsable=nadie$/u);
   const card = page.getByRole('listitem').filter({ hasText: name });
   await expect(card).toBeVisible();
   await expect(card).toContainText('Sin asignar');
-  await card.getByRole('button', { name: /Me lo quedo|Me quedo a/u }).click();
-  await expect(page.getByText(`Ahora ${name} está a tu cargo.`)).toBeVisible();
+
+  await page.goto('/');
+  const oldest = queue.getByRole('button', { name: /^Me quedo a /u }).first();
+  const claimed = ((await oldest.getAttribute('aria-label')) ?? '').replace(/^Me quedo a /u, '');
+  await oldest.click();
+  await expect(page.getByText(`Ahora ${claimed} está a tu cargo.`)).toBeVisible();
 });
 
 test('quick-add someone with only a phone, shown as «Sin nombre» until named (PLAN R37)', async ({
@@ -66,11 +85,14 @@ test('a person’s page: next action, a contact attempt, a note, a phone, and le
   await page.getByRole('button', { name: 'Guardar el siguiente paso' }).click();
   await expect(page.getByText('Siguiente paso guardado.')).toBeVisible();
 
+  // Attempts and notes are folded behind their buttons (PLAN M5).
+  await page.getByRole('button', { name: 'Registrar un intento de contacto' }).click();
   await page.getByLabel('Por dónde').selectOption({ label: 'WhatsApp' });
   await page.getByLabel('Cómo fue').selectOption({ label: 'Ha respondido' });
   await page.getByRole('button', { name: 'Registrar el intento' }).click();
   await expect(page.getByText('Intento registrado.')).toBeVisible();
 
+  await page.getByRole('button', { name: 'Añadir una nota' }).click();
   await page.getByLabel('Nota', { exact: true }).fill('Le interesa la divulgación');
   await page.getByRole('button', { name: 'Guardar la nota' }).click();
   await expect(page.getByText('Nota guardada.')).toBeVisible();

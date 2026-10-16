@@ -345,6 +345,9 @@ export const rowActions = css({
 
 export const form = css({ display: 'flex', flexDirection: 'column', gap: '5', maxWidth: '40rem' });
 
+/** A folded form (Disclosure): its button, then what it opens. */
+export const disclosure = css({ display: 'flex', flexDirection: 'column', gap: '4' });
+
 export const field = css({ display: 'flex', flexDirection: 'column', gap: '1.5' });
 
 export const label = css({ fontWeight: 'bold' });
