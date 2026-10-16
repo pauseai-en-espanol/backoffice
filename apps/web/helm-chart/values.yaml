@@ -38,12 +38,12 @@ productName: ''
 # Empty: Censo says the form isn't configured.
 censusUrl: ''
 
-# Gateway API HTTPRoute for the staff host (halyard `route:` convention). Hostnames and gateway come from gitops values.
+# Gateway API HTTPRoute for the staff host. Hostnames and gateway come from gitops values.
 # /api (and, with telegramWebhook, /telegram/webhook) go to the API; everything else to this app.
 route:
   enabled: false
-  # e.g. - name: gateway-public
-  #        namespace: gateway-public
+  # e.g. - name: public-gateway
+  #        namespace: example-gateways
   parentRefs: []
   hostnames: []
   annotations: {}
@@ -54,9 +54,9 @@ route:
     enabled: true
     # Per-client-address limits at the gateway (ADR-0001, routes): requests a minute for each address, past which
     # Envoy answers 429. They are Envoy Gateway global limits (a bucket per address needs them), so its rate-limit
-    # service and Redis must be on first, or the whole route answers 500 (it is on in danilupion-com, as for
-    # aiontheballot). Set them as a flood ceiling, above what a team behind one address sends, so the API's own limits
-    # answer first, in Spanish. 0 leaves a group unlimited, and all 0 (the default) adds nothing.
+    # service and Redis must be on first, or the whole route answers 500. Set them as a flood ceiling, above what a
+    # team behind one address sends, so the API's own limits answer first, in Spanish. 0 leaves a group unlimited,
+    # and all 0 (the default) adds nothing.
     rateLimit:
       # POST /api/auth/…: sign-in, the second factor, enrolment, password links.
       auth: 0
@@ -74,16 +74,16 @@ route:
 networkPolicy:
   enabled: false
   # Each gateway whose Envoy pods bring visitors: their namespace and their pods' labels, e.g.
-  #   - namespace: envoy-gateway-system
+  #   - namespace: example-gateways
   #     podLabels:
-  #       gateway.envoyproxy.io/owning-gateway-name: gateway-public
-  #       gateway.envoyproxy.io/owning-gateway-namespace: gateway-public
+  #       gateway.envoyproxy.io/owning-gateway-name: public-gateway
+  #       gateway.envoyproxy.io/owning-gateway-namespace: example-gateways
   gateways: []
   # The API's pods, which this app's server calls: the API chart's nameOverride in the umbrella.
   apiName: api
   # Error tracking's pods, when SENTRY_DSN points at an in-cluster GlitchTip: their namespace, labels and port, e.g.
-  #   namespace: glitchtip
-  #   podLabels: { app.kubernetes.io/name: glitchtip, app.kubernetes.io/component: web }
+  #   namespace: example-errors
+  #   podLabels: { app.kubernetes.io/name: example-errors }
   #   port: 8000
   # Without it, nothing reaches error tracking.
   errorTracking: {}

@@ -4,7 +4,7 @@
 {{- $invitations := int ($limits.invitations | default 0) }}
 {{- $telegram := int ($limits.telegramWebhook | default 0) }}
 {{- $errorRelay := int ($limits.errorRelay | default 0) }}
-# Envoy Gateway policy for the staff host's HTTPRoute (as aiontheballot's). One policy per route: Envoy Gateway refuses
+# Envoy Gateway policy for the staff host's HTTPRoute. One policy per route: Envoy Gateway refuses
 # a second one targeting it as conflicting, so the rate limits live here too.
 # - retry connection-level failures only (never 5xx), so a request that may have been processed is never replayed;
 # - close idle upstream connections (60s) before the pods would (keep-alive 75s), avoiding reset races;

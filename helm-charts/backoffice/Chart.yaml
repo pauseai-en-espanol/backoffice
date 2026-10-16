@@ -1,6 +1,6 @@
 apiVersion: v2
 name: backoffice
-description: Umbrella chart for PauseAI España's backoffice, deployed by Argo CD on danilupion-com (ADR-0001)
+description: Umbrella chart for PauseAI España's backoffice, deployed by Argo CD (ADR-0001)
 type: application
 version: 0.1.0
 appVersion: '0.0.0'

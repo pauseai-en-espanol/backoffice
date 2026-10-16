@@ -40,22 +40,22 @@ backoffice-api:
   networkPolicy:
     enabled: true
     gateways:
-      - namespace: envoy-gateway-system
-        podLabels: { gateway.envoyproxy.io/owning-gateway-name: gateway-public }
+      - namespace: example-gateways
+        podLabels: { gateway.envoyproxy.io/owning-gateway-name: public-gateway }
     database: { namespace: example-postgres }
     errorTracking:
-      namespace: example-glitchtip
-      podLabels: { app.kubernetes.io/name: glitchtip, app.kubernetes.io/component: web }
+      namespace: example-errors
+      podLabels: { app.kubernetes.io/name: example-errors }
     mail:
       namespace: example-mail
-      podLabels: { app.kubernetes.io/component: front }
+      podLabels: { app.kubernetes.io/name: example-mail }
 backoffice-web:
   image: { repository: registry.example/backoffice/web, tag: 0.1.0.abc1234 }
   productName: Backoffice de ejemplo
   envFrom: [{ secretRef: { name: backoffice-web-glitchtip } }]
   route:
     enabled: true
-    parentRefs: [{ name: gateway-public, namespace: gateway-public }]
+    parentRefs: [{ name: public-gateway, namespace: example-gateways }]
     hostnames: [backoffice.example-org.test]
     telegramWebhook: true
     # Renders the per-address limits, so lint covers them.
@@ -64,11 +64,11 @@ backoffice-web:
   networkPolicy:
     enabled: true
     gateways:
-      - namespace: envoy-gateway-system
-        podLabels: { gateway.envoyproxy.io/owning-gateway-name: gateway-public }
+      - namespace: example-gateways
+        podLabels: { gateway.envoyproxy.io/owning-gateway-name: public-gateway }
     errorTracking:
-      namespace: example-glitchtip
-      podLabels: { app.kubernetes.io/name: glitchtip, app.kubernetes.io/component: web }
+      namespace: example-errors
+      podLabels: { app.kubernetes.io/name: example-errors }
       port: 8000
 backoffice-forms:
   image: { repository: registry.example/backoffice/forms, tag: 0.1.0.abc1234 }
@@ -80,16 +80,16 @@ backoffice-forms:
   wordingVersion: v1
   route:
     enabled: true
-    parentRefs: [{ name: gateway-public, namespace: gateway-public }]
+    parentRefs: [{ name: public-gateway, namespace: example-gateways }]
     hostnames: [unete.example-org.test]
     # Renders the per-address limits, so lint covers them.
     trafficPolicy: { rateLimit: { submit: 10, form: 60, errorRelay: 60 } }
   networkPolicy:
     enabled: true
     gateways:
-      - namespace: envoy-gateway-system
-        podLabels: { gateway.envoyproxy.io/owning-gateway-name: gateway-public }
+      - namespace: example-gateways
+        podLabels: { gateway.envoyproxy.io/owning-gateway-name: public-gateway }
     errorTracking:
-      namespace: example-glitchtip
-      podLabels: { app.kubernetes.io/name: glitchtip, app.kubernetes.io/component: web }
+      namespace: example-errors
+      podLabels: { app.kubernetes.io/name: example-errors }
       port: 8000

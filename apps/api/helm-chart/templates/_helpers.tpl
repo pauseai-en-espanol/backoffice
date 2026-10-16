@@ -157,8 +157,8 @@ spec:
       protocol: TCP
 {{- end }}
 
-{{- /* Mailu's submission inside the cluster, when its namespace is set. The ports are the pods' (a policy sees the
-     connection after the Service). */}}
+{{- /* The mail server's submission inside the cluster, when its namespace is set. The ports are the pods' (a policy
+     sees the connection after the Service). */}}
 {{- define "backoffice-api.mailEgress" -}}
 {{- with .mail }}
 {{- if .namespace -}}
@@ -214,8 +214,8 @@ spec:
       protocol: TCP
 {{- end }}
 
-{{- /* What the API and its jobs reach: the database, DNS, error tracking when set; with `mail`, Mailu when set; with
-     `internet`, the internet on 443. Arguments: policy, mail, internet. */}}
+{{- /* What the API and its jobs reach: the database, DNS, error tracking when set; with `mail`, the mail server when
+     set; with `internet`, the internet on 443. Arguments: policy, mail, internet. */}}
 {{- define "backoffice-api.egress" -}}
 {{- $policy := .policy -}}
 - to:
