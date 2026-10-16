@@ -56,9 +56,24 @@ export const reasonsLabel = (reasons: readonly AttentionReason[]): string =>
 
 const ownerLabel = (ownerName: string | null): string => ownerName ?? t('bot.unassigned');
 
+/**
+ * Text that came from outside (a name or a province from a form, Airtable or a CSV) as the bot posts it. Telegram
+ * makes links of web addresses, domains, emails, @handles and /commands even in plain text, so a sign-up could post a
+ * link to the team group: a dot between letters, an @, a `://` and a leading slash become look-alikes that link
+ * nowhere (security review, 2026-10-16).
+ */
+export const unlinked = (text: string): string =>
+  text
+    .replaceAll('://', ':\u2044\u2044')
+    .replaceAll('@', '\uff20')
+    .replace(/(?<=[\p{L}\p{N}])\.(?=[\p{L}\p{N}])/gu, '\u2024')
+    .replace(/(^|\s)\/(?=[\p{L}\p{N}_])/gu, '$1\u2215');
+
 /** A person's name as the bot says it: "Sin nombre" for someone saved with only a phone or an email (PLAN R37). */
-export const nameOf = (name: string | null | undefined): string =>
-  name?.trim() || t('people.noName');
+export const nameOf = (name: string | null | undefined): string => {
+  const shown = name?.trim();
+  return shown ? unlinked(shown) : t('people.noName');
+};
 
 /** The arrival in a few words: its name, whether it has a phone or an email (never which), the chat. */
 export const arrivalWho = (arrival: Arrival & { noContact?: boolean | undefined }): string => {
@@ -186,10 +201,10 @@ export const confirmLeave = (person: PersonLine): { text: string; keyboard: Keyb
   ],
 });
 
-/** A post in the team group: who arrived and from where, and who took them once someone did. */
 /** What a team post about someone erased becomes when it can no longer be deleted: no name, no buttons. */
 export const teamPostErased = (): string => t('bot.team.erased');
 
+/** A post in the team group: who arrived and from where, and who took them once someone did. */
 export const teamPost = (
   staffOrigin: string,
   card: TeamCard,
@@ -199,7 +214,7 @@ export const teamPost = (
       name: nameOf(card.name),
       sources: card.sources.map((source) => t(`sources.${source as 'manual'}`)).join(', '),
     }),
-    ...(card.province ? [t('bot.team.province', { province: card.province })] : []),
+    ...(card.province ? [t('bot.team.province', { province: unlinked(card.province) })] : []),
     ...(card.ownerName ? [t('bot.team.claimedBy', { owner: card.ownerName })] : []),
   ].join('\n'),
   keyboard: [

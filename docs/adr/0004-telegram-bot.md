@@ -140,6 +140,10 @@ Agree the reporting rule with the community's admins: whoever approves or sees a
   Telegram's 48 hours (security review, 2026-10-16).
 - **`/sync`** runs at most ten times an hour per person, as the staff app's button, and one sync at a time: a request
   while one runs gets its result instead of reading Global's view again.
+- **Text from outside links nowhere:** names and provinces come from forms, Airtable and CSVs, and Telegram makes
+  links of addresses, domains, emails, @handles and /commands even in plain text. The bot posts them with look-alike
+  characters for the dot, the @, `://` and a leading slash (`unlinked` in `replies.ts`), so a sign-up can't put a
+  link in the team group.
 - **The team group:** posts are claimed by inserting their row first (`private.telegram_posts`, message id empty
   until sent), so two senders never post one arrival twice. Arrivals the bot or the staff app made are posted at
   once; the API sweeps the last 48 hours' arrivals every five minutes for the rest (the hourly Airtable sync, CSV

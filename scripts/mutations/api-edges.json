@@ -94,5 +94,45 @@
     "new": "current = run()",
     "cmd": "pnpm exec vitest run src/single-flight.spec.ts",
     "cwd": "apps/api"
+  },
+  {
+    "name": "a domain in a name links",
+    "file": "apps/api/src/telegram/replies.ts",
+    "old": "    .replace(/(?<=[\\p{L}\\p{N}])\\.(?=[\\p{L}\\p{N}])/gu, '\\u2024')\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/telegram/replies.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an @handle in a name links",
+    "file": "apps/api/src/telegram/replies.ts",
+    "old": "    .replaceAll('@', '\\uff20')\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/telegram/replies.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a /command in a name links",
+    "file": "apps/api/src/telegram/replies.ts",
+    "old": "    .replace(/(^|\\s)\\/(?=[\\p{L}\\p{N}_])/gu, '$1\\u2215');",
+    "new": "    .replace(/^$/gu, '');",
+    "cmd": "pnpm exec vitest run src/telegram/replies.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "names are posted as typed",
+    "file": "apps/api/src/telegram/replies.ts",
+    "old": "return shown ? unlinked(shown) : t('people.noName');",
+    "new": "return shown ? shown : t('people.noName');",
+    "cmd": "pnpm exec vitest run src/telegram/replies.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "provinces are posted as typed",
+    "file": "apps/api/src/telegram/replies.ts",
+    "old": "{ province: unlinked(card.province) }",
+    "new": "{ province: card.province }",
+    "cmd": "pnpm exec vitest run src/telegram/replies.spec.ts",
+    "cwd": "apps/api"
   }
 ]
