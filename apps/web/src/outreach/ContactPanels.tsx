@@ -186,6 +186,10 @@ export interface NoteText {
   warning: string;
   /** "Cuándo fue (opcional)": its label, hint, and today's date in Madrid, the latest it takes. */
   happened: { label: string; hint: string; today: string };
+  /** "Solo para mí", and on a private record, that its notes are private too. */
+  mine: string;
+  mineHint: string;
+  mineAlready: string;
   save: string;
   saved: string;
   missing: string;
@@ -194,13 +198,14 @@ export interface NoteText {
 
 /**
  * A note on a timeline, a contact's or an organisation's, with the reminder not to write down what the relationship
- * doesn't need, and the day the conversation it tells happened, if not today (PLAN M5, step 6): never a day to come.
+ * doesn't need, the day the conversation it tells happened, if not today, never a day to come, and whether it is for
+ * its writer alone (PLAN M5, step 6). On a private record every note is, and the form says so.
  */
 export const NoteForm = ({
   on,
   text,
 }: {
-  on: { kind: 'contact' | 'organisation'; id: string };
+  on: { kind: 'contact' | 'organisation'; id: string; private: boolean };
   text: NoteText;
 }) => {
   const write = useWrite({ ...text.errors, body: text.missing });
@@ -215,7 +220,10 @@ export const NoteForm = ({
       return;
     }
     const happenedOn = formText(form, 'happenedOn').trim();
-    const answer = await write.run(() => addNote(on, body, happenedOn), { done: text.saved });
+    const isPrivate = formText(form, 'private') === '1';
+    const answer = await write.run(() => addNote(on, body, { happenedOn, isPrivate }), {
+      done: text.saved,
+    });
     if (answer?.ok) {
       form.reset();
     }
@@ -250,6 +258,23 @@ export const NoteForm = ({
           {text.happened.hint}
         </span>
       </div>
+      {on.private ? (
+        <p className={ui.hint}>{text.mineAlready}</p>
+      ) : (
+        <div className={ui.checkbox}>
+          <input
+            id="nota-solo-yo"
+            type="checkbox"
+            name="private"
+            value="1"
+            aria-describedby="nota-solo-yo-pista"
+          />
+          <label htmlFor="nota-solo-yo">{text.mine}</label>
+          <span id="nota-solo-yo-pista" className={ui.checkboxHelp}>
+            {text.mineHint}
+          </span>
+        </div>
+      )}
       <FormError id="nota-error" message={error} />
       <div>
         <button type="submit" className={ui.button} aria-disabled={write.pending}>

@@ -207,6 +207,17 @@
     }
   },
   "team": {
+    "privateRecords": "Lo suyo en relaciones externas",
+    "privateCounts": "Guardó solo para sí {contacts, plural, =0 {ningún contacto} one {# contacto} other {# contactos}}, {organisations, plural, =0 {ninguna organización} one {# organización} other {# organizaciones}} y {notes, plural, =0 {ninguna nota} one {# nota} other {# notas}}. Nadie los ve hasta que alguien los herede.",
+    "heir": "Quién lo hereda",
+    "heirHint": "Alguien activo de relaciones externas, o quien administra. Lo verá solo esa persona, como hasta ahora su dueña.",
+    "heirNone": "Nadie activo trabaja en relaciones externas: no hay a quién dárselo todavía.",
+    "handOver": "Dárselo",
+    "handedOver": "Entregado.",
+    "handOverErrors": {
+      "heir": "Tiene que ser alguien activo de relaciones externas, o quien administra.",
+      "stillActive": "Solo se hereda lo de una cuenta desactivada."
+    },
     "title": "Equipo",
     "intro": "Las personas que entran en el backoffice y lo que puede hacer cada una.",
     "members": "Personas del equipo",
@@ -1383,11 +1394,49 @@
       "sent": "Carta enviada en {campaign}",
       "sentVersion": "Carta enviada en {campaign} (plantilla, versión {version})",
       "reviewed": "Revisado: ya se le puede escribir",
+      "shared": "Compartido con el equipo",
+      "sharedMerged": "Compartido con el equipo, fusionado en este contacto",
       "unknown": "Cambio",
       "someone": "alguien",
       "aCampaign": "una campaña",
       "system": "Automático",
       "viaBot": "(por el bot)"
+    },
+    "private": {
+      "mark": "Solo tú lo ves",
+      "legend": "Quién lo ve",
+      "team": "El equipo",
+      "teamHint": "Lo ve todo el equipo de relaciones externas.",
+      "mine": "Solo yo",
+      "mineHint": "Solo tú lo ves, tampoco quien administra. Puedes compartirlo con el equipo cuando quieras; después ya es del equipo.",
+      "noteMine": "Solo para mí",
+      "noteMineHint": "Nadie más del equipo la verá, tampoco quien administra.",
+      "noteMineAlready": "Esto es solo tuyo, así que sus notas también.",
+      "contactIntro": "Solo tú ves este contacto. Si lo compartes, lo verá todo el equipo de relaciones externas; lo que anotaste antes seguirá siendo solo tuyo.",
+      "organisationIntro": "Solo tú ves esta organización. Si la compartes, la verá todo el equipo de relaciones externas; lo que anotaste antes seguirá siendo solo tuyo.",
+      "share": "Compartir con el equipo",
+      "shared": "Compartido con el equipo.",
+      "matchesIntro": "El equipo ya tiene un contacto que puede ser la misma persona (comparten un correo o el teléfono). Si los fusionas, se queda el del equipo con los datos que le falten, y tus notas siguen siendo solo tuyas.",
+      "merge": "Fusionar con {name}",
+      "merged": "Fusionado con el contacto del equipo.",
+      "filter": "Quién lo ve",
+      "filterAny": "Todos los que veo",
+      "filterMine": "Solo yo",
+      "filterTeam": "El equipo",
+      "errors": {
+        "shared": "Lo que tiene el equipo sigue siendo del equipo: no puede volver a ser solo tuyo.",
+        "organisationPrivate": "Su organización es solo tuya: compártela antes, o quítale la organización.",
+        "private": "Ese contacto es solo tuyo: compártelo con el equipo antes de añadirlo a una campaña."
+      },
+      "rights": {
+        "title": "Una persona pide sus datos",
+        "intro": "Busca a quien lo pide por su correo, su teléfono o su nombre exacto: aparecen también los contactos que alguien del equipo guarda solo para sí, que solo se pueden descargar o borrar desde aquí.",
+        "search": "Correo, teléfono o nombre",
+        "button": "Buscar",
+        "none": "No hay ningún contacto con esos datos.",
+        "privateMark": "Privado de alguien del equipo",
+        "export": "Descargar sus datos"
+      }
     },
     "errors": {
       "needsReview": "No puede quedar lista ni enviada: el contacto está por revisar o en pausa. Revísalo antes en su ficha.",

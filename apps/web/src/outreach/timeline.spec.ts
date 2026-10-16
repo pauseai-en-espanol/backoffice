@@ -59,6 +59,13 @@ describe('the outreach timeline in words', () => {
     );
     expect(describe_('owner_changed', { to: 'u9' }).title).toBe('Responsable: alguien');
   });
+
+  it('says a private contact was shared, merged into this one or on its own (PLAN M5, step 6)', () => {
+    expect(describe_('shared').title).toBe('Compartido con el equipo');
+    expect(describe_('shared', { merged: true }).title).toBe(
+      'Compartido con el equipo, fusionado en este contacto',
+    );
+  });
 });
 
 describe('the order of a timeline (PLAN M5, step 6)', () => {

@@ -58,6 +58,7 @@ export interface AddTargetsText {
   anonymised: string;
   needsReview: string;
   held: string;
+  private: string;
   errors: Readonly<Record<string, string>>;
 }
 
@@ -108,7 +109,13 @@ export const AddTargets = ({
     });
     setPending(true);
     setError(undefined);
-    const answer = await searchContacts({ ...NO_CONTACT_FILTERS, ...filters, hold: 'no' });
+    // A campaign writes to team contacts only (PLAN M5, step 6): one's private ones aren't offered.
+    const answer = await searchContacts({
+      ...NO_CONTACT_FILTERS,
+      ...filters,
+      hold: 'no',
+      visibility: 'team',
+    });
     setPending(false);
     const contacts = answer.ok ? parseContacts(answer.body) : undefined;
     if (!contacts) {

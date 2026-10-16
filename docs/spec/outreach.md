@@ -76,5 +76,29 @@ dry run shows the counts and problems before anything is written. How the files 
 ## 5. Views
 
 Campañas (list and per-campaign board by target status), Contactos (directory with filters by tier, territory,
-organisation type and relationship), Organizaciones, Plantillas (with a rendered preview per contact), and the
-Siguiente queue.
+organisation type, relationship and who sees it), Organizaciones, Plantillas (with a rendered preview per contact),
+and the Siguiente queue.
+
+## 6. Private records: "Solo yo" (PLAN M5, step 6)
+
+Someone may keep their own contacts and organisations, and notes, for themselves: a journalist they know, a
+councillor they met. Each contact, organisation and note is the team's ("Equipo", the default, what all were before)
+or private to whoever made it ("Solo yo", said as "Solo tú lo ves", never by colour alone).
+
+- **Nobody else sees a private record**, other outreach staff nor admins: the database's policies say so
+  ([ADR-0002](../adr/0002-authorization-and-data-protection.md)). Lists count only what the reader sees.
+- **What is written on a private record is as private as it** (its timeline, its notes); a private note may sit on
+  a team record, for its writer alone.
+- **Only from private to the team.** Sharing a contact or an organisation makes it the team's for good; what was
+  written while it was private stays private, and the contact's timeline says it was shared. A team contact belongs
+  to a team organisation, or none: a private one is shared first.
+- **Sharing a contact the team already has**: when a team contact shares an email or the phone, its page offers to
+  merge into it. The team's keeps its details and takes the ones it lacks, the private timeline moves over still
+  private, and the private contact goes.
+- **Duplicates:** a private contact never blocks, matches or reveals anyone else's: there is no check across them.
+- **Campaigns write to team contacts only**: picking targets offers only the team's, and the database refuses one
+  that isn't.
+- **Someone leaves:** while their account is deactivated, their private records wait, seen by nobody; Equipo tells
+  an admin how many (never what), and the admin chooses who inherits them: someone active in outreach, or an admin.
+- **Rights requests** still reach private records: in Contactos, an admin finds the person's contacts by an exact
+  email, phone or name, private ones too, and downloads or erases them.

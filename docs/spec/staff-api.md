@@ -208,6 +208,27 @@ Step 5, team accounts linked to their person:
 - **`PUT /api/staff/:userId/person`** `{ personId }` (admins; null unlinks): `204`; `404 notFound` (no such
   account); `409 personGone` (merged or erased); `409 personTaken` (another account's).
 
+Step 6, outreach's private records, "Solo yo" ([outreach §6](outreach.md#6-private-records-solo-yo-plan-m5-step-6)):
+
+- **Contacts and organisations** take `private` on `POST` (`true`: the actor's alone) and on `PATCH` (`false`
+  shares it with the team; `true` on a team record is `409 shared`). Their summaries, pages and lists carry
+  `private`; lists take `visibility` (`private`: one's own; `team`: the team's). A private record is someone else's
+  is `404`, to an admin too. A team contact in a private organisation is `409 organisationPrivate`.
+- **Notes** (`POST …/contacts/:id/notes`, `POST …/organisations/:id/notes`) take `private: true`, for the writer
+  alone; on a private record every note is. Timeline events and notes carry `private`.
+- **`GET /api/outreach/contacts/:id/matches`**: `{ contacts: [summary] }`, team contacts that share an email or the
+  phone with this one, to merge it into. **`POST /api/outreach/contacts/:id/merge`** `{ into }`: a private
+  contact's own person merges it into that team contact: `204`; `409 stale` if either isn't what it should be.
+- **`POST /api/outreach/campaigns/:id/targets`** adds team contacts only (a private one is left out of `added`).
+- **`GET /api/outreach/rights?q=`** (admins): `{ contacts: [{ id, orgDisplay, personName, private }] }`, the contacts
+  whose email, phone or name is exactly `q`, private ones too. **`GET /api/outreach/contacts/:id/export`**
+  (admins): everything kept about one, as a JSON attachment, recorded as an export (`contact_json`); `404` if there
+  is none. Erasure (`POST …/contacts/:id/erase`) reaches private ones by id too.
+- **`GET /api/staff/private-records`** (admins): `{ records: [{ userId, contacts, organisations, notes }] }`, for
+  each deactivated member who left private records, how many. **`POST /api/staff/:userId/private-records`**
+  `{ to }` (admins): hands them to `to`: `{ moved }`; `409 stillActive` (the account is active); `409 heir` (`to`
+  isn't active in outreach nor an admin).
+
 ## M3: outreach
 
 Outreach staff and admins, through the staff app ([outreach spec](outreach.md)); never the bot. Erasing a contact

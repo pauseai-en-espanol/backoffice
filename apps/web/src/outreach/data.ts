@@ -21,6 +21,7 @@ import {
   parseNext,
   parseOrganisationPage,
   parseOrganisations,
+  parseRightsContacts,
 } from './types';
 
 /** What the outreach pages read (docs/spec/staff-api.md, M3), each checked before a page renders it. */
@@ -82,3 +83,11 @@ export const getCampaign = (id: string) =>
 
 export const getOrganisation = (id: string) =>
   readRecord('/api/outreach/organisations/:id', id, parseOrganisationPage);
+
+/** Team contacts that may be the same person as one's private contact, to merge it into (PLAN M5, step 6). */
+export const getMatches = (id: string) =>
+  readFromApi(`/api/outreach/contacts/${encodeURIComponent(id)}/matches`, parseContacts);
+
+/** A rights request's contacts, private ones too (admins, PLAN M5, step 6). */
+export const getRightsContacts = (q: string) =>
+  readFromApi(`/api/outreach/rights?${new URLSearchParams({ q }).toString()}`, parseRightsContacts);

@@ -94,6 +94,52 @@ export const linkPerson = async (
   return linked ? 'linked' : 'notFound';
 };
 
+/**
+ * Deactivated members who left private outreach records (PLAN M5, step 6): how many contacts, organisations and notes,
+ * never what (admins only, the database's own).
+ */
+export const privateRecords = async (
+  trx: Transaction<DB>,
+): Promise<{ userId: string; contacts: number; organisations: number; notes: number }[]> => {
+  const { rows } = await sql<{
+    user_id: string;
+    contacts: number;
+    organisations: number;
+    notes: number;
+  }>`SELECT * FROM private.private_records()`.execute(trx);
+  return rows.map((row) => ({
+    userId: row.user_id,
+    contacts: row.contacts,
+    organisations: row.organisations,
+    notes: row.notes,
+  }));
+};
+
+/**
+ * Hands a deactivated member's private records to an active one in outreach (admins only, the database's own): how
+ * many moved, or why not, said by the database: the account is still active, or the heir can't work in outreach.
+ */
+export const handOverPrivate = async (
+  trx: Transaction<DB>,
+  departed: string,
+  heir: string,
+): Promise<number | 'stillActive' | 'heir'> => {
+  try {
+    await sql`SAVEPOINT hand_over`.execute(trx);
+    const { rows } = await sql<{
+      moved: number;
+    }>`SELECT private.hand_over_private(${departed}, ${heir}) AS moved`.execute(trx);
+    return rows[0]?.moved ?? 0;
+  } catch (error) {
+    const { code, hint } = (error ?? {}) as { code?: unknown; hint?: unknown };
+    if (code === '23514' && (hint === 'stillActive' || hint === 'heir')) {
+      await sql`ROLLBACK TO SAVEPOINT hand_over`.execute(trx);
+      return hint;
+    }
+    throw error;
+  }
+};
+
 /** For each account without a person, the person who shares its sign-in email (admins only, the database's own). */
 export const personSuggestions = async (
   trx: Transaction<DB>,

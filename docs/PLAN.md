@@ -181,8 +181,14 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
    them when someone leaves; a private contact neither blocks nor reveals a team one, and sharing offers a merge;
    campaigns target shared contacts only. Organisations get the same timeline of dated notes as contacts (today
    they have one notes field), and notes on both take an optional date for when the conversation happened (as in
-   step 3), so extracts from past conversations can be kept, privately or for the team (Dani, 2026-10-16). Waits on
-   the outreach contacts' legal basis for notes quoting conversations.
+   step 3), so extracts from past conversations can be kept, privately or for the team (Dani, 2026-10-16). The legal
+   basis doesn't hold it up: notes are the same processing in any tool (Dani, 2026-10-17: "go with step 6"); the
+   assessment and the notice's paragraph are drafted for Dani apart. **Done:** migrations `20261017120000`
+   (`app.organisation_notes`, a note's `happened_on`; the notes field became each organisation's first note, R50) and
+   `120100` (`private_to` on contacts, organisations, contact events and organisation notes; the policies, the
+   triggers and five definer functions, ADR-0002); the "Quién lo ve" choice, mark and filter, sharing and its merge
+   offer in Contactos and Organizaciones, the rights request in Contactos, the inheritance in Equipo (R51 to R55).
+   Mutation lists `organisation-notes` and `private-records`.
 7. **Mensajes: the WhatsApp messages newcomers receive, written by the team, not in code** (D15; Dani, 2026-10-16:
    "it should be a template that we craft somewhere (not code)"). A page in the Onboarding group where the onboarding
    team writes the welcome (a person's "Abrir WhatsApp") and the census link's message (Censo), several per purpose,
@@ -429,17 +435,42 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   known, dated the day the organisation was last changed (the nearest to when they were written that the database
   has); the column is no longer written (its grants are revoked) and a later migration drops it. Contacts keep their
   own notes field, which the edit form shows; only their timeline notes take a date.
+- **R51. Who a private record is for** (PLAN M5, step 6). Options: a "private" flag beside the owner; its own column
+  naming who sees it. **Chose `private_to`**, a staff member's id (null for the team's), on contacts, organisations,
+  contact events and organisation notes, so inheriting is changing it and the relationship's owner (`owner_id`)
+  stays a separate thing. The policies admit a private row to its person alone, admins included (Dani's plan: "admins
+  don't see others' private records in the app").
+- **R52. Only from private to the team** (PLAN M5, step 6). Options: let a record go back and forth; one way only.
+  **Chose one way**: a team record never becomes private (409 `shared`), so nothing the team has seen disappears
+  from it, and a note made "Equipo" on a private record can't exist: what is written on a private record is as
+  private as it. Sharing keeps what was written while private private (the timeline says it was shared, `shared`):
+  the safer default; whoever shares can write again for the team what the team should know.
+- **R53. The merge on sharing** (PLAN M5, step 6). Options: offer it on any likely match; only on a shared email or
+  phone. **Chose a shared email or phone** (exact, as identities match), offered on the private contact's page with
+  "Fusionar con …"; the team contact keeps its details and takes the ones it lacks (name, greeting, role, email,
+  phone, website, territory, scope, sector; the private one's addresses join its extra ones), the private timeline
+  moves over still private, and the private contact is deleted (audited). Sharing without merging is always there.
+  Organisations are shared without a merge offer.
+- **R54. Rights requests** (PLAN M5, step 6). Options: let admins see every private record; a lookup for rights
+  requests alone. **Chose the lookup**: in Contactos, admins find contacts by an exact email, phone or name, private
+  ones too (marked "Privado de alguien del equipo", not whose), and download (recorded as an export) or erase them
+  from there; they still can't open a private contact's page. Organisations and their notes are not looked up: an
+  organisation isn't a person, and a note mentioning one is found through the person's contact.
+- **R55. Inheriting a departed member's records** (PLAN M5, step 6). Options: on deactivation, at once; any time
+  after. **Chose any time after**: Equipo shows a deactivated member's private records by how many, and an admin
+  hands them to someone active in outreach, or an admin, who then sees them as their own. Until then nobody sees
+  them; reactivating the account gives them back to their person.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).
 
 ## Tracking
 
-| Milestone | Status                                                    | Demo note                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| --------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| M0        | Deployed                                                  | Sign-in with TOTP, invitations by email, the team, the audit log; Helm chart, CI and release workflows, gitops branch prepared (not pushed). Locally: `pnpm db:reset`, `pnpm build`, `pnpm test:e2e` (sign-in, invitation, access, axe). Deploying waits on Dani's steps in [deploying](runbooks/deploying.md).                                                                                                                      |
-| M1        | Deployed; the Airtable sync waits for its link in Ajustes | Hoy, Personas, Persona, Onboarding Pipeline, Añadir rápido, Bandeja, Importar (CSV, and the Airtable sync, checked against the real view's structure), Ajustes; the Telegram bot (linking, /joined, /left, /mine, /unassigned, /search, /sync, each also by its Spanish name, the team group, the digest). E2E covers the web flows; the bot is covered by API tests against a fake Bot API.                                         |
-| M2        | Deployed, the form not public                             | The forms app at `unete.pauseai.es` (generic and personal links, honeypot and timing, consents with their wording version, the privacy notice as a draft); Censo, the person's census side, the Bandeja's census answers, the option lists in Ajustes; export and erasure. E2E covers a personal link end to end and the generic link. Deploying waits on the M2 steps in [deploying](runbooks/deploying.md) and the privacy notice. |
-| M3        | Deployed                                                  | Campañas (board by status, templates with a preview per contact, evidence paragraphs, targets), Contactos, Organizaciones, Siguiente (take the next target, open the letter in your own mail or WhatsApp, copy buttons, "Sí, enviada"), and the one-off import from the `outreach` repo, checked against the real campaign locally (counts only). Nothing sends. E2E covers Siguiente end to end.                                    |
-| M4        | Deployed                                                  | The Panel (people by stage, weekly arrivals by source, time to first contact, the unassigned for more than 48 hours). No retention job (D9) and no MCP server for now (D10). E2E covers the Panel.                                                                                                                                                                                                                                   |
-| M5        | In progress                                               | In progress (2026-10-16): the steps in [M5](#m5-after-first-use), in order; 1 to 5 done, and 7 (Mensajes): write a welcome in Mensajes, open a person's WhatsApp with it, and see it named in their history. E2E covers it, on a phone too.                                                                                                                                                                                          |
+| Milestone | Status                                          | Demo note                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M0        | Deployed                                        | Sign-in with TOTP, invitations by email, the team, the audit log; Helm chart, CI and release workflows, gitops branch prepared (not pushed). Locally: `pnpm db:reset`, `pnpm build`, `pnpm test:e2e` (sign-in, invitation, access, axe). Deploying waits on Dani's steps in [deploying](runbooks/deploying.md).                                                                                                                               |
+| M1        | Deployed; the Airtable sync on since 2026-10-17 | Hoy, Personas, Persona, Onboarding Pipeline, Añadir rápido, Bandeja, Importar (CSV, and the Airtable sync, checked against the real view's structure), Ajustes; the Telegram bot (linking, /joined, /left, /mine, /unassigned, /search, /sync, each also by its Spanish name, the team group, the digest). E2E covers the web flows; the bot is covered by API tests against a fake Bot API.                                                  |
+| M2        | Deployed, the form not public                   | The forms app at `unete.pauseai.es` (generic and personal links, honeypot and timing, consents with their wording version, the privacy notice as a draft); Censo, the person's census side, the Bandeja's census answers, the option lists in Ajustes; export and erasure. E2E covers a personal link end to end and the generic link. Deploying waits on the M2 steps in [deploying](runbooks/deploying.md) and the privacy notice.          |
+| M3        | Deployed                                        | Campañas (board by status, templates with a preview per contact, evidence paragraphs, targets), Contactos, Organizaciones, Siguiente (take the next target, open the letter in your own mail or WhatsApp, copy buttons, "Sí, enviada"), and the one-off import from the `outreach` repo, checked against the real campaign locally (counts only). Nothing sends. E2E covers Siguiente end to end.                                             |
+| M4        | Deployed                                        | The Panel (people by stage, weekly arrivals by source, time to first contact, the unassigned for more than 48 hours). No retention job (D9) and no MCP server for now (D10). E2E covers the Panel.                                                                                                                                                                                                                                            |
+| M5        | In progress                                     | In progress (2026-10-17): the steps in [M5](#m5-after-first-use), in order; 1 to 7 done. 6 (private records): keep a contact "Solo yo", see that nobody else on the team sees it, then share it into the team's contact that is the same person; date an organisation's note when it happened. 7 (Mensajes): write a welcome in Mensajes, open a person's WhatsApp with it, and see it named in their history. E2E covers it, on a phone too. |

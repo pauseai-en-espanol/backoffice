@@ -11,6 +11,7 @@ import { captureException } from '@sentry/node';
 import { sql } from 'kysely';
 
 import { databaseRefusal } from '../database-errors.js';
+import { fromAnotherSite } from '../fetch-site.js';
 import { createRateLimiter } from '../rate-limit.js';
 import { schemaRefusal } from '../schema-refusal.js';
 import { importCampaign, type ImportFiles } from './import.js';
@@ -28,6 +29,7 @@ import {
   deleteAnchor,
   deleteTarget,
   eraseContact,
+  exportContact,
   getCampaign,
   getContact,
   getOrganisation,
@@ -36,6 +38,7 @@ import {
   listContacts,
   listOrganisations,
   markSent,
+  mergePrivateContact,
   nextTarget,
   ORGANISATION_KINDS,
   organisationExists,
@@ -44,14 +47,17 @@ import {
   putAnchor,
   putTemplate,
   RELATIONSHIP_STAGES,
+  rightsContacts,
   TARGET_STATUSES,
   targetCampaign,
   type TargetInput,
+  teamMatches,
   TREATMENTS,
   updateCampaign,
   updateContact,
   updateOrganisation,
   updateTarget,
+  type Visibility,
 } from './outreach.js';
 
 /** A refusal the API decides itself: its status and key, which the staff app shows in words. */
@@ -114,6 +120,8 @@ const CONTACT_PROPERTIES = {
   hold: { type: 'boolean' },
   holdReason: NULLABLE_TEXT(500),
   notes: NULLABLE_TEXT(4000),
+  // "Solo yo" (true) or "Equipo" (false), PLAN M5, step 6: private only when made, then only ever shared.
+  private: { type: 'boolean' },
 } as const;
 
 const ORGANISATION_PROPERTIES = {
@@ -121,6 +129,7 @@ const ORGANISATION_PROPERTIES = {
   kind: { type: 'string', enum: [...ORGANISATION_KINDS] },
   territory: NULLABLE_TEXT(100),
   website: WEBSITE,
+  private: { type: 'boolean' },
 } as const;
 
 const DATE = { type: 'string', format: 'date' } as const;
@@ -129,8 +138,16 @@ const NOTE_BODY = {
   type: 'object',
   required: ['body'],
   additionalProperties: false,
-  properties: { body: REQUIRED_TEXT(4000), happenedOn: DATE },
+  properties: { body: REQUIRED_TEXT(4000), happenedOn: DATE, private: { type: 'boolean' } },
 } as const;
+const VISIBILITY = { type: 'string', enum: ['private', 'team'] } as const;
+
+interface NoteInput {
+  body: string;
+  happenedOn?: string;
+  /** "Solo yo": for its writer alone (PLAN M5, step 6). */
+  private?: boolean;
+}
 
 const CAMPAIGN_PROPERTIES = {
   name: REQUIRED_TEXT(200),
@@ -177,6 +194,14 @@ const outreachRefusal = (error: unknown): Refusal | undefined => {
   }
   if (code === '23514' && constraint === 'contacts_reason_sources_check') {
     return new Refusal(400, 'invalid', { field: 'reason' });
+  }
+  // Private records (PLAN M5, step 6): the team's stay the team's; a team contact's organisation is the team's; a
+  // campaign writes to team contacts only.
+  if (
+    code === '23514' &&
+    (hint === 'shared' || hint === 'organisationPrivate' || hint === 'private')
+  ) {
+    return new Refusal(409, hint);
   }
   return undefined;
 };
@@ -296,13 +321,17 @@ export const outreachRoutes =
 
     // Organisations ---------------------------------------------------------------------------------------------
 
-    scope.get<{ Querystring: { q?: string; kind?: OrganisationKind } }>(
+    scope.get<{ Querystring: { q?: string; kind?: OrganisationKind; visibility?: Visibility } }>(
       '/outreach/organisations',
       {
         schema: {
           querystring: {
             type: 'object',
-            properties: { q: TEXT(200), kind: { type: 'string', enum: [...ORGANISATION_KINDS] } },
+            properties: {
+              q: TEXT(200),
+              kind: { type: 'string', enum: [...ORGANISATION_KINDS] },
+              visibility: VISIBILITY,
+            },
           },
         },
       },
@@ -312,7 +341,7 @@ export const outreachRoutes =
         })),
     );
 
-    scope.post<{ Body: OrganisationInput }>(
+    scope.post<{ Body: OrganisationInput & { private?: boolean } }>(
       '/outreach/organisations',
       {
         schema: {
@@ -326,7 +355,8 @@ export const outreachRoutes =
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const id = await outreach(db, actor, (trx) => createOrganisation(trx, request.body));
+          const { private: isPrivate, ...input } = request.body;
+          const id = await outreach(db, actor, (trx) => createOrganisation(trx, input, isPrivate));
           return reply.code(201).send({ id });
         }),
     );
@@ -340,7 +370,7 @@ export const outreachRoutes =
         ),
     );
 
-    scope.patch<{ Params: { id: string }; Body: OrganisationInput }>(
+    scope.patch<{ Params: { id: string }; Body: OrganisationInput & { private?: boolean } }>(
       '/outreach/organisations/:id',
       {
         schema: {
@@ -355,28 +385,27 @@ export const outreachRoutes =
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
+          const { private: isPrivate, ...input } = request.body;
           found(
             await outreach(db, actor, (trx) =>
-              updateOrganisation(trx, request.params.id, request.body),
+              updateOrganisation(trx, request.params.id, input, isPrivate),
             ),
           );
           return reply.code(204).send();
         }),
     );
 
-    scope.post<{ Params: { id: string }; Body: { body: string; happenedOn?: string } }>(
+    scope.post<{ Params: { id: string }; Body: NoteInput }>(
       '/outreach/organisations/:id/notes',
       { schema: { params: ID_PARAMS, body: NOTE_BODY } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           await outreach(db, actor, async (trx) => {
             found(await organisationExists(trx, request.params.id));
-            await addOrganisationNote(
-              trx,
-              request.params.id,
-              request.body.body.trim(),
-              request.body.happenedOn,
-            );
+            await addOrganisationNote(trx, request.params.id, request.body.body.trim(), {
+              happenedOn: request.body.happenedOn,
+              isPrivate: request.body.private,
+            });
           });
           return reply.code(201).send({});
         }),
@@ -399,13 +428,15 @@ export const outreachRoutes =
               owner: { anyOf: [{ type: 'string', enum: ['me', 'none'] }, UUID] },
               review: { type: 'string', enum: ['true', 'false'] },
               hold: { type: 'string', enum: ['true', 'false'] },
+              visibility: VISIBILITY,
             },
           },
         },
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const { q, tier, territory, kind, stage, owner, review, hold } = request.query;
+          const { q, tier, territory, kind, stage, owner, review, hold, visibility } =
+            request.query;
           return {
             contacts: await outreach(db, actor, (trx) =>
               listContacts(
@@ -419,6 +450,7 @@ export const outreachRoutes =
                   owner,
                   review: flag(review),
                   hold: flag(hold),
+                  visibility: visibility as Visibility | undefined,
                 },
                 actor.userId,
               ),
@@ -427,7 +459,7 @@ export const outreachRoutes =
         }),
     );
 
-    scope.post<{ Body: ContactInput }>(
+    scope.post<{ Body: ContactInput & { private?: boolean } }>(
       '/outreach/contacts',
       {
         schema: {
@@ -441,8 +473,9 @@ export const outreachRoutes =
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const input = normalisedContact(request.body);
-          const id = await outreach(db, actor, (trx) => createContact(trx, input));
+          const { private: isPrivate, ...rest } = request.body;
+          const input = normalisedContact(rest);
+          const id = await outreach(db, actor, (trx) => createContact(trx, input, isPrivate));
           return reply.code(201).send({ id });
         }),
     );
@@ -456,7 +489,7 @@ export const outreachRoutes =
         ),
     );
 
-    scope.patch<{ Params: { id: string }; Body: ContactInput }>(
+    scope.patch<{ Params: { id: string }; Body: ContactInput & { private?: boolean } }>(
       '/outreach/contacts/:id',
       {
         schema: {
@@ -471,28 +504,109 @@ export const outreachRoutes =
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const input = normalisedContact(request.body);
-          found(await outreach(db, actor, (trx) => updateContact(trx, request.params.id, input)));
+          const { private: isPrivate, ...rest } = request.body;
+          const input = normalisedContact(rest);
+          found(
+            await outreach(db, actor, (trx) =>
+              updateContact(trx, request.params.id, input, isPrivate),
+            ),
+          );
           return reply.code(204).send();
         }),
     );
 
-    scope.post<{ Params: { id: string }; Body: { body: string; happenedOn?: string } }>(
+    scope.post<{ Params: { id: string }; Body: NoteInput }>(
       '/outreach/contacts/:id/notes',
       { schema: { params: ID_PARAMS, body: NOTE_BODY } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           await outreach(db, actor, async (trx) => {
             found(await getContact(trx, request.params.id));
-            await addContactNote(
-              trx,
-              request.params.id,
-              request.body.body.trim(),
-              request.body.happenedOn,
-            );
+            await addContactNote(trx, request.params.id, request.body.body.trim(), {
+              happenedOn: request.body.happenedOn,
+              isPrivate: request.body.private,
+            });
           });
           return reply.code(201).send({});
         }),
+    );
+
+    // Private records (PLAN M5, step 6): the team contacts one's own may be, to merge it into when sharing it.
+    scope.get<{ Params: { id: string } }>(
+      '/outreach/contacts/:id/matches',
+      { schema: { params: ID_PARAMS } },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => ({
+          contacts: await outreach(db, actor, async (trx) => {
+            found(await getContact(trx, request.params.id));
+            return teamMatches(trx, request.params.id);
+          }),
+        })),
+    );
+
+    scope.post<{ Params: { id: string }; Body: { into: string } }>(
+      '/outreach/contacts/:id/merge',
+      {
+        schema: {
+          params: ID_PARAMS,
+          body: {
+            type: 'object',
+            required: ['into'],
+            additionalProperties: false,
+            properties: { into: UUID },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const done = await outreach(db, actor, (trx) =>
+            mergePrivateContact(trx, request.params.id, request.body.into),
+          );
+          return done ? reply.code(204).send() : reply.code(409).send({ error: 'stale' });
+        }),
+    );
+
+    // A rights request (personal data spec, rights), for admins: the person's contacts, private ones too, by an
+    // exact email, phone or name; and everything kept about one, recorded as an export.
+    scope.get<{ Querystring: { q: string } }>(
+      '/outreach/rights',
+      {
+        schema: {
+          querystring: {
+            type: 'object',
+            required: ['q'],
+            properties: { q: REQUIRED_TEXT(254) },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const q = request.query.q.trim();
+          const exact = q.includes('@') ? normalizeEmail(q) : normalizePhone(q);
+          return {
+            contacts: await outreach(db, actor, (trx) => rightsContacts(trx, exact ?? q), ADMIN),
+          };
+        }),
+    );
+
+    scope.get<{ Params: { id: string } }>(
+      '/outreach/contacts/:id/export',
+      { schema: { params: ID_PARAMS } },
+      async (request, reply) =>
+        fromAnotherSite(request)
+          ? reply.code(403).send({ error: 'forbidden' })
+          : signedIn(request, reply, async (db, actor) => {
+              const data = found(
+                await outreach(db, actor, (trx) => exportContact(trx, request.params.id), ADMIN),
+              );
+              return reply
+                .header('content-type', 'application/json; charset=utf-8')
+                .header(
+                  'content-disposition',
+                  `attachment; filename="contacto-${request.params.id}.json"`,
+                )
+                .send(JSON.stringify(data, null, 2));
+            }),
     );
 
     scope.post<{ Params: { id: string } }>(

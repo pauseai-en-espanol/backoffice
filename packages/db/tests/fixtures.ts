@@ -90,6 +90,12 @@ export const OUTREACH = {
   sentTarget: '0190f8c4-0000-7000-8000-0000000005d2',
   /** A note on the organisation's timeline (PLAN M5, step 6). */
   organisationNote: '0190f8c4-0000-7000-8000-0000000005e1',
+  /** The outreacher's own ("Solo yo", PLAN M5, step 6): an organisation, a contact there, and their notes. */
+  privateOrganisation: '0190f8c4-0000-7000-8000-0000000005a2',
+  privateContact: '0190f8c4-0000-7000-8000-0000000005b4',
+  /** A private note on Berta, a team contact; and one on the team organisation. */
+  privateNote: '0190f8c4-0000-7000-8000-0000000005f1',
+  privateOrganisationNote: '0190f8c4-0000-7000-8000-0000000005e2',
 } as const;
 
 /** Loads the fixtures as superuser, through the same triggers the app runs. */
@@ -216,6 +222,26 @@ export const loadFixtures = async (client: pg.Client): Promise<void> => {
         OUTREACH.organisation,
         USERS.outreacher,
       ],
+    );
+    await client.query(
+      `INSERT INTO app.organisations (id, name, kind, private_to)
+       VALUES ($1, 'Asociación Privada de Ejemplo', 'association', $2)`,
+      [OUTREACH.privateOrganisation, USERS.outreacher],
+    );
+    await client.query(
+      `INSERT INTO app.contacts (id, organisation_id, org_display, person_name, email, needs_review, private_to)
+       VALUES ($1, $2, 'Asociación Privada de Ejemplo', 'Carla Ejemplo', 'carla@ejemplo.test', true, $3)`,
+      [OUTREACH.privateContact, OUTREACH.privateOrganisation, USERS.outreacher],
+    );
+    await client.query(
+      `INSERT INTO app.contact_events (id, contact_id, kind, body, private_to)
+       VALUES ($1, $2, 'note', 'Una nota privada sobre Berta', $3)`,
+      [OUTREACH.privateNote, OUTREACH.berta, USERS.outreacher],
+    );
+    await client.query(
+      `INSERT INTO app.organisation_notes (id, organisation_id, body, private_to)
+       VALUES ($1, $2, 'Una nota privada sobre la asociación', $3)`,
+      [OUTREACH.privateOrganisationNote, OUTREACH.organisation, USERS.outreacher],
     );
     await client.query(
       `INSERT INTO app.campaigns (id, slug, name, signature) VALUES ($1, 'campana-de-ejemplo', 'Campaña de ejemplo', 'Firma')`,

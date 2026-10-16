@@ -13,6 +13,7 @@ import { Field, Select } from './Field';
 import { newOrganisation, organisationChange } from './forms';
 import { createdId, type Organisation, ORGANISATION_KINDS, type OrganisationKind } from './types';
 import { useDisclosure } from './useDisclosure';
+import { VisibilityChoice, type VisibilityText } from './Visibility';
 
 export interface OrganisationFormText {
   name: string;
@@ -22,6 +23,8 @@ export interface OrganisationFormText {
   territory: string;
   territoryHint: string;
   website: string;
+  /** "Quién lo ve", when it's made (PLAN M5, step 6). */
+  visibility: VisibilityText;
   create: string;
   edit: string;
   save: string;
@@ -119,6 +122,7 @@ export const NewOrganisationForm = ({ text }: { text: OrganisationFormText }) =>
         refused={refused}
         errorId={error ? 'organizacion-error' : undefined}
       />
+      <VisibilityChoice prefix="organizacion-quien" text={text.visibility} />
       <FormError id="organizacion-error" message={error} />
       <div>
         <button type="submit" className={ui.button} aria-disabled={write.pending}>

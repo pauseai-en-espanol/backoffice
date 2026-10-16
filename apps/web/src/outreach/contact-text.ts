@@ -5,6 +5,7 @@ import { madridToday } from '@/onboarding/format';
 import type { ContactFormText } from './ContactForm';
 import type { EraseText, HoldText, NoteText, ReviewText } from './ContactPanels';
 import type { OrganisationFormText } from './OrganisationForm';
+import type { ShareText, VisibilityText } from './Visibility';
 
 import { kindNames, outreachErrors, stageNames, tierNames, treatmentNames } from './text';
 
@@ -56,6 +57,7 @@ export const contactFormText = (t: Translator): ContactFormText => ({
   holdReason: t('contacts.holdReason'),
   notes: t('contacts.notes'),
   notesWarning: t('contacts.notesWarning'),
+  visibility: visibilityText(t),
   create: t('contacts.create'),
   edit: t('contacts.edit'),
   save: t('contacts.save'),
@@ -97,6 +99,9 @@ export const noteText = (t: Translator): NoteText => ({
     hint: t('contacts.happenedOnHint'),
     today: madridToday(),
   },
+  mine: t('outreach.private.noteMine'),
+  mineHint: t('outreach.private.noteMineHint'),
+  mineAlready: t('outreach.private.noteMineAlready'),
   save: t('contacts.saveNote'),
   saved: t('contacts.noteSaved'),
   missing: t('contacts.noteMissing'),
@@ -122,10 +127,35 @@ export const organisationFormText = (t: Translator): OrganisationFormText => ({
   territory: t('organisations.territory'),
   territoryHint: t('organisations.territoryHint'),
   website: t('organisations.website'),
+  visibility: visibilityText(t),
   create: t('organisations.create'),
   edit: t('organisations.edit'),
   save: t('organisations.save'),
   cancel: t('organisations.cancel'),
   saved: t('organisations.saved'),
+  errors: outreachErrors(t),
+});
+
+/** "Quién lo ve" (PLAN M5, step 6). */
+export function visibilityText(t: Translator): VisibilityText {
+  return {
+    legend: t('outreach.private.legend'),
+    team: t('outreach.private.team'),
+    teamHint: t('outreach.private.teamHint'),
+    mine: t('outreach.private.mine'),
+    mineHint: t('outreach.private.mineHint'),
+  };
+}
+
+/** Sharing one's private contact or organisation (PLAN M5, step 6). */
+export const shareText = (t: Translator, kind: 'contact' | 'organisation'): ShareText => ({
+  intro: t(
+    kind === 'contact' ? 'outreach.private.contactIntro' : 'outreach.private.organisationIntro',
+  ),
+  share: t('outreach.private.share'),
+  shared: t('outreach.private.shared'),
+  matchesIntro: t('outreach.private.matchesIntro'),
+  merge: String(t.raw('outreach.private.merge')),
+  merged: t('outreach.private.merged'),
   errors: outreachErrors(t),
 });

@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('next/headers', () => ({ headers: vi.fn() }));
 vi.mock('next/navigation', () => ({ notFound: vi.fn(), redirect: vi.fn() }));
 
-const { parseInvitations, parseSuggestions, parseTeam } = await import('./data');
+const { parseInvitations, parsePrivateRecords, parseSuggestions, parseTeam } =
+  await import('./data');
 
 const member = {
   userId: 'u1',
@@ -63,5 +64,15 @@ describe('parseInvitations', () => {
   it('refuses an unknown state or a missing maker', () => {
     expect(parseInvitations({ invitations: [{ ...invitation, state: 'lost' }] })).toBeUndefined();
     expect(parseInvitations({ invitations: [{ ...invitation, createdBy: null }] })).toBeUndefined();
+  });
+});
+
+describe("a departed member's private outreach records (PLAN M5, step 6)", () => {
+  it('are counted, never shown, and anything else is refused', () => {
+    const records = { userId: 'u2', contacts: 2, organisations: 0, notes: 5 };
+    expect(parsePrivateRecords({ records: [records] })).toEqual([records]);
+    expect(parsePrivateRecords({ records: [{ ...records, contacts: -1 }] })).toBeUndefined();
+    expect(parsePrivateRecords({ records: [{ ...records, notes: '5' }] })).toBeUndefined();
+    expect(parsePrivateRecords({})).toBeUndefined();
   });
 });

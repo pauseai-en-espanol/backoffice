@@ -84,6 +84,11 @@ export const describeContactEvent = (
     }
     case 'reviewed':
       return { title: t('outreach.events.reviewed'), detail: null };
+    case 'shared':
+      return {
+        title: t(data.merged === true ? 'outreach.events.sharedMerged' : 'outreach.events.shared'),
+        detail: null,
+      };
     default:
       return { title: t('outreach.events.unknown'), detail: body };
   }

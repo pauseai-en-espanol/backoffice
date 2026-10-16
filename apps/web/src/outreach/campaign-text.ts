@@ -98,6 +98,7 @@ export const addTargetsText = (t: Translator): AddTargetsText => ({
   anonymised: t('outreach.summary.anonymised'),
   needsReview: t('outreach.summary.needsReview'),
   held: t('outreach.summary.held'),
+  private: t('outreach.private.mark'),
   errors: outreachErrors(t),
 });
 

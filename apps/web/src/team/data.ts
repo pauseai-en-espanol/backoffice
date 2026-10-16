@@ -104,3 +104,31 @@ export const getInvitations = () => readFromApi('/api/invitations', parseInvitat
 /** Each unlinked account's likely person, which only admins see. */
 export const getPersonSuggestions = () =>
   readFromApi('/api/staff/person-suggestions', parseSuggestions);
+
+/** A departed member's private outreach records, by how many, never what (PLAN M5, step 6). */
+export interface PrivateRecords {
+  userId: string;
+  contacts: number;
+  organisations: number;
+  notes: number;
+}
+
+const isCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0;
+
+const isPrivateRecords = (value: unknown): value is PrivateRecords =>
+  isRecord(value) &&
+  isString(value.userId) &&
+  isCount(value.contacts) &&
+  isCount(value.organisations) &&
+  isCount(value.notes);
+
+/** `GET /api/staff/private-records`'s body, or undefined if it isn't one. */
+export const parsePrivateRecords = (body: unknown): PrivateRecords[] | undefined =>
+  isRecord(body) && Array.isArray(body.records) && body.records.every(isPrivateRecords)
+    ? body.records
+    : undefined;
+
+/** The deactivated members who left private outreach records, which only admins see. */
+export const getPrivateRecords = () =>
+  readFromApi('/api/staff/private-records', parsePrivateRecords);

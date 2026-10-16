@@ -67,6 +67,7 @@ export const CONTACT_EVENT_KINDS = [
   'status_changed',
   'sent',
   'reviewed',
+  'shared',
 ] as const;
 export type ContactEventKind = (typeof CONTACT_EVENT_KINDS)[number];
 
@@ -104,6 +105,8 @@ export interface ContactSummary {
   hold: boolean;
   tags: string[];
   anonymised: boolean;
+  /** "Solo yo" (PLAN M5, step 6): the reader's own; nobody else sees it. */
+  private: boolean;
 }
 
 export interface ContactDetail extends ContactSummary {
@@ -151,6 +154,8 @@ export interface ContactEvent {
   data: Record<string, unknown>;
   /** A note's day, when it happened another day than written (PLAN M5, step 6). */
   happenedOn: string | null;
+  /** For the reader alone (PLAN M5, step 6). */
+  private: boolean;
 }
 
 export interface ContactPage {
@@ -165,8 +170,9 @@ export interface OrganisationItem {
   kind: OrganisationKind;
   territory: string | null;
   website: string | null;
-  /** How many contacts it has. */
+  /** How many contacts it has that the reader sees. */
   contacts: number;
+  private: boolean;
 }
 
 export interface Organisation {
@@ -175,6 +181,7 @@ export interface Organisation {
   kind: OrganisationKind;
   territory: string | null;
   website: string | null;
+  private: boolean;
   createdAt: string;
 }
 
@@ -186,6 +193,7 @@ export interface OrganisationNote {
   at: string;
   actor: StaffRef | string | null;
   channel: 'web' | 'bot' | null;
+  private: boolean;
 }
 
 export interface OrganisationPage {
@@ -454,6 +462,7 @@ const summaryOf = (value: Record<string, unknown>): ContactSummary | undefined =
     hold: value.hold === true,
     tags,
     anonymised: value.anonymised === true,
+    private: value.private === true,
   };
 };
 
@@ -560,6 +569,7 @@ export const parseContactEvent = (value: unknown): ContactEvent | undefined => {
     body,
     data: isRecord(value.data) ? value.data : {},
     happenedOn,
+    private: value.private === true,
   };
 };
 
@@ -593,6 +603,7 @@ const parseOrganisationItem = (value: unknown): OrganisationItem | undefined => 
         territory,
         website,
         contacts: isCount(value.contacts) ? value.contacts : 0,
+        private: value.private === true,
       };
 };
 
@@ -614,6 +625,7 @@ const parseOrganisation = (value: unknown): Organisation | undefined => {
         kind: value.kind,
         territory,
         website,
+        private: value.private === true,
         createdAt: str(value.createdAt) ? value.createdAt : '',
       };
 };
@@ -634,6 +646,7 @@ const parseOrganisationNote = (value: unknown): OrganisationNote | undefined => 
         at: value.at,
         actor,
         channel: value.channel === 'web' || value.channel === 'bot' ? value.channel : null,
+        private: value.private === true,
       };
 };
 
@@ -992,3 +1005,25 @@ export const addedCount = (body: unknown): number | undefined =>
 /** The fields a template refusal names (`400 { error: 'invalid', field: 'body', fields }`). */
 export const refusedFields = (body: unknown): string[] =>
   isRecord(body) && Array.isArray(body.fields) ? body.fields.filter(str) : [];
+
+/** A contact a rights request found (PLAN M5, step 6): private ones too, for an admin to export or erase. */
+export interface RightsContact {
+  id: string;
+  orgDisplay: string;
+  personName: string | null;
+  private: boolean;
+}
+
+const parseRightsContact = (value: unknown): RightsContact | undefined => {
+  if (!isRecord(value) || !str(value.id) || !str(value.orgDisplay)) {
+    return undefined;
+  }
+  const personName = nullable(value.personName);
+  return personName === undefined
+    ? undefined
+    : { id: value.id, orgDisplay: value.orgDisplay, personName, private: value.private === true };
+};
+
+/** `GET /api/outreach/rights`'s body. */
+export const parseRightsContacts = (body: unknown): RightsContact[] | undefined =>
+  isRecord(body) ? every(body.contacts, parseRightsContact) : undefined;

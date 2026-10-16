@@ -83,12 +83,14 @@ const unique = () => crypto.randomUUID().slice(0, 8);
 const slugOf = () => `prueba-${unique()}`;
 
 let outreacher: Awaited<ReturnType<typeof staffMember>>;
+let colleague: Awaited<ReturnType<typeof staffMember>>;
 let onboarder: Awaited<ReturnType<typeof staffMember>>;
 let admin: Awaited<ReturnType<typeof staffMember>>;
 
 beforeAll(async () => {
   await app.ready();
   outreacher = await staffMember('outreach');
+  colleague = await staffMember('outreach');
   onboarder = await staffMember('onboarding');
   admin = await staffMember('admin');
 });
@@ -613,6 +615,215 @@ describe('campaigns, letters and Siguiente (M3)', () => {
     expect(
       (await outreacher.who.send('POST', '/api/outreach/campaigns', { slug, name: 'Otra' })).json(),
     ).toMatchObject({ error: 'taken' });
+  });
+});
+
+describe('private records, "Solo yo" (PLAN M5, step 6)', () => {
+  type Page = {
+    contact: { private: boolean; email: string | null; emailsExtra: string[] };
+    timeline: { kind: string; body: string | null; private: boolean }[];
+  };
+  const page = async (who: typeof outreacher, id: string) =>
+    (await who.who.send('GET', `/api/outreach/contacts/${id}`)).json<Page>();
+  const listed = async (who: typeof outreacher, query = '') =>
+    (await who.who.send('GET', `/api/outreach/contacts${query}`))
+      .json<{ contacts: { id: string; private: boolean }[] }>()
+      .contacts.map((contact) => contact.id);
+
+  it('are their own person’s alone: nobody else on the team sees them, an admin neither', async () => {
+    const email = `privada.${unique()}@ejemplo.test`;
+    const id = await newContact({ email, private: true, needsReview: true });
+    expect((await page(outreacher, id)).contact.private).toBe(true);
+    expect(await listed(outreacher, '?visibility=private')).toContain(id);
+    expect(await listed(outreacher, '?visibility=team')).not.toContain(id);
+    for (const other of [colleague, admin]) {
+      expect(await listed(other)).not.toContain(id);
+      expect((await other.who.send('GET', `/api/outreach/contacts/${id}`)).statusCode).toBe(404);
+      expect(
+        (await other.who.send('PATCH', `/api/outreach/contacts/${id}`, { stage: 'qualified' }))
+          .statusCode,
+      ).toBe(404);
+      expect(
+        (await other.who.send('POST', `/api/outreach/contacts/${id}/notes`, { body: 'Hola' }))
+          .statusCode,
+      ).toBe(404);
+    }
+    // Nor do they block anyone: a colleague's team contact with the same address just goes in.
+    const theirs = await colleague.who.send('POST', '/api/outreach/contacts', {
+      orgDisplay: `Prueba Medio ${unique()}`,
+      email,
+      reason: 'Cubre tecnología',
+      sources: ['https://ejemplo.test/fuente'],
+    });
+    expect(theirs.statusCode).toBe(201);
+  });
+
+  it('keep private notes on a team contact, and once shared stay the team’s', async () => {
+    const id = await newContact();
+    const note = (body: Record<string, unknown>) =>
+      outreacher.who.send('POST', `/api/outreach/contacts/${id}/notes`, body);
+    expect((await note({ body: 'Para el equipo' })).statusCode).toBe(201);
+    expect((await note({ body: 'Solo para mí', private: true })).statusCode).toBe(201);
+    const notes = async (who: typeof outreacher) =>
+      (await page(who, id)).timeline
+        .filter((event) => event.kind === 'note')
+        .map(({ body, private: isPrivate }) => ({ body, private: isPrivate }));
+    expect(await notes(outreacher)).toEqual(
+      expect.arrayContaining([
+        { body: 'Para el equipo', private: false },
+        { body: 'Solo para mí', private: true },
+      ]),
+    );
+    expect(await notes(colleague)).toEqual([{ body: 'Para el equipo', private: false }]);
+    expect(
+      (
+        await outreacher.who.send('PATCH', `/api/outreach/contacts/${id}`, { private: true })
+      ).json(),
+    ).toEqual({ error: 'shared' });
+  });
+
+  it('are shared when their person says, into a team contact that is the same person if there is one', async () => {
+    const email = `doble.${unique()}@ejemplo.test`;
+    const other = `otra.${unique()}@ejemplo.test`;
+    const mine = await newContact({ email: other, private: true });
+    const team = await newContact({ email });
+    await outreacher.who.send('PATCH', `/api/outreach/contacts/${mine}`, { emailsExtra: [email] });
+    await outreacher.who.send('POST', `/api/outreach/contacts/${mine}/notes`, {
+      body: 'Lo que hablamos',
+    });
+    const matches = (
+      await outreacher.who.send('GET', `/api/outreach/contacts/${mine}/matches`)
+    ).json<{ contacts: { id: string }[] }>().contacts;
+    expect(matches.map((contact) => contact.id)).toEqual([team]);
+    // Only its own person merges it.
+    expect(
+      (
+        await colleague.who.send('POST', `/api/outreach/contacts/${mine}/merge`, { into: team })
+      ).json(),
+    ).toEqual({ error: 'stale' });
+    expect(
+      (await outreacher.who.send('POST', `/api/outreach/contacts/${mine}/merge`, { into: team }))
+        .statusCode,
+    ).toBe(204);
+    expect((await outreacher.who.send('GET', `/api/outreach/contacts/${mine}`)).statusCode).toBe(
+      404,
+    );
+    const merged = await page(outreacher, team);
+    // The team's address stays; the private one's own joins as an extra.
+    expect(merged.contact).toMatchObject({ email, emailsExtra: [other] });
+    expect(merged.timeline.map((event) => [event.kind, event.private])).toEqual(
+      expect.arrayContaining([
+        ['shared', false],
+        ['note', true],
+      ]),
+    );
+    expect((await page(colleague, team)).timeline.map((event) => event.kind)).not.toContain('note');
+
+    // Sharing without a match: the contact becomes the team's, and its timeline says so.
+    const alone = await newContact({ private: true });
+    expect(
+      (await outreacher.who.send('PATCH', `/api/outreach/contacts/${alone}`, { private: false }))
+        .statusCode,
+    ).toBe(204);
+    expect((await page(colleague, alone)).timeline.map((event) => event.kind)).toEqual(['shared']);
+  });
+
+  it('keep a team contact out of a private organisation, and campaigns to team contacts', async () => {
+    const org = (
+      await outreacher.who.send('POST', '/api/outreach/organisations', {
+        name: `Prueba Privada ${unique()}`,
+        kind: 'ngo',
+        private: true,
+      })
+    ).json<{ id: string }>().id;
+    const orgs = async (who: typeof outreacher) =>
+      (await who.who.send('GET', '/api/outreach/organisations?visibility=private'))
+        .json<{ organisations: { id: string; private: boolean }[] }>()
+        .organisations.map((organisation) => organisation.id);
+    expect(await orgs(outreacher)).toContain(org);
+    expect(await orgs(colleague)).not.toContain(org);
+    expect(
+      (
+        await outreacher.who.send('POST', '/api/outreach/contacts', {
+          orgDisplay: 'Prueba de equipo',
+          organisationId: org,
+          needsReview: true,
+        })
+      ).json(),
+    ).toEqual({ error: 'organisationPrivate' });
+
+    const campaign = (
+      await outreacher.who.send('POST', '/api/outreach/campaigns', {
+        slug: slugOf(),
+        name: 'Prueba privada',
+      })
+    ).json<{ id: string }>().id;
+    const mine = await newContact({ private: true });
+    const added = await outreacher.who.send('POST', `/api/outreach/campaigns/${campaign}/targets`, {
+      contactIds: [mine],
+    });
+    expect(added.json()).toEqual({ added: 0 });
+  });
+
+  it('reach a rights request through admins, and a departed member’s go to whoever an admin chooses', async () => {
+    const email = `derechos.${unique()}@ejemplo.test`;
+    const id = (
+      await colleague.who.send('POST', '/api/outreach/contacts', {
+        orgDisplay: `Prueba Derechos ${unique()}`,
+        email,
+        needsReview: true,
+        private: true,
+      })
+    ).json<{ id: string }>().id;
+    await colleague.who.send('POST', `/api/outreach/contacts/${id}/notes`, {
+      body: 'Nos contó algo',
+    });
+
+    expect((await outreacher.who.send('GET', `/api/outreach/rights?q=${email}`)).statusCode).toBe(
+      403,
+    );
+    const found = (
+      await admin.who.send(
+        'GET',
+        `/api/outreach/rights?q=${encodeURIComponent(email.toUpperCase())}`,
+      )
+    ).json<{ contacts: { id: string; private: boolean }[] }>().contacts;
+    expect(found).toEqual([expect.objectContaining({ id, private: true })]);
+    const exported = await admin.who.send('GET', `/api/outreach/contacts/${id}/export`);
+    expect(exported.statusCode).toBe(200);
+    expect(exported.headers['content-disposition']).toContain('attachment');
+    expect(exported.body).toContain('Nos contó algo');
+    expect(exported.body).not.toContain(colleague.id);
+    expect(
+      (
+        await superuser.query(
+          "SELECT count(*)::int AS n FROM app.exports WHERE kind = 'contact_json' AND filter->>'contact' = $1",
+          [id],
+        )
+      ).rows,
+    ).toEqual([{ n: 1 }]);
+
+    // The colleague leaves: their records wait, counted, until an admin hands them over.
+    expect(
+      (await admin.who.send('PATCH', `/api/staff/${colleague.id}`, { active: false })).statusCode,
+    ).toBe(204);
+    const records = (await admin.who.send('GET', '/api/staff/private-records')).json<{
+      records: { userId: string; contacts: number; notes: number }[];
+    }>().records;
+    expect(records.find((record) => record.userId === colleague.id)).toMatchObject({
+      contacts: 1,
+      notes: 1,
+    });
+    expect((await outreacher.who.send('GET', '/api/staff/private-records')).statusCode).toBe(403);
+    const handOver = (to: string, from = colleague.id) =>
+      admin.who.send('POST', `/api/staff/${from}/private-records`, { to });
+    expect((await handOver(onboarder.id)).json()).toEqual({ error: 'heir' });
+    expect((await handOver(admin.id, outreacher.id)).json()).toEqual({ error: 'stillActive' });
+    expect((await handOver(outreacher.id)).json()).toMatchObject({ moved: expect.any(Number) });
+    expect((await page(outreacher, id)).contact.private).toBe(true);
+    expect(
+      (await admin.who.send('PATCH', `/api/staff/${colleague.id}`, { active: true })).statusCode,
+    ).toBe(204);
   });
 });
 

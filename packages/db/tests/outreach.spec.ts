@@ -69,7 +69,7 @@ describe('contacts', () => {
       );
       const { rows } = await client.query(
         `SELECT kind::text, actor_id, channel, data FROM app.contact_events
-          WHERE contact_id = $1 AND kind <> 'created' ORDER BY kind`,
+          WHERE contact_id = $1 AND kind NOT IN ('created', 'note') ORDER BY kind`,
         [OUTREACH.berta],
       );
       expect(rows).toEqual([
@@ -170,6 +170,260 @@ describe('notes on contacts and organisations (PLAN M5, step 6)', () => {
           OUTREACH.organisation,
         ]),
       ).toBe('42501');
+    });
+  });
+});
+
+describe('private records, "Solo yo" (PLAN M5, step 6)', () => {
+  const visible = async (client: pg.Client, table: string, id: string): Promise<boolean> =>
+    (await client.query(`SELECT 1 FROM ${table} WHERE id = $1`, [id])).rowCount === 1;
+  const as = async (client: pg.Client, userId: string) => {
+    await client.query('RESET ROLE');
+    await asStaff(client, userId);
+  };
+
+  it('stay with the team once the team has them', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      for (const [table, id] of [
+        ['app.contacts', OUTREACH.berta],
+        ['app.organisations', OUTREACH.organisation],
+      ] as const) {
+        expect(
+          await errorCode(client, `UPDATE ${table} SET private_to = $2 WHERE id = $1`, [
+            id,
+            USERS.outreacher,
+          ]),
+        ).toBe('23514');
+      }
+    });
+  });
+
+  it('when shared, say so on the timeline, and what was written while private stays private', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      await client.query('UPDATE app.organisations SET private_to = NULL WHERE id = $1', [
+        OUTREACH.privateOrganisation,
+      ]);
+      await client.query(
+        "INSERT INTO app.contact_events (contact_id, kind, body) VALUES ($1, 'note', 'Antes de compartir')",
+        [OUTREACH.privateContact],
+      );
+      await client.query('UPDATE app.contacts SET private_to = NULL WHERE id = $1', [
+        OUTREACH.privateContact,
+      ]);
+      const events = async () =>
+        (
+          await client.query<{ kind: string; body: string | null }>(
+            'SELECT kind::text, body FROM app.contact_events WHERE contact_id = $1 ORDER BY created_at, id',
+            [OUTREACH.privateContact],
+          )
+        ).rows.map((row) => row.kind);
+      expect(await events()).toEqual(['created', 'note', 'shared']);
+      await as(client, USERS.both);
+      expect(await visible(client, 'app.contacts', OUTREACH.privateContact)).toBe(true);
+      expect(await events()).toEqual(['shared']);
+    });
+  });
+
+  it('keep a team contact out of a private organisation, and anyone out of someone else’s', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      expect(
+        await errorCode(
+          client,
+          "INSERT INTO app.contacts (organisation_id, org_display, needs_review) VALUES ($1, 'Privada', true)",
+          [OUTREACH.privateOrganisation],
+        ),
+      ).toBe('23514');
+      // Sharing a contact whose organisation is still private: the organisation first.
+      expect(
+        await errorCode(client, 'UPDATE app.contacts SET private_to = NULL WHERE id = $1', [
+          OUTREACH.privateContact,
+        ]),
+      ).toBe('23514');
+      await as(client, USERS.both);
+      expect(
+        await errorCode(
+          client,
+          `INSERT INTO app.contacts (organisation_id, org_display, needs_review, private_to)
+           VALUES ($1, 'Ajena', true, $2)`,
+          [OUTREACH.privateOrganisation, USERS.both],
+        ),
+      ).toBe('23514');
+    });
+  });
+
+  it('keep what is written on a private contact or organisation as private as it', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      const { rows } = await client.query<{ private_to: string | null }>(
+        `INSERT INTO app.contact_events (contact_id, kind, body) VALUES ($1, 'note', 'Para mí')
+         RETURNING private_to`,
+        [OUTREACH.privateContact],
+      );
+      expect(rows).toEqual([{ private_to: USERS.outreacher }]);
+      const note = await client.query<{ private_to: string | null }>(
+        `INSERT INTO app.organisation_notes (organisation_id, body) VALUES ($1, 'Para mí')
+         RETURNING private_to`,
+        [OUTREACH.privateOrganisation],
+      );
+      expect(note.rows).toEqual([{ private_to: USERS.outreacher }]);
+      await as(client, USERS.both);
+      expect(await visible(client, 'app.contact_events', OUTREACH.privateNote)).toBe(false);
+      expect(
+        await visible(client, 'app.organisation_notes', OUTREACH.privateOrganisationNote),
+      ).toBe(false);
+      await as(client, USERS.adminA);
+      expect(await visible(client, 'app.contacts', OUTREACH.privateContact)).toBe(false);
+      expect(await visible(client, 'app.contact_events', OUTREACH.privateNote)).toBe(false);
+    });
+  });
+
+  it('are never written to by a campaign, whoever adds them', async () => {
+    for (const userId of [USERS.outreacher, USERS.both]) {
+      await inRolledBackTransaction(async (client) => {
+        await asStaff(client, userId);
+        expect(
+          await errorCode(
+            client,
+            'INSERT INTO app.campaign_targets (campaign_id, contact_id) VALUES ($1, $2)',
+            [OUTREACH.campaign, OUTREACH.privateContact],
+          ),
+        ).toBe('23514');
+      });
+    }
+  });
+
+  it('reach a rights request through admins’ own functions: found by email, exported and recorded', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client, USERS.adminA);
+      expect(
+        (await client.query('SELECT * FROM private.rights_contacts($1)', [' Carla@Ejemplo.test ']))
+          .rows,
+      ).toEqual([
+        {
+          id: OUTREACH.privateContact,
+          org_display: 'Asociación Privada de Ejemplo',
+          person_name: 'Carla Ejemplo',
+          is_private: true,
+        },
+      ]);
+      const exported = (
+        await client.query<{ data: { contact: Record<string, unknown>; timeline: unknown[] } }>(
+          'SELECT private.export_contact($1) AS data',
+          [OUTREACH.berta],
+        )
+      ).rows[0]?.data;
+      expect(exported?.contact).toMatchObject({ person_name: 'Berta Ejemplo' });
+      expect(exported?.contact).not.toHaveProperty('private_to');
+      expect(JSON.stringify(exported?.timeline)).toContain('Una nota privada sobre Berta');
+      expect(
+        (await client.query("SELECT kind, filter FROM app.exports WHERE kind = 'contact_json'"))
+          .rows,
+      ).toEqual([{ kind: 'contact_json', filter: { contact: OUTREACH.berta } }]);
+      await as(client, USERS.outreacher);
+      for (const call of [
+        "SELECT * FROM private.rights_contacts('carla@ejemplo.test')",
+        `SELECT private.export_contact('${OUTREACH.berta}')`,
+      ]) {
+        expect(await errorCode(client, call)).toBe('42501');
+      }
+    });
+  });
+
+  it('of someone who left go to whoever an admin chooses in outreach, counted but never shown', async () => {
+    await inRolledBackTransaction(async (client) => {
+      // The outreacher's records, as if they had left.
+      await client.query('UPDATE app.staff SET active = false WHERE user_id = $1', [
+        USERS.outreacher,
+      ]);
+      await asStaff(client, USERS.adminA);
+      expect((await client.query('SELECT * FROM private.private_records()')).rows).toEqual([
+        { user_id: USERS.outreacher, contacts: 1, organisations: 1, notes: 2 },
+      ]);
+      // Not to someone without outreach, nor from someone still here.
+      expect(
+        await errorCode(client, 'SELECT private.hand_over_private($1, $2)', [
+          USERS.outreacher,
+          USERS.onboarder,
+        ]),
+      ).toBe('23514');
+      expect(
+        await errorCode(client, 'SELECT private.hand_over_private($1, $2)', [
+          USERS.both,
+          USERS.adminA,
+        ]),
+      ).toBe('23514');
+      expect(
+        (
+          await client.query<{ moved: number }>(
+            'SELECT private.hand_over_private($1, $2) AS moved',
+            [USERS.outreacher, USERS.both],
+          )
+        ).rows,
+        // The organisation, the contact, its first event, the note on Berta and the one on the organisation.
+      ).toEqual([{ moved: 5 }]);
+      expect((await client.query('SELECT * FROM private.private_records()')).rows).toEqual([]);
+      await as(client, USERS.both);
+      expect(await visible(client, 'app.contacts', OUTREACH.privateContact)).toBe(true);
+      expect(await visible(client, 'app.contact_events', OUTREACH.privateNote)).toBe(true);
+      expect(await visible(client, 'app.organisations', OUTREACH.privateOrganisation)).toBe(true);
+      expect(await errorCode(client, 'SELECT * FROM private.private_records()')).toBe('42501');
+    });
+  });
+
+  it('merge into the team contact that is the same person, keeping the private timeline private', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      // Another member can't merge the outreacher's.
+      await as(client, USERS.both);
+      expect(
+        (
+          await client.query<{ done: boolean }>(
+            'SELECT private.merge_private_contact($1, $2) AS done',
+            [OUTREACH.privateContact, OUTREACH.berta],
+          )
+        ).rows,
+      ).toEqual([{ done: false }]);
+      await as(client, USERS.outreacher);
+      await client.query("UPDATE app.contacts SET phone = '+34600000003' WHERE id = $1", [
+        OUTREACH.privateContact,
+      ]);
+      expect(
+        (
+          await client.query<{ done: boolean }>(
+            'SELECT private.merge_private_contact($1, $2) AS done',
+            [OUTREACH.privateContact, OUTREACH.berta],
+          )
+        ).rows,
+      ).toEqual([{ done: true }]);
+      expect(await visible(client, 'app.contacts', OUTREACH.privateContact)).toBe(false);
+      expect(
+        (
+          await client.query(
+            'SELECT person_name, email, emails_extra, phone FROM app.contacts WHERE id = $1',
+            [OUTREACH.berta],
+          )
+        ).rows,
+      ).toEqual([
+        {
+          person_name: 'Berta Ejemplo',
+          email: 'berta@ejemplo.test',
+          emails_extra: ['carla@ejemplo.test'],
+          phone: '+34600000003',
+        },
+      ]);
+      const kinds_ = async () =>
+        (
+          await client.query<{ kind: string }>(
+            "SELECT kind::text FROM app.contact_events WHERE contact_id = $1 AND kind IN ('created', 'shared') ORDER BY created_at, id",
+            [OUTREACH.berta],
+          )
+        ).rows.map((row) => row.kind);
+      expect(await kinds_()).toEqual(['created', 'created', 'shared']);
+      await as(client, USERS.both);
+      expect(await kinds_()).toEqual(['created', 'shared']);
     });
   });
 });

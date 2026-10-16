@@ -11,8 +11,10 @@ import { Select } from '@/outreach/Field';
 import { hasOrganisationFilters, organisationFiltersFromPage } from '@/outreach/filters';
 import { NewOrganisationForm } from '@/outreach/OrganisationForm';
 import { OutreachOnly } from '@/outreach/OutreachOnly';
+import { PrivateMark } from '@/outreach/PrivateMark';
 import { canOutreach, kindNames } from '@/outreach/text';
 import { ORGANISATION_KINDS } from '@/outreach/types';
+import { VisibilityFilter } from '@/outreach/VisibilityFilter';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import * as styles from '@/ui/styles';
@@ -81,6 +83,7 @@ const OrganisationsPage = async ({
           defaultValue={filters.kind}
           empty={t('organisations.anyKind')}
         />
+        <VisibilityFilter value={filters.visibility} />
         <div className={styles.rowActions} data-wide="">
           <button type="submit" className={styles.button}>
             {t('organisations.apply')}
@@ -124,6 +127,7 @@ const OrganisationsPage = async ({
                   ) : null}
                   <li>{t('organisations.contactsCount', { count: organisation.contacts })}</li>
                 </ul>
+                {organisation.private ? <PrivateMark label={t('outreach.private.mark')} /> : null}
               </li>
             ))}
           </ul>

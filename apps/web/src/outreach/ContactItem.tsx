@@ -20,11 +20,16 @@ export const ContactFlags = ({
   contact,
   words,
 }: {
-  contact: Pick<ContactSummary, 'needsReview' | 'hold' | 'anonymised'>;
-  words: Pick<SummaryWords, 'needsReview' | 'held' | 'anonymised'>;
+  contact: Pick<ContactSummary, 'needsReview' | 'hold' | 'anonymised' | 'private'>;
+  words: Pick<SummaryWords, 'needsReview' | 'held' | 'anonymised' | 'private'>;
 }) =>
-  contact.needsReview || contact.hold || contact.anonymised ? (
+  contact.needsReview || contact.hold || contact.anonymised || contact.private ? (
     <ul className={onboarding.reasons}>
+      {contact.private ? (
+        <li>
+          <Status kind="info" label={words.private} />
+        </li>
+      ) : null}
       {contact.anonymised ? (
         <li>
           <Status kind="info" label={words.anonymised} />

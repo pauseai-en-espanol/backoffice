@@ -29,6 +29,7 @@ describe('the contact filters', () => {
         responsable: 'yo',
         revisar: 'si',
         pausa: 'no',
+        quien: 'yo',
       }),
     ).toEqual({
       q: 'sindicato',
@@ -39,6 +40,7 @@ describe('the contact filters', () => {
       owner: 'me',
       review: 'yes',
       hold: 'no',
+      visibility: 'private',
     });
     expect(
       contactFiltersFromPage({ nivel: 'C', tipo: 'club', relacion: 'friend', responsable: 'x' }),
@@ -49,6 +51,9 @@ describe('the contact filters', () => {
     const filters = contactFiltersFromPage({ nivel: 'B', responsable: ID, revisar: 'no' });
     expect(contactPageQuery(filters)).toBe(`?nivel=B&responsable=${ID}&revisar=no`);
     expect(contactApiQuery(filters)).toBe(`?tier=B&owner=${ID}&review=false`);
+    // "Quién lo ve" (PLAN M5, step 6): `quien=equipo` in the address, `visibility=team` for the API.
+    expect(contactPageQuery({ ...NO_CONTACT_FILTERS, visibility: 'team' })).toBe('?quien=equipo');
+    expect(contactApiQuery({ ...NO_CONTACT_FILTERS, visibility: 'team' })).toBe('?visibility=team');
     expect(contactApiQuery({ ...NO_CONTACT_FILTERS, owner: 'me', hold: 'yes' })).toBe(
       '?owner=me&hold=true',
     );

@@ -74,6 +74,8 @@ export interface ContactInput {
   hold?: boolean;
   holdReason?: string | null;
   notes?: string | null;
+  /** "Solo yo" (PLAN M5, step 6): only when made, and false to share it with the team. */
+  private?: boolean;
 }
 
 /** The free-text fields a contact's form has, each sent trimmed or null. */
@@ -133,6 +135,9 @@ export const newContact = (read: Read): ContactInput => {
   input.hold = ticked(read('hold'));
   if (!input.hold) {
     delete input.holdReason;
+  }
+  if (read('visibility') === 'private') {
+    input.private = true;
   }
   return input;
 };
@@ -353,6 +358,8 @@ export interface OrganisationInput {
   kind?: OrganisationKind;
   territory?: string | null;
   website?: string | null;
+  /** "Solo yo" (PLAN M5, step 6): only when made, and false to share it with the team. */
+  private?: boolean;
 }
 
 const ORGANISATION_TEXTS = ['territory', 'website'] as const;
@@ -368,6 +375,9 @@ export const newOrganisation = (read: Read): OrganisationInput => {
     if (value !== null) {
       input[key] = value;
     }
+  }
+  if (read('visibility') === 'private') {
+    input.private = true;
   }
   return input;
 };

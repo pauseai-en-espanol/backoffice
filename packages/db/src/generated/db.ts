@@ -14,6 +14,7 @@ export type AppContactEventKind =
   | 'owner_changed'
   | 'reviewed'
   | 'sent'
+  | 'shared'
   | 'stage_changed'
   | 'status_changed';
 
@@ -272,6 +273,7 @@ export interface AppContactEvents {
   happened_on: Timestamp | null;
   id: Generated<string>;
   kind: AppContactEventKind;
+  private_to: string | null;
 }
 
 export interface AppContacts {
@@ -317,6 +319,7 @@ export interface AppContacts {
    * personal data
    */
   phone: string | null;
+  private_to: string | null;
   /**
    * personal data
    */
@@ -449,6 +452,7 @@ export interface AppOrganisationNotes {
   happened_on: Timestamp | null;
   id: Generated<string>;
   organisation_id: string;
+  private_to: string | null;
 }
 
 export interface AppOrganisations {
@@ -462,6 +466,7 @@ export interface AppOrganisations {
    * personal data
    */
   notes: string | null;
+  private_to: string | null;
   territory: string | null;
   updated_at: Generated<Timestamp>;
   updated_by: string | null;

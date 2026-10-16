@@ -72,6 +72,8 @@ specified in the M1 and M3 migrations.
 | `organisations`            | Outreach organisations (their `notes` column, no longer written, became their first note)  | Outreach   |
 | `organisation_notes`       | An organisation's timeline of notes. Append-only. `happened_on`: its day (M5, step 6)      | Outreach   |
 | `contacts`                 | Outreach contacts, tier, relationship stage, sources, `needs_review`                       | Outreach   |
+|                            | `private_to` on these four outreach tables: the one staff member who alone sees a row, or  | Outreach   |
+|                            | null for the team's ("Solo yo", M5, step 6)                                                |            |
 | `campaigns`                | Goal, language, sender, status, owner                                                      | Outreach   |
 | `campaign_templates`       | Per tier: subject, body with merge fields, word limit, version                             | Outreach   |
 | `campaign_anchors`         | Evidence paragraphs and their sources                                                      | Outreach   |

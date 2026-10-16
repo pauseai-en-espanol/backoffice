@@ -70,6 +70,7 @@ const target = (
     hold,
     tags: [],
     anonymised: false,
+    private: false,
   },
   status,
   owner: owner === null ? null : { userId: owner, displayName: 'Persona de ejemplo' },

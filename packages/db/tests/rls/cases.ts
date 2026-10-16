@@ -19,6 +19,9 @@ export const expectedOutcome = (principal: Principal, rule: Rule): 'allow' | 'de
   }
   const admitted = principal.channel === undefined ? undefined : rule[principal.channel];
   const held = ROLES_OF[principal.userId] ?? [];
+  if (rule.only && !rule.only.includes(principal.userId)) {
+    return 'deny';
+  }
   return admitted?.some((role) => held.includes(role)) ? 'allow' : 'deny';
 };
 

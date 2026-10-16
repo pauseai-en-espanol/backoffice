@@ -26,6 +26,8 @@ import {
 export interface Rule {
   web?: readonly StaffRole[];
   bot?: readonly StaffRole[];
+  /** Of those the roles admit, only these users: a private record's own person (PLAN M5, step 6). */
+  only?: readonly string[];
 }
 
 const ANY_STAFF: readonly StaffRole[] = ['admin', 'onboarding', 'outreach'];
@@ -34,6 +36,8 @@ const ADMIN: Rule = { web: ['admin'] };
 const ONBOARDING: Rule = { web: ['admin', 'onboarding'] };
 /** Outreach staff and admins, through the staff app; never the bot (outreach spec). */
 const OUTREACH_STAFF: Rule = { web: ['admin', 'outreach'] };
+/** A record private to the outreacher ("Solo yo", PLAN M5, step 6): they alone, not other outreach staff nor admins. */
+const OUTREACHER_ALONE: Rule = { ...OUTREACH_STAFF, only: [USERS.outreacher] };
 const NOBODY: Rule = {};
 
 export interface Row {
@@ -493,12 +497,37 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         update: { set: "territory = 'Teruel'", rule: OUTREACH_STAFF },
         delete: NOBODY,
       },
+      {
+        id: 'a private organisation',
+        where: `id = ${quote(OUTREACH.privateOrganisation)}`,
+        select: OUTREACHER_ALONE,
+        update: { set: "territory = 'Teruel'", rule: OUTREACHER_ALONE },
+        delete: NOBODY,
+      },
+      {
+        id: 'sharing a private organisation',
+        where: `id = ${quote(OUTREACH.privateOrganisation)}`,
+        select: OUTREACHER_ALONE,
+        update: { set: 'private_to = NULL', rule: OUTREACHER_ALONE },
+      },
+      {
+        id: 'giving a private organisation to someone else',
+        where: `id = ${quote(OUTREACH.privateOrganisation)}`,
+        select: OUTREACHER_ALONE,
+        update: { set: `private_to = ${user('both')}`, rule: NOBODY },
+      },
     ],
     inserts: [
       {
         id: 'an organisation',
         sql: "INSERT INTO app.organisations (name, kind) VALUES ('Medio de ejemplo', 'media')",
         rule: OUTREACH_STAFF,
+      },
+      {
+        id: 'an organisation private to the outreacher',
+        sql: `INSERT INTO app.organisations (name, kind, private_to)
+              VALUES ('Medio privado de ejemplo', 'media', ${user('outreacher')})`,
+        rule: OUTREACHER_ALONE,
       },
     ],
   },
@@ -511,6 +540,13 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         update: { set: "body = 'Cambiada'", rule: NOBODY },
         delete: NOBODY,
       },
+      {
+        id: 'a private note on a team organisation',
+        where: `id = ${quote(OUTREACH.privateOrganisationNote)}`,
+        select: OUTREACHER_ALONE,
+        update: { set: 'private_to = NULL', rule: NOBODY },
+        delete: NOBODY,
+      },
     ],
     inserts: [
       {
@@ -518,6 +554,18 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         sql: `INSERT INTO app.organisation_notes (organisation_id, body, happened_on)
               VALUES (${quote(OUTREACH.organisation)}, 'Una nota', DATE '2026-01-15')`,
         rule: OUTREACH_STAFF,
+      },
+      {
+        id: 'a private note on a team organisation',
+        sql: `INSERT INTO app.organisation_notes (organisation_id, body, private_to)
+              VALUES (${quote(OUTREACH.organisation)}, 'Una nota', ${user('outreacher')})`,
+        rule: OUTREACHER_ALONE,
+      },
+      {
+        id: 'a note on a private organisation',
+        sql: `INSERT INTO app.organisation_notes (organisation_id, body)
+              VALUES (${quote(OUTREACH.privateOrganisation)}, 'Una nota')`,
+        rule: OUTREACHER_ALONE,
       },
     ],
   },
@@ -530,12 +578,31 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         update: { set: "stage = 'qualified'", rule: OUTREACH_STAFF },
         delete: NOBODY,
       },
+      {
+        id: 'a private contact',
+        where: `id = ${quote(OUTREACH.privateContact)}`,
+        select: OUTREACHER_ALONE,
+        update: { set: "stage = 'qualified'", rule: OUTREACHER_ALONE },
+        delete: NOBODY,
+      },
+      {
+        id: 'giving a private contact to someone else',
+        where: `id = ${quote(OUTREACH.privateContact)}`,
+        select: OUTREACHER_ALONE,
+        update: { set: `private_to = ${user('both')}`, rule: NOBODY },
+      },
     ],
     inserts: [
       {
         id: 'a contact to review',
         sql: "INSERT INTO app.contacts (org_display, needs_review) VALUES ('Universidad Ejemplo', true)",
         rule: OUTREACH_STAFF,
+      },
+      {
+        id: 'a contact private to the outreacher',
+        sql: `INSERT INTO app.contacts (org_display, needs_review, private_to)
+              VALUES ('Universidad Ejemplo', true, ${user('outreacher')})`,
+        rule: OUTREACHER_ALONE,
       },
     ],
   },
@@ -630,6 +697,18 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         update: { set: "body = 'Cambiado'", rule: NOBODY },
         delete: NOBODY,
       },
+      {
+        id: 'a private note on a team contact',
+        where: `id = ${quote(OUTREACH.privateNote)}`,
+        select: OUTREACHER_ALONE,
+        update: { set: 'private_to = NULL', rule: NOBODY },
+        delete: NOBODY,
+      },
+      {
+        id: "a private contact's first event",
+        where: `contact_id = ${quote(OUTREACH.privateContact)} AND kind = 'created'`,
+        select: OUTREACHER_ALONE,
+      },
     ],
     inserts: [
       {
@@ -643,6 +722,18 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         sql: `INSERT INTO app.contact_events (contact_id, kind, body, happened_on)
               VALUES (${quote(OUTREACH.berta)}, 'note', 'Una nota', DATE '2026-01-15')`,
         rule: OUTREACH_STAFF,
+      },
+      {
+        id: 'a private note on a team contact',
+        sql: `INSERT INTO app.contact_events (contact_id, kind, body, private_to)
+              VALUES (${quote(OUTREACH.berta)}, 'note', 'Una nota', ${user('outreacher')})`,
+        rule: OUTREACHER_ALONE,
+      },
+      {
+        id: 'a note on a private contact',
+        sql: `INSERT INTO app.contact_events (contact_id, kind, body)
+              VALUES (${quote(OUTREACH.privateContact)}, 'note', 'Una nota')`,
+        rule: OUTREACHER_ALONE,
       },
       {
         id: 'a send, written by hand',

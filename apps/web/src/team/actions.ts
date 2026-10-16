@@ -16,6 +16,10 @@ export const sendPasswordLink = (userId: string) => send('POST', `${staff(userId
 export const linkPerson = (userId: string, personId: string | null) =>
   send('PUT', `${staff(userId)}/person`, { personId });
 
+/** Hands a deactivated member's private outreach records to someone in outreach (PLAN M5, step 6). */
+export const handOverPrivate = (userId: string, to: string) =>
+  send('POST', `${staff(userId)}/private-records`, { to });
+
 export const revokeInvitation = (id: string) => send('POST', `${invitation(id)}/revoke`);
 
 export const deleteInvitation = (id: string) => send('DELETE', invitation(id));

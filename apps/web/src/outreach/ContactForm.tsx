@@ -23,6 +23,7 @@ import {
   TREATMENTS,
 } from './types';
 import { useDisclosure } from './useDisclosure';
+import { VisibilityChoice, type VisibilityText } from './Visibility';
 
 export interface ContactFormText {
   orgDisplay: string;
@@ -68,6 +69,8 @@ export interface ContactFormText {
   holdReason: string;
   notes: string;
   notesWarning: string;
+  /** "Quién lo ve", when it's made (PLAN M5, step 6). */
+  visibility: VisibilityText;
   create: string;
   edit: string;
   save: string;
@@ -391,6 +394,7 @@ export const NewContactForm = ({
         </span>
       </div>
       <Field id="nuevo-holdReason" name="holdReason" label={text.holdReason} maxLength={500} />
+      <VisibilityChoice prefix="nuevo-quien" text={text.visibility} />
       <FormError id="nuevo-error" message={error} />
       <div>
         <button type="submit" className={ui.button} aria-disabled={write.pending}>

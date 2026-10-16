@@ -38,17 +38,24 @@ export const createContact = (input: ContactInput) => send('POST', CONTACTS, inp
 export const updateContact = (id: string, change: ContactInput) =>
   send('PATCH', at(CONTACTS, id), change);
 
-/** A note on a timeline, a contact's or an organisation's; `happenedOn` when it happened another day (PLAN M5). */
+/**
+ * A note on a timeline, a contact's or an organisation's (PLAN M5, step 6): `happenedOn` when it happened another day,
+ * `isPrivate` for its writer alone.
+ */
 export const addNote = (
   on: { kind: 'contact' | 'organisation'; id: string },
   body: string,
-  happenedOn: string,
+  { happenedOn, isPrivate }: { happenedOn: string; isPrivate: boolean },
 ) =>
-  send(
-    'POST',
-    `${at(on.kind === 'contact' ? CONTACTS : ORGANISATIONS, on.id)}/notes`,
-    happenedOn === '' ? { body } : { body, happenedOn },
-  );
+  send('POST', `${at(on.kind === 'contact' ? CONTACTS : ORGANISATIONS, on.id)}/notes`, {
+    body,
+    ...(happenedOn === '' ? {} : { happenedOn }),
+    ...(isPrivate ? { private: true } : {}),
+  });
+
+/** Sharing one's private contact into a team contact that is the same person (PLAN M5, step 6). */
+export const mergeContact = (id: string, into: string) =>
+  send('POST', `${at(CONTACTS, id)}/merge`, { into });
 
 /** Admins: the contact's details, notes and timeline words go for good; they stay held. */
 export const eraseContact = (id: string) => send('POST', `${at(CONTACTS, id)}/erase`);

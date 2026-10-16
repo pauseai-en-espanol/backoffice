@@ -1,0 +1,236 @@
+[
+  {
+    "name": "anyone in outreach reads someone's private contact",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "CREATE POLICY outreach_read ON app.contacts FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach'))\n         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id())));",
+    "new": "CREATE POLICY outreach_read ON app.contacts FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "anyone in outreach reads someone's private organisation",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "CREATE POLICY outreach_read ON app.organisations FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach'))\n         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id())));",
+    "new": "CREATE POLICY outreach_read ON app.organisations FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "anyone in outreach reads someone's private note on a team contact",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "CREATE POLICY outreach_read ON app.contact_events FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach'))\n         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id()))\n         AND EXISTS",
+    "new": "CREATE POLICY outreach_read ON app.contact_events FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach'))\n         AND EXISTS",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a private contact's timeline shows to anyone in outreach",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id()))\n         AND EXISTS (SELECT 1 FROM app.contacts c WHERE c.id = contact_id));\nDROP POLICY outreach_insert ON app.contact_events;",
+    "new": "         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id()) OR true));\nDROP POLICY outreach_insert ON app.contact_events;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "anyone in outreach reads someone's private note on a team organisation",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "CREATE POLICY outreach_read ON app.organisation_notes FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach'))\n         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id()))\n",
+    "new": "CREATE POLICY outreach_read ON app.organisation_notes FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach'))\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a contact can be made private to someone else",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "CREATE POLICY outreach_insert ON app.contacts FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'outreach'))\n              AND (private_to IS NULL OR private_to = (SELECT private.current_user_id())));",
+    "new": "CREATE POLICY outreach_insert ON app.contacts FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'outreach')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db",
+    "equivalent": "the new contact's own 'created' event inherits its privacy, and the event's insert policy refuses one private to someone else (42501); the contact's check is defence in depth"
+  },
+  {
+    "name": "one's private contact can be given to someone else",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id())))\n  WITH CHECK ((SELECT private.staff_can('admin', 'outreach'))\n              AND (private_to IS NULL OR private_to = (SELECT private.current_user_id())));\n\n-- An event",
+    "new": "         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id())))\n  WITH CHECK ((SELECT private.staff_can('admin', 'outreach')));\n\n-- An event",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db",
+    "equivalent": "Postgres checks an updated row against the read policy too when the update reads the table (its WHERE), which refuses a row private to someone else (42501); the update's check is defence in depth"
+  },
+  {
+    "name": "a team contact or organisation can be made private",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "    IF TG_OP = 'UPDATE' AND OLD.private_to IS NULL AND NEW.private_to IS NOT NULL THEN",
+    "new": "    IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a team contact may belong to a private organisation",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "        IF NOT FOUND OR (holder IS NOT NULL AND holder IS DISTINCT FROM NEW.private_to) THEN",
+    "new": "        IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "what is written on a private contact is the team's",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "CREATE TRIGGER privacy BEFORE INSERT ON app.contact_events\n  FOR EACH ROW EXECUTE FUNCTION private.inherit_privacy();",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "what is written on a private organisation is the team's",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "CREATE TRIGGER privacy BEFORE INSERT ON app.organisation_notes\n  FOR EACH ROW EXECUTE FUNCTION private.inherit_privacy();",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a campaign writes to a private contact",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "CREATE TRIGGER shared AFTER INSERT ON app.campaign_targets\n  FOR EACH ROW EXECUTE FUNCTION private.target_shared();",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "sharing a contact leaves no trace on its timeline",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "      INSERT INTO app.contact_events (contact_id, kind) VALUES (NEW.id, 'shared');",
+    "new": "      NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "anyone in outreach looks up a rights request, private contacts included",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "    wanted text := lower(btrim(query));\n  BEGIN\n    IF NOT private.staff_can('admin') THEN",
+    "new": "    wanted text := lower(btrim(query));\n  BEGIN\n    IF NOT private.staff_can('admin', 'outreach') THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a contact's export isn't recorded",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "    INSERT INTO app.exports (kind, filter, row_count)\n    VALUES ('contact_json', jsonb_build_object('contact', contact), 1);",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a contact's export says which staff member keeps it",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "'contact', to_jsonb(c) - ARRAY['private_to', 'owner_id', 'created_by', 'updated_by'],",
+    "new": "'contact', to_jsonb(c) - ARRAY['owner_id', 'created_by', 'updated_by'],",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an active member's private records are handed over",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "    IF NOT EXISTS (SELECT 1 FROM app.staff s WHERE s.user_id = departed AND NOT s.active) THEN",
+    "new": "    IF NOT EXISTS (SELECT 1 FROM app.staff s WHERE s.user_id = departed) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "private records go to someone outside outreach",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "                    WHERE s.user_id = heir AND s.active AND r.role IN ('admin', 'outreach')) THEN",
+    "new": "                    WHERE s.user_id = heir AND s.active) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a handover leaves the private notes behind",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "    UPDATE app.contact_events e SET private_to = heir WHERE e.private_to = departed;",
+    "new": "    UPDATE app.contact_events e SET private_to = heir WHERE false;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an active member's private records are counted for admins",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "                FROM app.staff s WHERE NOT s.active) r",
+    "new": "                FROM app.staff s) r",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "anyone merges someone else's private contact",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "     WHERE c.id = private_contact AND c.private_to = private.current_user_id() AND c.anonymised_at IS NULL",
+    "new": "     WHERE c.id = private_contact AND c.private_to IS NOT NULL AND c.anonymised_at IS NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge drops what the team contact lacked",
+    "file": "db/migrations/20261017120100_private_records.sql",
+    "old": "           phone = coalesce(c.phone, mine.phone),",
+    "new": "           phone = c.phone,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "Contactos ignores \"Quién lo ve\"",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "  if (filter.visibility) {\n    where.push(visibleAs(sql`c`, filter.visibility));\n  }",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a note asked for one's eyes only is the team's",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "  isPrivate === true ? sql`private.current_user_id()` : sql`NULL::uuid`;",
+    "new": "  isPrivate === true ? sql`NULL::uuid` : sql`NULL::uuid`;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "adding contacts to a campaign tries one's private ones",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": " AND c.anonymised_at IS NULL AND c.private_to IS NULL",
+    "new": " AND c.anonymised_at IS NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the API doesn't say a team record stays the team's",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "    (hint === 'shared' || hint === 'organisationPrivate' || hint === 'private')",
+    "new": "    (hint === 'organisationPrivate' || hint === 'private')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the staff app's lists ignore \"Quién lo ve\"",
+    "file": "apps/web/src/outreach/filters.ts",
+    "old": "  set('visibility', filters.visibility);",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/outreach/filters.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "\"Solo yo\" is lost when a contact is made",
+    "file": "apps/web/src/outreach/forms.ts",
+    "old": "  if (read('visibility') === 'private') {\n    input.private = true;\n  }\n  return input;\n};\n\n/**",
+    "new": "  return input;\n};\n\n/**",
+    "cmd": "pnpm exec vitest run src/outreach/forms.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the timeline doesn't say a contact was shared",
+    "file": "apps/web/src/outreach/timeline.ts",
+    "old": "    case 'shared':",
+    "new": "    case 'shared-no':",
+    "cmd": "pnpm exec vitest run src/outreach/timeline.spec.ts",
+    "cwd": "apps/web"
+  }
+]

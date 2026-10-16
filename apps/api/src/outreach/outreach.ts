@@ -69,7 +69,7 @@ const byDay = (alias: RawBuilder<unknown>) =>
 const CONTACT_COLUMNS = sql`
   c.id, c.org_display, c.organisation_id, o.name AS org_name, o.kind::text AS org_kind, c.person_name, c.role, c.tier,
   c.territory, c.sector, c.stage::text AS stage, c.owner_id, s.display_name AS owner_name, c.needs_review, c.hold,
-  c.tags, c.anonymised_at IS NOT NULL AS anonymised`;
+  c.tags, c.anonymised_at IS NOT NULL AS anonymised, c.private_to IS NOT NULL AS private`;
 const CONTACT_FROM = sql`
   app.contacts c
   LEFT JOIN app.organisations o ON o.id = c.organisation_id
@@ -93,6 +93,7 @@ interface ContactRow {
   hold: boolean;
   tags: string[];
   anonymised: boolean;
+  private: boolean;
 }
 
 const toContactSummary = (row: ContactRow) => ({
@@ -113,9 +114,23 @@ const toContactSummary = (row: ContactRow) => ({
   hold: row.hold,
   tags: row.tags,
   anonymised: row.anonymised,
+  /** "Solo yo" (PLAN M5, step 6): only its own person sees it, and so only they ever read this true. */
+  private: row.private,
 });
 
 export type ContactSummary = ReturnType<typeof toContactSummary>;
+
+/** "Solo yo" or "Equipo" (PLAN M5, step 6): one's own private records, or the team's. */
+export type Visibility = 'private' | 'team';
+
+const visibleAs = (alias: RawBuilder<unknown>, visibility: Visibility) =>
+  visibility === 'private'
+    ? sql`${alias}.private_to IS NOT NULL`
+    : sql`${alias}.private_to IS NULL`;
+
+/** `private_to` for a new record: the actor's, as the database knows them, or the team's (null). */
+const holderFor = (isPrivate: boolean | undefined) =>
+  isPrivate === true ? sql`private.current_user_id()` : sql`NULL::uuid`;
 
 export interface ContactFilter {
   q?: string | undefined;
@@ -127,6 +142,7 @@ export interface ContactFilter {
   owner?: string | undefined;
   review?: boolean | undefined;
   hold?: boolean | undefined;
+  visibility?: Visibility | undefined;
 }
 
 /** Contactos: by organisation, then person, at most 500. */
@@ -166,6 +182,9 @@ export const listContacts = async (
   }
   if (filter.hold !== undefined) {
     where.push(sql`c.hold = ${filter.hold}`);
+  }
+  if (filter.visibility) {
+    where.push(visibleAs(sql`c`, filter.visibility));
   }
   const { rows } = await sql<ContactRow>`
     SELECT ${CONTACT_COLUMNS} FROM ${CONTACT_FROM}
@@ -225,8 +244,19 @@ const assignments = <F extends Readonly<Record<string, readonly [string, string]
       };
     });
 
-export const createContact = async (trx: Transaction<DB>, input: ContactInput): Promise<string> => {
-  const set = assignments(CONTACT_FIELDS, input);
+/**
+ * "Solo yo" (true) or "Equipo" (false), as a column to set, or nothing when not asked (PLAN M5, step 6). The database
+ * takes a record from private to the team only, and private only for the actor.
+ */
+const privacy = (isPrivate: boolean | undefined) =>
+  isPrivate === undefined ? [] : [{ column: sql.ref('private_to'), value: holderFor(isPrivate) }];
+
+export const createContact = async (
+  trx: Transaction<DB>,
+  input: ContactInput,
+  isPrivate?: boolean,
+): Promise<string> => {
+  const set = [...assignments(CONTACT_FIELDS, input), ...privacy(isPrivate)];
   const { rows } = await sql<{ id: string }>`
     INSERT INTO app.contacts (${sql.join(set.map((a) => a.column))})
     VALUES (${sql.join(set.map((a) => a.value))}) RETURNING id`.execute(trx);
@@ -237,13 +267,14 @@ export const createContact = async (trx: Transaction<DB>, input: ContactInput): 
   return id;
 };
 
-/** Whether the contact was there to change: an erased one isn't. */
+/** Whether the contact was there to change: an erased one isn't. `isPrivate` false shares it with the team. */
 export const updateContact = async (
   trx: Transaction<DB>,
   id: string,
   input: ContactInput,
+  isPrivate?: boolean,
 ): Promise<boolean> => {
-  const set = assignments(CONTACT_FIELDS, input);
+  const set = [...assignments(CONTACT_FIELDS, input), ...privacy(isPrivate)];
   if (set.length === 0) {
     return (
       (
@@ -322,9 +353,11 @@ export const getContact = async (trx: Transaction<DB>, id: string) => {
       body: string | null;
       data: Record<string, unknown>;
       happened_on: string | null;
+      private: boolean;
     }>`
       SELECT e.id, e.kind::text AS kind, ${instant(sql`e.created_at`)} AS at, e.actor_id, s.display_name AS actor_name,
-             e.channel, e.campaign_id, e.body, e.data, to_char(e.happened_on, 'YYYY-MM-DD') AS happened_on
+             e.channel, e.campaign_id, e.body, e.data, to_char(e.happened_on, 'YYYY-MM-DD') AS happened_on,
+             e.private_to IS NOT NULL AS private
         FROM app.contact_events e LEFT JOIN app.staff s ON s.user_id = e.actor_id
        WHERE e.contact_id = ${id}
        ORDER BY ${byDay(sql`e`)}
@@ -339,6 +372,7 @@ export const getContact = async (trx: Transaction<DB>, id: string) => {
     body: event.body,
     data: event.data,
     happenedOn: event.happened_on,
+    private: event.private,
   }));
   return {
     contact: {
@@ -363,22 +397,81 @@ export const getContact = async (trx: Transaction<DB>, id: string) => {
   };
 };
 
-/** A note on a contact's timeline; `happenedOn` when what it tells happened another day (PLAN M5, step 6). */
+/**
+ * A note on a contact's timeline (PLAN M5, step 6): `happenedOn` when what it tells happened another day, `isPrivate`
+ * for the actor alone. On a private contact, the database makes it private whatever is asked.
+ */
 export const addContactNote = async (
   trx: Transaction<DB>,
   id: string,
   body: string,
-  happenedOn?: string,
+  {
+    happenedOn,
+    isPrivate,
+  }: { happenedOn?: string | undefined; isPrivate?: boolean | undefined } = {},
 ): Promise<void> => {
   await sql`
-    INSERT INTO app.contact_events (contact_id, kind, body, happened_on)
-    VALUES (${id}, 'note', ${body}, ${happenedOn ?? null}::date)`.execute(trx);
+    INSERT INTO app.contact_events (contact_id, kind, body, happened_on, private_to)
+    VALUES (${id}, 'note', ${body}, ${happenedOn ?? null}::date, ${holderFor(isPrivate)})`.execute(
+    trx,
+  );
 };
 
 /** Erasure, through the database's own function (admins only): whether it was done now. */
 export const eraseContact = async (trx: Transaction<DB>, id: string): Promise<boolean> =>
   (await sql<{ done: boolean }>`SELECT private.anonymise_contact(${id}) AS done`.execute(trx))
     .rows[0]?.done === true;
+
+/**
+ * Team contacts that may be the same person as this one: one shares an email or the phone (PLAN M5, step 6), for its
+ * own person to merge theirs into when sharing it. Only team contacts, which they can see anyway.
+ */
+export const teamMatches = async (trx: Transaction<DB>, id: string): Promise<ContactSummary[]> => {
+  const { rows } = await sql<ContactRow>`
+    SELECT ${CONTACT_COLUMNS} FROM ${CONTACT_FROM}
+     WHERE c.private_to IS NULL AND c.anonymised_at IS NULL AND c.id <> ${id}
+       AND EXISTS (SELECT 1 FROM app.contacts m
+                    WHERE m.id = ${id}
+                      AND ((m.email IS NOT NULL AND (c.email = m.email OR m.email = ANY (c.emails_extra)))
+                           OR c.email = ANY (m.emails_extra)
+                           OR (m.phone IS NOT NULL AND c.phone = m.phone)))
+     ORDER BY c.org_display, c.person_name NULLS FIRST, c.id
+     LIMIT 10`.execute(trx);
+  return rows.map(toContactSummary);
+};
+
+/** Sharing one's private contact into a team one, through the database's own function: whether it was done. */
+export const mergePrivateContact = async (
+  trx: Transaction<DB>,
+  id: string,
+  into: string,
+): Promise<boolean> =>
+  (
+    await sql<{
+      done: boolean;
+    }>`SELECT private.merge_private_contact(${id}, ${into}) AS done`.execute(trx)
+  ).rows[0]?.done === true;
+
+/** A rights request's contacts, private ones too (admins, the database's own): exact email, phone or name. */
+export const rightsContacts = async (trx: Transaction<DB>, query: string) => {
+  const { rows } = await sql<{
+    id: string;
+    org_display: string;
+    person_name: string | null;
+    is_private: boolean;
+  }>`SELECT * FROM private.rights_contacts(${query})`.execute(trx);
+  return rows.map((row) => ({
+    id: row.id,
+    orgDisplay: row.org_display,
+    personName: row.person_name,
+    private: row.is_private,
+  }));
+};
+
+/** Everything kept about a contact, private notes too, for a rights request (admins); the export is recorded. */
+export const exportContact = async (trx: Transaction<DB>, id: string): Promise<unknown> =>
+  (await sql<{ data: unknown }>`SELECT private.export_contact(${id}) AS data`.execute(trx)).rows[0]
+    ?.data ?? undefined;
 
 // Organisations -----------------------------------------------------------------------------------------------------
 
@@ -392,10 +485,14 @@ export const ORGANISATION_FIELDS = {
 
 export type OrganisationInput = Partial<Record<keyof typeof ORGANISATION_FIELDS, unknown>>;
 
-/** Organizaciones, by name, with how many contacts each has, at most 500. */
+/** Organizaciones, by name, with how many contacts each has that the actor sees, at most 500. */
 export const listOrganisations = async (
   trx: Transaction<DB>,
-  filter: { q?: string | undefined; kind?: OrganisationKind | undefined },
+  filter: {
+    q?: string | undefined;
+    kind?: OrganisationKind | undefined;
+    visibility?: Visibility | undefined;
+  },
 ) => {
   const where: RawBuilder<unknown>[] = [sql`true`];
   if (filter.q?.trim()) {
@@ -404,6 +501,9 @@ export const listOrganisations = async (
   if (filter.kind) {
     where.push(sql`o.kind = ${filter.kind}::app.organisation_kind`);
   }
+  if (filter.visibility) {
+    where.push(visibleAs(sql`o`, filter.visibility));
+  }
   const { rows } = await sql<{
     id: string;
     name: string;
@@ -411,8 +511,9 @@ export const listOrganisations = async (
     territory: string | null;
     website: string | null;
     contacts: number;
+    private: boolean;
   }>`
-    SELECT o.id, o.name, o.kind::text AS kind, o.territory, o.website,
+    SELECT o.id, o.name, o.kind::text AS kind, o.territory, o.website, o.private_to IS NOT NULL AS private,
            (SELECT count(*)::int FROM app.contacts c WHERE c.organisation_id = o.id AND c.anonymised_at IS NULL)
              AS contacts
       FROM app.organisations o
@@ -430,9 +531,11 @@ export const getOrganisation = async (trx: Transaction<DB>, id: string) => {
       kind: OrganisationKind;
       territory: string | null;
       website: string | null;
+      private: boolean;
       created_at: string;
     }>`
-      SELECT id, name, kind::text AS kind, territory, website, ${instant(sql`created_at`)} AS created_at
+      SELECT id, name, kind::text AS kind, territory, website, private_to IS NOT NULL AS private,
+             ${instant(sql`created_at`)} AS created_at
         FROM app.organisations WHERE id = ${id}`.execute(trx)
   ).rows[0];
   if (!organisation) {
@@ -453,9 +556,10 @@ export const getOrganisation = async (trx: Transaction<DB>, id: string) => {
       actor_id: string | null;
       actor_name: string | null;
       channel: 'web' | 'bot' | null;
+      private: boolean;
     }>`
       SELECT n.id, n.body, to_char(n.happened_on, 'YYYY-MM-DD') AS happened_on, ${instant(sql`n.created_at`)} AS at,
-             n.actor_id, s.display_name AS actor_name, n.channel
+             n.actor_id, s.display_name AS actor_name, n.channel, n.private_to IS NOT NULL AS private
         FROM app.organisation_notes n LEFT JOIN app.staff s ON s.user_id = n.actor_id
        WHERE n.organisation_id = ${id}
        ORDER BY ${byDay(sql`n`)}
@@ -467,6 +571,7 @@ export const getOrganisation = async (trx: Transaction<DB>, id: string) => {
     at: note.at,
     actor: note.actor_id ? { userId: note.actor_id, displayName: note.actor_name } : null,
     channel: note.channel,
+    private: note.private,
   }));
   const { created_at: createdAt, ...rest } = organisation;
   return { organisation: { ...rest, createdAt }, contacts, notes };
@@ -475,23 +580,27 @@ export const getOrganisation = async (trx: Transaction<DB>, id: string) => {
 export const organisationExists = async (trx: Transaction<DB>, id: string): Promise<boolean> =>
   (await sql`SELECT 1 FROM app.organisations WHERE id = ${id}`.execute(trx)).rows.length === 1;
 
-/** A note on an organisation's timeline; `happenedOn` when what it tells happened another day (PLAN M5, step 6). */
+/** A note on an organisation's timeline, as a contact's (`addContactNote`). */
 export const addOrganisationNote = async (
   trx: Transaction<DB>,
   id: string,
   body: string,
-  happenedOn?: string,
+  {
+    happenedOn,
+    isPrivate,
+  }: { happenedOn?: string | undefined; isPrivate?: boolean | undefined } = {},
 ): Promise<void> => {
   await sql`
-    INSERT INTO app.organisation_notes (organisation_id, body, happened_on)
-    VALUES (${id}, ${body}, ${happenedOn ?? null}::date)`.execute(trx);
+    INSERT INTO app.organisation_notes (organisation_id, body, happened_on, private_to)
+    VALUES (${id}, ${body}, ${happenedOn ?? null}::date, ${holderFor(isPrivate)})`.execute(trx);
 };
 
 export const createOrganisation = async (
   trx: Transaction<DB>,
   input: OrganisationInput,
+  isPrivate?: boolean,
 ): Promise<string> => {
-  const set = assignments(ORGANISATION_FIELDS, input);
+  const set = [...assignments(ORGANISATION_FIELDS, input), ...privacy(isPrivate)];
   const { rows } = await sql<{ id: string }>`
     INSERT INTO app.organisations (${sql.join(set.map((a) => a.column))})
     VALUES (${sql.join(set.map((a) => a.value))}) RETURNING id`.execute(trx);
@@ -502,12 +611,14 @@ export const createOrganisation = async (
   return id;
 };
 
+/** Whether the organisation was there to change; `isPrivate` false shares it with the team. */
 export const updateOrganisation = async (
   trx: Transaction<DB>,
   id: string,
   input: OrganisationInput,
+  isPrivate?: boolean,
 ): Promise<boolean> => {
-  const set = assignments(ORGANISATION_FIELDS, input);
+  const set = [...assignments(ORGANISATION_FIELDS, input), ...privacy(isPrivate)];
   if (set.length === 0) {
     return (
       (await sql`SELECT 1 FROM app.organisations WHERE id = ${id}`.execute(trx)).rows.length === 1
@@ -804,7 +915,10 @@ export const deleteAnchor = async (
   return rows.length === 1 ? 'deleted' : 'notFound';
 };
 
-/** Adds contacts to a campaign as pending, leaving those already in it: how many were added. */
+/**
+ * Adds contacts to a campaign as pending, leaving those already in it and private ones (a campaign writes to team
+ * contacts only, PLAN M5, step 6): how many were added.
+ */
 export const addTargets = async (
   trx: Transaction<DB>,
   campaign: string,
@@ -813,7 +927,7 @@ export const addTargets = async (
   const { rows } = await sql<{ id: string }>`
     INSERT INTO app.campaign_targets (campaign_id, contact_id)
     SELECT ${campaign}, c.id FROM app.contacts c
-     WHERE c.id = ANY (${contactIds}::uuid[]) AND c.anonymised_at IS NULL
+     WHERE c.id = ANY (${contactIds}::uuid[]) AND c.anonymised_at IS NULL AND c.private_to IS NULL
     ON CONFLICT (campaign_id, contact_id) DO NOTHING
     RETURNING id`.execute(trx);
   return rows.length;

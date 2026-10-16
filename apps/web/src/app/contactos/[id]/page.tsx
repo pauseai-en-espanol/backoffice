@@ -14,14 +14,16 @@ import {
   holdText,
   noteText,
   reviewText,
+  shareText,
 } from '@/outreach/contact-text';
 import { ContactEditor } from '@/outreach/ContactForm';
 import { ContactFlags } from '@/outreach/ContactItem';
 import { EraseContact, HoldPanel, NoteForm, ReviewPanel } from '@/outreach/ContactPanels';
-import { getContact, getOrganisations } from '@/outreach/data';
+import { getContact, getMatches, getOrganisations } from '@/outreach/data';
 import { EntryWhen } from '@/outreach/EntryWhen';
 import { contactName, isWebLink } from '@/outreach/format';
 import { OutreachForbidden, OutreachOnly, Unavailable } from '@/outreach/OutreachOnly';
+import { PrivateMark } from '@/outreach/PrivateMark';
 import * as outreach from '@/outreach/styles';
 import {
   canOutreach,
@@ -33,6 +35,7 @@ import {
   treatmentNames,
 } from '@/outreach/text';
 import { byHappened, describeContactEvent } from '@/outreach/timeline';
+import { SharePanel } from '@/outreach/Visibility';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { getTeam } from '@/team/data';
@@ -61,7 +64,7 @@ const ContactPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   const [page, team, organisations] = await Promise.all([
     getContact(id),
     getTeam(),
-    getOrganisations({ q: '', kind: '' }),
+    getOrganisations({ q: '', kind: '', visibility: '' }),
   ]);
   if (isForbidden(page) || isUnavailable(page)) {
     return (
@@ -70,6 +73,9 @@ const ContactPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   }
 
   const { contact, targets, timeline } = page;
+  // One's private contact: the team's that may be the same person, to merge it into when sharing (PLAN M5, step 6).
+  const found = contact.private && !contact.anonymised ? await getMatches(contact.id) : [];
+  const matches = isUnavailable(found) ? [] : found;
   const words = summaryWords(t);
   const members = isUnavailable(team) ? [] : team.staff;
   const owners = outreachOwners(members);
@@ -209,6 +215,21 @@ const ContactPage = async ({ params }: { params: Promise<{ id: string }> }) => {
 
             {readOnly ? null : (
               <>
+                {contact.private ? (
+                  <section className={onboarding.section} aria-labelledby="compartir">
+                    <h2 id="compartir" className={styles.h3}>
+                      {t('outreach.private.share')}
+                    </h2>
+                    <SharePanel
+                      record={{ kind: 'contact', id: contact.id }}
+                      matches={matches.map((match) => ({
+                        id: match.id,
+                        name: `${contactName(match, words)} · ${match.orgDisplay}`,
+                      }))}
+                      text={shareText(t, 'contact')}
+                    />
+                  </section>
+                ) : null}
                 <section className={onboarding.section} aria-labelledby="revision">
                   <h2 id="revision" className={styles.h3}>
                     {t('contacts.reviewTitle')}
@@ -225,7 +246,10 @@ const ContactPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                   <h2 id="nota" className={styles.h3}>
                     {t('contacts.noteTitle')}
                   </h2>
-                  <NoteForm on={{ kind: 'contact', id: contact.id }} text={noteText(t)} />
+                  <NoteForm
+                    on={{ kind: 'contact', id: contact.id, private: contact.private }}
+                    text={noteText(t)}
+                  />
                 </section>
               </>
             )}
@@ -361,6 +385,9 @@ const ContactPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                     return (
                       <li key={event.id}>
                         <strong>{described.title}</strong>
+                        {event.private && !contact.private ? (
+                          <PrivateMark label={words.private} />
+                        ) : null}
                         <EntryWhen
                           happenedOn={event.happenedOn}
                           at={event.at}

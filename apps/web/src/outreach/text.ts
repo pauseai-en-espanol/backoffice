@@ -64,6 +64,8 @@ export const summaryWords = (t: Translator) => ({
   noOwner: t('outreach.summary.noOwner'),
   territory: t('outreach.summary.territory'),
   relationship: t('outreach.summary.relationship'),
+  /** "Solo tú lo ves" (PLAN M5, step 6). */
+  private: t('outreach.private.mark'),
 });
 
 export type SummaryWords = ReturnType<typeof summaryWords>;
@@ -87,6 +89,10 @@ export const outreachErrors = (t: Translator): Record<string, string> => ({
   unavailable: t('web.unavailable.body'),
   needsReview: t('outreach.errors.needsReview'),
   sent: t('outreach.errors.sent'),
+  // Private records (PLAN M5, step 6).
+  shared: t('outreach.private.errors.shared'),
+  organisationPrivate: t('outreach.private.errors.organisationPrivate'),
+  private: t('outreach.private.errors.private'),
   inUse: t('outreach.errors.inUse'),
   reason: t('outreach.fields.reason'),
   sources: t('outreach.fields.sources'),

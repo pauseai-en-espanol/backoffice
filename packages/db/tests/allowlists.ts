@@ -14,12 +14,19 @@ export const EXECUTE_ALLOWLIST: readonly string[] = [
   'pauseai_backoffice_app private.current_aal()',
   'pauseai_backoffice_app private.current_channel()',
   'pauseai_backoffice_app private.current_user_id()',
+  // Outreach's private records (PLAN M5, step 6): a rights request's export and lookup, and a departed member's
+  // records, for admins; sharing one's own private contact into a team one, for its own person.
+  'pauseai_backoffice_app private.export_contact(contact uuid)',
   'pauseai_backoffice_app private.fold_name(input text)',
+  'pauseai_backoffice_app private.hand_over_private(departed uuid, heir uuid)',
   'pauseai_backoffice_app private.import_csv(file_sha256 text, rows jsonb)',
   'pauseai_backoffice_app private.merge_people(survivor uuid, merged uuid)',
+  'pauseai_backoffice_app private.merge_private_contact(private_contact uuid, team_contact uuid)',
   'pauseai_backoffice_app private.pending_invitation(token_hash text)',
+  'pauseai_backoffice_app private.private_records()',
   'pauseai_backoffice_app private.report_leave(person uuid, left_on date)',
   'pauseai_backoffice_app private.resolve_intake(intake_id uuid, decision text, target uuid)',
+  'pauseai_backoffice_app private.rights_contacts(query text)',
   'pauseai_backoffice_app private.staff_can(VARIADIC roles app.staff_role[])',
   'pauseai_backoffice_app private.staff_person_suggestions()',
   'pauseai_backoffice_app private.submit_intake(source app.source_kind, external_id text, payload jsonb, decision text, target uuid)',
@@ -53,13 +60,21 @@ export const SECURITY_DEFINER_ALLOWLIST: readonly string[] = [
   // The census form's two (ADR-0002 §7), for the public role alone.
   'private.census_form',
   'private.claim_person',
+  // Outreach's private records (PLAN M5, step 6), past the policies that hide them: for admins, a rights request's
+  // export (recorded) and lookup by an exact email, phone or name, and a departed member's records, counted (never
+  // shown) and handed to someone in outreach; for a private contact's own person, its merge into a team contact.
+  'private.export_contact',
+  'private.hand_over_private',
   'private.import_csv',
   'private.ingest_airtable',
   'private.keep_an_admin',
   'private.merge_people',
+  'private.merge_private_contact',
   'private.pending_invitation',
+  'private.private_records',
   'private.report_leave',
   'private.resolve_intake',
+  'private.rights_contacts',
   'private.staff_can',
   // A team account's person, suggested by a shared email (PLAN M5): admins only, ids only, reaching `auth`.
   'private.staff_person_suggestions',

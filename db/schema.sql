@@ -118,7 +118,8 @@ CREATE TYPE app.contact_event_kind AS ENUM (
     'owner_changed',
     'status_changed',
     'sent',
-    'reviewed'
+    'reviewed',
+    'shared'
 );
 
 
@@ -1083,6 +1084,9 @@ CREATE FUNCTION private.contact_timeline() RETURNS trigger
               jsonb_build_object('stage', NEW.stage));
       RETURN NULL;
     END IF;
+    IF OLD.private_to IS NOT NULL AND NEW.private_to IS NULL THEN
+      INSERT INTO app.contact_events (contact_id, kind) VALUES (NEW.id, 'shared');
+    END IF;
     IF NEW.stage IS DISTINCT FROM OLD.stage THEN
       INSERT INTO app.contact_events (contact_id, kind, data)
       VALUES (NEW.id, 'stage_changed', jsonb_build_object('from', OLD.stage, 'to', NEW.stage));
@@ -1153,6 +1157,50 @@ CREATE FUNCTION private.erased_ref(source app.source_kind, external_id text) RET
 ALTER FUNCTION private.erased_ref(source app.source_kind, external_id text) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: export_contact(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.export_contact(contact uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    result jsonb;
+  BEGIN
+    IF NOT private.staff_can('admin') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    SELECT jsonb_build_object(
+             'contact', to_jsonb(c) - ARRAY['private_to', 'owner_id', 'created_by', 'updated_by'],
+             'organisation', (SELECT jsonb_build_object('name', o.name, 'kind', o.kind)
+                                FROM app.organisations o WHERE o.id = c.organisation_id),
+             'campaigns', coalesce((SELECT jsonb_agg(jsonb_build_object(
+                                             'campaign', ca.name, 'status', t.status, 'sentAt', t.sent_at,
+                                             'repliedAt', t.replied_at, 'meetingAt', t.meeting_at,
+                                             'nextAction', t.next_action, 'notes', t.notes)
+                                           ORDER BY t.created_at)
+                                      FROM app.campaign_targets t JOIN app.campaigns ca ON ca.id = t.campaign_id
+                                     WHERE t.contact_id = c.id), '[]'::jsonb),
+             'timeline', coalesce((SELECT jsonb_agg(jsonb_build_object(
+                                            'kind', e.kind, 'at', e.created_at, 'happenedOn', e.happened_on,
+                                            'body', e.body, 'data', e.data)
+                                          ORDER BY e.created_at, e.id)
+                                     FROM app.contact_events e WHERE e.contact_id = c.id), '[]'::jsonb))
+      INTO result
+      FROM app.contacts c WHERE c.id = contact;
+    IF result IS NULL THEN
+      RETURN NULL;
+    END IF;
+    INSERT INTO app.exports (kind, filter, row_count)
+    VALUES ('contact_json', jsonb_build_object('contact', contact), 1);
+    RETURN result;
+  END
+  $$;
+
+
+ALTER FUNCTION private.export_contact(contact uuid) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: fold_name(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1192,6 +1240,52 @@ CREATE FUNCTION private.forbid_mutation() RETURNS trigger
 
 
 ALTER FUNCTION private.forbid_mutation() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: hand_over_private(uuid, uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.hand_over_private(departed uuid, heir uuid) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    moved integer := 0;
+    n integer;
+  BEGIN
+    IF NOT private.staff_can('admin') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM app.staff s WHERE s.user_id = departed AND NOT s.active) THEN
+      RAISE EXCEPTION 'only a deactivated account''s records are handed over'
+        USING ERRCODE = 'check_violation', HINT = 'stillActive';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM app.staff s JOIN app.staff_roles r ON r.user_id = s.user_id
+                    WHERE s.user_id = heir AND s.active AND r.role IN ('admin', 'outreach')) THEN
+      RAISE EXCEPTION 'the heir works in outreach, or administers'
+        USING ERRCODE = 'check_violation', HINT = 'heir';
+    END IF;
+    -- Organisations first, so each contact's organisation is its new person's when the contact moves.
+    UPDATE app.organisations o SET private_to = heir WHERE o.private_to = departed;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    moved := moved + n;
+    UPDATE app.contacts c SET private_to = heir WHERE c.private_to = departed;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    moved := moved + n;
+    PERFORM set_config('app.redact', 'on', true);
+    UPDATE app.contact_events e SET private_to = heir WHERE e.private_to = departed;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    moved := moved + n;
+    UPDATE app.organisation_notes n2 SET private_to = heir WHERE n2.private_to = departed;
+    GET DIAGNOSTICS n = ROW_COUNT;
+    moved := moved + n;
+    PERFORM set_config('app.redact', '', true);
+    RETURN moved;
+  END
+  $$;
+
+
+ALTER FUNCTION private.hand_over_private(departed uuid, heir uuid) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: happened_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -1329,6 +1423,32 @@ CREATE FUNCTION private.ingest_airtable(records jsonb) RETURNS jsonb
 
 
 ALTER FUNCTION private.ingest_airtable(records jsonb) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: inherit_privacy(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.inherit_privacy() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    holder uuid;
+  BEGIN
+    IF TG_TABLE_NAME = 'contact_events' THEN
+      SELECT c.private_to INTO holder FROM app.contacts c WHERE c.id = NEW.contact_id;
+    ELSE
+      SELECT o.private_to INTO holder FROM app.organisations o WHERE o.id = NEW.organisation_id;
+    END IF;
+    IF holder IS NOT NULL THEN
+      NEW.private_to := holder;
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.inherit_privacy() OWNER TO pauseai_backoffice_owner;
 
 SET default_tablespace = '';
 
@@ -1798,6 +1918,61 @@ CREATE FUNCTION private.merge_people(survivor uuid, merged uuid) RETURNS void
 ALTER FUNCTION private.merge_people(survivor uuid, merged uuid) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: merge_private_contact(uuid, uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.merge_private_contact(private_contact uuid, team_contact uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    mine app.contacts;
+  BEGIN
+    IF NOT private.staff_can('admin', 'outreach') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    SELECT c.* INTO mine FROM app.contacts c
+     WHERE c.id = private_contact AND c.private_to = private.current_user_id() AND c.anonymised_at IS NULL
+       FOR UPDATE;
+    IF NOT FOUND THEN
+      RETURN false;
+    END IF;
+    PERFORM 1 FROM app.contacts c
+     WHERE c.id = team_contact AND c.private_to IS NULL AND c.anonymised_at IS NULL FOR UPDATE;
+    IF NOT FOUND THEN
+      RETURN false;
+    END IF;
+    UPDATE app.contacts c
+       SET person_name = coalesce(c.person_name, mine.person_name),
+           greeting_name = coalesce(c.greeting_name, mine.greeting_name),
+           role = coalesce(c.role, mine.role),
+           email = coalesce(c.email, mine.email),
+           emails_extra = (SELECT coalesce(array_agg(x.address ORDER BY x.address), '{}')
+                             FROM (SELECT DISTINCT a.address
+                                     FROM unnest(c.emails_extra || mine.emails_extra || ARRAY[mine.email]) AS a(address)
+                                    WHERE a.address IS NOT NULL
+                                      AND a.address IS DISTINCT FROM coalesce(c.email, mine.email)
+                                    LIMIT 10) x),
+           phone = coalesce(c.phone, mine.phone),
+           website = coalesce(c.website, mine.website),
+           territory = coalesce(c.territory, mine.territory),
+           scope = coalesce(c.scope, mine.scope),
+           sector = coalesce(c.sector, mine.sector)
+     WHERE c.id = team_contact;
+    PERFORM set_config('app.redact', 'on', true);
+    UPDATE app.contact_events e SET contact_id = team_contact WHERE e.contact_id = private_contact;
+    PERFORM set_config('app.redact', '', true);
+    DELETE FROM app.contacts c WHERE c.id = private_contact;
+    INSERT INTO app.contact_events (contact_id, kind, data)
+    VALUES (team_contact, 'shared', jsonb_build_object('merged', true));
+    RETURN true;
+  END
+  $$;
+
+
+ALTER FUNCTION private.merge_private_contact(private_contact uuid, team_contact uuid) OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: message_template_version(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1918,6 +2093,70 @@ CREATE FUNCTION private.presence_timeline() RETURNS trigger
 
 
 ALTER FUNCTION private.presence_timeline() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: private_records(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.private_records() RETURNS TABLE(user_id uuid, contacts integer, organisations integer, notes integer)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT private.staff_can('admin') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN QUERY
+      SELECT r.user_id, r.contacts, r.organisations, r.notes
+        FROM (SELECT s.user_id,
+                     (SELECT count(*)::integer FROM app.contacts c WHERE c.private_to = s.user_id) AS contacts,
+                     (SELECT count(*)::integer FROM app.organisations o WHERE o.private_to = s.user_id)
+                       AS organisations,
+                     (SELECT count(*)::integer FROM app.contact_events e
+                       WHERE e.private_to = s.user_id AND e.kind = 'note')
+                     + (SELECT count(*)::integer FROM app.organisation_notes n WHERE n.private_to = s.user_id)
+                       AS notes
+                FROM app.staff s WHERE NOT s.active) r
+       WHERE r.contacts + r.organisations + r.notes > 0
+       ORDER BY r.user_id;
+  END
+  $$;
+
+
+ALTER FUNCTION private.private_records() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: private_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.private_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    holder uuid;
+  BEGIN
+    IF TG_OP = 'UPDATE' AND OLD.private_to IS NULL AND NEW.private_to IS NOT NULL THEN
+      RAISE EXCEPTION 'a record the team has stays the team''s'
+        USING ERRCODE = 'check_violation', HINT = 'shared';
+    END IF;
+    IF TG_TABLE_NAME = 'contacts' THEN
+      IF NEW.organisation_id IS NOT NULL
+         AND (TG_OP = 'INSERT' OR NEW.organisation_id IS DISTINCT FROM OLD.organisation_id
+              OR NEW.private_to IS DISTINCT FROM OLD.private_to) THEN
+        SELECT o.private_to INTO holder FROM app.organisations o WHERE o.id = NEW.organisation_id;
+        IF NOT FOUND OR (holder IS NOT NULL AND holder IS DISTINCT FROM NEW.private_to) THEN
+          RAISE EXCEPTION 'the contact''s organisation is private'
+            USING ERRCODE = 'check_violation', HINT = 'organisationPrivate';
+        END IF;
+      END IF;
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.private_rules() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: refuse_anonymised_detail(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -2056,6 +2295,34 @@ CREATE FUNCTION private.resolve_intake(intake_id uuid, decision text, target uui
 
 
 ALTER FUNCTION private.resolve_intake(intake_id uuid, decision text, target uuid) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: rights_contacts(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.rights_contacts(query text) RETURNS TABLE(id uuid, org_display text, person_name text, is_private boolean)
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    wanted text := lower(btrim(query));
+  BEGIN
+    IF NOT private.staff_can('admin') THEN
+      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN QUERY
+      SELECT c.id, c.org_display, c.person_name, c.private_to IS NOT NULL
+        FROM app.contacts c
+       WHERE c.anonymised_at IS NULL AND wanted <> ''
+         AND (c.email = wanted OR wanted = ANY (c.emails_extra) OR c.phone = btrim(query)
+              OR lower(c.person_name) = wanted)
+       ORDER BY c.org_display, c.person_name, c.id
+       LIMIT 50;
+  END
+  $$;
+
+
+ALTER FUNCTION private.rights_contacts(query text) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: session_needs_second_factor(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -2425,6 +2692,25 @@ CREATE FUNCTION private.target_rules() RETURNS trigger
 
 
 ALTER FUNCTION private.target_rules() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: target_shared(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.target_shared() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM app.contacts c WHERE c.id = NEW.contact_id AND c.private_to IS NULL) THEN
+      RAISE EXCEPTION 'a campaign writes to team contacts only' USING ERRCODE = 'check_violation', HINT = 'private';
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.target_shared() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: target_timeline(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -2889,6 +3175,7 @@ CREATE TABLE app.contact_events (
     body text,
     data jsonb DEFAULT '{}'::jsonb NOT NULL,
     happened_on date,
+    private_to uuid,
     CONSTRAINT contact_events_body_check CHECK ((length(body) <= 4000)),
     CONSTRAINT contact_events_channel_check CHECK ((channel = ANY (ARRAY['web'::text, 'bot'::text]))),
     CONSTRAINT contact_events_data_check CHECK ((jsonb_typeof(data) = 'object'::text)),
@@ -2941,6 +3228,7 @@ CREATE TABLE app.contacts (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    private_to uuid,
     CONSTRAINT contacts_anchor_check CHECK ((anchor ~ '^[a-z0-9_-]{1,60}$'::text)),
     CONSTRAINT contacts_email_check CHECK (((email = lower(email)) AND (email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'::text))),
     CONSTRAINT contacts_emails_extra_check CHECK ((cardinality(emails_extra) <= 10)),
@@ -3070,7 +3358,7 @@ CREATE TABLE app.exports (
     created_by uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT exports_filter_check CHECK ((jsonb_typeof(filter) = 'object'::text)),
-    CONSTRAINT exports_kind_check CHECK ((kind = ANY (ARRAY['people_csv'::text, 'person_json'::text]))),
+    CONSTRAINT exports_kind_check CHECK ((kind = ANY (ARRAY['people_csv'::text, 'person_json'::text, 'contact_json'::text]))),
     CONSTRAINT exports_row_count_check CHECK ((row_count >= 0))
 );
 
@@ -3218,6 +3506,7 @@ CREATE TABLE app.organisation_notes (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     actor_id uuid,
     channel text,
+    private_to uuid,
     CONSTRAINT organisation_notes_body_check CHECK (((btrim(body) <> ''::text) AND (length(body) <= 4000))),
     CONSTRAINT organisation_notes_channel_check CHECK ((channel = ANY (ARRAY['web'::text, 'bot'::text])))
 );
@@ -3248,6 +3537,7 @@ CREATE TABLE app.organisations (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    private_to uuid,
     CONSTRAINT organisations_external_ref_check CHECK ((length(external_ref) <= 200)),
     CONSTRAINT organisations_name_check CHECK (((btrim(name) <> ''::text) AND (length(name) <= 200))),
     CONSTRAINT organisations_notes_check CHECK ((length(notes) <= 4000)),
@@ -4394,10 +4684,24 @@ CREATE INDEX contact_events_contact_id_idx ON app.contact_events USING btree (co
 
 
 --
+-- Name: contact_events_private_to_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX contact_events_private_to_idx ON app.contact_events USING btree (private_to) WHERE (private_to IS NOT NULL);
+
+
+--
 -- Name: contacts_organisation_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE INDEX contacts_organisation_id_idx ON app.contacts USING btree (organisation_id);
+
+
+--
+-- Name: contacts_private_to_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX contacts_private_to_idx ON app.contacts USING btree (private_to) WHERE (private_to IS NOT NULL);
 
 
 --
@@ -4433,6 +4737,20 @@ CREATE INDEX invitations_created_by_idx ON app.invitations USING btree (created_
 --
 
 CREATE INDEX organisation_notes_organisation_id_idx ON app.organisation_notes USING btree (organisation_id, created_at DESC);
+
+
+--
+-- Name: organisation_notes_private_to_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX organisation_notes_private_to_idx ON app.organisation_notes USING btree (private_to) WHERE (private_to IS NOT NULL);
+
+
+--
+-- Name: organisations_private_to_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX organisations_private_to_idx ON app.organisations USING btree (private_to) WHERE (private_to IS NOT NULL);
 
 
 --
@@ -4898,6 +5216,34 @@ CREATE TRIGGER person_is_live BEFORE INSERT OR UPDATE OF person_id ON app.staff 
 
 
 --
+-- Name: contact_events privacy; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER privacy BEFORE INSERT ON app.contact_events FOR EACH ROW EXECUTE FUNCTION private.inherit_privacy();
+
+
+--
+-- Name: organisation_notes privacy; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER privacy BEFORE INSERT ON app.organisation_notes FOR EACH ROW EXECUTE FUNCTION private.inherit_privacy();
+
+
+--
+-- Name: contacts private_rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER private_rules AFTER INSERT OR UPDATE OF private_to, organisation_id ON app.contacts FOR EACH ROW EXECUTE FUNCTION private.private_rules();
+
+
+--
+-- Name: organisations private_rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER private_rules AFTER INSERT OR UPDATE OF private_to ON app.organisations FOR EACH ROW EXECUTE FUNCTION private.private_rules();
+
+
+--
 -- Name: campaign_targets rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -4916,6 +5262,13 @@ CREATE TRIGGER rules BEFORE UPDATE ON app.people FOR EACH ROW EXECUTE FUNCTION p
 --
 
 CREATE TRIGGER sent BEFORE UPDATE ON app.census_links FOR EACH ROW EXECUTE FUNCTION private.census_link_sent();
+
+
+--
+-- Name: campaign_targets shared; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER shared AFTER INSERT ON app.campaign_targets FOR EACH ROW EXECUTE FUNCTION private.target_shared();
 
 
 --
@@ -5339,6 +5692,14 @@ ALTER TABLE ONLY app.contact_events
 
 
 --
+-- Name: contact_events contact_events_private_to_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.contact_events
+    ADD CONSTRAINT contact_events_private_to_fkey FOREIGN KEY (private_to) REFERENCES app.staff(user_id);
+
+
+--
 -- Name: contacts contacts_organisation_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5352,6 +5713,14 @@ ALTER TABLE ONLY app.contacts
 
 ALTER TABLE ONLY app.contacts
     ADD CONSTRAINT contacts_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: contacts contacts_private_to_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.contacts
+    ADD CONSTRAINT contacts_private_to_fkey FOREIGN KEY (private_to) REFERENCES app.staff(user_id);
 
 
 --
@@ -5416,6 +5785,22 @@ ALTER TABLE ONLY app.invitations
 
 ALTER TABLE ONLY app.organisation_notes
     ADD CONSTRAINT organisation_notes_organisation_id_fkey FOREIGN KEY (organisation_id) REFERENCES app.organisations(id);
+
+
+--
+-- Name: organisation_notes organisation_notes_private_to_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.organisation_notes
+    ADD CONSTRAINT organisation_notes_private_to_fkey FOREIGN KEY (private_to) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: organisations organisations_private_to_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.organisations
+    ADD CONSTRAINT organisations_private_to_fkey FOREIGN KEY (private_to) REFERENCES app.staff(user_id);
 
 
 --
@@ -6036,28 +6421,32 @@ CREATE POLICY outreach_insert ON app.campaigns FOR INSERT TO pauseai_backoffice_
 -- Name: contact_events outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_insert ON app.contact_events FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((kind = 'note'::app.contact_event_kind) OR (pg_trigger_depth() > 0))));
+CREATE POLICY outreach_insert ON app.contact_events FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((kind = 'note'::app.contact_event_kind) OR (pg_trigger_depth() > 0)) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id))) AND (EXISTS ( SELECT 1
+   FROM app.contacts c
+  WHERE (c.id = contact_events.contact_id)))));
 
 
 --
 -- Name: contacts outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_insert ON app.contacts FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY outreach_insert ON app.contacts FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id)))));
 
 
 --
 -- Name: organisation_notes outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_insert ON app.organisation_notes FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (body IS NOT NULL)));
+CREATE POLICY outreach_insert ON app.organisation_notes FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (body IS NOT NULL) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id))) AND (EXISTS ( SELECT 1
+   FROM app.organisations o
+  WHERE (o.id = organisation_notes.organisation_id)))));
 
 
 --
 -- Name: organisations outreach_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_insert ON app.organisations FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY outreach_insert ON app.organisations FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id)))));
 
 
 --
@@ -6092,28 +6481,32 @@ CREATE POLICY outreach_read ON app.campaigns FOR SELECT TO pauseai_backoffice_ap
 -- Name: contact_events outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_read ON app.contact_events FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY outreach_read ON app.contact_events FOR SELECT TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id))) AND (EXISTS ( SELECT 1
+   FROM app.contacts c
+  WHERE (c.id = contact_events.contact_id)))));
 
 
 --
 -- Name: contacts outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_read ON app.contacts FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY outreach_read ON app.contacts FOR SELECT TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id)))));
 
 
 --
 -- Name: organisation_notes outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_read ON app.organisation_notes FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY outreach_read ON app.organisation_notes FOR SELECT TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id))) AND (EXISTS ( SELECT 1
+   FROM app.organisations o
+  WHERE (o.id = organisation_notes.organisation_id)))));
 
 
 --
 -- Name: organisations outreach_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_read ON app.organisations FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY outreach_read ON app.organisations FOR SELECT TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id)))));
 
 
 --
@@ -6148,14 +6541,14 @@ CREATE POLICY outreach_update ON app.campaigns FOR UPDATE TO pauseai_backoffice_
 -- Name: contacts outreach_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_update ON app.contacts FOR UPDATE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (anonymised_at IS NULL))) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY outreach_update ON app.contacts FOR UPDATE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND (anonymised_at IS NULL) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id))))) WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id)))));
 
 
 --
 -- Name: organisations outreach_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY outreach_update ON app.organisations FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY outreach_update ON app.organisations FOR UPDATE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id))))) WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id)))));
 
 
 --
@@ -6476,6 +6869,14 @@ REVOKE ALL ON FUNCTION private.erased_ref(source app.source_kind, external_id te
 
 
 --
+-- Name: FUNCTION export_contact(contact uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.export_contact(contact uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.export_contact(contact uuid) TO pauseai_backoffice_app;
+
+
+--
 -- Name: FUNCTION fold_name(input text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -6488,6 +6889,14 @@ GRANT ALL ON FUNCTION private.fold_name(input text) TO pauseai_backoffice_app;
 --
 
 REVOKE ALL ON FUNCTION private.forbid_mutation() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION hand_over_private(departed uuid, heir uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.hand_over_private(departed uuid, heir uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.hand_over_private(departed uuid, heir uuid) TO pauseai_backoffice_app;
 
 
 --
@@ -6518,6 +6927,13 @@ GRANT ALL ON FUNCTION private.import_csv(file_sha256 text, rows jsonb) TO pausea
 
 REVOKE ALL ON FUNCTION private.ingest_airtable(records jsonb) FROM PUBLIC;
 GRANT ALL ON FUNCTION private.ingest_airtable(records jsonb) TO pauseai_backoffice_ingest;
+
+
+--
+-- Name: FUNCTION inherit_privacy(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.inherit_privacy() FROM PUBLIC;
 
 
 --
@@ -6599,6 +7015,14 @@ GRANT ALL ON FUNCTION private.merge_people(survivor uuid, merged uuid) TO pausea
 
 
 --
+-- Name: FUNCTION merge_private_contact(private_contact uuid, team_contact uuid); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.merge_private_contact(private_contact uuid, team_contact uuid) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.merge_private_contact(private_contact uuid, team_contact uuid) TO pauseai_backoffice_app;
+
+
+--
 -- Name: FUNCTION message_template_version(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -6635,6 +7059,21 @@ REVOKE ALL ON FUNCTION private.presence_timeline() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION private_records(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.private_records() FROM PUBLIC;
+GRANT ALL ON FUNCTION private.private_records() TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION private_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.private_rules() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION refuse_anonymised_detail(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -6662,6 +7101,14 @@ GRANT ALL ON FUNCTION private.report_leave(person uuid, left_on date) TO pauseai
 
 REVOKE ALL ON FUNCTION private.resolve_intake(intake_id uuid, decision text, target uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION private.resolve_intake(intake_id uuid, decision text, target uuid) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION rights_contacts(query text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.rights_contacts(query text) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.rights_contacts(query text) TO pauseai_backoffice_app;
 
 
 --
@@ -6750,6 +7197,13 @@ REVOKE ALL ON FUNCTION private.survivor(person uuid) FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION private.target_rules() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION target_shared(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.target_shared() FROM PUBLIC;
 
 
 --
@@ -7385,6 +7839,13 @@ GRANT INSERT(happened_on) ON TABLE app.contact_events TO pauseai_backoffice_app;
 
 
 --
+-- Name: COLUMN contact_events.private_to; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(private_to) ON TABLE app.contact_events TO pauseai_backoffice_app;
+
+
+--
 -- Name: TABLE contacts; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -7564,6 +8025,13 @@ GRANT INSERT(notes),UPDATE(notes) ON TABLE app.contacts TO pauseai_backoffice_ap
 --
 
 GRANT INSERT(external_ref) ON TABLE app.contacts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN contacts.private_to; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(private_to),UPDATE(private_to) ON TABLE app.contacts TO pauseai_backoffice_app;
 
 
 --
@@ -7756,6 +8224,13 @@ GRANT INSERT(happened_on) ON TABLE app.organisation_notes TO pauseai_backoffice_
 
 
 --
+-- Name: COLUMN organisation_notes.private_to; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(private_to) ON TABLE app.organisation_notes TO pauseai_backoffice_app;
+
+
+--
 -- Name: TABLE organisations; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -7795,6 +8270,13 @@ GRANT INSERT(website),UPDATE(website) ON TABLE app.organisations TO pauseai_back
 --
 
 GRANT INSERT(external_ref) ON TABLE app.organisations TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN organisations.private_to; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(private_to),UPDATE(private_to) ON TABLE app.organisations TO pauseai_backoffice_app;
 
 
 --

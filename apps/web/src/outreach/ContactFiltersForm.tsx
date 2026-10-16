@@ -8,6 +8,7 @@ import { Select } from './Field';
 import { type ContactFilters, hasContactFilters } from './filters';
 import { kindNames, stageNames, tierNames } from './text';
 import { ORGANISATION_KINDS, RELATIONSHIP_STAGES, type StaffRef, TIERS } from './types';
+import { VisibilityFilter } from './VisibilityFilter';
 
 const t = getTranslator();
 
@@ -131,6 +132,7 @@ export const ContactFiltersForm = ({
         <option value="no">{t('contacts.holdNo')}</option>
       </select>
     </div>
+    <VisibilityFilter value={filters.visibility} />
     <div className={ui.rowActions} data-wide="">
       <button type="submit" className={ui.button}>
         {t('contacts.apply')}

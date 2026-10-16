@@ -23,7 +23,11 @@ export interface ContactFilters {
   owner: string;
   review: 'yes' | 'no' | '';
   hold: 'yes' | 'no' | '';
+  /** "Quién lo ve" (PLAN M5, step 6): one's own private ones, the team's, or '' for both. */
+  visibility: Visibility | '';
 }
+
+export type Visibility = 'private' | 'team';
 
 export const NO_CONTACT_FILTERS: ContactFilters = {
   q: '',
@@ -34,12 +38,21 @@ export const NO_CONTACT_FILTERS: ContactFilters = {
   owner: '',
   review: '',
   hold: '',
+  visibility: '',
 };
 
 export interface OrganisationFilters {
   q: string;
   kind: OrganisationKind | '';
+  visibility: Visibility | '';
 }
+
+/** "Quién lo ve" in the page's address: `yo` or `equipo`. */
+const visibilityOf = (value: string): Visibility | '' =>
+  value === 'yo' ? 'private' : value === 'equipo' ? 'team' : '';
+
+const visibilityWord = (value: Visibility | ''): string =>
+  value === 'private' ? 'yo' : value === 'team' ? 'equipo' : '';
 
 type SearchParams = Readonly<Record<string, string | string[] | undefined>>;
 
@@ -71,6 +84,7 @@ export const contactFiltersFromPage = (params: SearchParams): ContactFilters => 
     owner: owner === 'yo' ? 'me' : owner === 'nadie' ? 'none' : isUuid(owner) ? owner : '',
     review: yesNo(first(params.revisar)),
     hold: yesNo(first(params.pausa)),
+    visibility: visibilityOf(first(params.quien)),
   };
 };
 
@@ -98,6 +112,7 @@ export const contactPageQuery = (filters: ContactFilters): string => {
   );
   set('revisar', siNo(filters.review));
   set('pausa', siNo(filters.hold));
+  set('quien', visibilityWord(filters.visibility));
   return query(params);
 };
 
@@ -117,6 +132,7 @@ export const contactApiQuery = (filters: ContactFilters): string => {
   set('owner', filters.owner);
   set('review', filters.review === 'yes' ? 'true' : filters.review === 'no' ? 'false' : '');
   set('hold', filters.hold === 'yes' ? 'true' : filters.hold === 'no' ? 'false' : '');
+  set('visibility', filters.visibility);
   return query(params);
 };
 
@@ -129,6 +145,7 @@ export const organisationFiltersFromPage = (params: SearchParams): OrganisationF
   return {
     q: first(params.buscar).slice(0, 200),
     kind: isOrganisationKind(kind) ? kind : '',
+    visibility: visibilityOf(first(params.quien)),
   };
 };
 
@@ -141,11 +158,14 @@ export const organisationApiQuery = (filters: OrganisationFilters): string => {
   if (filters.kind) {
     params.set('kind', filters.kind);
   }
+  if (filters.visibility) {
+    params.set('visibility', filters.visibility);
+  }
   return query(params);
 };
 
 export const hasOrganisationFilters = (filters: OrganisationFilters): boolean =>
-  filters.q !== '' || filters.kind !== '';
+  filters.q !== '' || filters.kind !== '' || filters.visibility !== '';
 
 /**
  * Siguiente's address: the campaign it is limited to, and the targets left for later in this visit ("Ahora no"), which

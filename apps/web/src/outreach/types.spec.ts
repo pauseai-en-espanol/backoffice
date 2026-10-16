@@ -38,6 +38,7 @@ const summary = {
   hold: false,
   tags: ['educación'],
   anonymised: false,
+  private: false,
 };
 
 const target = {
@@ -168,8 +169,16 @@ describe('outreach answers', () => {
       territory: null,
       website: null,
       contacts: 3,
+      private: false,
     };
     expect(parseOrganisations({ organisations: [organisation] })).toEqual([organisation]);
+    // "Solo yo" (PLAN M5, step 6): only a true from the API makes one private.
+    expect(
+      parseOrganisations({ organisations: [{ ...organisation, private: true }] })?.[0]?.private,
+    ).toBe(true);
+    expect(
+      parseOrganisations({ organisations: [{ ...organisation, private: 'sí' }] })?.[0]?.private,
+    ).toBe(false);
     expect(
       parseOrganisations({ organisations: [{ ...organisation, kind: 'club' }] }),
     ).toBeUndefined();

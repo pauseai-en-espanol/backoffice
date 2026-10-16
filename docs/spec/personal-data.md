@@ -75,9 +75,16 @@ Outreach holds people who aren't members: politicians, journalists, academics, p
 kept is professional (role, organisation, a work address or the organisation's inbox) and mostly public, with the
 source it came from; their basis would be the association's legitimate interest (art. 6(1)(f)), not art. 9.
 **That basis, and whether to tell them where their details came from (art. 14) in the first letter, are Dani's
-calls.** Meanwhile the app:
+calls**: the assessment and the notice's paragraph are drafted in
+[outreach-legitimate-interest.md](../legal/outreach-legitimate-interest.md) (draft, Dani's to approve). Notes on
+contacts and organisations, past conversations included, are the same processing whatever tool keeps them (Dani,
+2026-10-17: building PLAN M5 step 6 doesn't wait on it). Meanwhile the app:
 
 - keeps their contact details off every list (only their own page shows them), and out of the audit log;
+- lets someone keep a contact, an organisation or a note for themselves ("Solo yo", [outreach §6](outreach.md)):
+  nobody else in the app sees it, admins neither, yet a rights request still reaches it, through an admin's search
+  by an exact email, phone or name, which finds private contacts too, and their download (recorded as an export) or
+  erasure; a departed member's go to whoever an admin chooses in outreach;
 - greets them neutrally unless someone has checked how they are addressed, never inferring it from a name;
 - lets an admin erase one (`private.anonymise_contact`): name, addresses, phone, notes and timeline words go, the
   organisation and the campaign rows stay for the counts, and they are held for good, so no queue offers them again

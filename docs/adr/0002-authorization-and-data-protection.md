@@ -150,7 +150,25 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   never the email. A merge moves the link to the survivor and refuses two linked records; erasure unlinks.
 - **Outreach** (M3): its tables admit outreach staff and admins through the staff app
   (`staff_can('admin', 'outreach')`), never the bot, which has no outreach command. Onboarding staff don't see it, nor
-  outreach staff onboarding's. Nothing there is reached through a definer function but erasure.
+  outreach staff onboarding's. Nothing there is reached through a definer function but erasure and the private
+  records' functions below.
+- **Private outreach records, "Solo yo"** (PLAN M5, step 6): a contact, an organisation, a contact's event or an
+  organisation's note may be private to one staff member (`private_to`, null for the team's). The policies admit a
+  private row to its own person alone: other outreach staff don't see it, admins neither, by the same rule, not a
+  filter in the API. An event or a note shows only where its contact or organisation does (`EXISTS` on it, under the
+  caller's policies), and a trigger (`private.inherit_privacy`, as the caller) makes what is written on a private
+  record as private as it. A row is made private only for its writer, and only ever goes from private to the team:
+  `private.private_rules`, after the row so the policies refuse first, as the caller, refuses a team record made
+  private and a contact whose organisation the team can't see; `private.target_shared` refuses a campaign target that
+  isn't a team contact. Four `SECURITY DEFINER` functions reach past the policies, each checking its caller first:
+  for admins, `private.rights_contacts(query)` (a rights request's contacts, private ones too, by an exact email,
+  phone or name; ids, the organisation as listed, the name and whether it's private) and
+  `private.export_contact(contact)` (everything kept about one, without who on the team keeps it; recorded in
+  `app.exports`), with erasure already reaching any contact by id; `private.private_records()` (a deactivated
+  member's records, how many, never what) and `private.hand_over_private(departed, heir)` (to an active member in
+  outreach or an admin, with `app.redact` to move append-only rows); and, for a private contact's own person,
+  `private.merge_private_contact(private, team)` (into the team contact that is the same person: blanks filled, the
+  private timeline moved still private, the private contact deleted, the sharing on the team's timeline).
 - **The bot's own state** is in `private` (`telegram_updates`, `telegram_dialogs`, `telegram_posts`), outside `app`
   and its policies: only the app role reaches it, with exactly the privileges the bot uses, and a catalog test keeps
   that list. Its links and their codes are credentials, in `auth`, for the auth role alone.

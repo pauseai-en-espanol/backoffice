@@ -39,6 +39,7 @@ const contact: ContactDetail = {
   hold: false,
   tags: ['educación'],
   anonymised: false,
+  private: false,
   treatment: 'neutral',
   greetingName: null,
   email: 'berta@ejemplo.test',
@@ -266,6 +267,19 @@ describe('organisations', () => {
     });
   });
 
+  it('is the team’s unless "Solo yo" is chosen, a contact as an organisation (PLAN M5, step 6)', () => {
+    expect(newOrganisation(reader({ name: 'A', visibility: 'team' }))).not.toHaveProperty(
+      'private',
+    );
+    expect(newOrganisation(reader({ name: 'A', visibility: 'private' }))).toMatchObject({
+      private: true,
+    });
+    expect(newContact(reader({ orgDisplay: 'X', visibility: 'private' }))).toMatchObject({
+      private: true,
+    });
+    expect(newContact(reader({ orgDisplay: 'X' }))).not.toHaveProperty('private');
+  });
+
   it('changes only what changed', () => {
     const organisation: Organisation = {
       id: 'o1',
@@ -273,6 +287,7 @@ describe('organisations', () => {
       kind: 'other',
       territory: null,
       website: null,
+      private: false,
       createdAt: '',
     };
     expect(

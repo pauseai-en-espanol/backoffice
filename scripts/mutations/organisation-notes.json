@@ -50,16 +50,16 @@
   {
     "name": "a contact's note forgets the day it happened",
     "file": "apps/api/src/outreach/outreach.ts",
-    "old": "    INSERT INTO app.contact_events (contact_id, kind, body, happened_on)\n    VALUES (${id}, 'note', ${body}, ${happenedOn ?? null}::date)`.execute(trx);",
-    "new": "    INSERT INTO app.contact_events (contact_id, kind, body, happened_on)\n    VALUES (${id}, 'note', ${body}, ${null}::date)`.execute(trx);",
+    "old": "    VALUES (${id}, 'note', ${body}, ${happenedOn ?? null}::date, ${holderFor(isPrivate)})",
+    "new": "    VALUES (${id}, 'note', ${body}, ${null}::date, ${holderFor(isPrivate)})",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
     "cwd": "apps/api"
   },
   {
     "name": "an organisation's note forgets the day it happened",
     "file": "apps/api/src/outreach/outreach.ts",
-    "old": "    VALUES (${id}, ${body}, ${happenedOn ?? null}::date)`.execute(trx);",
-    "new": "    VALUES (${id}, ${body}, ${null}::date)`.execute(trx);",
+    "old": "    VALUES (${id}, ${body}, ${happenedOn ?? null}::date, ${holderFor(isPrivate)})`.execute(trx);",
+    "new": "    VALUES (${id}, ${body}, ${null}::date, ${holderFor(isPrivate)})`.execute(trx);",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
     "cwd": "apps/api"
   },

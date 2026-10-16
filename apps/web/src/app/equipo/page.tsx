@@ -9,7 +9,8 @@ import type { ConfirmText } from '@/ui/ConfirmAction';
 import { isUnavailable } from '@/data';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
-import { getInvitations, getPersonSuggestions, getTeam } from '@/team/data';
+import { getInvitations, getPersonSuggestions, getPrivateRecords, getTeam } from '@/team/data';
+import { HandOver } from '@/team/HandOver';
 import { InvitationActions } from '@/team/InvitationActions';
 import { InviteForm } from '@/team/InviteForm';
 import { LinkSuggestion } from '@/team/LinkSuggestion';
@@ -40,11 +41,25 @@ const TeamPage = async () => {
   const admin = me.staff.roles.includes('admin');
   // Who may open a person's page (onboarding staff and admins), and so follow "Ver su ficha".
   const opensPeople = admin || me.staff.roles.includes('onboarding');
-  const [team, invitations, suggestions] = await Promise.all([
+  const [team, invitations, suggestions, privateRecords] = await Promise.all([
     getTeam(),
     admin ? getInvitations() : Promise.resolve(undefined),
     admin ? getPersonSuggestions() : Promise.resolve([]),
+    admin ? getPrivateRecords() : Promise.resolve([]),
   ]);
+  // Who may inherit a departed member's private outreach records (PLAN M5, step 6): active, in outreach or admin.
+  const heirs = isUnavailable(team)
+    ? []
+    : team.staff
+        .filter(
+          (member) =>
+            member.active && (member.roles.includes('outreach') || member.roles.includes('admin')),
+        )
+        .map(({ userId, displayName }) => ({ userId, displayName }));
+  const recordsOf = (userId: string) =>
+    isUnavailable(privateRecords)
+      ? undefined
+      : privateRecords.find((records) => records.userId === userId);
   const format = getFormatter();
   const day = (iso: string) => format.dateTime(new Date(iso), { dateStyle: 'long' });
   const names = roleNames(t);
@@ -145,6 +160,34 @@ const TeamPage = async () => {
             </>
           )}
         </dl>
+        {admin && !member.active && recordsOf(member.userId) ? (
+          <section aria-label={t('team.privateRecords')}>
+            <h4 className={styles.label}>{t('team.privateRecords')}</h4>
+            <p className={styles.text}>
+              {t('team.privateCounts', {
+                contacts: recordsOf(member.userId)?.contacts ?? 0,
+                organisations: recordsOf(member.userId)?.organisations ?? 0,
+                notes: recordsOf(member.userId)?.notes ?? 0,
+              })}
+            </p>
+            <HandOver
+              userId={member.userId}
+              heirs={heirs}
+              text={{
+                heir: t('team.heir'),
+                heirHint: t('team.heirHint'),
+                heirNone: t('team.heirNone'),
+                handOver: t('team.handOver'),
+                handedOver: t('team.handedOver'),
+                errors: {
+                  ...errors,
+                  heir: t('team.handOverErrors.heir'),
+                  stillActive: t('team.handOverErrors.stillActive'),
+                },
+              }}
+            />
+          </section>
+        ) : null}
         {admin ? (
           <MemberActions
             member={member}

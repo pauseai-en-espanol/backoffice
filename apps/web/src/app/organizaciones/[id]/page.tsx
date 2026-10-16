@@ -7,7 +7,12 @@ import { isUnavailable } from '@/data';
 import { isForbidden } from '@/onboarding/data';
 import { formatInstantDay } from '@/onboarding/format';
 import * as onboarding from '@/onboarding/styles';
-import { contactFormText, noteText, organisationFormText } from '@/outreach/contact-text';
+import {
+  contactFormText,
+  noteText,
+  organisationFormText,
+  shareText,
+} from '@/outreach/contact-text';
 import { NewContactForm } from '@/outreach/ContactForm';
 import { ContactItem } from '@/outreach/ContactItem';
 import { NoteForm } from '@/outreach/ContactPanels';
@@ -15,8 +20,10 @@ import { getOrganisation } from '@/outreach/data';
 import { EntryWhen } from '@/outreach/EntryWhen';
 import { OrganisationEditor } from '@/outreach/OrganisationForm';
 import { OutreachForbidden, OutreachOnly, Unavailable } from '@/outreach/OutreachOnly';
+import { PrivateMark } from '@/outreach/PrivateMark';
 import { canOutreach, kindNames, outreachOwners, summaryWords } from '@/outreach/text';
 import { byHappened } from '@/outreach/timeline';
+import { SharePanel } from '@/outreach/Visibility';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { getTeam } from '@/team/data';
@@ -86,6 +93,20 @@ const OrganisationPage = async ({ params }: { params: Promise<{ id: string }> })
             </li>
           ) : null}
         </ul>
+        {organisation.private ? <PrivateMark label={words.private} /> : null}
+
+        {organisation.private ? (
+          <section className={onboarding.section} aria-labelledby="compartir">
+            <h2 id="compartir" className={styles.h3}>
+              {t('outreach.private.share')}
+            </h2>
+            <SharePanel
+              record={{ kind: 'organisation', id: organisation.id }}
+              matches={[]}
+              text={shareText(t, 'organisation')}
+            />
+          </section>
+        ) : null}
 
         <section className={onboarding.section} aria-labelledby="datos">
           <h2 id="datos" className={styles.h3}>
@@ -122,6 +143,9 @@ const OrganisationPage = async ({ params }: { params: Promise<{ id: string }> })
               {[...notes].sort(byHappened).map((note) => (
                 <li key={note.id}>
                   <strong>{t('outreach.events.note')}</strong>
+                  {note.private && !organisation.private ? (
+                    <PrivateMark label={words.private} />
+                  ) : null}
                   <EntryWhen
                     happenedOn={note.happenedOn}
                     at={note.at}
@@ -134,7 +158,10 @@ const OrganisationPage = async ({ params }: { params: Promise<{ id: string }> })
             </ol>
           )}
           <h3 className={styles.h3}>{t('contacts.noteTitle')}</h3>
-          <NoteForm on={{ kind: 'organisation', id: organisation.id }} text={noteText(t)} />
+          <NoteForm
+            on={{ kind: 'organisation', id: organisation.id, private: organisation.private }}
+            text={noteText(t)}
+          />
         </section>
 
         <section aria-labelledby="sus-contactos">

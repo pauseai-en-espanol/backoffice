@@ -29,10 +29,12 @@ import {
 } from './invitations.js';
 import {
   displayNameOf,
+  handOverPrivate,
   isAdmin,
   linkPerson,
   listStaff,
   personSuggestions,
+  privateRecords,
   STAFF_ROLES,
   type StaffChange,
   updateStaff,
@@ -198,6 +200,42 @@ export const staffDataRoutes =
             await endSessions(userId);
           }
           return reply.code(204).send();
+        }),
+    );
+
+    // A departed member's private outreach records (PLAN M5, step 6): how many, never what, and who inherits them.
+    scope.get('/staff/private-records', async (request, reply) =>
+      signedIn(request, reply, async (db, actor) =>
+        withActor(db, actor, async (trx) => {
+          await requireAdmin(trx);
+          return { records: await privateRecords(trx) };
+        }),
+      ),
+    );
+
+    scope.post<{ Params: { userId: string }; Body: { to: string } }>(
+      '/staff/:userId/private-records',
+      {
+        schema: {
+          params: { type: 'object', properties: { userId: UUID } },
+          body: {
+            type: 'object',
+            required: ['to'],
+            additionalProperties: false,
+            properties: { to: UUID },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const moved = await withActor(db, actor, async (trx) => {
+            await requireAdmin(trx);
+            return handOverPrivate(trx, request.params.userId, request.body.to);
+          });
+          if (moved === 'stillActive' || moved === 'heir') {
+            throw new Refusal(409, moved);
+          }
+          return { moved };
         }),
     );
 
