@@ -11,9 +11,12 @@ import type { OptionKind } from './types';
 
 const person = (id: string) => `/api/people/${encodeURIComponent(id)}`;
 
-/** A personal link for someone, valid 30 days: its URL comes back once. */
-export const createCensusLink = (personId: string) =>
-  send('POST', `${person(personId)}/census-link`);
+/**
+ * A personal link for someone, valid 30 days: its URL comes back once, inside the message asked for (one of the team's
+ * in Mensajes), or the first in use.
+ */
+export const createCensusLink = (personId: string, templateId?: string) =>
+  send('POST', `${person(personId)}/census-link`, templateId === undefined ? {} : { templateId });
 
 /** "Enviado": the link went from the onboarder's WhatsApp, logged as a contact attempt. */
 export const markCensusLinkSent = (linkId: string) =>

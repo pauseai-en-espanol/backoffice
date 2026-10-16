@@ -1,3 +1,4 @@
+import { MESSAGE_PURPOSES, type MessagePurpose } from '@backoffice/domain/message-templates';
 import { isStage, type Stage } from '@backoffice/domain/stages';
 
 /**
@@ -40,6 +41,22 @@ export interface ArrivalChannel {
   label: string;
   active: boolean;
   position: number;
+}
+
+/**
+ * A WhatsApp message the team wrote in Mensajes (PLAN M5): its purpose, title, what it says (with its version for
+ * someone without a name when it uses {nombre}), whether it's in use, and its version.
+ */
+export interface MessageTemplate {
+  id: string;
+  purpose: MessagePurpose;
+  title: string;
+  body: string;
+  bodyNameless: string | null;
+  active: boolean;
+  version: number;
+  updatedAt: string;
+  updatedBy: StaffRef | null;
 }
 
 export interface Identity {
@@ -471,6 +488,43 @@ export const parseArrivalChannels = (body: unknown): ArrivalChannel[] | undefine
             }
           : undefined,
       )
+    : undefined;
+
+const isPurpose = (value: unknown): value is MessagePurpose =>
+  (MESSAGE_PURPOSES as readonly unknown[]).includes(value);
+
+/** `GET /api/message-templates`'s body: every message, by purpose, those in use first. */
+export const parseMessageTemplates = (body: unknown): MessageTemplate[] | undefined =>
+  isRecord(body)
+    ? every(body.templates, (value) => {
+        if (
+          !isRecord(value) ||
+          !str(value.id) ||
+          !isPurpose(value.purpose) ||
+          !str(value.title) ||
+          !str(value.body) ||
+          typeof value.active !== 'boolean' ||
+          typeof value.version !== 'number' ||
+          !str(value.updatedAt)
+        ) {
+          return undefined;
+        }
+        const bodyNameless = nullable(value.bodyNameless);
+        const updatedBy = value.updatedBy === null ? null : parseStaffRef(value.updatedBy);
+        return bodyNameless === undefined || updatedBy === undefined
+          ? undefined
+          : {
+              id: value.id,
+              purpose: value.purpose,
+              title: value.title,
+              body: value.body,
+              bodyNameless,
+              active: value.active,
+              version: value.version,
+              updatedAt: value.updatedAt,
+              updatedBy,
+            };
+      })
     : undefined;
 
 /** `GET /api/people/:id`'s body. */

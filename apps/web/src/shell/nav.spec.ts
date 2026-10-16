@@ -22,6 +22,7 @@ describe('the menu in groups by role (PLAN M5)', () => {
           '/importar',
           '/panel',
           '/censo',
+          '/mensajes',
         ],
       },
       { id: 'outreach', hrefs: ['/siguiente', '/campanas', '/contactos', '/organizaciones'] },

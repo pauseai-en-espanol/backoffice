@@ -34,11 +34,21 @@ const oneOf = <T extends string>(list: readonly T[], value: unknown): T | undefi
  * A timeline event in words (onboarding spec, concepts: the timeline is what lets someone else pick a person up):
  * stage changes with both stages' names (older history may name the stages PLAN M5 folded, by their old names, and the
  * fold itself says so), owners by name (`staffName`, from the team list), contact attempts with their channel and
- * outcome, sources by name. An event of a kind the page doesn't know still says something changed.
+ * outcome (and the message, when the team wrote it in Mensajes), sources by name. An event of a kind the page doesn't
+ * know still says something changed.
  */
 export const describeEvent = (
   event: Pick<TimelineEvent, 'kind' | 'body' | 'data'>,
-  { t, staffName }: { t: Translator; staffName: (userId: string) => string | undefined },
+  {
+    t,
+    staffName,
+    templateTitle = () => undefined,
+  }: {
+    t: Translator;
+    staffName: (userId: string) => string | undefined;
+    /** A message's title in Mensajes, by its id (PLAN M5); none when the page doesn't have it. */
+    templateTitle?: (templateId: string) => string | undefined;
+  },
 ): Described => {
   const { data } = event;
   const body = text(event.body) ?? null;
@@ -64,11 +74,22 @@ export const describeEvent = (
     case 'contact_attempt': {
       const channel = oneOf(CONTACT_CHANNELS, data.channel);
       const outcome = oneOf(CONTACT_OUTCOMES, data.outcome);
+      const how = {
+        channel: channel === undefined ? '—' : t(`contactChannels.${channel}`),
+        outcome: outcome === undefined ? '—' : t(`contactOutcomes.${outcome}`),
+      };
+      // The message that went out, when the team wrote it in Mensajes (PLAN M5): by its title, if it's known here.
+      const templateId = text(data.templateId);
+      const version = data.templateVersion;
+      if (templateId === undefined || typeof version !== 'number') {
+        return { title: t('timeline.contact_attempt', how), detail: body };
+      }
+      const title = templateTitle(templateId);
       return {
-        title: t('timeline.contact_attempt', {
-          channel: channel === undefined ? '—' : t(`contactChannels.${channel}`),
-          outcome: outcome === undefined ? '—' : t(`contactOutcomes.${outcome}`),
-        }),
+        title:
+          title === undefined
+            ? t('timeline.contact_attempt_team_message', { ...how, version })
+            : t('timeline.contact_attempt_message', { ...how, version, title }),
         detail: body,
       };
     }

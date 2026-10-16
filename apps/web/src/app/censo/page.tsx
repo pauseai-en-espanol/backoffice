@@ -7,6 +7,7 @@ import { CensusLinkPanel, type CensusLinkText } from '@/onboarding/census/Census
 import { CopyLink } from '@/onboarding/census/CopyLink';
 import { censusUrl, getCensus } from '@/onboarding/census/data';
 import { linkState, linkText, progressOf, textBar } from '@/onboarding/census/format';
+import { getMessageTemplates } from '@/onboarding/data';
 import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { PersonItem } from '@/onboarding/PersonItem';
@@ -34,7 +35,13 @@ const CensusPage = async () => {
       </AppShell>
     );
   }
-  const census = await getCensus();
+  const [census, templates] = await Promise.all([getCensus(), getMessageTemplates()]);
+  // The team's census link messages in use, in their order (Mensajes, PLAN M5); none: the code's own.
+  const messages = isUnavailable(templates)
+    ? []
+    : templates
+        .filter((template) => template.purpose === 'census_link' && template.active)
+        .map(({ id, title }) => ({ id, title }));
   const general = censusUrl();
   const labels = personLabels(t);
   const raw = (key: Parameters<typeof t.raw>[0]) => String(t.raw(key));
@@ -64,6 +71,8 @@ const CensusPage = async () => {
     ...copy,
     whatsapp: t('censo.whatsapp'),
     whatsappIntro: t('censo.whatsappIntro'),
+    choose: t('censo.choose'),
+    chooseHint: t('censo.chooseHint'),
     noPhone: t('censo.noPhone'),
     sent: t('censo.sent'),
     sentYes: t('censo.sentYes'),
@@ -157,6 +166,7 @@ const CensusPage = async () => {
                                 serves: state === 'new' || state === 'sent',
                               }
                         }
+                        messages={messages}
                         text={text}
                       />
                     }

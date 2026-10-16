@@ -132,6 +132,8 @@ export const personPageText = (t: Translator) => {
       title: t('person.whatsappTitle'),
       intro: t('person.whatsappIntro'),
       open: t('person.whatsappOpen'),
+      choose: t('person.whatsappChoose'),
+      chooseHint: t('person.whatsappChooseHint'),
       noPhone: t('person.whatsappNoPhone'),
       message: raw('person.whatsappMessage'),
       messageNameless: raw('person.whatsappMessageNameless'),

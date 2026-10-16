@@ -10,6 +10,7 @@ const PAGES = [
   '/anadir',
   '/bandeja',
   '/censo',
+  '/mensajes',
   '/panel',
   '/importar',
   '/siguiente',

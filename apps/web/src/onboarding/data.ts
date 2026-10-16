@@ -11,6 +11,7 @@ import {
   parseBandeja,
   parseBoard,
   parseImports,
+  parseMessageTemplates,
   parsePeople,
   parsePersonPage,
   parseSettings,
@@ -45,6 +46,10 @@ export const getTelegramLink = () => readFromApi('/api/telegram/link', parseTele
 
 /** "Llegó por": the list to choose from, and to edit in Ajustes (PLAN M5). */
 export const getArrivalChannels = () => readFromApi('/api/arrival-channels', parseArrivalChannels);
+
+/** The team's WhatsApp messages (Mensajes, PLAN M5): to write, and to pick from when one is opened. */
+export const getMessageTemplates = () =>
+  readFromApi('/api/message-templates', parseMessageTemplates);
 
 /** A read that may be refused: the page then says so, rather than "unavailable". */
 export interface Forbidden {

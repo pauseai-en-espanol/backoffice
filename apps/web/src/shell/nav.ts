@@ -12,6 +12,7 @@ export interface NavItem {
     | 'imports'
     | 'panel'
     | 'census'
+    | 'messages'
     | 'next'
     | 'campaigns'
     | 'contacts'
@@ -29,8 +30,8 @@ export interface NavGroup {
 /**
  * The menu's groups for a staff member's roles (PLAN M5): Onboarding to onboarding staff and admins, Relaciones
  * externas to outreach staff and admins, Equipo to everyone (Registro in it to admins only). Censo is listed only while
- * the census form is configured (CENSUS_URL): with it off there is nothing to send or to read there. Ajustes and Salir
- * follow the groups, for everyone.
+ * the census form is configured (CENSUS_URL): with it off there is nothing to send or to read there. Mensajes, the
+ * WhatsApp messages the team writes, closes Onboarding. Ajustes and Salir follow the groups, for everyone.
  */
 export const navGroups = (
   roles: readonly StaffRole[],
@@ -52,6 +53,7 @@ export const navGroups = (
         { href: '/importar', label: 'imports' },
         { href: '/panel', label: 'panel' },
         ...(census ? [{ href: '/censo', label: 'census' } as const] : []),
+        { href: '/mensajes', label: 'messages' },
       ],
     });
   }

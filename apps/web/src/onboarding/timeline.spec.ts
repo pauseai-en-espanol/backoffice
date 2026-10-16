@@ -32,6 +32,26 @@ describe('timeline events in words', () => {
     });
   });
 
+  it('name the message a contact attempt sent, when the team wrote it (Mensajes, PLAN M5)', () => {
+    const data = {
+      channel: 'whatsapp',
+      outcome: 'left_message',
+      templateId: '0190f8c4-0000-7000-8000-0000000004e1',
+      templateVersion: 2,
+    };
+    expect(
+      describeEvent(
+        { kind: 'contact_attempt', data, body: null },
+        { t, staffName, templateTitle: () => 'Bienvenida corta' },
+      ).title,
+    ).toBe(
+      'Intento de contacto por WhatsApp: Mensaje dejado, con el mensaje «Bienvenida corta» (versión 2)',
+    );
+    expect(describe_('contact_attempt', data).title).toBe(
+      'Intento de contacto por WhatsApp: Mensaje dejado, con un mensaje del equipo (versión 2)',
+    );
+  });
+
   it('say contact attempts with their channel and outcome, and keep the note', () => {
     expect(
       describe_('contact_attempt', { channel: 'whatsapp', outcome: 'left_message' }, 'Le escribí'),

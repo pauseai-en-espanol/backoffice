@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { fillMessage } from '@backoffice/domain/message-templates';
 import { getTranslator } from '@backoffice/i18n/messages';
 import Link from 'next/link';
 import { Fragment } from 'react';
@@ -10,7 +11,13 @@ import { isUnavailable } from '@/data';
 import { consentText } from '@/onboarding/census/format';
 import * as census from '@/onboarding/census/styles';
 import { ClaimButton } from '@/onboarding/ClaimButton';
-import { getArrivalChannels, getPerson, getSettings, isForbidden } from '@/onboarding/data';
+import {
+  getArrivalChannels,
+  getMessageTemplates,
+  getPerson,
+  getSettings,
+  isForbidden,
+} from '@/onboarding/data';
 import { formatDay, formatInstant, formatMadridDay } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
 import { Forbidden, OnboardingOnly } from '@/onboarding/OnboardingOnly';
@@ -22,7 +29,7 @@ import { PresenceActions } from '@/onboarding/person/Presence';
 import { ProfileEditor } from '@/onboarding/person/ProfileEditor';
 import { StageOwner } from '@/onboarding/person/StageOwner';
 import { personPageText } from '@/onboarding/person/text';
-import { WhatsAppHandover } from '@/onboarding/person/WhatsApp';
+import { type WhatsAppChoice, WhatsAppHandover } from '@/onboarding/person/WhatsApp';
 import { NextAction, ReasonChips, StageTag } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, isAdmin, sourceName } from '@/onboarding/text';
@@ -58,11 +65,12 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
     );
   }
   const { id } = await params;
-  const [page, team, settings, arrivalChannels] = await Promise.all([
+  const [page, team, settings, arrivalChannels, templates] = await Promise.all([
     getPerson(id),
     getTeam(),
     getSettings(),
     getArrivalChannels(),
+    getMessageTemplates(),
   ]);
   if (isForbidden(page)) {
     return (
@@ -113,13 +121,37 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   };
   // "Sin nombre" for someone saved with only a phone (PLAN R37), who is greeted without one.
   const shown = { ...person, name: personName(person.name, t('people.noName')) };
+  // The welcome: the team's messages in use (Mensajes, PLAN M5), in their order, or else the code's own.
   const greeting = greetingName(person);
-  const link = handoverLink(
-    person,
-    greeting === undefined
-      ? whatsappMessage(text.whatsapp.messageNameless, { me: me.staff.displayName })
-      : whatsappMessage(text.whatsapp.message, { name: greeting, me: me.staff.displayName }),
-  );
+  const messages = isUnavailable(templates) ? [] : templates;
+  const welcomes = messages.filter((template) => template.purpose === 'welcome' && template.active);
+  const choices: WhatsAppChoice[] =
+    welcomes.length === 0
+      ? [
+          {
+            template: null,
+            title: null,
+            link: handoverLink(
+              person,
+              greeting === undefined
+                ? whatsappMessage(text.whatsapp.messageNameless, { me: me.staff.displayName })
+                : whatsappMessage(text.whatsapp.message, {
+                    name: greeting,
+                    me: me.staff.displayName,
+                  }),
+            ),
+          },
+        ]
+      : welcomes.map((template) => ({
+          template: { id: template.id, version: template.version },
+          title: template.title,
+          link: handoverLink(
+            person,
+            fillMessage(template, { nombre: greeting, yo: me.staff.displayName }),
+          ),
+        }));
+  const templateTitle = (templateId: string) =>
+    messages.find((template) => template.id === templateId)?.title;
   const open = person.presence.some((period) => period.leftOn === null);
 
   const reporter = (value: StaffRef | string | null): string | undefined =>
@@ -186,8 +218,8 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 <h2 id="acciones" className={styles.h3}>
                   {t('person.quickTitle')}
                 </h2>
-                {link === undefined ? null : (
-                  <WhatsAppHandover personId={person.id} link={link} text={text} />
+                {choices[0]?.link === undefined ? null : (
+                  <WhatsAppHandover personId={person.id} choices={choices} text={text} />
                 )}
                 <StageOwner person={shown} team={owners} text={text} />
               </section>
@@ -402,7 +434,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                       happened(a) < happened(b) ? 1 : happened(a) > happened(b) ? -1 : 0,
                     )
                     .map((event) => {
-                      const described = describeEvent(event, { t, staffName });
+                      const described = describeEvent(event, { t, staffName, templateTitle });
                       const who = event.actor?.displayName ?? t('person.system');
                       return (
                         <li key={event.id}>

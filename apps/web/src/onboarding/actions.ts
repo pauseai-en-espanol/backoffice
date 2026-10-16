@@ -62,9 +62,17 @@ export const updatePerson = (id: string, change: PersonChange) => send('PATCH', 
 export const addNote = (id: string, note: { body: string; happenedOn?: string }) =>
   send('POST', `${person(id)}/notes`, note);
 
+/** A contact attempt; the message that went out, when the team wrote it in Mensajes, by its id and version. */
 export const addAttempt = (
   id: string,
-  attempt: { channel: ContactChannel; outcome: ContactOutcome; note?: string; happenedOn?: string },
+  attempt: {
+    channel: ContactChannel;
+    outcome: ContactOutcome;
+    note?: string;
+    happenedOn?: string;
+    templateId?: string;
+    templateVersion?: number;
+  },
 ) => send('POST', `${person(id)}/attempts`, attempt);
 
 export const addIdentity = (
