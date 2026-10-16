@@ -43,6 +43,8 @@ export interface PersonChange {
   pronouns?: string | null;
   availability?: string | null;
   howHeard?: string | null;
+  /** The one-line internal summary (PLAN M5, step 4). */
+  summary?: string | null;
   stage?: string;
   ownerId?: string | null;
   nextAction?: string | null;

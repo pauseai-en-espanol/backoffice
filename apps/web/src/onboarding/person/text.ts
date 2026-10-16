@@ -55,6 +55,8 @@ export const personPageText = (t: Translator) => {
       availability: t('person.availability'),
       availabilityNone: t('person.availabilityNone'),
       howHeard: t('person.howHeard'),
+      summary: t('person.summary'),
+      summaryHint: t('person.summaryHint'),
       arrivedOn: t('person.arrivedOn'),
       arrivedOnHint: t('person.arrivedOnHint'),
       arrival: t('person.arrival'),

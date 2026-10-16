@@ -35,6 +35,11 @@ export interface PersonLabels {
   dueToday: string;
   /** "Sin nombre": someone saved with only a phone or an email. */
   noName: string;
+  /** "({province})", after the name (PLAN M5, step 4). */
+  withProvince: string;
+  /** What is missing, in plain words, and the line's label ("Falta"). */
+  missing: Readonly<Record<string, string>>;
+  missingLabel: string;
 }
 
 /** A stage in words, outlined: never a colour of its own (WCAG 1.4.1). */
@@ -59,6 +64,39 @@ export const ReasonChips = ({
         </li>
       ))}
     </ul>
+  );
+
+/** A name (a link on a card, a heading's text on a person's page) followed by the province: "Maite (Madrid)". */
+export const NameWithProvince = ({
+  name,
+  province,
+  labels,
+}: {
+  name: ReactNode;
+  province: string | null;
+  labels: Pick<PersonLabels, 'withProvince'>;
+}) => (
+  <>
+    {name}
+    {province ? (
+      <span className={styles.province}> {fill(labels.withProvince, { province })}</span>
+    ) : null}
+  </>
+);
+
+/** What is missing, in plain words ("Falta: correo · qué quiere hacer"); nothing when nothing is. */
+export const MissingLine = ({
+  missing,
+  labels,
+}: {
+  missing: readonly string[];
+  labels: Pick<PersonLabels, 'missing' | 'missingLabel'>;
+}) =>
+  missing.length === 0 ? null : (
+    <p className={styles.missing}>
+      <span className={styles.missingLabel}>{labels.missingLabel}:</span>{' '}
+      {missing.map((detail) => labels.missing[detail] ?? detail).join(' · ')}
+    </p>
   );
 
 /** A next action and its due date, which says in words when it has passed or is today. */
@@ -96,8 +134,10 @@ export const NextAction = ({
 };
 
 /**
- * A person in a list (Hoy, Personas, the Bandeja's candidates): their name, linked to their page, their stage, owner,
- * next action and reasons. `action` is a button of the list's own (Me lo quedo), kept outside the link.
+ * A person in a list (Hoy, Personas, the Onboarding Pipeline, the Bandeja's candidates), saying who they are (PLAN M5,
+ * step 4): their name, linked to their page, with their province; the team's one-line summary; what is missing; then
+ * their stage, owner, next action and reasons. `action` is a button of the list's own (Me lo quedo), kept outside the
+ * link.
  */
 export const PersonItem = ({
   person,
@@ -112,20 +152,25 @@ export const PersonItem = ({
 }) => (
   <li className={styles.personItem}>
     <div className={styles.personHead}>
-      <Link className={styles.personName} href={`/personas/${encodeURIComponent(person.id)}`}>
-        {personName(person.name, labels.noName)}
-      </Link>
+      <span className={styles.personTitle}>
+        <NameWithProvince
+          name={
+            <Link className={styles.personName} href={`/personas/${encodeURIComponent(person.id)}`}>
+              {personName(person.name, labels.noName)}
+            </Link>
+          }
+          province={person.province}
+          labels={labels}
+        />
+      </span>
       <StageTag label={labels.stages[person.stage] ?? person.stage} />
     </div>
+    {person.summary ? <p className={styles.summary}>{person.summary}</p> : null}
+    <MissingLine missing={person.missing} labels={labels} />
     <ul className={styles.meta}>
       <li>
         {labels.owner}: {person.owner?.displayName ?? labels.noOwner}
       </li>
-      {person.province ? (
-        <li>
-          {labels.province}: {person.province}
-        </li>
-      ) : null}
       <li>{person.inCommunity ? labels.inCommunity : labels.notInCommunity}</li>
       {showSources && person.sources.length > 0 ? (
         <li>

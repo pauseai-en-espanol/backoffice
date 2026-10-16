@@ -114,6 +114,7 @@ export const ProfileEditor = ({
       </h3>
       {field('fullName', t.fullName, undefined, 200)}
       {field('preferredName', t.preferredName)}
+      {field('summary', t.summary, t.summaryHint, 200)}
       {field('province', t.province)}
       {field('town', t.town)}
       {field('languages', t.languages, t.languagesHint, 500)}

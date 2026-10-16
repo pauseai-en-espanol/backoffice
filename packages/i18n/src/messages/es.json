@@ -526,6 +526,16 @@
     "availability": "Disponibilidad",
     "availabilityNone": "Sin indicar",
     "howHeard": "Cómo conoció PauseAI",
+    "summary": "Resumen interno",
+    "summaryHint": "Una línea que diga quién es, solo para el equipo: nunca va a Telegram. Sin salud, ideología ni otros datos sensibles. Por ejemplo: «Diseñadora, quiere ayudar con redes».",
+    "withProvince": "({province})",
+    "missingLabel": "Falta",
+    "missing": {
+      "phone": "teléfono",
+      "email": "correo",
+      "province": "provincia",
+      "interests": "qué quiere hacer"
+    },
     "profileCompleted": "Perfil completado el {date}",
     "profile": "Perfil",
     "editProfile": "Editar el perfil",

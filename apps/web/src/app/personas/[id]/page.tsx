@@ -30,7 +30,7 @@ import { ProfileEditor } from '@/onboarding/person/ProfileEditor';
 import { StageOwner } from '@/onboarding/person/StageOwner';
 import { personPageText } from '@/onboarding/person/text';
 import { type WhatsAppChoice, WhatsAppHandover } from '@/onboarding/person/WhatsApp';
-import { NextAction, ReasonChips, StageTag } from '@/onboarding/PersonItem';
+import { MissingLine, NextAction, ReasonChips, StageTag } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, isAdmin, sourceName } from '@/onboarding/text';
 import { describeEvent } from '@/onboarding/timeline';
@@ -171,6 +171,8 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
         {person.fullName === null || person.name === person.fullName ? null : (
           <p className={styles.text}>{person.fullName}</p>
         )}
+        {person.summary ? <p className={onboarding.summary}>{person.summary}</p> : null}
+        <MissingLine missing={person.missing} labels={text.labels} />
         <ul className={onboarding.meta}>
           <li>
             <StageTag label={text.stages[person.stage]} />

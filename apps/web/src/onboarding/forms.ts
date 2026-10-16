@@ -34,6 +34,7 @@ export type Profile = Pick<
   | 'pronouns'
   | 'availability'
   | 'howHeard'
+  | 'summary'
   | 'arrivedOn'
   | 'arrival'
 >;
@@ -46,7 +47,14 @@ export const profileChange = (profile: Profile, read: (name: string) => string):
   if (fullName !== (profile.fullName ?? '')) {
     change.fullName = fullName;
   }
-  for (const key of ['preferredName', 'province', 'town', 'pronouns', 'howHeard'] as const) {
+  for (const key of [
+    'preferredName',
+    'province',
+    'town',
+    'pronouns',
+    'howHeard',
+    'summary',
+  ] as const) {
     const value = optional(read(key));
     if (value !== profile[key]) {
       change[key] = value;

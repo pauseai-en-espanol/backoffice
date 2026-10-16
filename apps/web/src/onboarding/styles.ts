@@ -42,6 +42,20 @@ export const personName = css({
   _focusVisible: focusRing,
 });
 
+/** The name and the province together, so the stage stays to their right while they wrap (PLAN M5, step 4). */
+export const personTitle = css({ fontSize: 'lg', overflowWrap: 'anywhere' });
+
+/** "(Madrid)" after a name: the same size, not bold, so the name still reads first. */
+export const province = css({ fontWeight: 'normal', color: 'fg.default' });
+
+/** The team's one-line summary of who someone is. */
+export const summary = css({ color: 'fg.default', overflowWrap: 'anywhere' });
+
+/** "Falta: correo · qué quiere hacer": in words, never only a colour. */
+export const missing = css({ color: 'fg.default', fontSize: 'sm' });
+
+export const missingLabel = css({ fontWeight: 'bold' });
+
 /** A person's facts on one line that wraps: stage, owner, next action, community. */
 export const meta = css({
   display: 'flex',

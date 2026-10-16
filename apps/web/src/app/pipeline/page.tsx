@@ -13,7 +13,7 @@ import { filtersFromPage, pageQuery, type PeopleFilters } from '@/onboarding/fil
 import { FiltersForm } from '@/onboarding/FiltersForm';
 import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
-import { NextAction, ReasonChips } from '@/onboarding/PersonItem';
+import { MissingLine, NameWithProvince, NextAction, ReasonChips } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, personLabels } from '@/onboarding/text';
 import { requireStaff } from '@/session';
@@ -25,11 +25,25 @@ const t = getTranslator();
 
 export const metadata: Metadata = { title: t('board.title') };
 
+/** A person on the board, saying who they are as every card does (PLAN M5, step 4), then owner and next step. */
 const Card = ({ person, labels }: { person: PersonSummary; labels: PersonLabels }) => (
   <li className={onboarding.boardCard}>
-    <Link className={onboarding.personName} href={`/personas/${encodeURIComponent(person.id)}`}>
-      {personName(person.name, labels.noName)}
-    </Link>
+    <span className={onboarding.personTitle}>
+      <NameWithProvince
+        name={
+          <Link
+            className={onboarding.personName}
+            href={`/personas/${encodeURIComponent(person.id)}`}
+          >
+            {personName(person.name, labels.noName)}
+          </Link>
+        }
+        province={person.province}
+        labels={labels}
+      />
+    </span>
+    {person.summary ? <span className={onboarding.summary}>{person.summary}</span> : null}
+    <MissingLine missing={person.missing} labels={labels} />
     <span className={styles.hint}>
       {labels.owner}: {person.owner?.displayName ?? labels.noOwner}
     </span>

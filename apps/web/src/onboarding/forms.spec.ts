@@ -22,6 +22,7 @@ describe('the profile form', () => {
     pronouns: null,
     availability: null,
     howHeard: null,
+    summary: null,
     arrivedOn: null,
     arrival: null,
   };
@@ -44,6 +45,16 @@ describe('the profile form', () => {
       languages: ['castellano', 'catalán'],
       availability: 'under_2h',
     });
+  });
+
+  it('sends the one-line internal summary, trimmed, and null once emptied (PLAN M5, step 4)', () => {
+    const same = { fullName: 'Ana Ejemplo', province: 'Madrid', languages: 'castellano' };
+    expect(
+      profileChange(profile, reader({ ...same, summary: ' Quiere ayudar con redes ' })),
+    ).toEqual({ summary: 'Quiere ayudar con redes' });
+    expect(profileChange({ ...profile, summary: 'Quiere ayudar con redes' }, reader(same))).toEqual(
+      { summary: null },
+    );
   });
 
   it('leaves someone without a name so when the field stays empty, and sends a name once typed', () => {

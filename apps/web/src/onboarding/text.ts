@@ -1,5 +1,6 @@
 import type { getTranslator } from '@backoffice/i18n/messages';
 
+import { MISSING_DETAILS } from '@backoffice/domain/missing';
 import {
   ATTENTION_REASONS,
   CONTACT_CHANNELS,
@@ -37,6 +38,10 @@ export const outcomeNames = (t: Translator) =>
 
 export const sourceNames = (t: Translator) => labels(SOURCES, (source) => t(`sources.${source}`));
 
+/** What a card says is missing, in plain words (PLAN M5, step 4). */
+export const missingNames = (t: Translator) =>
+  labels(MISSING_DETAILS, (detail) => t(`person.missing.${detail}`));
+
 export const AVAILABILITY = ['occasional', 'under_2h', 'from_2_to_5h', 'over_5h'] as const;
 export type Availability = (typeof AVAILABILITY)[number];
 
@@ -62,6 +67,9 @@ export const personLabels = (t: Translator): PersonLabels => ({
   due: String(t.raw('person.due')),
   dueToday: t('person.dueToday'),
   noName: t('people.noName'),
+  withProvince: String(t.raw('person.withProvince')),
+  missing: missingNames(t),
+  missingLabel: t('person.missingLabel'),
 });
 
 /** A reason's words, or "Revisar" for one this version of the page doesn't know yet. */

@@ -1,4 +1,5 @@
 import { MESSAGE_PURPOSES, type MessagePurpose } from '@backoffice/domain/message-templates';
+import { isMissingDetail, type MissingDetail } from '@backoffice/domain/missing';
 import { isStage, type Stage } from '@backoffice/domain/stages';
 
 /**
@@ -32,6 +33,10 @@ export interface PersonSummary {
   /** "Llegó por", from the list in Ajustes. */
   arrival: { id: string; label: string } | null;
   createdAt: string;
+  /** The one-line internal summary (PLAN M5, step 4): staff only, never to Telegram. */
+  summary: string | null;
+  /** What the card says is missing ("Falta: correo · qué quiere hacer"). */
+  missing: MissingDetail[];
 }
 
 /** An entry of "Llegó por" (PLAN M5): `key` marks the ones the backoffice picks itself (the bot's, Global's form). */
@@ -260,6 +265,8 @@ const summaryFields = (value: Record<string, unknown>) => {
   const nextActionDue = nullable(value.nextActionDue);
   const reasons = strings(value.reasons);
   const arrivedOn = nullable(value.arrivedOn);
+  const summary = nullable(value.summary);
+  const missing = strings(value.missing);
   const arrival =
     isRecord(value.arrival) && str(value.arrival.id) && str(value.arrival.label)
       ? { id: value.arrival.id, label: value.arrival.label }
@@ -274,7 +281,9 @@ const summaryFields = (value: Record<string, unknown>) => {
     nextAction === undefined ||
     nextActionDue === undefined ||
     reasons === undefined ||
-    arrivedOn === undefined
+    arrivedOn === undefined ||
+    summary === undefined ||
+    missing === undefined
   ) {
     return undefined;
   }
@@ -292,6 +301,9 @@ const summaryFields = (value: Record<string, unknown>) => {
     arrivedOn,
     arrival,
     createdAt: str(value.createdAt) ? value.createdAt : '',
+    summary,
+    // A detail this app doesn't know yet is left out rather than shown as a key.
+    missing: missing.filter(isMissingDetail),
   };
 };
 
