@@ -165,7 +165,10 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
    with a history line each. Existing people's "Llegó el" is the day they were added. The old "Llegó por" label on
    sources is now "Entró por". Mutation list `arrivals`.
 4. **Cards that say who someone is:** the name with the province, a one-line internal summary (staff only, never
-   to Telegram), and what's missing in plain words ("Falta: correo · qué quiere hacer").
+   to Telegram), and what's missing in plain words ("Falta: correo · qué quiere hacer"). **Done:** migration
+   `20261016170000` (`people.summary`; erasure clears it, a merge keeps it); every card (Hoy, Personas, the
+   Onboarding Pipeline, the Bandeja, Censo) and the person's page; "Resumen interno" in the profile editor (R43, R44).
+   Mutation list `cards`.
 5. **Staff linked to their person:** an admin links an account to its person (suggested by a shared email); the
    person shows an "Equipo" badge and Personas filters by it; the link grants nothing, and the person outlives a
    deactivated account.
@@ -376,6 +379,18 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   `templateVersion`, which the database checks (a version that template has had); a census link records its message
   when it's made (its URL is shown only then, inside it), and its attempt names the same. A census link message
   retired between loading Censo and pressing the button is refused (`409 stale`), never swapped for another.
+- **R43. What a card says is missing** (PLAN M5, step 4; Dani, 2026-10-16: "Maite (Madrid) could help or even add
+  an internal note"). Options: every empty field; what onboarding needs to welcome someone. **Chose the latter:**
+  "Falta:" lists a phone, an email, the province and an area they'd like to help in (from the census's list or in
+  their own words), in that order. Not the name (the card already says "Sin nombre"), nor skills or availability
+  (the census asks those). Nothing for someone who left or was discarded; still for someone dormant or unresponsive,
+  who may come back. The person's page shows the same line under the name; its heading stays the name alone.
+- **R44. The one-line internal summary** (PLAN M5, step 4). Options: a note pinned from the timeline; a field of its
+  own. **Chose a field** (`people.summary`), edited with the profile as "Resumen interno": one line, at most 200
+  characters, personal data. It stays in the staff app: no bot function returns it, so it never reaches Telegram,
+  and the CSV export leaves it out, while a person's export (a rights request) includes it and erasure clears it. A
+  merge keeps the survivor's, else takes the duplicate's. Its hint asks for no health, ideology or other sensitive
+  details, as notes do.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

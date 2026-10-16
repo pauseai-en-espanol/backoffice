@@ -56,6 +56,7 @@ specified in the M1 and M3 migrations.
 | `audit_log`                | Every write: actor, channel (web or bot), table, row, what changed. Append-only          | Core       |
 | `people`                   | Profile, stage, owner, next action and due date, `profile_completed_at`, anonymised flag | Onboarding |
 |                            | "Llegó el" (`arrived_on`, null: unknown) and "Llegó por" (`arrival_channel_id`), M5      |            |
+|                            | `summary`: the card's one-line internal summary (≤ 200, personal data; M5, step 4)       |            |
 | `arrival_channels`         | "Llegó por"'s list, edited by admins in Ajustes; `key` marks the bot's and Global's (M5) | Onboarding |
 | `identities`               | `(kind, value)` unique, `person_id`, verified, source, first seen; kinds: email, phone,  | Onboarding |
 |                            | Discord username (M5), Airtable record                                                   |            |

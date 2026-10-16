@@ -84,6 +84,12 @@ from the attempts since the last reply, counted by the day they happened.
 Reporting happens mostly through the bot. The web app is where the work is followed and done, and it is
 mobile-first all the same.
 
+Every **card** (Hoy, Personas, the Onboarding Pipeline, the Bandeja, Censo) says who someone is (PLAN M5, step 4):
+the name with the province ("Maite (Madrid)"), the team's one-line internal summary ("Resumen interno", in the
+profile; staff only, never sent to Telegram, at most 200 characters), and what is missing in plain words ("Falta:
+correo · qué quiere hacer": a phone, an email, the province, an area they'd like to help in). Someone who left or
+was discarded is asked nothing. The person's page shows the summary and the same line under their name.
+
 - **Hoy:** my people needing attention, then the unassigned queue with a "Me lo quedo" (claim) button.
 - **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage. Filters: owner, province, source
   ("Entró por"), "Llegó por", "Llegó el" known or not, in the community or not, needs attention.

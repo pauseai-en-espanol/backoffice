@@ -186,6 +186,14 @@ updatedAt, updatedBy: { userId, displayName } | null }] }`, by purpose (`welcome
   in, else the first in use, else the code's own. `409 stale` when the one asked for is retired or isn't a census
   link's. The link records the message and its version, and `/sent`'s contact attempt names them.
 
+Step 4, cards that say who someone is:
+
+- **A person's summary** adds `summary` (the one-line internal summary, or null) and `missing`: what the card says
+  is missing, in order, from `phone`, `email`, `province` and `interests` (an area from the census's list, or in
+  their own words); empty for someone who left or was discarded.
+- **`PATCH /api/people/:id`** also takes `summary` (one line, at most 200 characters; empty or null clears it;
+  `400 invalid` otherwise). A person's export (`GET /api/people/:id/export`) includes it; the CSV export doesn't.
+
 ## M3: outreach
 
 Outreach staff and admins, through the staff app ([outreach spec](outreach.md)); never the bot. Erasing a contact

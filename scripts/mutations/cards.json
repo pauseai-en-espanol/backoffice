@@ -1,0 +1,130 @@
+[
+  {
+    "name": "the card never says the email is missing",
+    "file": "packages/domain/src/missing.ts",
+    "old": "    email: person.hasEmail,",
+    "new": "    email: true,",
+    "cmd": "pnpm exec vitest run src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "someone discarded is still asked for what is missing",
+    "file": "packages/domain/src/missing.ts",
+    "old": "  if (CLOSED_STAGES.includes(person.stage)) {",
+    "new": "  if (person.stage === 'left') {",
+    "cmd": "pnpm exec vitest run src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "someone dormant is asked nothing",
+    "file": "packages/domain/src/missing.ts",
+    "old": "  if (CLOSED_STAGES.includes(person.stage)) {",
+    "new": "  if (!['new', 'contacting', 'welcomed', 'active'].includes(person.stage)) {",
+    "cmd": "pnpm exec vitest run src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a blank province counts as known",
+    "file": "packages/domain/src/missing.ts",
+    "old": "    province: (person.province ?? '').trim() !== '',",
+    "new": "    province: person.province !== null,",
+    "cmd": "pnpm exec vitest run src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "what someone wants to do, in their own words, doesn't count",
+    "file": "apps/api/src/people/people.ts",
+    "old": "  p.interests_other IS NOT NULL\n    OR EXISTS",
+    "new": "  false\n    OR EXISTS",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the API ignores a change to the summary",
+    "file": "apps/api/src/people/people.ts",
+    "old": "  summary: 'summary',\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the API takes a summary of several lines",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "              summary: { ...NULLABLE_TEXT(200), pattern: '^[^\\\\r\\\\n]*$' },",
+    "new": "              summary: NULLABLE_TEXT(200),",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a person's export leaves the summary out",
+    "file": "apps/api/src/census/census.ts",
+    "old": "p.interests_other, p.summary, p.stage,",
+    "new": "p.interests_other, p.stage,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the staff app's profile form never sends the summary",
+    "file": "apps/web/src/onboarding/forms.ts",
+    "old": "    'howHeard',\n    'summary',\n",
+    "new": "    'howHeard',\n",
+    "cmd": "pnpm exec vitest run src/onboarding/forms.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the summary may span several lines in the database",
+    "file": "db/migrations/20261016170000_person_summary.sql",
+    "old": "\n                                           AND summary !~ '[\\r\\n]');",
+    "new": ");",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the summary may be longer than 200 characters",
+    "file": "db/migrations/20261016170000_person_summary.sql",
+    "old": "AND length(summary) <= 200",
+    "new": "AND length(summary) <= 2000",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarding staff can't write the summary",
+    "file": "db/migrations/20261016170000_person_summary.sql",
+    "old": "GRANT UPDATE (summary) ON app.people TO pauseai_backoffice_app;",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "erasure keeps the summary",
+    "file": "db/migrations/20261016170000_person_summary.sql",
+    "old": "interests_other = NULL, summary = NULL, owner_id",
+    "new": "interests_other = NULL, owner_id",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge drops the duplicate's summary",
+    "file": "db/migrations/20261016170000_person_summary.sql",
+    "old": "           summary = coalesce(p.summary, gone.summary),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge puts the duplicate's summary over the survivor's",
+    "file": "db/migrations/20261016170000_person_summary.sql",
+    "old": "summary = coalesce(p.summary, gone.summary)",
+    "new": "summary = coalesce(gone.summary, p.summary)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the team group's card shows the summary in place of the province",
+    "file": "db/migrations/20261016170000_person_summary.sql",
+    "old": "\n-- migrate:down",
+    "new": "\nCREATE OR REPLACE FUNCTION private.team_card(person uuid) RETURNS TABLE (person_id uuid, name text, province text, sources text[], stage app.stage, owner_name text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$ SELECT p.id, p.full_name, coalesce(p.summary, p.province), '{}'::text[], p.stage, NULL::text FROM app.people p WHERE p.id = team_card.person $$;\n\n-- migrate:down",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
+    "cwd": "packages/db"
+  }
+]
