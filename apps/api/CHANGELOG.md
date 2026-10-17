@@ -1,5 +1,12 @@
 # @backoffice/api
 
+## 0.8.2
+
+### Patch Changes
+
+- Updated dependencies [c875740]
+  - @backoffice/db@0.5.1
+
 ## 0.8.1
 
 ### Patch Changes

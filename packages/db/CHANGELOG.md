@@ -1,5 +1,11 @@
 # @backoffice/db
 
+## 0.5.1
+
+### Patch Changes
+
+- c875740: Organisations' old notes column is dropped: each one's notes became the first note of its timeline (PLAN R50).
+
 ## 0.5.0
 
 ### Minor Changes

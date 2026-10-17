@@ -1,6 +1,6 @@
 {
   "name": "@backoffice/db",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Database access for the API and its jobs: Kysely, generated types and withActor",
   "type": "module",
