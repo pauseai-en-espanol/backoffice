@@ -1,5 +1,12 @@
 # @backoffice/migrations
 
+## 0.7.1
+
+### Patch Changes
+
+- 6e224b4: Sharing a private contact or organisation, or merging it into the team's contact, offers "Compartir también mis
+  notas" (unticked to start): ticked, what was written while it was private goes to the team too.
+
 ## 0.7.0
 
 ### Minor Changes

@@ -1,6 +1,6 @@
 {
   "name": "@backoffice/forms",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "private": true,
   "description": "The public census form (M2): no sessions, no cookies; it reaches the API only from its own server",
   "type": "module",
