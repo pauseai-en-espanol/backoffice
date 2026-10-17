@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Every check a push must pass, in the order that fails cheapest first (`pnpm verify`). Stops at the
-# first failure and prints the end of its output; the whole log is in $VERIFY_LOG. Needs the local database up and
-# migrated (CONTRIBUTING.md), like `pnpm test:db` and `pnpm test:e2e` alone.
+# first failure and prints the end of its output; the whole log is in $VERIFY_LOG. Needs the local database up
+# (CONTRIBUTING.md). It applies any pending migration to it first, as `pnpm db:migrate` would without rewriting
+# db/schema.sql: the e2e servers run on that database, and a migration not applied there failed them as if the code
+# were wrong.
 #
 # Usage: pnpm verify [base]   (base: what the push goes on top of; origin/main by default)
 #
@@ -20,6 +22,7 @@ clean_e2e_output() { rm -rf e2e/test-results e2e/playwright-report; }
 steps=(
   "scripts/check-migrations-append-only.sh $BASE"
   "scripts/check-deployables-released.sh $BASE"
+  "pnpm exec dbmate --migrations-dir db/migrations --no-dump-schema up"
   "pnpm lint"
   "pnpm format:check"
   "pnpm build:check"
