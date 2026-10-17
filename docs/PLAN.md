@@ -443,13 +443,18 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 - **R52. Only from private to the team** (PLAN M5, step 6). Options: let a record go back and forth; one way only.
   **Chose one way**: a team record never becomes private (409 `shared`), so nothing the team has seen disappears
   from it, and a note made "Equipo" on a private record can't exist: what is written on a private record is as
-  private as it. Sharing keeps what was written while private private (the timeline says it was shared, `shared`):
-  the safer default; whoever shares can write again for the team what the team should know.
+  private as it. Sharing keeps what was written while private private (the timeline says it was shared, `shared`)
+  unless whoever shares ticks **"Compartir también mis notas"** (Dani, 2026-10-17: "i want this option"; unticked
+  to start), which takes the record's history while private along, its notes and events, as it's shared or merged.
+  The database does it at that moment only (`private.share_history`, a trigger, when the API sets
+  `app.share_history` for the transaction), so a private note written later on a team record stays private.
+  Mutation list `private-records`.
 - **R53. The merge on sharing** (PLAN M5, step 6). Options: offer it on any likely match; only on a shared email or
   phone. **Chose a shared email or phone** (exact, as identities match), offered on the private contact's page with
   "Fusionar con …"; the team contact keeps its details and takes the ones it lacks (name, greeting, role, email,
   phone, website, territory, scope, sector; the private one's addresses join its extra ones), the private timeline
-  moves over still private, and the private contact is deleted (audited). Sharing without merging is always there.
+  moves over, still private unless "Compartir también mis notas" is ticked (R52), and the private contact is deleted
+  (audited). Sharing without merging is always there.
   Organisations are shared without a merge offer.
 - **R54. Rights requests** (PLAN M5, step 6). Options: let admins see every private record; a lookup for rights
   requests alone. **Chose the lookup**: in Contactos, admins find contacts by an exact email, phone or name, private

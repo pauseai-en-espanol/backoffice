@@ -89,12 +89,13 @@ or private to whoever made it ("Solo yo", said as "Solo tú lo ves", never by co
   ([ADR-0002](../adr/0002-authorization-and-data-protection.md)). Lists count only what the reader sees.
 - **What is written on a private record is as private as it** (its timeline, its notes); a private note may sit on
   a team record, for its writer alone.
-- **Only from private to the team.** Sharing a contact or an organisation makes it the team's for good; what was
-  written while it was private stays private, and the contact's timeline says it was shared. A team contact belongs
-  to a team organisation, or none: a private one is shared first.
+- **Only from private to the team.** Sharing a contact or an organisation makes it the team's for good, and the
+  contact's timeline says it was shared. What was written while it was private stays private, unless whoever shares
+  ticks "Compartir también mis notas" (unticked to start; PLAN R52): then its notes and events go to the team too.
+  A team contact belongs to a team organisation, or none: a private one is shared first.
 - **Sharing a contact the team already has**: when a team contact shares an email or the phone, its page offers to
-  merge into it. The team's keeps its details and takes the ones it lacks, the private timeline moves over still
-  private, and the private contact goes.
+  merge into it. The team's keeps its details and takes the ones it lacks, the private timeline moves over (still
+  private, unless "Compartir también mis notas" is ticked), and the private contact goes.
 - **Duplicates:** a private contact never blocks, matches or reveals anyone else's: there is no check across them.
 - **Campaigns write to team contacts only**: picking targets offers only the team's, and the database refuses one
   that isn't.

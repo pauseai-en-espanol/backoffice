@@ -160,7 +160,7 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   record as private as it. A row is made private only for its writer, and only ever goes from private to the team:
   `private.private_rules`, after the row so the policies refuse first, as the caller, refuses a team record made
   private and a contact whose organisation the team can't see; `private.target_shared` refuses a campaign target that
-  isn't a team contact. Four `SECURITY DEFINER` functions reach past the policies, each checking its caller first:
+  isn't a team contact. Five `SECURITY DEFINER` functions reach past the policies, each checking its caller first:
   for admins, `private.rights_contacts(query)` (a rights request's contacts, private ones too, by an exact email,
   phone or name; ids, the organisation as listed, the name and whether it's private) and
   `private.export_contact(contact)` (everything kept about one, without who on the team keeps it; recorded in
@@ -168,7 +168,12 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   member's records, how many, never what) and `private.hand_over_private(departed, heir)` (to an active member in
   outreach or an admin, with `app.redact` to move append-only rows); and, for a private contact's own person,
   `private.merge_private_contact(private, team)` (into the team contact that is the same person: blanks filled, the
-  private timeline moved still private, the private contact deleted, the sharing on the team's timeline).
+  private timeline moved, still private unless its person ticked "Compartir también mis notas", the private contact
+  deleted, the sharing on the team's timeline). One trigger does too, `private.share_history()` (PLAN R52): as a
+  private contact or organisation is shared, and only when its person ticked that box (`app.share_history`, set by
+  the API for that transaction), its timeline or notes, private to that person, become the team's, with
+  `app.redact` as the timelines are append-only. It runs only at that change, so a private note written later on a
+  team record stays private.
 - **The bot's own state** is in `private` (`telegram_updates`, `telegram_dialogs`, `telegram_posts`), outside `app`
   and its policies: only the app role reaches it, with exactly the privileges the bot uses, and a catalog test keeps
   that list. Its links and their codes are credentials, in `auth`, for the auth role alone.

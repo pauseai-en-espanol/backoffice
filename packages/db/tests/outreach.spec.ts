@@ -226,6 +226,50 @@ describe('private records, "Solo yo" (PLAN M5, step 6)', () => {
     });
   });
 
+  it('take what was written while private along when their person asks, only as they are shared (PLAN R52)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      await client.query(
+        "INSERT INTO app.contact_events (contact_id, kind, body) VALUES ($1, 'note', 'Antes de compartir')",
+        [OUTREACH.privateContact],
+      );
+      const { rows: notes } = await client.query<{ id: string }>(
+        "INSERT INTO app.organisation_notes (organisation_id, body) VALUES ($1, 'De la organización privada') RETURNING id",
+        [OUTREACH.privateOrganisation],
+      );
+      await client.query("SELECT set_config('app.share_history', 'on', true)");
+      await client.query('UPDATE app.organisations SET private_to = NULL WHERE id = $1', [
+        OUTREACH.privateOrganisation,
+      ]);
+      await client.query('UPDATE app.contacts SET private_to = NULL WHERE id = $1', [
+        OUTREACH.privateContact,
+      ]);
+      // Written for oneself on purpose, once it's the team's: still one's own.
+      await client.query(
+        "INSERT INTO app.contact_events (contact_id, kind, body, private_to) VALUES ($1, 'note', 'Solo mía', $2)",
+        [OUTREACH.privateContact, USERS.outreacher],
+      );
+      await as(client, USERS.both);
+      expect(await visible(client, 'app.organisation_notes', notes[0]?.id ?? '')).toBe(true);
+      expect(
+        (
+          await client.query<{ kind: string; body: string | null }>(
+            'SELECT kind::text, body FROM app.contact_events WHERE contact_id = $1 ORDER BY created_at, id',
+            [OUTREACH.privateContact],
+          )
+        ).rows,
+      ).toEqual([
+        { kind: 'created', body: null },
+        { kind: 'note', body: 'Antes de compartir' },
+        { kind: 'shared', body: null },
+      ]);
+      // A private note on a team organisation isn't swept along by another record's sharing.
+      expect(
+        await visible(client, 'app.organisation_notes', OUTREACH.privateOrganisationNote),
+      ).toBe(false);
+    });
+  });
+
   it('keep a team contact out of a private organisation, and anyone out of someone else’s', async () => {
     await inRolledBackTransaction(async (client) => {
       await asStaff(client);
@@ -424,6 +468,35 @@ describe('private records, "Solo yo" (PLAN M5, step 6)', () => {
       expect(await kinds_()).toEqual(['created', 'created', 'shared']);
       await as(client, USERS.both);
       expect(await kinds_()).toEqual(['created', 'shared']);
+    });
+  });
+
+  it('merge with the private timeline when their person asks, and nothing else of theirs (PLAN R52)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await asStaff(client);
+      await client.query("UPDATE app.contacts SET phone = '+34600000003' WHERE id = $1", [
+        OUTREACH.privateContact,
+      ]);
+      await client.query("SELECT set_config('app.share_history', 'on', true)");
+      expect(
+        (
+          await client.query<{ done: boolean }>(
+            'SELECT private.merge_private_contact($1, $2) AS done',
+            [OUTREACH.privateContact, OUTREACH.berta],
+          )
+        ).rows,
+      ).toEqual([{ done: true }]);
+      await as(client, USERS.both);
+      expect(
+        (
+          await client.query<{ kind: string }>(
+            "SELECT kind::text FROM app.contact_events WHERE contact_id = $1 AND kind IN ('created', 'shared') ORDER BY created_at, id",
+            [OUTREACH.berta],
+          )
+        ).rows.map((row) => row.kind),
+      ).toEqual(['created', 'created', 'shared']);
+      // The private note written on the team's contact before stays its author's.
+      expect(await visible(client, 'app.contact_events', OUTREACH.privateNote)).toBe(false);
     });
   });
 });

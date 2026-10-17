@@ -728,6 +728,63 @@ describe('private records, "Solo yo" (PLAN M5, step 6)', () => {
     expect((await page(colleague, alone)).timeline.map((event) => event.kind)).toEqual(['shared']);
   });
 
+  it('take their notes along when shared or merged, if their person ticks it (PLAN R52)', async () => {
+    const notesSeenBy = async (who: typeof outreacher, id: string) =>
+      (await page(who, id)).timeline
+        .filter((event) => event.kind === 'note')
+        .map((event) => event.body);
+
+    const alone = await newContact({ private: true });
+    await outreacher.who.send('POST', `/api/outreach/contacts/${alone}/notes`, {
+      body: 'Lo que hablamos a solas',
+    });
+    expect(
+      (
+        await outreacher.who.send('PATCH', `/api/outreach/contacts/${alone}`, {
+          private: false,
+          shareHistory: true,
+        })
+      ).statusCode,
+    ).toBe(204);
+    expect(await notesSeenBy(colleague, alone)).toEqual(['Lo que hablamos a solas']);
+
+    const email = `historial.${unique()}@ejemplo.test`;
+    const mine = await newContact({ email: `mia.${unique()}@ejemplo.test`, private: true });
+    const team = await newContact({ email });
+    await outreacher.who.send('PATCH', `/api/outreach/contacts/${mine}`, { emailsExtra: [email] });
+    await outreacher.who.send('POST', `/api/outreach/contacts/${mine}/notes`, {
+      body: 'Antes de fusionar',
+    });
+    expect(
+      (
+        await outreacher.who.send('POST', `/api/outreach/contacts/${mine}/merge`, {
+          into: team,
+          shareHistory: true,
+        })
+      ).statusCode,
+    ).toBe(204);
+    expect(await notesSeenBy(colleague, team)).toEqual(['Antes de fusionar']);
+
+    const org = (
+      await outreacher.who.send('POST', '/api/outreach/organisations', {
+        name: `Prueba Historial ${unique()}`,
+        kind: 'ngo',
+        private: true,
+      })
+    ).json<{ id: string }>().id;
+    await outreacher.who.send('POST', `/api/outreach/organisations/${org}/notes`, {
+      body: 'De la organización',
+    });
+    await outreacher.who.send('PATCH', `/api/outreach/organisations/${org}`, {
+      private: false,
+      shareHistory: true,
+    });
+    const orgNotes = (await colleague.who.send('GET', `/api/outreach/organisations/${org}`)).json<{
+      notes: { body: string }[];
+    }>().notes;
+    expect(orgNotes.map((note) => note.body)).toEqual(['De la organización']);
+  });
+
   it('keep a team contact out of a private organisation, and campaigns to team contacts', async () => {
     const org = (
       await outreacher.who.send('POST', '/api/outreach/organisations', {

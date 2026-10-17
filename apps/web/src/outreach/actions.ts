@@ -54,8 +54,9 @@ export const addNote = (
   });
 
 /** Sharing one's private contact into a team contact that is the same person (PLAN M5, step 6). */
-export const mergeContact = (id: string, into: string) =>
-  send('POST', `${at(CONTACTS, id)}/merge`, { into });
+/** `shareHistory`: "Compartir también mis notas" (PLAN R52), the private timeline goes to the team too. */
+export const mergeContact = (id: string, into: string, shareHistory: boolean) =>
+  send('POST', `${at(CONTACTS, id)}/merge`, { into, shareHistory });
 
 /** Admins: the contact's details, notes and timeline words go for good; they stay held. */
 export const eraseContact = (id: string) => send('POST', `${at(CONTACTS, id)}/erase`);

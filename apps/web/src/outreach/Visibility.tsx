@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { fill } from '@/fill';
 import { FormError } from '@/ui/FormError';
@@ -62,6 +63,9 @@ export interface ShareText {
   shared: string;
   /** Team contacts that may be the same person. */
   matchesIntro: string;
+  /** "Compartir también mis notas" (PLAN R52), and what it means. */
+  history: string;
+  historyHint: string;
   /** "Fusionar con {name}" */
   merge: string;
   merged: string;
@@ -71,7 +75,9 @@ export interface ShareText {
 /**
  * Sharing one's private contact or organisation with the team (PLAN M5, step 6). A contact that may already be in the
  * team's (an email or the phone in common) is offered to merge into it instead: the team's keeps its details and
- * takes the ones it lacks, and the private notes move over still private. Once shared, it stays the team's.
+ * takes the ones it lacks. What was written while it was private stays private, unless its person ticks "Compartir
+ * también mis notas" (PLAN R52, unticked to start), which takes it all along either way. Once shared, it stays the
+ * team's.
  */
 export const SharePanel = ({
   record,
@@ -85,18 +91,20 @@ export const SharePanel = ({
 }) => {
   const router = useRouter();
   const write = useWrite(text.errors);
+  const [history, setHistory] = useState(false);
+  const historyId = `${record.kind}-${record.id}-historial`;
 
   const share = () =>
     void write.run(
       () =>
         record.kind === 'contact'
-          ? updateContact(record.id, { private: false })
-          : updateOrganisation(record.id, { private: false }),
+          ? updateContact(record.id, { private: false, shareHistory: history })
+          : updateOrganisation(record.id, { private: false, shareHistory: history }),
       { done: text.shared },
     );
 
   const merge = async (into: string) => {
-    const answer = await write.run(() => mergeContact(record.id, into), {
+    const answer = await write.run(() => mergeContact(record.id, into, history), {
       done: text.merged,
       refresh: false,
     });
@@ -108,6 +116,19 @@ export const SharePanel = ({
   return (
     <div className={ui.form}>
       <p>{text.intro}</p>
+      <div className={ui.checkbox}>
+        <input
+          id={historyId}
+          type="checkbox"
+          checked={history}
+          onChange={(event) => setHistory(event.target.checked)}
+          aria-describedby={`${historyId}-pista`}
+        />
+        <label htmlFor={historyId}>{text.history}</label>
+        <span id={`${historyId}-pista`} className={ui.checkboxHelp}>
+          {text.historyHint}
+        </span>
+      </div>
       {matches.length > 0 ? (
         <>
           <p className={ui.hint}>{text.matchesIntro}</p>

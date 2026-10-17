@@ -76,6 +76,8 @@ export interface ContactInput {
   notes?: string | null;
   /** "Solo yo" (PLAN M5, step 6): only when made, and false to share it with the team. */
   private?: boolean;
+  /** With `private: false`, "Compartir también mis notas" (PLAN R52): its history while private goes along. */
+  shareHistory?: boolean;
 }
 
 /** The free-text fields a contact's form has, each sent trimmed or null. */
@@ -360,6 +362,8 @@ export interface OrganisationInput {
   website?: string | null;
   /** "Solo yo" (PLAN M5, step 6): only when made, and false to share it with the team. */
   private?: boolean;
+  /** With `private: false`, "Compartir también mis notas" (PLAN R52): its history while private goes along. */
+  shareHistory?: boolean;
 }
 
 const ORGANISATION_TEXTS = ['territory', 'website'] as const;

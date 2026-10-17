@@ -155,6 +155,8 @@ export const shareText = (t: Translator, kind: 'contact' | 'organisation'): Shar
   share: t('outreach.private.share'),
   shared: t('outreach.private.shared'),
   matchesIntro: t('outreach.private.matchesIntro'),
+  history: t('outreach.private.history'),
+  historyHint: t('outreach.private.historyHint'),
   merge: String(t.raw('outreach.private.merge')),
   merged: t('outreach.private.merged'),
   errors: outreachErrors(t),

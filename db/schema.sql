@@ -1960,7 +1960,10 @@ CREATE FUNCTION private.merge_private_contact(private_contact uuid, team_contact
            sector = coalesce(c.sector, mine.sector)
      WHERE c.id = team_contact;
     PERFORM set_config('app.redact', 'on', true);
-    UPDATE app.contact_events e SET contact_id = team_contact WHERE e.contact_id = private_contact;
+    UPDATE app.contact_events e
+       SET contact_id = team_contact,
+           private_to = CASE WHEN current_setting('app.share_history', true) = 'on' THEN NULL ELSE e.private_to END
+     WHERE e.contact_id = private_contact;
     PERFORM set_config('app.redact', '', true);
     DELETE FROM app.contacts c WHERE c.id = private_contact;
     INSERT INTO app.contact_events (contact_id, kind, data)
@@ -2343,6 +2346,34 @@ CREATE FUNCTION private.session_needs_second_factor() RETURNS trigger
 
 
 ALTER FUNCTION private.session_needs_second_factor() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: share_history(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.share_history() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF current_setting('app.share_history', true) IS DISTINCT FROM 'on' THEN
+      RETURN NULL;
+    END IF;
+    PERFORM set_config('app.redact', 'on', true);
+    IF TG_TABLE_NAME = 'contacts' THEN
+      UPDATE app.contact_events e SET private_to = NULL
+       WHERE e.contact_id = NEW.id AND e.private_to = OLD.private_to;
+    ELSE
+      UPDATE app.organisation_notes n SET private_to = NULL
+       WHERE n.organisation_id = NEW.id AND n.private_to = OLD.private_to;
+    END IF;
+    PERFORM set_config('app.redact', '', true);
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.share_history() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: similar_people(text, text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -5265,6 +5296,20 @@ CREATE TRIGGER sent BEFORE UPDATE ON app.census_links FOR EACH ROW EXECUTE FUNCT
 
 
 --
+-- Name: contacts share_history; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER share_history AFTER UPDATE OF private_to ON app.contacts FOR EACH ROW WHEN (((old.private_to IS NOT NULL) AND (new.private_to IS NULL))) EXECUTE FUNCTION private.share_history();
+
+
+--
+-- Name: organisations share_history; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER share_history AFTER UPDATE OF private_to ON app.organisations FOR EACH ROW WHEN (((old.private_to IS NOT NULL) AND (new.private_to IS NULL))) EXECUTE FUNCTION private.share_history();
+
+
+--
 -- Name: campaign_targets shared; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -7116,6 +7161,13 @@ GRANT ALL ON FUNCTION private.rights_contacts(query text) TO pauseai_backoffice_
 --
 
 REVOKE ALL ON FUNCTION private.session_needs_second_factor() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION share_history(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.share_history() FROM PUBLIC;
 
 
 --

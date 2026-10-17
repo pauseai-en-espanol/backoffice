@@ -122,6 +122,8 @@ const CONTACT_PROPERTIES = {
   notes: NULLABLE_TEXT(4000),
   // "Solo yo" (true) or "Equipo" (false), PLAN M5, step 6: private only when made, then only ever shared.
   private: { type: 'boolean' },
+  // With `private: false`: its history while private goes to the team too ("Compartir también mis notas", R52).
+  shareHistory: { type: 'boolean' },
 } as const;
 
 const ORGANISATION_PROPERTIES = {
@@ -130,6 +132,7 @@ const ORGANISATION_PROPERTIES = {
   territory: NULLABLE_TEXT(100),
   website: WEBSITE,
   private: { type: 'boolean' },
+  shareHistory: { type: 'boolean' },
 } as const;
 
 const DATE = { type: 'string', format: 'date' } as const;
@@ -172,6 +175,14 @@ const TARGET_PROPERTIES = {
 
 const OUTREACH = sql<{ ok: boolean }>`SELECT private.staff_can('admin', 'outreach') AS ok`;
 const ADMIN = sql<{ ok: boolean }>`SELECT private.staff_can('admin') AS ok`;
+
+/**
+ * "Compartir también mis notas" (PLAN R52): for this transaction only, a private contact or organisation shared with
+ * the team (or merged into the team's) takes its history while private along; the database does it as it's shared.
+ */
+const withHistory = async (trx: Transaction<DB>): Promise<void> => {
+  await sql`SELECT set_config('app.share_history', 'on', true)`.execute(trx);
+};
 
 const require = async (trx: Transaction<DB>, check: typeof OUTREACH): Promise<void> => {
   if ((await check.execute(trx)).rows[0]?.ok !== true) {
@@ -370,7 +381,10 @@ export const outreachRoutes =
         ),
     );
 
-    scope.patch<{ Params: { id: string }; Body: OrganisationInput & { private?: boolean } }>(
+    scope.patch<{
+      Params: { id: string };
+      Body: OrganisationInput & { private?: boolean; shareHistory?: boolean };
+    }>(
       '/outreach/organisations/:id',
       {
         schema: {
@@ -385,11 +399,14 @@ export const outreachRoutes =
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const { private: isPrivate, ...input } = request.body;
+          const { private: isPrivate, shareHistory, ...input } = request.body;
           found(
-            await outreach(db, actor, (trx) =>
-              updateOrganisation(trx, request.params.id, input, isPrivate),
-            ),
+            await outreach(db, actor, async (trx) => {
+              if (isPrivate === false && shareHistory === true) {
+                await withHistory(trx);
+              }
+              return updateOrganisation(trx, request.params.id, input, isPrivate);
+            }),
           );
           return reply.code(204).send();
         }),
@@ -489,7 +506,10 @@ export const outreachRoutes =
         ),
     );
 
-    scope.patch<{ Params: { id: string }; Body: ContactInput & { private?: boolean } }>(
+    scope.patch<{
+      Params: { id: string };
+      Body: ContactInput & { private?: boolean; shareHistory?: boolean };
+    }>(
       '/outreach/contacts/:id',
       {
         schema: {
@@ -504,12 +524,15 @@ export const outreachRoutes =
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const { private: isPrivate, ...rest } = request.body;
+          const { private: isPrivate, shareHistory, ...rest } = request.body;
           const input = normalisedContact(rest);
           found(
-            await outreach(db, actor, (trx) =>
-              updateContact(trx, request.params.id, input, isPrivate),
-            ),
+            await outreach(db, actor, async (trx) => {
+              if (isPrivate === false && shareHistory === true) {
+                await withHistory(trx);
+              }
+              return updateContact(trx, request.params.id, input, isPrivate);
+            }),
           );
           return reply.code(204).send();
         }),
@@ -544,7 +567,7 @@ export const outreachRoutes =
         })),
     );
 
-    scope.post<{ Params: { id: string }; Body: { into: string } }>(
+    scope.post<{ Params: { id: string }; Body: { into: string; shareHistory?: boolean } }>(
       '/outreach/contacts/:id/merge',
       {
         schema: {
@@ -553,15 +576,18 @@ export const outreachRoutes =
             type: 'object',
             required: ['into'],
             additionalProperties: false,
-            properties: { into: UUID },
+            properties: { into: UUID, shareHistory: { type: 'boolean' } },
           },
         },
       },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const done = await outreach(db, actor, (trx) =>
-            mergePrivateContact(trx, request.params.id, request.body.into),
-          );
+          const done = await outreach(db, actor, async (trx) => {
+            if (request.body.shareHistory === true) {
+              await withHistory(trx);
+            }
+            return mergePrivateContact(trx, request.params.id, request.body.into);
+          });
           return done ? reply.code(204).send() : reply.code(409).send({ error: 'stale' });
         }),
     );

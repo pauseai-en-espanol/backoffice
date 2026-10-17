@@ -75,6 +75,9 @@ export const SECURITY_DEFINER_ALLOWLIST: readonly string[] = [
   'private.report_leave',
   'private.resolve_intake',
   'private.rights_contacts',
+  // Sharing one's private contact or organisation with its history (PLAN R52): a trigger, as it's shared and only
+  // when its person ticks it, makes its private timeline the team's; the timelines are append-only.
+  'private.share_history',
   'private.staff_can',
   // A team account's person, suggested by a shared email (PLAN M5): admins only, ids only, reaching `auth`.
   'private.staff_person_suggestions',

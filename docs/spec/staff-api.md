@@ -217,8 +217,10 @@ Step 6, outreach's private records, "Solo yo" ([outreach §6](outreach.md#6-priv
 - **Notes** (`POST …/contacts/:id/notes`, `POST …/organisations/:id/notes`) take `private: true`, for the writer
   alone; on a private record every note is. Timeline events and notes carry `private`.
 - **`GET /api/outreach/contacts/:id/matches`**: `{ contacts: [summary] }`, team contacts that share an email or the
-  phone with this one, to merge it into. **`POST /api/outreach/contacts/:id/merge`** `{ into }`: a private
-  contact's own person merges it into that team contact: `204`; `409 stale` if either isn't what it should be.
+  phone with this one, to merge it into. **`POST /api/outreach/contacts/:id/merge`** `{ into, shareHistory? }`: a
+  private contact's own person merges it into that team contact: `204`; `409 stale` if either isn't what it should
+  be. **`shareHistory: true`** ("Compartir también mis notas", PLAN R52), on a merge or with `private: false` on a
+  `PATCH`, takes the record's history while private (notes and events) to the team as it's shared.
 - **`POST /api/outreach/campaigns/:id/targets`** adds team contacts only (a private one is left out of `added`).
 - **`GET /api/outreach/rights?q=`** (admins): `{ contacts: [{ id, orgDisplay, personName, private }] }`, the contacts
   whose email, phone or name is exactly `q`, private ones too. **`GET /api/outreach/contacts/:id/export`**

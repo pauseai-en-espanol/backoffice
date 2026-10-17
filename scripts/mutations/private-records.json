@@ -232,5 +232,97 @@
     "new": "    case 'shared-no':",
     "cmd": "pnpm exec vitest run src/outreach/timeline.spec.ts",
     "cwd": "apps/web"
+  },
+  {
+    "name": "sharing takes the private history along unasked (R52)",
+    "file": "db/migrations/20261017130000_share_history.sql",
+    "old": "    IF current_setting('app.share_history', true) IS DISTINCT FROM 'on' THEN\n      RETURN NULL;\n    END IF;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a contact's private history never goes along when asked (R52)",
+    "file": "db/migrations/20261017130000_share_history.sql",
+    "old": "      UPDATE app.contact_events e SET private_to = NULL\n",
+    "new": "      UPDATE app.contact_events e SET private_to = e.private_to\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an organisation's private notes never go along when asked (R52)",
+    "file": "db/migrations/20261017130000_share_history.sql",
+    "old": "      UPDATE app.organisation_notes n SET private_to = NULL\n",
+    "new": "      UPDATE app.organisation_notes n SET private_to = n.private_to\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "sharing one organisation shares its person's private notes on every other (R52)",
+    "file": "db/migrations/20261017130000_share_history.sql",
+    "old": "       WHERE n.organisation_id = NEW.id AND n.private_to = OLD.private_to;",
+    "new": "       WHERE n.private_to = OLD.private_to;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge never takes the private timeline along when asked (R52)",
+    "file": "db/migrations/20261017130000_share_history.sql",
+    "old": "CASE WHEN current_setting('app.share_history', true) = 'on' THEN NULL ELSE e.private_to END",
+    "new": "e.private_to",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge takes the private timeline along unasked (R52)",
+    "file": "db/migrations/20261017130000_share_history.sql",
+    "old": "CASE WHEN current_setting('app.share_history', true) = 'on' THEN NULL ELSE e.private_to END",
+    "new": "NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the API ignores \"Compartir también mis notas\" on a contact (R52)",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "              if (isPrivate === false && shareHistory === true) {\n                await withHistory(trx);\n              }\n              return updateContact(",
+    "new": "              return updateContact(",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the API ignores \"Compartir también mis notas\" on an organisation (R52)",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "              if (isPrivate === false && shareHistory === true) {\n                await withHistory(trx);\n              }\n              return updateOrganisation(",
+    "new": "              return updateOrganisation(",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the API ignores \"Compartir también mis notas\" on a merge (R52)",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "            if (request.body.shareHistory === true) {\n              await withHistory(trx);\n            }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the share panel never sends \"Compartir también mis notas\" with a merge (R52)",
+    "file": "apps/web/src/outreach/Visibility.tsx",
+    "old": "mergeContact(record.id, into, history)",
+    "new": "mergeContact(record.id, into, false)",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/outreach-private.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "\"Compartir también mis notas\" starts ticked (R52)",
+    "file": "apps/web/src/outreach/Visibility.tsx",
+    "old": "useState(false)",
+    "new": "useState(true)",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/outreach-private.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
   }
 ]

@@ -6,7 +6,8 @@ const tag = () => crypto.randomUUID().slice(0, 8);
 
 /**
  * "Solo yo" (PLAN M5, step 6): a contact kept private is its own person's alone, nobody else on the team sees it, an
- * admin neither; sharing it offers to merge it into the team's contact that is the same person.
+ * admin neither; sharing it offers to merge it into the team's contact that is the same person, its notes too when
+ * ticked.
  */
 test('a private contact: mine alone, then shared into the team contact that is the same person', async ({
   page,
@@ -51,8 +52,20 @@ test('a private contact: mine alone, then shared into the team contact that is t
     await expect(other.getByRole('heading', { level: 1, name: org })).toHaveCount(0);
   }
 
-  // Sharing: the team already has them, so merge into theirs.
+  // A note while it's mine alone.
+  const note = `Lo que hablamos ${tag()}`;
+  const privateId = privateUrl.split('/').at(-1) ?? '';
+  const noted = await page.request.post(`/api/outreach/contacts/${privateId}/notes`, {
+    headers: { origin },
+    data: { body: note },
+  });
+  expect(noted.status()).toBe(201);
+
+  // Sharing: the team already has them, so merge into theirs, notes and all (PLAN R52).
   await page.goto(privateUrl);
+  const history = page.getByRole('checkbox', { name: 'Compartir también mis notas' });
+  await expect(history).not.toBeChecked();
+  await history.check();
   const merge = page.getByRole('button', { name: /^Fusionar con Persona del equipo/u });
   await expect(merge).toBeVisible();
   await merge.click();
@@ -60,4 +73,8 @@ test('a private contact: mine alone, then shared into the team contact that is t
   await expect(
     page.getByText('Compartido con el equipo, fusionado en este contacto'),
   ).toBeVisible();
+  const colleague = await (await newContext()).newPage();
+  await signedInStaff(colleague, ['outreach']);
+  await colleague.goto(`/contactos/${teamId}`);
+  await expect(colleague.getByText(note)).toBeVisible();
 });
