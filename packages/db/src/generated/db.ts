@@ -462,10 +462,6 @@ export interface AppOrganisations {
   id: Generated<string>;
   kind: Generated<AppOrganisationKind>;
   name: string;
-  /**
-   * personal data
-   */
-  notes: string | null;
   private_to: string | null;
   territory: string | null;
   updated_at: Generated<Timestamp>;

@@ -433,8 +433,9 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 - **R50. An organisation's old notes** (PLAN M5, step 6). Options: keep the field beside the timeline; move it into
   the timeline. **Chose to move it** (expand/contract): each organisation's notes became its first note, by nobody
   known, dated the day the organisation was last changed (the nearest to when they were written that the database
-  has); the column is no longer written (its grants are revoked) and a later migration drops it. Contacts keep their
-  own notes field, which the edit form shows; only their timeline notes take a date.
+  has); the column was no longer written (its grants revoked), and once that release was live, migration `140000`
+  dropped it (2026-10-17). Contacts keep their own notes field, which the edit form shows; only their timeline notes
+  take a date.
 - **R51. Who a private record is for** (PLAN M5, step 6). Options: a "private" flag beside the owner; its own column
   naming who sees it. **Chose `private_to`**, a staff member's id (null for the team's), on contacts, organisations,
   contact events and organisation notes, so inheriting is changing it and the relationship's owner (`owner_id`)

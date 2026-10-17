@@ -164,12 +164,14 @@ describe('notes on contacts and organisations (PLAN M5, step 6)', () => {
           [OUTREACH.organisation],
         ),
       ).toBe('23514');
-      // The old notes field isn't written any more: the timeline is.
+      // The old notes field is gone: the timeline holds them (PLAN R50).
       expect(
-        await errorCode(client, "UPDATE app.organisations SET notes = 'Otra' WHERE id = $1", [
-          OUTREACH.organisation,
-        ]),
-      ).toBe('42501');
+        (
+          await client.query(
+            "SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid = 'app.organisations'::regclass AND attname = 'notes' AND NOT attisdropped",
+          )
+        ).rowCount,
+      ).toBe(0);
     });
   });
 });

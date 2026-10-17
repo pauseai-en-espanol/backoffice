@@ -502,7 +502,6 @@ const PERSONAL_DATA: readonly string[] = [
   'intake_records.payload',
   'invitations.email',
   'organisation_notes.body',
-  'organisations.notes',
   'people.availability',
   'people.full_name',
   'people.how_heard',

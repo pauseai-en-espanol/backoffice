@@ -40,10 +40,10 @@
     "cwd": "packages/db"
   },
   {
-    "name": "the old notes field is still written beside the timeline",
-    "file": "db/migrations/20261017120000_organisation_notes.sql",
-    "old": "REVOKE INSERT (notes), UPDATE (notes) ON app.organisations FROM pauseai_backoffice_app;",
-    "new": "",
+    "name": "an organisation keeps its old notes column beside the timeline",
+    "file": "db/migrations/20261017140000_drop_organisation_notes_column.sql",
+    "old": "ALTER TABLE app.organisations DROP COLUMN notes;",
+    "new": "SELECT 1;",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach.spec.ts",
     "cwd": "packages/db"
   },

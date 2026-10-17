@@ -3562,7 +3562,6 @@ CREATE TABLE app.organisations (
     kind app.organisation_kind DEFAULT 'other'::app.organisation_kind NOT NULL,
     territory text,
     website text,
-    notes text,
     external_ref text,
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -3571,20 +3570,12 @@ CREATE TABLE app.organisations (
     private_to uuid,
     CONSTRAINT organisations_external_ref_check CHECK ((length(external_ref) <= 200)),
     CONSTRAINT organisations_name_check CHECK (((btrim(name) <> ''::text) AND (length(name) <= 200))),
-    CONSTRAINT organisations_notes_check CHECK ((length(notes) <= 4000)),
     CONSTRAINT organisations_territory_check CHECK ((length(territory) <= 100)),
     CONSTRAINT organisations_website_check CHECK (((website ~ '^https?://'::text) AND (length(website) <= 500)))
 );
 
 
 ALTER TABLE app.organisations OWNER TO pauseai_backoffice_owner;
-
---
--- Name: COLUMN organisations.notes; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
---
-
-COMMENT ON COLUMN app.organisations.notes IS 'personal data';
-
 
 --
 -- Name: people; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
