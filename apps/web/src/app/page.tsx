@@ -111,7 +111,7 @@ const Today = async () => {
             {today.mine.length === 0 ? (
               <p className={styles.text}>{t('today.mineNone')}</p>
             ) : (
-              <ul className={onboarding.personList}>
+              <ul className={onboarding.personGrid}>
                 {today.mine.map((person) => (
                   <PersonItem key={person.id} person={person} labels={labels} />
                 ))}
@@ -126,7 +126,7 @@ const Today = async () => {
             {queue === undefined || queue.shown.length === 0 ? (
               <p className={styles.text}>{t('today.unassignedNone')}</p>
             ) : (
-              <ul className={onboarding.personList}>
+              <ul className={onboarding.personGrid}>
                 {queue.shown.map((person) => (
                   <PersonItem
                     key={person.id}

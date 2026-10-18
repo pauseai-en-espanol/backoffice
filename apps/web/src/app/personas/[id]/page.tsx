@@ -274,7 +274,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
       </li>
     );
   };
-  const stageTag = <StageTag label={text.stages[person.stage]} />;
+  const stageTag = <StageTag stage={person.stage} label={text.stages[person.stage]} />;
   const ownerName = person.owner?.displayName ?? t('person.noOwner');
   const nextAction = (
     <NextAction text={person.nextAction} due={person.nextActionDue} labels={text.labels} />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { palette, roles, STATUSES, textOn } from './brand.js';
+import { palette, roles, STAGE_TONES, STATUSES, textOn } from './brand.js';
 import { AA_NON_TEXT, AA_TEXT, contrastRatio, luminance } from './contrast.js';
 
 describe('contrastRatio', () => {
@@ -39,6 +39,26 @@ describe('brand colours', () => {
   it('gives every text colour a background', () => {
     const used = new Set<string>(Object.values(textOn).flat());
     expect(Object.keys(roles.fg).filter((fg) => !used.has(fg))).toEqual([]);
+  });
+
+  it.each(STAGE_TONES)(
+    'writes the %s ink on its own fill, the canvas and the subtle background (PLAN R61)',
+    (tone) => {
+      for (const bg of [tone, 'canvas', 'subtle'] as const) {
+        expect(textOn[bg] as readonly string[], `${tone} on ${bg}`).toContain(tone);
+        expect(contrastRatio(roles.fg[tone], roles.bg[bg])).toBeGreaterThanOrEqual(AA_TEXT);
+      }
+      expect(contrastRatio(roles.border[tone], roles.bg.subtle)).toBeGreaterThanOrEqual(
+        AA_NON_TEXT,
+      );
+    },
+  );
+
+  it('keeps every stage off amber and red, the hues that ask someone to act', () => {
+    for (const tone of STAGE_TONES) {
+      expect([roles.bg.attention, roles.bg.negative]).not.toContain(roles.bg[tone]);
+      expect([roles.fg.attention, roles.fg.negative]).not.toContain(roles.fg[tone]);
+    }
   });
 
   it.each(STATUSES)(

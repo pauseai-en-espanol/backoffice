@@ -93,15 +93,27 @@ profile; staff only, never sent to Telegram, at most 200 characters), and what i
 correo · qué quiere hacer": a phone, an email, the province, an area they'd like to help in). Someone who left or
 was discarded is asked nothing. The person's page shows the summary and the same line under their name.
 
+A card says each fact once, in its own place (PLAN R61): the name with the province and the stage; the summary;
+the owner ("Sin asignar" in amber for someone waiting for one), where they came from, the community and "Equipo";
+the next step in a strip of its own (red once its day has passed, amber when it is today, or amber "Sin siguiente
+paso" for someone who needs one); a chip for any other reason ("Toca seguimiento", "Ha salido de la comunidad",
+"Posible duplicado"); and what is missing, last, each detail a dashed chip. A stage is a pill in its stage's colour
+with its icon and its word, never a colour alone; a status is a square chip with its icon and words; a tag
+("Equipo") is a quiet outline. Icons sit beside their words and are hidden from screen readers.
+
 Someone on the team (PLAN M5, step 5) shows "Equipo" on their card: an admin links their team account to their
 person, from the person's page ("Cuenta del equipo"), where the account sharing their email comes first, or from
 Equipo, which suggests it. Personas and the board filter by it ("Del equipo"). The link grants nothing, and a
 deactivated account keeps it without the badge.
 
-- **Hoy:** my people needing attention, then the unassigned queue with a "Me lo quedo" (claim) button.
-- **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage. Filters: owner, province, "Canal de
-  alta", "Fecha de alta" known or not, in the community or not, needs attention.
-- **Personas:** a searchable list (name, email, phone; typo-tolerant). Exportable to CSV by admins only, and
+- **Hoy:** my people needing attention, then the unassigned queue with a "Me lo quedo" (claim) button, each as a
+  grid of cards: as many columns as fit, one on a phone (PLAN R62).
+- **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage, each column under its stage's pill
+  and a rule in its colour; its cards leave the stage out. Filters: owner, province, "Canal de alta", "Fecha de
+  alta" known or not, in the community or not, needs attention.
+- **Personas:** a searchable list (name, email, phone; typo-tolerant), as rows from a tablet up: Persona · Etapa ·
+  Responsable · Siguiente paso · Falta, lined up down the page; on a phone each row is a card (PLAN R62). Exportable
+  to CSV by admins only, and
   every export is audited. How many it finds is said above it, and a counter for each stage, with the rest of the
   filters, is that stage's filter; the other filters are folded under "Más filtros", and those on are listed, each
   with a link that takes it off (PLAN R59).

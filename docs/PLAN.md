@@ -521,6 +521,24 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   persona? Búscala" searches as Personas does and attaches the record to whoever is found: `resolve_intake` takes any
   live person for it (migration `20261018140000`), but a census answer still only one of its candidates. Mutation list
   `bandeja`.
+- **R61. A visual system: a colour per stage, three badge shapes, icons** (Dani, 2026-10-18, on the visual review:
+  "accepted go for it", then "do everything"). Every screen was black, grey and one orange; stages were the same
+  black outline, and the card said one fact up to three times. The code read WCAG 1.4.1 as "never a colour of its
+  own", but it forbids colour as the only cue. **Now**: each stage has a cool hue (Nuevo blue, En contacto violet,
+  Bienvenida hecha teal, Activo green, Inactivo grey, Sin respuesta rose, Baja and Descartado a darker grey), in
+  `packages/ui` with every ink checked at AA on its fill, the canvas and the subtle grey; warm amber and red stay
+  for statuses (act, late). Three shapes, three jobs: a stage is a round filled pill with its icon and word, a
+  status a square chip with its icon and words, a tag ("Equipo") a quiet outline. Icons are Lucide
+  (`lucide-react`, ISC), one per meaning (`apps/web/src/ui/icons.ts`), always beside their word and hidden from
+  screen readers. A card says each fact once (onboarding spec, views): "Sin asignar" where the owner goes, the next
+  step in a strip of its own, red once late and amber when today or missing, so those reasons get no chip; the
+  others still do. Mutation list `visual`.
+- **R62. Lists: a grid on Hoy, rows on Personas** (Dani, 2026-10-18: "maybe a grid is a better fit", then the
+  review's answer). Hoy is a few dozen people to act on: a grid of cards, as many columns as fit. Personas is
+  hundreds, searched and compared: rows with Persona · Etapa · Responsable · Siguiente paso · Falta lined up from a
+  tablet up, each a card on a phone, one DOM either way; each cell says its own name to a reader, so the columns'
+  names above are decoration. The Onboarding Pipeline keeps its columns, each under its stage's pill and colour,
+  with cards that leave the stage out.
 - **R63. Contacto: one field, its kind read from what is typed** (the visual review, 2026-10-18; Dani: "accepted go
   for it", "do everything"). Options: keep the "Tipo" select; infer the kind. **Chose to infer it**
   (`inferIdentityKind` in domain): an @ after the first character is an email; only digits, spaces, `+`, brackets,

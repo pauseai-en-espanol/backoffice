@@ -4,7 +4,7 @@ import { focusRing } from '@/ui/styles';
 
 /** The onboarding pages' own look, on top of ui/styles: lists of people, the board, chips. Mobile first. */
 
-/** A list of people, one card a row: the whole card is no link, so its buttons stay buttons. */
+/** A list of people, one card a row (Censo, the Bandeja): the whole card is no link, so its buttons stay buttons. */
 export const personList = css({
   display: 'flex',
   flexDirection: 'column',
@@ -13,23 +13,39 @@ export const personList = css({
   marginBlockEnd: '6',
 });
 
+/** Hoy's lists as a grid of cards (PLAN R62): as many columns as fit, one on a phone. */
+export const personGrid = css({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 19rem), 1fr))',
+  gap: '3',
+  alignItems: 'start',
+  listStyle: 'none',
+  marginBlockEnd: '6',
+});
+
+/**
+ * A person's card (PLAN R61): who they are and their stage, then their facts, the next step, other reasons and what is
+ * missing, each in its own place. The card is no link, so its buttons stay buttons.
+ */
 export const personItem = css({
   display: 'flex',
   flexDirection: 'column',
-  gap: '2',
+  gap: '2.5',
   padding: '4',
+  minWidth: '0',
   borderWidth: '1px',
   borderStyle: 'solid',
   borderColor: 'border.subtle',
   borderRadius: 'md',
+  bg: 'bg.canvas',
+  '&[data-compact]': { padding: '3', gap: '2' },
 });
 
 export const personHead = css({
   display: 'flex',
-  flexWrap: 'wrap',
-  alignItems: 'baseline',
+  alignItems: 'flex-start',
   justifyContent: 'space-between',
-  gap: '2',
+  gap: '3',
 });
 
 export const personName = css({
@@ -37,26 +53,102 @@ export const personName = css({
   fontWeight: 'bold',
   color: 'fg.default',
   textDecoration: 'underline',
+  textDecorationThickness: '1px',
   textUnderlineOffset: '0.2em',
   overflowWrap: 'anywhere',
+  _hover: { textDecorationThickness: '2px' },
   _focusVisible: focusRing,
 });
 
+/** "Sin nombre": a placeholder, so it never looks like a name. */
+export const nameless = css({ fontStyle: 'italic', fontWeight: 'semibold', color: 'fg.muted' });
+
 /** The name and the province together, so the stage stays to their right while they wrap (PLAN M5, step 4). */
-export const personTitle = css({ fontSize: 'lg', overflowWrap: 'anywhere' });
+export const personTitle = css({ fontSize: 'lg', overflowWrap: 'anywhere', minWidth: '0' });
 
 /** "(Madrid)" after a name: the same size, not bold, so the name still reads first. */
 export const province = css({ fontWeight: 'normal', color: 'fg.default' });
 
 /** The team's one-line summary of who someone is. */
-export const summary = css({ color: 'fg.default', overflowWrap: 'anywhere' });
+export const summary = css({ color: 'fg.default', fontSize: 'sm', overflowWrap: 'anywhere' });
 
-/** "Falta: correo · qué quiere hacer": in words, never only a colour. */
-export const missing = css({ color: 'fg.default', fontSize: 'sm' });
+/** A person's facts with their icons, on lines that wrap: owner, where they came from, the community, the team. */
+export const facts = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  columnGap: '4',
+  rowGap: '1',
+  color: 'fg.muted',
+  fontSize: 'sm',
+  listStyle: 'none',
+  '& > li': { display: 'inline-flex', alignItems: 'center', gap: '1.5', minWidth: '0' },
+});
+
+/** A fact that asks for someone ("Sin asignar"): the attention ink, bold, and its icon and words. */
+export const factAttention = css({ color: 'fg.attention', fontWeight: 'bold' });
+
+/**
+ * The next step, in a strip of its own: red with a crossed calendar when its day has passed, amber when it is today or
+ * when someone needs one and has none; the words and icons say what the colour says.
+ */
+export const nextStep = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  columnGap: '2',
+  rowGap: '1',
+  paddingBlock: '1.5',
+  paddingInline: '2.5',
+  borderRadius: 'md',
+  bg: 'bg.subtle',
+  color: 'fg.default',
+  fontSize: 'sm',
+  overflowWrap: 'anywhere',
+  '&[data-tone=attention]': { bg: 'bg.attention', color: 'fg.attention', fontWeight: 'semibold' },
+  '&[data-tone=negative]': { bg: 'bg.negative', color: 'fg.negative' },
+  '&[data-tone=quiet]': { bg: 'transparent', paddingInline: '0', color: 'fg.muted' },
+});
+
+/** When the next step is due: at the strip's end, bold, never wrapping inside. */
+export const nextStepWhen = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '1',
+  marginInlineStart: 'auto',
+  fontWeight: 'bold',
+  whiteSpace: 'nowrap',
+});
+
+/** "Falta: correo · qué quiere hacer": last, small, each gap a dashed chip with its icon (PLAN M5, step 4). */
+export const missing = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: '1.5',
+  color: 'fg.muted',
+  fontSize: 'xs',
+});
 
 export const missingLabel = css({ fontWeight: 'bold' });
 
-/** A person's facts on one line that wraps: stage, owner, next action, community. */
+/** A missing detail: a dashed outline, which reads as "not there yet", with its icon and word. */
+export const missingChip = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '1',
+  paddingBlock: '0.5',
+  paddingInlineStart: '1.5',
+  paddingInlineEnd: '2',
+  borderWidth: '1px',
+  borderStyle: 'dashed',
+  borderColor: 'fg.muted',
+  borderRadius: 'full',
+});
+
+/** The list's own action on a card ("Me lo quedo"), at its end. */
+export const cardFoot = css({ display: 'flex', justifyContent: 'flex-end' });
+
+/** A person's facts on one line that wraps, in words (a person's page). */
 export const meta = css({
   display: 'flex',
   flexWrap: 'wrap',
@@ -75,55 +167,159 @@ export const tags = css({
   alignItems: 'center',
 });
 
-/** "Equipo": a dashed outline, so it never reads as a stage; in words, never a colour alone. */
+/** A tag (PLAN R61): a quiet outline with its icon and word, a fact that asks nothing ("Equipo"). Never coloured. */
 export const teamTag = css({
   display: 'inline-flex',
   alignItems: 'center',
-  minHeight: '7',
-  paddingInline: '2',
-  borderWidth: '2px',
-  borderStyle: 'dashed',
-  borderColor: 'border.default',
-  borderRadius: 'sm',
-  color: 'fg.default',
-  fontSize: 'sm',
-});
-
-/** A stage, in words, with a solid outline: the same weight for every stage, never a colour of its own. */
-export const stage = css({
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: '7',
-  paddingInline: '2',
-  borderWidth: '2px',
+  gap: '1',
+  minHeight: '6',
+  paddingInline: '1.5',
+  borderWidth: '1px',
   borderStyle: 'solid',
   borderColor: 'border.default',
   borderRadius: 'sm',
+  bg: 'bg.canvas',
   color: 'fg.default',
-  fontWeight: 'bold',
-  fontSize: 'sm',
+  fontSize: 'xs',
+  fontWeight: 'semibold',
+  whiteSpace: 'nowrap',
 });
 
-/** An attention reason: its mark, its words, and the attention colours behind. */
+/**
+ * A stage (PLAN R61): a round pill filled with its stage's colour, with its icon and its word, so it is never a colour
+ * alone. Without one of the onboarding's stages (outreach's relationship stages, for now), an outline in words.
+ */
+export const stage = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '1.5',
+  minHeight: '7',
+  paddingInlineStart: '2',
+  paddingInlineEnd: '2.5',
+  borderRadius: 'full',
+  fontWeight: 'bold',
+  fontSize: 'sm',
+  whiteSpace: 'nowrap',
+  flex: 'none',
+  '&:not([data-tone])': {
+    paddingInline: '2',
+    borderWidth: '2px',
+    borderStyle: 'solid',
+    borderColor: 'border.default',
+    borderRadius: 'sm',
+    color: 'fg.default',
+  },
+  '&[data-tone=stageNew]': { bg: 'bg.stageNew', color: 'fg.stageNew' },
+  '&[data-tone=stageContacting]': { bg: 'bg.stageContacting', color: 'fg.stageContacting' },
+  '&[data-tone=stageWelcomed]': { bg: 'bg.stageWelcomed', color: 'fg.stageWelcomed' },
+  '&[data-tone=stageActive]': { bg: 'bg.stageActive', color: 'fg.stageActive' },
+  '&[data-tone=stageDormant]': { bg: 'bg.stageDormant', color: 'fg.stageDormant' },
+  '&[data-tone=stageUnresponsive]': { bg: 'bg.stageUnresponsive', color: 'fg.stageUnresponsive' },
+  '&[data-tone=stageClosed]': { bg: 'bg.stageClosed', color: 'fg.stageClosed' },
+});
+
+/**
+ * A status (PLAN R61): a square chip filled with its colour, with its icon and its words. Amber asks someone to act,
+ * red is late, green is done or matching, blue is for information.
+ */
 export const reason = css({
   display: 'inline-flex',
   alignItems: 'center',
-  gap: '1',
+  gap: '1.5',
   minHeight: '7',
   paddingInline: '2',
   borderWidth: '1px',
   borderStyle: 'solid',
   borderColor: 'border.attention',
-  borderRadius: 'md',
+  borderRadius: 'sm',
   bg: 'bg.attention',
   color: 'fg.attention',
   fontSize: 'sm',
+  fontWeight: 'semibold',
+  '&[data-tone=negative]': {
+    borderColor: 'border.negative',
+    bg: 'bg.negative',
+    color: 'fg.negative',
+  },
+  '&[data-tone=positive]': {
+    borderColor: 'border.positive',
+    bg: 'bg.positive',
+    color: 'fg.positive',
+  },
+  '&[data-tone=info]': { borderColor: 'border.info', bg: 'bg.info', color: 'fg.info' },
 });
 
 export const reasons = css({ display: 'flex', flexWrap: 'wrap', gap: '2', listStyle: 'none' });
 
-/** An overdue date: bold, its mark and its words, as well as the colour. */
-export const overdue = css({ color: 'fg.attention', fontWeight: 'bold' });
+/** An overdue date: bold, its icon and its words, as well as the colour. */
+export const overdue = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '1',
+  color: 'fg.attention',
+  fontWeight: 'bold',
+});
+
+/** Personas as rows (PLAN R62): on a laptop, five columns that line up down the page; on a phone, each a card. */
+const ROW_COLUMNS = 'minmax(0, 2.4fr) 11.5rem minmax(0, 1.3fr) minmax(0, 2.2fr) minmax(0, 1.6fr)';
+
+/** The columns' names above the rows, from a tablet up: decoration, as each cell says its own name to a reader. */
+export const rowHead = css({
+  display: { base: 'none', md: 'grid' },
+  gridTemplateColumns: ROW_COLUMNS,
+  columnGap: '4',
+  paddingInline: '3',
+  paddingBlock: '2',
+  borderBlockEndWidth: '2px',
+  borderStyle: 'solid',
+  borderColor: 'border.default',
+  color: 'fg.muted',
+  fontSize: 'xs',
+  fontWeight: 'bold',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+});
+
+export const personRows = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: { base: '3', md: '0' },
+  listStyle: 'none',
+  marginBlockEnd: '6',
+});
+
+/** A person as a row: a card on a phone (the name and the stage on top), five cells from a tablet up. */
+export const personRow = css({
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr) auto',
+  columnGap: '3',
+  rowGap: '2',
+  alignItems: 'start',
+  padding: '4',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: 'border.subtle',
+  borderRadius: 'md',
+  bg: 'bg.canvas',
+  '& > [data-wide]': { gridColumn: '1 / -1' },
+  md: {
+    gridTemplateColumns: ROW_COLUMNS,
+    columnGap: '4',
+    alignItems: 'center',
+    paddingInline: '3',
+    paddingBlock: '3',
+    borderWidth: '0',
+    borderBlockEndWidth: '1px',
+    borderRadius: '0',
+    '& > [data-wide]': { gridColumn: 'auto' },
+  },
+});
+
+/** A cell's own name ("Falta"), shown on a phone's card; beside the columns' names, said only to a reader. */
+export const rowLabel = css({ md: { srOnly: true } });
+
+/** A cell of a few lines, its parts stacked. */
+export const rowCell = css({ display: 'flex', flexDirection: 'column', gap: '1.5', minWidth: '0' });
 
 /** The filters: one column on a phone, a row of fields from a tablet up. */
 export const filters = css({
@@ -280,25 +476,48 @@ export const boardColumns = css({
   gridAutoColumns: '18rem',
   gap: '4',
   overflowX: 'auto',
+  // The cards' words for a reader are positioned (srOnly): held here, so the columns out of view scroll in this frame
+  // and never widen the page.
+  position: 'relative',
   paddingBlockEnd: '4',
   marginBlockEnd: '6',
 });
 
+/** A stage's column: its top rule in the stage's colour, under a header with its pill (PLAN R61). */
 export const boardColumn = css({
   display: 'flex',
   flexDirection: 'column',
   gap: '2',
   padding: '3',
   borderWidth: '1px',
+  borderBlockStartWidth: '4px',
   borderStyle: 'solid',
   borderColor: 'border.subtle',
   borderRadius: 'md',
   bg: 'bg.subtle',
   minHeight: '12rem',
+  '&[data-tone=stageNew]': { borderBlockStartColor: 'border.stageNew' },
+  '&[data-tone=stageContacting]': { borderBlockStartColor: 'border.stageContacting' },
+  '&[data-tone=stageWelcomed]': { borderBlockStartColor: 'border.stageWelcomed' },
+  '&[data-tone=stageActive]': { borderBlockStartColor: 'border.stageActive' },
+  '&[data-tone=stageDormant]': { borderBlockStartColor: 'border.stageDormant' },
+  '&[data-tone=stageUnresponsive]': { borderBlockStartColor: 'border.stageUnresponsive' },
+  '&[data-tone=stageClosed]': { borderBlockStartColor: 'border.stageClosed' },
+});
+
+/** A column's header: the stage's pill and how many. */
+export const boardHeading = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: '2',
+  fontSize: 'md',
+  fontWeight: 'normal',
 });
 
 export const boardPhone = css({ display: { base: 'block', md: 'none' } });
 
+/** A small card of its own (the merge's candidates on a person's page). */
 export const boardCard = css({
   display: 'flex',
   flexDirection: 'column',

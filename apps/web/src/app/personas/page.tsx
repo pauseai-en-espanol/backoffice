@@ -8,7 +8,7 @@ import { apiQuery, exportHref, filtersFromPage } from '@/onboarding/filters';
 import { FiltersForm } from '@/onboarding/FiltersForm';
 import { MorePeople } from '@/onboarding/MorePeople';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
-import { PersonItem } from '@/onboarding/PersonItem';
+import { PersonRow, PersonRowsHead } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, isAdmin, onboardingErrors, personLabels } from '@/onboarding/text';
 import { requireStaff } from '@/session';
@@ -84,9 +84,10 @@ const PeoplePage = async ({
         <p className={styles.text}>{t('people.none')}</p>
       ) : (
         <section aria-label={t('people.listLabel')}>
-          <ul className={onboarding.personList}>
+          <PersonRowsHead labels={labels} />
+          <ul className={onboarding.personRows}>
             {page.people.map((person) => (
-              <PersonItem key={person.id} person={person} labels={labels} showArrival />
+              <PersonRow key={person.id} person={person} labels={labels} />
             ))}
           </ul>
           {page.next === null ? null : (

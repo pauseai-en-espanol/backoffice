@@ -1,0 +1,104 @@
+[
+  {
+    "name": "a stage's ink too pale to read on its fill",
+    "file": "packages/ui/src/brand.ts",
+    "old": "    unresponsive: { tint: '#FBE6EE', ink: '#8A1F4A' },",
+    "new": "    unresponsive: { tint: '#FBE6EE', ink: '#E07AA0' },",
+    "cmd": "pnpm exec vitest run src/contrast.spec.ts",
+    "cwd": "packages/ui"
+  },
+  {
+    "name": "a stage painted amber, so it reads as something to act on",
+    "file": "packages/ui/src/brand.ts",
+    "old": "    new: { tint: '#E4EEFB', ink: '#1B4A84' },",
+    "new": "    new: { tint: '#FFF1DC', ink: '#7A3E00' },",
+    "cmd": "pnpm exec vitest run src/contrast.spec.ts",
+    "cwd": "packages/ui"
+  },
+  {
+    "name": "a card gives a chip to what its slots already say",
+    "file": "apps/web/src/onboarding/card.ts",
+    "old": "  reasons.filter((reason) => !(SHOWN_BY_SLOTS as readonly string[]).includes(reason));",
+    "new": "  [...reasons];",
+    "cmd": "pnpm exec vitest run src/onboarding/card.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "a late step gets its own chip besides its red strip",
+    "file": "apps/web/src/onboarding/card.ts",
+    "old": "export const SHOWN_BY_SLOTS = ['unassigned', 'no_next_step', 'action_due'] as const;",
+    "new": "export const SHOWN_BY_SLOTS = ['unassigned', 'no_next_step'] as const;",
+    "cmd": "pnpm exec vitest run src/onboarding/card.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "\"Sin asignar\" in amber for someone nobody needs to take",
+    "file": "apps/web/src/onboarding/card.ts",
+    "old": "    : reasons.includes('unassigned')",
+    "new": "    : true",
+    "cmd": "pnpm exec vitest run src/onboarding/card.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "a step whose day has passed shows amber, not red",
+    "file": "apps/web/src/onboarding/card.ts",
+    "old": "  return state === 'overdue' ? 'negative' : state === 'today' ? 'attention' : 'plain';",
+    "new": "  return state === 'overdue' ? 'attention' : state === 'today' ? 'attention' : 'plain';",
+    "cmd": "pnpm exec vitest run src/onboarding/card.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "amber \"Sin siguiente paso\" for someone who needs none (a Baja)",
+    "file": "apps/web/src/onboarding/card.ts",
+    "old": "    return reasons.includes('no_next_step') ? 'attention' : 'quiet';",
+    "new": "    return 'attention';",
+    "cmd": "pnpm exec vitest run src/onboarding/card.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "Baja and Descartado share a colour and an icon, so nothing tells them apart",
+    "file": "apps/web/src/ui/icons.ts",
+    "old": "  left: LogOut,",
+    "new": "  left: Ban,",
+    "cmd": "pnpm exec vitest run src/onboarding/card.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "two open stages share a colour",
+    "file": "apps/web/src/ui/icons.ts",
+    "old": "  dormant: 'stageDormant',",
+    "new": "  dormant: 'stageNew',",
+    "cmd": "pnpm exec vitest run src/onboarding/card.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "a stage's pill without its icon",
+    "file": "apps/web/src/onboarding/PersonItem.tsx",
+    "old": "      <Icon icon={STAGE_ICONS[stage]} size={15} />\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/lists.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Hoy's cards in one column on a laptop",
+    "file": "apps/web/src/onboarding/styles.ts",
+    "old": "  gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 19rem), 1fr))',",
+    "new": "  gridTemplateColumns: '1fr',",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/lists.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Personas' rows don't line up under their columns' names",
+    "file": "apps/web/src/onboarding/styles.ts",
+    "old": "  md: {\n    gridTemplateColumns: ROW_COLUMNS,",
+    "new": "  md: {\n    gridTemplateColumns: 'minmax(0, 1fr) auto',",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/lists.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  }
+]

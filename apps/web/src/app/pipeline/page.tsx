@@ -4,55 +4,23 @@ import { isStage, type Stage, STAGES } from '@backoffice/domain/stages';
 import { getTranslator } from '@backoffice/i18n/messages';
 import Link from 'next/link';
 
-import type { PersonLabels } from '@/onboarding/PersonItem';
-import type { PersonSummary } from '@/onboarding/types';
-
 import { isUnavailable } from '@/data';
 import { getArrivalChannels, getBoard } from '@/onboarding/data';
 import { filtersFromPage, pageQuery, type PeopleFilters } from '@/onboarding/filters';
 import { FiltersForm } from '@/onboarding/FiltersForm';
-import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
-import { MissingLine, NameWithProvince, NextAction, ReasonChips } from '@/onboarding/PersonItem';
+import { PersonItem, StageTag } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, personLabels } from '@/onboarding/text';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { getTeam } from '@/team/data';
+import { STAGE_TONE } from '@/ui/icons';
 import * as styles from '@/ui/styles';
 
 const t = getTranslator();
 
 export const metadata: Metadata = { title: t('board.title') };
-
-/** A person on the board, saying who they are as every card does (PLAN M5, step 4), then owner and next step. */
-const Card = ({ person, labels }: { person: PersonSummary; labels: PersonLabels }) => (
-  <li className={onboarding.boardCard}>
-    <span className={onboarding.personTitle}>
-      <NameWithProvince
-        name={
-          <Link
-            className={onboarding.personName}
-            href={`/personas/${encodeURIComponent(person.id)}`}
-          >
-            {personName(person.name, labels.noName)}
-          </Link>
-        }
-        province={person.province}
-        labels={labels}
-      />
-    </span>
-    {person.summary ? <span className={onboarding.summary}>{person.summary}</span> : null}
-    <MissingLine missing={person.missing} labels={labels} />
-    <span className={styles.hint}>
-      {labels.owner}: {person.owner?.displayName ?? labels.noOwner}
-    </span>
-    <span className={styles.hint}>
-      <NextAction text={person.nextAction} due={person.nextActionDue} labels={labels} />
-    </span>
-    <ReasonChips reasons={person.reasons} labels={labels} />
-  </li>
-);
 
 /** "Ver las 73 de esta etapa": the full list, in Personas, with the same filters and the stage. */
 const fullList = (filters: PeopleFilters, stage: Stage) =>
@@ -115,10 +83,11 @@ const BoardPage = async ({
                 <section
                   key={stage}
                   className={onboarding.boardColumn}
+                  data-tone={STAGE_TONE[stage]}
                   aria-labelledby={`col-${stage}`}
                 >
-                  <h2 id={`col-${stage}`} className={styles.h3}>
-                    {labels.stages[stage]}{' '}
+                  <h2 id={`col-${stage}`} className={onboarding.boardHeading}>
+                    <StageTag stage={stage} label={labels.stages[stage]} />
                     <span className={styles.muted}>({t('board.count', { count })})</span>
                   </h2>
                   {entry === undefined || entry.people.length === 0 ? (
@@ -126,7 +95,13 @@ const BoardPage = async ({
                   ) : (
                     <ul className={onboarding.personList}>
                       {entry.people.map((person) => (
-                        <Card key={person.id} person={person} labels={labels} />
+                        <PersonItem
+                          key={person.id}
+                          person={person}
+                          labels={labels}
+                          hideStage
+                          compact
+                        />
                       ))}
                     </ul>
                   )}
@@ -164,8 +139,8 @@ const BoardPage = async ({
               </div>
             </form>
             <section aria-labelledby="etapa-elegida">
-              <h2 id="etapa-elegida" className={styles.h2}>
-                {labels.stages[shown]}{' '}
+              <h2 id="etapa-elegida" className={onboarding.boardHeading}>
+                <StageTag stage={shown} label={labels.stages[shown]} />
                 <span className={styles.muted}>
                   ({t('board.count', { count: column(shown)?.count ?? 0 })})
                 </span>
@@ -175,7 +150,7 @@ const BoardPage = async ({
               ) : (
                 <ul className={onboarding.personList}>
                   {column(shown)?.people.map((person) => (
-                    <Card key={person.id} person={person} labels={labels} />
+                    <PersonItem key={person.id} person={person} labels={labels} hideStage compact />
                   ))}
                 </ul>
               )}

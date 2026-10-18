@@ -29,7 +29,44 @@ export const palette = {
     negative: '#8A1C1C',
     info: '#1B4A84',
   },
+  /**
+   * Each onboarding stage's fill and ink (PLAN R61): cool hues, so a stage never reads as a status (amber is to act, red
+   * is late). A stage is never shown by colour alone: its pill also carries its icon and its word. The two closed
+   * stages, Baja and Descartado, share a grey; their icons tell them apart.
+   */
+  stage: {
+    new: { tint: '#E4EEFB', ink: '#1B4A84' },
+    contacting: { tint: '#EEE8FB', ink: '#4B2C8F' },
+    welcomed: { tint: '#DCF2EF', ink: '#0E5A53' },
+    active: { tint: '#E3F4E8', ink: '#155A2B' },
+    dormant: { tint: '#EDEDEB', ink: '#4A4A4A' },
+    unresponsive: { tint: '#FBE6EE', ink: '#8A1F4A' },
+    closed: { tint: '#EDEDEB', ink: '#2A2A2A' },
+  },
 } as const;
+
+/** The stage colours' role names, one per hue (the web app maps each stage to one). */
+export const STAGE_TONES = [
+  'stageNew',
+  'stageContacting',
+  'stageWelcomed',
+  'stageActive',
+  'stageDormant',
+  'stageUnresponsive',
+  'stageClosed',
+] as const;
+export type StageTone = (typeof STAGE_TONES)[number];
+
+const stageRoles = (part: 'tint' | 'ink') =>
+  ({
+    stageNew: palette.stage.new[part],
+    stageContacting: palette.stage.contacting[part],
+    stageWelcomed: palette.stage.welcomed[part],
+    stageActive: palette.stage.active[part],
+    stageDormant: palette.stage.dormant[part],
+    stageUnresponsive: palette.stage.unresponsive[part],
+    stageClosed: palette.stage.closed[part],
+  }) as const satisfies Record<StageTone, string>;
 
 /**
  * The colours each surface uses, by role. They are the only colours pages use, so a dark mode means redefining these
@@ -48,6 +85,8 @@ export const roles = {
     positive: palette.tint.positive,
     negative: palette.tint.negative,
     info: palette.tint.info,
+    /** Behind a stage's icon and word (PLAN R61). */
+    ...stageRoles('tint'),
   },
   fg: {
     default: palette.ink,
@@ -65,6 +104,8 @@ export const roles = {
     positive: palette.shade.positive,
     negative: palette.shade.negative,
     info: palette.shade.info,
+    /** A stage's icon and word, on its own fill or on the canvas. */
+    ...stageRoles('ink'),
   },
   border: {
     default: palette.ink,
@@ -76,13 +117,17 @@ export const roles = {
     positive: palette.shade.positive,
     negative: palette.shade.negative,
     info: palette.shade.info,
+    /** A stage's rule, such as the top of its column on the Onboarding Pipeline. */
+    ...stageRoles('ink'),
   },
 } as const;
 
+const STAGE_INKS = STAGE_TONES;
+
 /** Which text colours may sit on which backgrounds. */
 export const textOn = {
-  canvas: ['default', 'muted', 'attention', 'positive', 'negative', 'info'],
-  subtle: ['default', 'muted', 'attention', 'positive', 'negative', 'info'],
+  canvas: ['default', 'muted', 'attention', 'positive', 'negative', 'info', ...STAGE_INKS],
+  subtle: ['default', 'muted', 'attention', 'positive', 'negative', 'info', ...STAGE_INKS],
   accent: ['onAccent'],
   inverse: ['inverse', 'inverseMuted', 'inverseSubtle', 'accentOnInverse'],
   onAccent: ['onAccentFill', 'accentOnFill'],
@@ -90,6 +135,13 @@ export const textOn = {
   positive: ['default', 'positive'],
   negative: ['default', 'negative'],
   info: ['default', 'info'],
+  stageNew: ['stageNew'],
+  stageContacting: ['stageContacting'],
+  stageWelcomed: ['stageWelcomed'],
+  stageActive: ['stageActive'],
+  stageDormant: ['stageDormant'],
+  stageUnresponsive: ['stageUnresponsive'],
+  stageClosed: ['stageClosed'],
 } as const satisfies Record<keyof typeof roles.bg, readonly (keyof typeof roles.fg)[]>;
 
 /** The statuses, each with a fill, an ink and a border. */

@@ -7,12 +7,12 @@ import * as ui from '@/ui/styles';
 import { messageFor } from '@/write';
 
 import { read } from './actions';
-import { PersonItem, type PersonLabels } from './PersonItem';
+import { type PersonLabels, PersonRow } from './PersonItem';
 import * as styles from './styles';
 import { parsePeople, type PersonSummary } from './types';
 
 /**
- * "Cargar más" under Personas: the next page, by the API's cursor, added under the first, the same cards. Focus moves
+ * "Cargar más" under Personas: the next page, by the API's cursor, added under the first, the same rows (PLAN R62). Focus moves
  * to the first person added, so a keyboard or screen reader user goes on reading where the new ones start.
  */
 export const MorePeople = ({
@@ -53,20 +53,24 @@ export const MorePeople = ({
     setPeople((current) => [...current, ...page.people]);
     setCursor(page.next);
     requestAnimationFrame(() => {
-      list.current?.querySelectorAll<HTMLAnchorElement>('li > div > a').item(first)?.focus();
+      list.current
+        ?.querySelectorAll<HTMLLIElement>(':scope > li')
+        .item(first)
+        ?.querySelector<HTMLAnchorElement>('a')
+        ?.focus();
     });
   };
 
   return (
     <>
       {people.length > 0 ? (
-        <ul ref={list} className={styles.personList}>
+        <ul ref={list} className={styles.personRows}>
           {people.map((person) => (
-            <PersonItem key={person.id} person={person} labels={labels} showArrival />
+            <PersonRow key={person.id} person={person} labels={labels} />
           ))}
         </ul>
       ) : (
-        <ul ref={list} className={styles.personList} hidden />
+        <ul ref={list} className={styles.personRows} hidden />
       )}
       {cursor === null ? null : (
         <button

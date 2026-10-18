@@ -71,6 +71,8 @@ export const personLabels = (t: Translator): PersonLabels => ({
   missing: missingNames(t),
   missingLabel: t('person.missingLabel'),
   team: t('person.team'),
+  personColumn: t('person.columnPerson'),
+  stageColumn: t('people.stage'),
 });
 
 /** A reason's words, or "Revisar" for one this version of the page doesn't know yet. */

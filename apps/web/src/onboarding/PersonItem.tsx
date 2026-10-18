@@ -1,11 +1,18 @@
-import type { ReactNode } from 'react';
+import type { Stage } from '@backoffice/domain/stages';
+import type { LucideIcon } from 'lucide-react';
 
+import { cx } from '@styled-system/css';
 import Link from 'next/link';
+import { Fragment, type ReactNode } from 'react';
 
 import { fill } from '@/fill';
+import { Icon } from '@/ui/Icon';
+import { icons, MISSING_ICONS, STAGE_ICONS, STAGE_TONE } from '@/ui/icons';
+import { srOnly } from '@/ui/styles';
 
 import type { PersonSummary } from './types';
 
+import { chipReasons, nextStepTone, ownerSlot } from './card';
 import { dueState, formatDay, madridToday } from './format';
 import { personName } from './names';
 import * as styles from './styles';
@@ -42,23 +49,53 @@ export interface PersonLabels {
   missingLabel: string;
   /** "Equipo": on the team, through an active team account linked to them (PLAN M5, step 5). */
   team: string;
+  /** The names of Personas' columns that no other label gives: "Persona" and "Etapa" (PLAN R62). */
+  personColumn: string;
+  stageColumn: string;
 }
 
-/** A stage in words, outlined: never a colour of its own (WCAG 1.4.1). */
-export const StageTag = ({ label }: { label: string }) => (
-  <span className={styles.stage}>{label}</span>
-);
+const isOnboardingStage = (stage: string): stage is Stage => stage in STAGE_ICONS;
 
-/** "Equipo", in words, for someone on the team (PLAN M5, step 5); nothing otherwise, nor for a deactivated account. */
+/**
+ * A stage (PLAN R61): a pill in its stage's colour with its icon and its word, so it is never a colour alone. Given
+ * only a word (outreach's relationship stages, for now), an outline in words.
+ */
+export const StageTag = ({ label, stage }: { label: string; stage?: string }) =>
+  stage !== undefined && isOnboardingStage(stage) ? (
+    <span className={styles.stage} data-tone={STAGE_TONE[stage]}>
+      <Icon icon={STAGE_ICONS[stage]} size={15} />
+      {label}
+    </span>
+  ) : (
+    <span className={styles.stage}>{label}</span>
+  );
+
+/** "Equipo", a quiet tag for someone on the team (PLAN M5, step 5); nothing otherwise, nor for a deactivated account. */
 export const TeamTag = ({
   team,
   labels,
 }: {
   team: { active: boolean } | null;
   labels: Pick<PersonLabels, 'team'>;
-}) => (team?.active ? <span className={styles.teamTag}>{labels.team}</span> : null);
+}) =>
+  team?.active ? (
+    <span className={styles.teamTag}>
+      <Icon icon={icons.team} size={13} />
+      {labels.team}
+    </span>
+  ) : null;
 
-/** Why a person needs attention, each reason with its mark and words. */
+/** Each reason's icon and colour: red for a step whose day has passed, amber for the rest (PLAN R61). */
+const REASON_LOOK: Readonly<Record<string, { icon: LucideIcon; tone?: 'negative' }>> = {
+  unassigned: { icon: icons.unassigned },
+  action_due: { icon: icons.late, tone: 'negative' },
+  no_next_step: { icon: icons.attention },
+  follow_up: { icon: icons.followUp },
+  left_community: { icon: icons.outOfCommunity },
+  possible_duplicate: { icon: icons.duplicate },
+};
+
+/** Why a person needs attention: each reason a status chip with its icon and its words. */
 export const ReasonChips = ({
   reasons,
   labels,
@@ -68,12 +105,15 @@ export const ReasonChips = ({
 }) =>
   reasons.length === 0 ? null : (
     <ul className={styles.reasons} aria-label={labels.reasonsLabel}>
-      {reasons.map((reason) => (
-        <li key={reason} className={styles.reason}>
-          <span aria-hidden="true">!</span>
-          {labels.reasons[reason] ?? labels.unknownReason}
-        </li>
-      ))}
+      {reasons.map((reason) => {
+        const look = REASON_LOOK[reason] ?? { icon: icons.attention };
+        return (
+          <li key={reason} className={styles.reason} data-tone={look.tone}>
+            <Icon icon={look.icon} size={15} />
+            {labels.reasons[reason] ?? labels.unknownReason}
+          </li>
+        );
+      })}
     </ul>
   );
 
@@ -95,18 +135,35 @@ export const NameWithProvince = ({
   </>
 );
 
-/** What is missing, in plain words ("Falta: correo · qué quiere hacer"); nothing when nothing is. */
+/**
+ * What is missing ("Falta: correo · qué quiere hacer"), each detail a dashed chip with its icon; nothing when nothing
+ * is. The separators are there for a reader, so the line still says it as one sentence.
+ */
 export const MissingLine = ({
   missing,
   labels,
+  labelClassName,
 }: {
   missing: readonly string[];
   labels: Pick<PersonLabels, 'missing' | 'missingLabel'>;
+  /** How "Falta:" itself shows: Personas' rows say it only to a reader, under their column's name. */
+  labelClassName?: string;
 }) =>
   missing.length === 0 ? null : (
     <p className={styles.missing}>
-      <span className={styles.missingLabel}>{labels.missingLabel}:</span>{' '}
-      {missing.map((detail) => labels.missing[detail] ?? detail).join(' · ')}
+      <span className={cx(styles.missingLabel, labelClassName)}>{labels.missingLabel}:</span>{' '}
+      {missing.map((detail, index) => {
+        const glyph = (MISSING_ICONS as Readonly<Record<string, LucideIcon>>)[detail];
+        return (
+          <Fragment key={detail}>
+            {index > 0 ? <span className={srOnly}> · </span> : null}
+            <span className={styles.missingChip}>
+              {glyph ? <Icon icon={glyph} size={13} /> : null}
+              {labels.missing[detail] ?? detail}
+            </span>
+          </Fragment>
+        );
+      })}
     </p>
   );
 
@@ -132,7 +189,7 @@ export const NextAction = ({
       {due === null ? null : state === 'overdue' ? (
         <span className={styles.overdue}>
           {' · '}
-          <span aria-hidden="true">⚠ </span>
+          <Icon icon={icons.late} size={15} />
           {fill(labels.overdue, { date: formatDay(due) })}
         </span>
       ) : state === 'today' ? (
@@ -145,58 +202,193 @@ export const NextAction = ({
 };
 
 /**
- * A person in a list (Hoy, Personas, the Onboarding Pipeline, the Bandeja's candidates), saying who they are (PLAN M5,
- * step 4): their name, linked to their page, with their province; the team's one-line summary; what is missing; then
- * their stage, owner, next action and reasons. `action` is a button of the list's own (Me lo quedo), kept outside the
- * link.
+ * The next step's strip (PLAN R61): the step and when it is due, red when its day has passed and amber when it is
+ * today; with none, amber "Sin siguiente paso" for someone who needs one, quiet for someone who doesn't.
+ */
+export const NextStep = ({
+  person,
+  labels,
+  today = madridToday(),
+}: {
+  person: Pick<PersonSummary, 'nextAction' | 'nextActionDue' | 'reasons'>;
+  labels: Pick<PersonLabels, 'nextAction' | 'noNextAction' | 'overdue' | 'due' | 'dueToday'>;
+  today?: string;
+}) => {
+  const tone = nextStepTone(person.nextAction, person.nextActionDue, person.reasons, today);
+  if (person.nextAction === null) {
+    return (
+      <p className={styles.nextStep} data-tone={tone}>
+        {tone === 'attention' ? <Icon icon={icons.attention} size={15} /> : null}
+        {labels.noNextAction}
+      </p>
+    );
+  }
+  const due = person.nextActionDue;
+  const state = due === null ? undefined : dueState(due, today);
+  return (
+    <p className={styles.nextStep} data-tone={tone}>
+      <Icon icon={icons.nextStep} size={15} />
+      <span>
+        <span className={srOnly}>{labels.nextAction}: </span>
+        {person.nextAction}
+      </span>
+      {due === null ? null : (
+        <span className={styles.nextStepWhen}>
+          <Icon icon={state === 'overdue' ? icons.late : icons.due} size={14} />
+          {state === 'overdue'
+            ? fill(labels.overdue, { date: formatDay(due) })
+            : state === 'today'
+              ? labels.dueToday
+              : fill(labels.due, { date: formatDay(due) })}
+        </span>
+      )}
+    </p>
+  );
+};
+
+/** Who looks after someone: their name, "Sin asignar" in amber when they wait for someone, or "Sin responsable". */
+const OwnerFact = ({ person, labels }: { person: PersonSummary; labels: PersonLabels }) => {
+  const slot = ownerSlot(person.owner, person.reasons);
+  return slot.kind === 'unassigned' ? (
+    <li className={styles.factAttention}>
+      <Icon icon={icons.unassigned} size={15} />
+      {labels.reasons.unassigned}
+    </li>
+  ) : (
+    <li>
+      <Icon icon={slot.kind === 'owner' ? icons.owner : icons.unassigned} size={15} />
+      <span className={srOnly}>{labels.owner}: </span>
+      {slot.kind === 'owner' ? slot.name : labels.noOwner}
+    </li>
+  );
+};
+
+/** Where someone came from and whether they are in the community, and "Equipo" for someone on the team. */
+const PlaceFacts = ({
+  person,
+  labels,
+  showArrival,
+}: {
+  person: PersonSummary;
+  labels: PersonLabels;
+  showArrival: boolean;
+}) => (
+  <>
+    {showArrival && person.arrival ? (
+      <li>
+        <Icon icon={icons.arrival} size={15} />
+        <span className={srOnly}>{labels.arrivalLabel}: </span>
+        {person.arrival.label}
+      </li>
+    ) : null}
+    <li>
+      <Icon icon={person.inCommunity ? icons.inCommunity : icons.outOfCommunity} size={15} />
+      {person.inCommunity ? labels.inCommunity : labels.notInCommunity}
+    </li>
+    {person.team?.active ? (
+      <li>
+        <TeamTag team={person.team} labels={labels} />
+      </li>
+    ) : null}
+  </>
+);
+
+/** The name, linked to the person's page, with the province; "Sin nombre" never looks like a name. */
+const PersonTitle = ({ person, labels }: { person: PersonSummary; labels: PersonLabels }) => (
+  <span className={styles.personTitle}>
+    <NameWithProvince
+      name={
+        <Link
+          className={cx(styles.personName, person.name === null ? styles.nameless : undefined)}
+          href={`/personas/${encodeURIComponent(person.id)}`}
+        >
+          {personName(person.name, labels.noName)}
+        </Link>
+      }
+      province={person.province}
+      labels={labels}
+    />
+  </span>
+);
+
+/**
+ * A person in a list (Hoy, the Onboarding Pipeline, Censo, the Bandeja's candidates), each fact once and in its place
+ * (PLAN R61): the name with the province and the stage; the team's one-line summary; the owner, where they came from,
+ * the community and the team; the next step; the reasons no slot already shows; what is missing, last. `action` is
+ * the list's own button (Me lo quedo), kept outside the link. The Pipeline leaves the stage out (`hideStage`): its
+ * column says it.
  */
 export const PersonItem = ({
   person,
   labels,
   action,
   showArrival = false,
+  hideStage = false,
+  compact = false,
 }: {
   person: PersonSummary;
   labels: PersonLabels;
   action?: ReactNode;
   showArrival?: boolean;
+  hideStage?: boolean;
+  compact?: boolean;
 }) => (
-  <li className={styles.personItem}>
+  <li className={styles.personItem} data-compact={compact ? '' : undefined}>
     <div className={styles.personHead}>
-      <span className={styles.personTitle}>
-        <NameWithProvince
-          name={
-            <Link className={styles.personName} href={`/personas/${encodeURIComponent(person.id)}`}>
-              {personName(person.name, labels.noName)}
-            </Link>
-          }
-          province={person.province}
-          labels={labels}
-        />
-      </span>
-      <span className={styles.tags}>
-        <TeamTag team={person.team} labels={labels} />
-        <StageTag label={labels.stages[person.stage] ?? person.stage} />
-      </span>
+      <PersonTitle person={person} labels={labels} />
+      {hideStage ? null : (
+        <StageTag stage={person.stage} label={labels.stages[person.stage] ?? person.stage} />
+      )}
     </div>
     {person.summary ? <p className={styles.summary}>{person.summary}</p> : null}
-    <MissingLine missing={person.missing} labels={labels} />
-    <ul className={styles.meta}>
-      <li>
-        {labels.owner}: {person.owner?.displayName ?? labels.noOwner}
-      </li>
-      <li>{person.inCommunity ? labels.inCommunity : labels.notInCommunity}</li>
-      {showArrival && person.arrival ? (
-        <li>
-          {labels.arrivalLabel}: {person.arrival.label}
-        </li>
-      ) : null}
+    <ul className={styles.facts}>
+      <OwnerFact person={person} labels={labels} />
+      <PlaceFacts person={person} labels={labels} showArrival={showArrival} />
     </ul>
-    <p>
-      <span className={styles.meta}>{labels.nextAction}: </span>
-      <NextAction text={person.nextAction} due={person.nextActionDue} labels={labels} />
-    </p>
-    <ReasonChips reasons={person.reasons} labels={labels} />
-    {action}
+    <NextStep person={person} labels={labels} />
+    <ReasonChips reasons={chipReasons(person.reasons)} labels={labels} />
+    <MissingLine missing={person.missing} labels={labels} />
+    {action ? <div className={styles.cardFoot}>{action}</div> : null}
   </li>
+);
+
+/**
+ * A person as a row of Personas (PLAN R62): Persona · Etapa · Responsable · Siguiente paso · Falta, in columns that
+ * line up from a tablet up, and the same facts as a card on a phone. Each cell says its own name to a reader, so the
+ * columns' names above (PersonRowsHead) are decoration.
+ */
+export const PersonRow = ({ person, labels }: { person: PersonSummary; labels: PersonLabels }) => (
+  <li className={styles.personRow}>
+    <div className={styles.rowCell}>
+      <PersonTitle person={person} labels={labels} />
+      {person.summary ? <p className={styles.summary}>{person.summary}</p> : null}
+      <ul className={styles.facts}>
+        <PlaceFacts person={person} labels={labels} showArrival />
+      </ul>
+    </div>
+    <div>
+      <StageTag stage={person.stage} label={labels.stages[person.stage] ?? person.stage} />
+    </div>
+    <ul className={styles.facts} data-wide="">
+      <OwnerFact person={person} labels={labels} />
+    </ul>
+    <div className={styles.rowCell} data-wide="">
+      <NextStep person={person} labels={labels} />
+      <ReasonChips reasons={chipReasons(person.reasons)} labels={labels} />
+    </div>
+    <div data-wide="">
+      <MissingLine missing={person.missing} labels={labels} labelClassName={styles.rowLabel} />
+    </div>
+  </li>
+);
+
+/** The names of Personas' columns, from a tablet up: hidden from a reader, as each cell says its own. */
+export const PersonRowsHead = ({ labels }: { labels: PersonLabels }) => (
+  <div className={styles.rowHead} aria-hidden="true">
+    <span>{labels.personColumn}</span>
+    <span>{labels.stageColumn}</span>
+    <span>{labels.owner}</span>
+    <span>{labels.nextAction}</span>
+    <span>{labels.missingLabel}</span>
+  </div>
 );
