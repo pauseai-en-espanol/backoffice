@@ -13,12 +13,14 @@ export const personList = css({
   marginBlockEnd: '6',
 });
 
-/** Hoy's lists as a grid of cards (PLAN R62): as many columns as fit, one on a phone. */
+/**
+ * Hoy's lists as a grid of cards (PLAN R62): as many columns as fit, one on a phone. The cards in a row share its
+ * height, their action at the bottom.
+ */
 export const personGrid = css({
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 19rem), 1fr))',
   gap: '3',
-  alignItems: 'start',
   listStyle: 'none',
   marginBlockEnd: '6',
 });
@@ -146,7 +148,11 @@ export const missingChip = css({
 });
 
 /** The list's own action on a card ("Me lo quedo"), at its end. */
-export const cardFoot = css({ display: 'flex', justifyContent: 'flex-end' });
+export const cardFoot = css({
+  display: 'flex',
+  justifyContent: 'flex-end',
+  marginBlockStart: 'auto',
+});
 
 /** A person's facts on one line that wraps, in words (a person's page). */
 export const meta = css({
@@ -261,7 +267,7 @@ export const overdue = css({
 });
 
 /** Personas as rows (PLAN R62): on a laptop, five columns that line up down the page; on a phone, each a card. */
-const ROW_COLUMNS = 'minmax(0, 2.4fr) 11.5rem minmax(0, 1.3fr) minmax(0, 2.2fr) minmax(0, 1.6fr)';
+const ROW_COLUMNS = 'minmax(0, 2fr) 10.5rem minmax(0, 1.3fr) minmax(0, 2fr) minmax(0, 2.4fr)';
 
 /** The columns' names above the rows, from a tablet up: decoration, as each cell says its own name to a reader. */
 export const rowHead = css({
