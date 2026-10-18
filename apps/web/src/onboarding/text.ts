@@ -60,7 +60,7 @@ export const personLabels = (t: Translator): PersonLabels => ({
   province: t('person.province'),
   inCommunity: t('person.inCommunity'),
   notInCommunity: t('person.notInCommunity'),
-  sourcesLabel: t('person.sources'),
+  arrivalLabel: t('person.arrival'),
   nextAction: t('person.nextAction'),
   noNextAction: t('person.noNextAction'),
   overdue: String(t.raw('person.overdue')),

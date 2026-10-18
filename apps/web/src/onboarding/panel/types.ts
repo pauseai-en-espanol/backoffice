@@ -130,17 +130,8 @@ export const weeksFrom = (value: string | string[] | undefined): number => {
   return (PANEL_WEEKS as readonly number[]).includes(asked) ? asked : DEFAULT_WEEKS;
 };
 
-/** The sources that brought anyone in these weeks, in the order given, then any other. */
-export const sourcesIn = (arrivals: Panel['arrivals'], order: readonly string[]): string[] => {
-  const seen = new Set(arrivals.flatMap((week) => Object.keys(week.counts)));
-  return [
-    ...order.filter((source) => seen.has(source)),
-    ...[...seen].filter((s) => !order.includes(s)).sort(),
-  ];
-};
-
 /**
- * The columns of "Por dónde llegaron": the entries anyone came from in these weeks, in the list's order, then "not
+ * The columns of "Altas por semana": the entries anyone came from in these weeks, in the list's order, then "not
  * said" (`none`) if anyone's isn't.
  */
 export const channelsIn = (

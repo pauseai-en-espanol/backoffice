@@ -132,7 +132,7 @@ const Today = async () => {
                     key={person.id}
                     person={person}
                     labels={labels}
-                    showSources
+                    showArrival
                     action={<ClaimButton personId={person.id} text={claimText(person)} />}
                   />
                 ))}

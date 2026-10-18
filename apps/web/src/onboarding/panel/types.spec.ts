@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type Panel, parsePanel, sourcesIn, waitIn, weeksFrom, weekTotal } from './types';
+import { parsePanel, waitIn, weeksFrom, weekTotal } from './types';
 
 const PANEL = {
   weeks: 2,
@@ -55,13 +55,7 @@ describe('the Panel', () => {
     expect(weeksFrom(undefined)).toBe(12);
   });
 
-  it('lists the sources seen, in the usual order, and totals each week', () => {
-    const arrivals: Panel['arrivals'] = PANEL.arrivals;
-    expect(sourcesIn(arrivals, ['airtable', 'telegram', 'manual'])).toEqual([
-      'airtable',
-      'telegram',
-    ]);
-    expect(sourcesIn([{ week: 'w', counts: { zeta: 1, alfa: 1 } }], [])).toEqual(['alfa', 'zeta']);
+  it('totals each week', () => {
     expect(weekTotal({ week: 'w', counts: { a: 2, b: 3 } })).toBe(5);
   });
 

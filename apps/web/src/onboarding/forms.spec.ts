@@ -86,6 +86,25 @@ describe('the profile form', () => {
     expect(profileChange(dated, reader(same))).toEqual({ arrivedOn: null, arrivalId: null });
   });
 
+  it('leaves alone what the form doesn’t have: the profile and the arrival are edited apart (PLAN R57)', () => {
+    const dated = {
+      ...profile,
+      arrivedOn: '2025-03-01',
+      arrival: { id: 'canal-1', label: 'WhatsApp' },
+      howHeard: 'Una charla',
+    };
+    const only =
+      (values: Record<string, string>) =>
+      (name: string): string | undefined =>
+        values[name];
+    expect(profileChange(dated, only({ fullName: 'Ana Ejemplo', province: 'Sevilla' }))).toEqual({
+      province: 'Sevilla',
+    });
+    expect(
+      profileChange(dated, only({ arrivedOn: '', arrivalId: 'canal-1', howHeard: '' })),
+    ).toEqual({ arrivedOn: null, howHeard: null });
+  });
+
   it('sends nothing when nothing changed', () => {
     expect(
       profileChange(

@@ -1,0 +1,18 @@
+[
+  {
+    "name": "a form without a profile field empties it",
+    "file": "apps/web/src/onboarding/forms.ts",
+    "old": "    const value = typed === undefined ? undefined : optional(typed);",
+    "new": "    const value = optional(typed ?? '');",
+    "cmd": "pnpm exec vitest run src/onboarding",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the profile's form empties the sign-up day",
+    "file": "apps/web/src/onboarding/forms.ts",
+    "old": "  const arrivedOn = typedArrivedOn === undefined ? undefined : optional(typedArrivedOn);",
+    "new": "  const arrivedOn = optional(typedArrivedOn ?? '');",
+    "cmd": "pnpm exec vitest run src/onboarding",
+    "cwd": "apps/web"
+  }
+]

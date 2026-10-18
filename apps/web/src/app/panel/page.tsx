@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { SOURCES, STAGES } from '@backoffice/domain/stages';
+import { STAGES } from '@backoffice/domain/stages';
 import { getTranslator } from '@backoffice/i18n/messages';
 import Link from 'next/link';
 
@@ -9,14 +9,7 @@ import { getPanel } from '@/onboarding/data';
 import { formatDay, formatInstantDay } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
-import {
-  channelsIn,
-  PANEL_WEEKS,
-  sourcesIn,
-  waitIn,
-  weeksFrom,
-  weekTotal,
-} from '@/onboarding/panel/types';
+import { channelsIn, PANEL_WEEKS, waitIn, weeksFrom, weekTotal } from '@/onboarding/panel/types';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard } from '@/onboarding/text';
 import { requireStaff } from '@/session';
@@ -26,12 +19,6 @@ import * as styles from '@/ui/styles';
 const t = getTranslator();
 
 export const metadata: Metadata = { title: t('panel.title') };
-
-/** A source's name in words, or as the API gave it if this app doesn't know it yet. */
-const sourceName = (source: string): string =>
-  (SOURCES as readonly string[]).includes(source)
-    ? t(`sources.${source as (typeof SOURCES)[number]}`)
-    : source;
 
 const wait = (value: number): string => {
   const { unit, amount } = waitIn(value);
@@ -67,7 +54,6 @@ const PanelPage = async ({
       </AppShell>
     );
   }
-  const sources = sourcesIn(panel.arrivals, SOURCES);
   const channels = channelsIn(panel.arrivalsByChannel);
   const totalPeople = STAGES.reduce((sum, stage) => sum + (panel.stages[stage] ?? 0), 0);
   const { arrived, contacted, medianHours, p90Hours } = panel.firstContact;
@@ -128,52 +114,16 @@ const PanelPage = async ({
         </div>
       </section>
 
-      <section className={onboarding.section} aria-labelledby="llegadas">
-        <h2 id="llegadas" className={styles.h2}>
-          {t('panel.arrivals')}
-        </h2>
-        <p className={styles.hint}>{t('panel.arrivalsIntro')}</p>
-        {panel.unknownArrival > 0 ? (
-          <p className={styles.text}>
-            {t('panel.unknownArrival', { count: panel.unknownArrival })}
-          </p>
-        ) : null}
-        {/* Wider than a phone with every source: it scrolls in its own frame, which takes the keyboard's focus. */}
-        {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be focusable */}
-        <div className={styles.tableWrap} tabIndex={0} role="region" aria-labelledby="llegadas">
-          <table className={styles.table}>
-            <caption className={styles.srOnly}>{t('panel.arrivals')}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t('panel.week')}</th>
-                {sources.map((source) => (
-                  <th key={source} scope="col">
-                    {sourceName(source)}
-                  </th>
-                ))}
-                <th scope="col">{t('panel.total')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...panel.arrivals].reverse().map((week) => (
-                <tr key={week.week}>
-                  <th scope="row">{t('panel.weekOf', { date: formatDay(week.week, 'medium') })}</th>
-                  {sources.map((source) => (
-                    <td key={source}>{week.counts[source] ?? 0}</td>
-                  ))}
-                  <td>{weekTotal(week)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
       <section className={onboarding.section} aria-labelledby="por-donde">
         <h2 id="por-donde" className={styles.h2}>
           {t('panel.arrivalsByChannel')}
         </h2>
         <p className={styles.hint}>{t('panel.arrivalsByChannelIntro')}</p>
+        {panel.unknownArrival > 0 ? (
+          <p className={styles.text}>
+            {t('panel.unknownArrival', { count: panel.unknownArrival })}
+          </p>
+        ) : null}
         {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be focusable */}
         <div className={styles.tableWrap} tabIndex={0} role="region" aria-labelledby="por-donde">
           <table className={styles.table}>

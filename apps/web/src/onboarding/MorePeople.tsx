@@ -62,7 +62,7 @@ export const MorePeople = ({
       {people.length > 0 ? (
         <ul ref={list} className={styles.personList}>
           {people.map((person) => (
-            <PersonItem key={person.id} person={person} labels={labels} showSources />
+            <PersonItem key={person.id} person={person} labels={labels} showArrival />
           ))}
         </ul>
       ) : (

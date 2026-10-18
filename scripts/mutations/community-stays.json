@@ -170,8 +170,8 @@
   {
     "name": "“Entró el” isn’t guessed from its header",
     "file": "apps/api/src/imports/csv.ts",
-    "old": "  joinedOn: ['entro el', 'fecha de entrada', 'entrada', 'joined', 'joined on'],",
-    "new": "  joinedOn: ['fecha de entrada', 'entrada', 'joined', 'joined on'],",
+    "old": "  joinedOn: ['entrada al grupo', 'entro el', 'fecha de entrada', 'entrada', 'joined', 'joined on'],",
+    "new": "  joinedOn: ['entrada al grupo', 'fecha de entrada', 'entrada', 'joined', 'joined on'],",
     "cmd": "pnpm exec vitest run src/imports/csv.spec.ts",
     "cwd": "apps/api"
   },

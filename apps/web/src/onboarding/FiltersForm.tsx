@@ -1,4 +1,4 @@
-import { SOURCES, STAGES } from '@backoffice/domain/stages';
+import { STAGES } from '@backoffice/domain/stages';
 import { getTranslator } from '@backoffice/i18n/messages';
 import Link from 'next/link';
 
@@ -118,19 +118,6 @@ export const FiltersForm = ({
           <option value="">{t('people.teamAny')}</option>
           <option value="si">{t('people.teamYes')}</option>
           <option value="no">{t('people.teamNo')}</option>
-        </select>
-      </div>
-      <div className={ui.field}>
-        <label className={ui.label} htmlFor="fuente">
-          {t('people.source')}
-        </label>
-        <select id="fuente" name="fuente" className={styles.select} defaultValue={filters.source}>
-          <option value="">{t('people.anySource')}</option>
-          {SOURCES.map((source) => (
-            <option key={source} value={source}>
-              {t(`sources.${source}`)}
-            </option>
-          ))}
         </select>
       </div>
       <div className={ui.field}>

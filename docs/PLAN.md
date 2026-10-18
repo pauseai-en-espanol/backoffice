@@ -217,6 +217,7 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
 | **D14** | The staff app and the bot say "onboarding", not "acogida"; the board by stage is the "Onboarding Pipeline", at `/pipeline`                                        | Dani, 2026-10-16 |
 | **D15** | The WhatsApp messages newcomers receive are written by the team in the staff app (Mensajes), not in code; the code keeps a neutral fallback (PLAN M5)             | Dani, 2026-10-16 |
 | **D16** | The WhatsApp group's history comes in with those who left, as Baja, to keep who was in the community and when (R56)                                               | Dani, 2026-10-18 |
+| **D17** | One sign-up day, "Fecha de alta", whatever the way in; one way in, "Canal de alta", which "Entró por" and "Llegó por" merge into (R58)                            | Dani, 2026-10-18 |
 | —       | Backups are handled in gitops, separately from this plan                                                                                                          | Dani, 2026-10-15 |
 | —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                             | Dani, 2026-10-15 |
 
@@ -491,6 +492,17 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   community, the census (its consents folded). Merging, the team account and their data, done rarely, are folded
   under "Más acciones". A phone shows the same in one column; claiming, WhatsApp and the stage stay on its first
   screen. The edit-in-place pattern is `EditInPlace` (`apps/web/src/ui`).
+- **R58. One sign-up day and one way in** (D17; Dani, 2026-10-18: "llego and entro is the same thing", "it should be
+  one single date", "entro por and llego por ... should be merged"). Options: keep the source as a field beside the
+  channel; merge them. **Chose to merge, in what is shown**: "Llegó el" is "Fecha de alta" and "Llegó por" is "Canal de
+  alta" everywhere; the source ("Entró por") leaves the person's page, the cards, the filters and the Panel (whose
+  weeks are counted by channel alone, "Altas por semana"), and stays for the history ("Añadido desde …"). Whoever had
+  no channel took it from their first source that says one: Global's form, its own; the bot, WhatsApp (migration
+  `20261018120000`). On a person's page the sign-up is edited in its own card, "Alta y comunidad", which tells the
+  stays in the group only by what changed since ("Salió del grupo el …", "Volvió al grupo el …"), never repeating the
+  day. In the data, a stay's start stays its own (`community_presence.joined_on`), as someone may join the group long
+  after signing up, or come back; Importar calls those columns "Entrada al grupo" and "Salida del grupo". The bot's
+  post to the team group still says "Fuente": the next change to it moves it to the channel.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

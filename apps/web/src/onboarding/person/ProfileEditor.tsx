@@ -7,36 +7,26 @@ import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
 
-import type { ArrivalChannel } from '../types';
 import type { PersonPageText } from './text';
 
 import { updatePerson } from '../actions';
-import { fieldsOf, type Profile, profileChange } from '../forms';
+import { fieldsIn, type Profile, profileChange } from '../forms';
 import * as styles from '../styles';
 import { AVAILABILITY } from '../text';
 
 /**
- * A person's profile, edited in place of what it shows (EditInPlace), its fields in four groups: who they are, where
- * they live, how they came, and how they would help. Saving sends only what changed. The full name is required; the
- * rest may be emptied: "Llegó el" emptied is "No se sabe" (PLAN M5). "Llegó por" offers the list's active entries, and
- * the person's own even if it was retired since.
+ * A person's profile, edited in place of what it shows (EditInPlace), its fields in three groups: who they are, where
+ * they live, and how they would help. Their sign-up is edited apart (ArrivalForm). Saving sends only what changed. The
+ * full name is required; the rest may be emptied.
  */
-export const ProfileEditor = ({
-  person,
-  channels,
-  text,
-}: {
-  person: Profile;
-  channels: readonly ArrivalChannel[];
-  text: PersonPageText;
-}) => {
+export const ProfileEditor = ({ person, text }: { person: Profile; text: PersonPageText }) => {
   const write = useWrite(text.errors);
   const done = useEditDone();
   const t = text.profile;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const change = profileChange(person, fieldsOf(event.currentTarget));
+    const change = profileChange(person, fieldsIn(event.currentTarget));
     if (Object.keys(change).length === 0) {
       done?.();
       return;
@@ -101,49 +91,6 @@ export const ProfileEditor = ({
         <>
           {field('province', t.province)}
           {field('town', t.town)}
-        </>,
-      )}
-      {group(
-        t.came,
-        <>
-          <div className={ui.field}>
-            <label className={ui.label} htmlFor="perfil-arrivalId">
-              {t.arrival}
-            </label>
-            <select
-              id="perfil-arrivalId"
-              name="arrivalId"
-              className={styles.select}
-              defaultValue={person.arrival?.id ?? ''}
-            >
-              <option value="">{t.arrivalNone}</option>
-              {channels
-                .filter((channel) => channel.active || channel.id === person.arrival?.id)
-                .map((channel) => (
-                  <option key={channel.id} value={channel.id}>
-                    {channel.label}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className={ui.field}>
-            <label className={ui.label} htmlFor="perfil-arrivedOn">
-              {t.arrivedOn}
-            </label>
-            <input
-              id="perfil-arrivedOn"
-              className={ui.input}
-              type="date"
-              name="arrivedOn"
-              max={text.happened.today}
-              defaultValue={person.arrivedOn ?? ''}
-              aria-describedby="perfil-arrivedOn-hint"
-            />
-            <span id="perfil-arrivedOn-hint" className={ui.hint}>
-              {t.arrivedOnHint}
-            </span>
-          </div>
-          {field('howHeard', t.howHeard, undefined, 500)}
         </>,
       )}
       {group(

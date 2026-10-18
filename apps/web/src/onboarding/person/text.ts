@@ -44,9 +44,9 @@ export const personPageText = (t: Translator) => {
     profile: {
       edit: t('person.editProfile'),
       save: t('person.saveProfile'),
+      saveArrival: t('person.saveArrival'),
       who: t('person.profileWho'),
       where: t('person.profileWhere'),
-      came: t('person.profileCame'),
       help: t('person.profileHelp'),
       fullName: t('person.fullName'),
       preferredName: t('person.preferredName'),

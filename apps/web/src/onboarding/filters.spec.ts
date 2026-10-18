@@ -20,6 +20,7 @@ describe('the people filters', () => {
         responsable: 'yo',
         atencion: '1',
         comunidad: 'si',
+        // "Entró por" is no filter since it became "Canal de alta" (PLAN R58): an old address's is left out.
         fuente: 'airtable',
         provincia: 'Provincia de ejemplo',
       }),
@@ -30,7 +31,6 @@ describe('the people filters', () => {
       attention: true,
       inCommunity: 'yes',
       team: '',
-      source: 'airtable',
       arrival: '',
       arrivedOn: '',
       reason: '',
@@ -101,13 +101,12 @@ describe('the people filters', () => {
           owner: 'me',
           attention: true,
           inCommunity: 'yes',
-          source: 'csv',
           province: 'Madrid',
         },
         { cursor: 'c1', limit: 50 },
       ),
     ).toBe(
-      '?q=%2B34+612&stage=new&stage=active&owner=me&attention=1&inCommunity=true&source=csv&province=Madrid&limit=50&cursor=c1',
+      '?q=%2B34+612&stage=new&stage=active&owner=me&attention=1&inCommunity=true&province=Madrid&limit=50&cursor=c1',
     );
     expect(apiQuery(NO_FILTERS)).toBe('');
   });

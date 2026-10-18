@@ -66,8 +66,8 @@
   {
     "name": "an emptied arrival day isn’t sent as unknown",
     "file": "apps/web/src/onboarding/forms.ts",
-    "old": "  if (arrivedOn !== profile.arrivedOn) {",
-    "new": "  if (arrivedOn !== null && arrivedOn !== profile.arrivedOn) {",
+    "old": "  if (arrivedOn !== undefined && arrivedOn !== profile.arrivedOn) {",
+    "new": "  if (arrivedOn !== undefined && arrivedOn !== null && arrivedOn !== profile.arrivedOn) {",
     "cmd": "pnpm exec vitest run src/onboarding",
     "cwd": "apps/web"
   },

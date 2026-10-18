@@ -39,12 +39,19 @@ export type Profile = Pick<
   | 'arrival'
 >;
 
-/** A profile's changes (every change goes to the timeline, so nothing is sent for nothing). */
-export const profileChange = (profile: Profile, read: (name: string) => string): PersonChange => {
+/**
+ * A profile's changes (every change goes to the timeline, so nothing is sent for nothing), from the fields the form has:
+ * one a form doesn't have (`read` gives undefined) is left as it is, so the profile and the arrival are edited apart.
+ */
+export const profileChange = (
+  profile: Profile,
+  read: (name: string) => string | undefined,
+): PersonChange => {
   const change: PersonChange = {};
   // Someone without a name yet (PLAN R37) may stay so; a name, once there, is only ever changed, never emptied.
-  const fullName = read('fullName').trim();
-  if (fullName !== (profile.fullName ?? '')) {
+  const typedName = read('fullName');
+  const fullName = typedName?.trim();
+  if (fullName !== undefined && fullName !== (profile.fullName ?? '')) {
     change.fullName = fullName;
   }
   for (const key of [
@@ -55,26 +62,31 @@ export const profileChange = (profile: Profile, read: (name: string) => string):
     'howHeard',
     'summary',
   ] as const) {
-    const value = optional(read(key));
-    if (value !== profile[key]) {
+    const typed = read(key);
+    const value = typed === undefined ? undefined : optional(typed);
+    if (value !== undefined && value !== profile[key]) {
       change[key] = value;
     }
   }
-  const availability = optional(read('availability'));
-  if (availability !== profile.availability) {
+  const typedAvailability = read('availability');
+  const availability = typedAvailability === undefined ? undefined : optional(typedAvailability);
+  if (availability !== undefined && availability !== profile.availability) {
     change.availability = availability;
   }
-  const languages = listFrom(read('languages'), ',');
-  if (languages.join('\n') !== profile.languages.join('\n')) {
+  const typedLanguages = read('languages');
+  const languages = typedLanguages === undefined ? undefined : listFrom(typedLanguages, ',');
+  if (languages !== undefined && languages.join('\n') !== profile.languages.join('\n')) {
     change.languages = languages;
   }
   // "Llegó el" emptied means nobody knows (PLAN M5); "Llegó por" emptied, not said.
-  const arrivedOn = optional(read('arrivedOn'));
-  if (arrivedOn !== profile.arrivedOn) {
+  const typedArrivedOn = read('arrivedOn');
+  const arrivedOn = typedArrivedOn === undefined ? undefined : optional(typedArrivedOn);
+  if (arrivedOn !== undefined && arrivedOn !== profile.arrivedOn) {
     change.arrivedOn = arrivedOn;
   }
-  const arrivalId = optional(read('arrivalId'));
-  if (arrivalId !== (profile.arrival?.id ?? null)) {
+  const typedArrivalId = read('arrivalId');
+  const arrivalId = typedArrivalId === undefined ? undefined : optional(typedArrivalId);
+  if (arrivalId !== undefined && arrivalId !== (profile.arrival?.id ?? null)) {
     change.arrivalId = arrivalId;
   }
   return change;
@@ -86,6 +98,12 @@ export const happenedOnOf = (value: string): { happenedOn?: string } =>
 
 /** Reads a form's text fields for profileChange and settingsChange. */
 export const fieldsOf = (form: HTMLFormElement) => (name: string) => formText(form, name);
+
+/** Reads a form's text fields for profileChange, undefined for one the form doesn't have. */
+export const fieldsIn =
+  (form: HTMLFormElement) =>
+  (name: string): string | undefined =>
+    form.elements.namedItem(name) === null ? undefined : formText(form, name);
 
 export const SETTINGS_NUMBERS = [
   ['followUpDays', 1, 60, 1],

@@ -72,7 +72,7 @@ const PeoplePage = async ({
         <section aria-label={t('people.listLabel')}>
           <ul className={onboarding.personList}>
             {page.people.map((person) => (
-              <PersonItem key={person.id} person={person} labels={labels} showSources />
+              <PersonItem key={person.id} person={person} labels={labels} showArrival />
             ))}
           </ul>
           {page.next === null ? null : (

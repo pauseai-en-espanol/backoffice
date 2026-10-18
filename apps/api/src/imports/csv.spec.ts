@@ -183,6 +183,17 @@ describe('CSV imports', () => {
     ]);
   });
 
+  it('knows the columns by their names since PLAN R58: "Fecha de alta", "Canal de alta", the group\'s in and out', () => {
+    expect(
+      suggestMapping(['Fecha de alta', 'Canal de alta', 'Entrada al grupo', 'Salida del grupo']),
+    ).toEqual({
+      'Fecha de alta': 'arrivedOn',
+      'Canal de alta': 'arrival',
+      'Entrada al grupo': 'joinedOn',
+      'Salida del grupo': 'leftOn',
+    });
+  });
+
   it('refuses an empty or unreadable file', () => {
     expect(() => parseCsv('')).toThrow(CsvError);
     expect(() => parseCsv('"sin cerrar\n')).toThrow(CsvError);

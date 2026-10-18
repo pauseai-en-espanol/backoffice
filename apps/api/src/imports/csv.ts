@@ -94,10 +94,18 @@ const SYNONYMS: Readonly<Record<CsvField, readonly string[]>> = {
   note: ['nota', 'notas', 'comentario', 'comentarios', 'observaciones', 'note', 'notes'],
   stage: ['estado', 'etapa', 'stage'],
   discord: ['discord', 'usuario de discord', 'discord username'],
-  arrival: ['llego por', 'por donde llego', 'canal', 'via', 'origen'],
+  arrival: ['canal de alta', 'llego por', 'por donde llego', 'canal', 'via', 'origen'],
   arrivedOn: ['llego el', 'fecha de llegada', 'llegada', 'fecha de alta', 'arrived', 'arrived on'],
-  joinedOn: ['entro el', 'fecha de entrada', 'entrada', 'joined', 'joined on'],
-  leftOn: ['salio el', 'fecha de salida', 'salida', 'fecha de baja', 'left', 'left on'],
+  joinedOn: ['entrada al grupo', 'entro el', 'fecha de entrada', 'entrada', 'joined', 'joined on'],
+  leftOn: [
+    'salida del grupo',
+    'salio el',
+    'fecha de salida',
+    'salida',
+    'fecha de baja',
+    'left',
+    'left on',
+  ],
 };
 
 /** A first guess at which column is which field: each field at most once, the first matching column. */

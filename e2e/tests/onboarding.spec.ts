@@ -222,7 +222,7 @@ test('the Panel: people by stage, arrivals by week, the first contact, and who w
   await page.goto('/panel?semanas=4');
   await expect(page.getByRole('heading', { level: 1, name: 'Panel' })).toBeVisible();
   await expect(page.getByLabel('Periodo')).toHaveValue('4');
-  const arrivals = page.getByRole('table', { name: 'Llegadas por semana' });
+  const arrivals = page.getByRole('table', { name: 'Altas por semana' });
   // This week first, with the person just added among its arrivals.
   const thisWeek = arrivals.getByRole('row').nth(1);
   await expect(thisWeek.getByRole('cell').last()).not.toHaveText('0');
@@ -243,9 +243,9 @@ test('an older member entered after the fact: no arrival day, where from, Discor
   const username = `miembro_${tag()}`;
   await page.getByLabel('Nombre', { exact: true }).fill(name);
   await page.getByLabel('Discord', { exact: true }).fill(`@${username}`);
-  await page.getByLabel('Llegó por').selectOption({ label: 'Discord' });
+  await page.getByLabel('Canal de alta').selectOption({ label: 'Discord' });
   // Nobody knows when they arrived: emptied, "No se sabe".
-  await page.getByLabel('Llegó el').fill('');
+  await page.getByLabel('Fecha de alta').fill('');
   await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await expect(page).toHaveURL(/\/personas\/[0-9a-f-]{36}$/u);
   const facts = page.getByRole('region', { name: 'Perfil' });
@@ -261,9 +261,10 @@ test('an older member entered after the fact: no arrival day, where from, Discor
 
   // Dated afterwards, and a note about a day gone by.
   await page.goto(personUrl);
-  await page.getByRole('button', { name: 'Editar el perfil' }).click();
-  await page.getByLabel('Llegó el').fill('2025-03-01');
-  await page.getByRole('button', { name: 'Guardar el perfil' }).click();
+  // One day, whatever the way in, edited in its own card (PLAN R58).
+  await page.getByRole('button', { name: 'Cambiar el alta' }).click();
+  await page.getByLabel('Fecha de alta').fill('2025-03-01');
+  await page.getByRole('button', { name: 'Guardar el alta' }).click();
   await expect(page.getByText('1 de marzo de 2025')).toBeVisible();
   await page.getByRole('radio', { name: 'Una nota' }).check();
   await page.getByLabel('Nota', { exact: true }).fill('Nos conocimos en una charla');
@@ -276,9 +277,9 @@ test('an older member entered after the fact: no arrival day, where from, Discor
   await expect(facts).toBeVisible();
   await expectAccessible(page);
 
-  // Admins edit the list "Llegó por" chooses from.
+  // Admins edit the list "Canal de alta" chooses from.
   await page.goto('/ajustes');
-  const list = page.getByRole('region', { name: 'Por dónde llega la gente' });
+  const list = page.getByRole('region', { name: 'Canales de alta' });
   const label = `Evento ${tag()}`;
   await list.getByLabel('Nueva opción').fill(label);
   await list.getByRole('button', { name: 'Añadir a la lista' }).click();

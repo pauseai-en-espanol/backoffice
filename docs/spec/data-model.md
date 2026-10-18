@@ -23,7 +23,7 @@ PostgreSQL 18, database `pauseai_backoffice`.
 - **Actor and time columns** (`created_by`, `created_at`, `updated_by`, `updated_at`, `*_by`, `*_at` of an event)
   are set by the `private.stamp(...)` trigger from the session (`app.user_id`) and the transaction time. Whatever
   the caller sends is overwritten, so nobody can act in someone else's name or backdate a record.
-- **When something happened** is a second, separate date (PLAN M5): `people.arrived_on` ("Llegó el", null when
+- **When something happened** is a second, separate date (PLAN M5): `people.arrived_on` ("Fecha de alta", null when
   nobody knows) and `person_events.happened_on` ("Fecha", on contact attempts, notes and stage changes made by hand;
   a stage change takes it from the transaction's `app.happened_on`; a join or a leave from its stay's day, PLAN R56).
   Both are what someone says, never in the future (triggers refuse it), and shown next to the record's own
@@ -57,9 +57,9 @@ specified in the M1 and M3 migrations.
 | `airtable_sync`            | One row: Global's view link, encrypted and write-only; the switch; the last run (ADR-0005) | Onboarding |
 | `audit_log`                | Every write: actor, channel (web or bot), table, row, what changed. Append-only            | Core       |
 | `people`                   | Profile, stage, owner, next action and due date, `profile_completed_at`, anonymised flag   | Onboarding |
-|                            | "Llegó el" (`arrived_on`, null: unknown) and "Llegó por" (`arrival_channel_id`), M5        |            |
+|                            | "Fecha de alta" (`arrived_on`, null: unknown), "Canal de alta" (`arrival_channel_id`); R58 |            |
 |                            | `summary`: the card's one-line internal summary (≤ 200, personal data; M5, step 4)         |            |
-| `arrival_channels`         | "Llegó por"'s list, edited by admins in Ajustes; `key` marks the bot's and Global's (M5)   | Onboarding |
+| `arrival_channels`         | "Canal de alta"'s list, edited by admins in Ajustes; `key` marks the bot's and Global's    | Onboarding |
 | `identities`               | `(kind, value)` unique, `person_id`, verified, source, first seen; kinds: email, phone,    | Onboarding |
 |                            | Discord username (M5), Airtable record                                                     |            |
 | `person_sources`           | Each source a person came from, with date, reporter and external reference                 | Onboarding |

@@ -84,10 +84,10 @@ describe('timeline events in words', () => {
       'Salió de la comunidad el 15 de octubre de 2026',
     );
     expect(describe_('imported', { source: 'airtable' }).title).toBe(
-      'Entró por Formulario de PauseAI Global',
+      'Añadido desde Formulario de PauseAI Global',
     );
     expect(describe_('reported', { source: 'telegram' }).title).toBe(
-      'Se avisó de su llegada (Bot de Telegram)',
+      'Se avisó de su alta (Bot de Telegram)',
     );
     expect(describe_('merged', { into: 'x' }).title).toBe('Esta ficha se fusionó en otra');
     expect(describe_('merged', { from: 'x' }).title).toBe('Se fusionó aquí otra ficha');

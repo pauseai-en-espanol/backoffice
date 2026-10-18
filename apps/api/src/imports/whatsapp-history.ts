@@ -326,8 +326,9 @@ const find = (who: string, book: ContactBook): Found => {
 
 /**
  * Importar's rows, a stay each, for everyone the contacts (or the export itself, by number) give a phone or an email:
- * the name without what people add to contacts, the province in brackets, "Llegó el" their first known join (empty
- * when the history begins with them in), "Llegó por" WhatsApp, and Baja when their last stay has ended, else Nuevo.
+ * the name without what people add to contacts, the province in brackets, "Fecha de alta" their first known join
+ * (empty when the history begins with them in), "Canal de alta" WhatsApp, and Baja when their last stay has ended,
+ * else Nuevo.
  * Whoever can't be found, or can't be told apart, is left for a person to resolve.
  */
 export const historyRows = (
@@ -390,10 +391,10 @@ export const importCsv = (rows: readonly HistoryRow[]): string =>
       'Teléfono',
       'Correo',
       'Provincia',
-      'Llegó el',
-      'Llegó por',
-      'Entró el',
-      'Salió el',
+      'Fecha de alta',
+      'Canal de alta',
+      'Entrada al grupo',
+      'Salida del grupo',
       'Estado',
     ],
     ...rows.map((row) => [
@@ -412,7 +413,7 @@ export const importCsv = (rows: readonly HistoryRow[]): string =>
 /** The file of people to resolve by hand. */
 export const unresolvedCsv = (unresolved: readonly Unresolved[]): string =>
   toCsv([
-    ['Nombre en WhatsApp', 'Qué pasa', 'Entró el', 'Salió el', 'Sigue en el grupo'],
+    ['Nombre en WhatsApp', 'Qué pasa', 'Entrada al grupo', 'Salida del grupo', 'Sigue en el grupo'],
     ...unresolved.map((one) => [
       one.who,
       REASONS[one.reason],

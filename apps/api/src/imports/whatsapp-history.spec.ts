@@ -381,7 +381,7 @@ describe('Importar’s rows', () => {
       },
     ]);
     expect(file).toBe(
-      '\ufeff"Nombre";"Teléfono";"Correo";"Provincia";"Llegó el";"Llegó por";"Entró el";"Salió el";"Estado"\n' +
+      '\ufeff"Nombre";"Teléfono";"Correo";"Provincia";"Fecha de alta";"Canal de alta";"Entrada al grupo";"Salida del grupo";"Estado"\n' +
         '"Ana ""la"" Ejemplo";"+34 600 00 00 61";"";"Sevilla";"2025-01-16";"WhatsApp";"2025-01-16";"";"Nuevo"\n',
     );
     expect(

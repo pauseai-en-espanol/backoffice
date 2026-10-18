@@ -21,6 +21,7 @@ import {
 import { formatDay, formatInstant, formatMadridDay } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
 import { Forbidden, OnboardingOnly } from '@/onboarding/OnboardingOnly';
+import { ArrivalForm } from '@/onboarding/person/Arrival';
 import { EraseData } from '@/onboarding/person/Erase';
 import { Identities } from '@/onboarding/person/Identities';
 import { MergePanel } from '@/onboarding/person/Merge';
@@ -34,7 +35,7 @@ import { personPageText } from '@/onboarding/person/text';
 import { type WhatsAppChoice, WhatsAppHandover } from '@/onboarding/person/WhatsApp';
 import { MissingLine, NextAction, ReasonChips, StageTag, TeamTag } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
-import { canOnboard, isAdmin, sourceName } from '@/onboarding/text';
+import { canOnboard, isAdmin } from '@/onboarding/text';
 import { describeEvent } from '@/onboarding/timeline';
 import { CONSENT_KINDS } from '@/onboarding/types';
 import { greetingName, handoverLink, whatsappMessage } from '@/onboarding/whatsapp-message';
@@ -162,9 +163,6 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
     messages.find((template) => template.id === templateId)?.title;
   const open = person.presence.some((period) => period.leftOn === null);
 
-  const reporter = (value: StaffRef | string | null): string | undefined =>
-    value === null ? undefined : typeof value === 'string' ? staffName(value) : value.displayName;
-
   // What is known of them; their names are the page's heading already.
   const profileFacts = (
     <dl className={styles.facts}>
@@ -186,16 +184,6 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
           <dd>{person.pronouns}</dd>
         </>
       ) : null}
-      <dt>{t('person.arrivedOn')}</dt>
-      <dd>{person.arrivedOn ? formatDay(person.arrivedOn) : t('person.arrivedOnUnknown')}</dd>
-      <dt>{t('person.arrival')}</dt>
-      <dd>{person.arrival?.label ?? t('person.arrivalNone')}</dd>
-      {person.howHeard ? (
-        <>
-          <dt>{t('person.howHeard')}</dt>
-          <dd>{person.howHeard}</dd>
-        </>
-      ) : null}
       {person.languages.length > 0 ? (
         <>
           <dt>{t('person.languages')}</dt>
@@ -211,27 +199,46 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
           </dd>
         </>
       ) : null}
-      {person.sources.length > 0 ? (
+    </dl>
+  );
+
+  // When and where from they signed up: one day, whatever the way in (PLAN R58).
+  const arrivalFacts = (
+    <dl className={styles.facts}>
+      <dt>{t('person.arrivedOn')}</dt>
+      <dd>{person.arrivedOn ? formatDay(person.arrivedOn) : t('person.arrivedOnUnknown')}</dd>
+      <dt>{t('person.arrival')}</dt>
+      <dd>{person.arrival?.label ?? t('person.arrivalNone')}</dd>
+      {person.howHeard ? (
         <>
-          <dt>{t('person.sources')}</dt>
-          <dd>
-            <ul className={onboarding.meta}>
-              {person.sources.map((source) => {
-                const by = reporter(source.reportedBy);
-                return (
-                  <li key={source.source}>
-                    {sourceName(t, source.source)}
-                    {source.firstSeenAt ? ` · ${formatInstant(source.firstSeenAt)}` : ''}
-                    {by ? ` · ${by}` : ''}
-                  </li>
-                );
-              })}
-            </ul>
-          </dd>
+          <dt>{t('person.howHeard')}</dt>
+          <dd>{person.howHeard}</dd>
         </>
       ) : null}
     </dl>
   );
+  // Their time in the group after signing up, oldest first: the first stay began with it, so only what changed since
+  // is told ("Salió…", "Volvió…").
+  const stays = [...person.presence].reverse();
+  const openStay = stays.find((stay) => stay.leftOn === null);
+  const stayLines = stays.flatMap((stay, index) => [
+    ...(index === 0
+      ? []
+      : [
+          <li key={`${stay.id}-entrada`}>
+            {stay.joinedOn
+              ? t('person.stayBack', { date: formatDay(stay.joinedOn) })
+              : t('person.stayBackUnknown')}
+          </li>,
+        ]),
+    ...(stay.leftOn
+      ? [
+          <li key={`${stay.id}-salida`}>
+            {t('person.stayLeft', { date: formatDay(stay.leftOn) })}
+          </li>,
+        ]
+      : []),
+  ]);
 
   // The history, newest first: the latest in view, the rest behind a button, so it never outgrows the page.
   const events = [...timeline].sort((a, b) =>
@@ -440,30 +447,33 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 profileFacts
               ) : (
                 <EditInPlace label={t('person.editProfile')} view={profileFacts} below>
-                  <ProfileEditor person={person} channels={channels} text={text} />
+                  <ProfileEditor person={person} text={text} />
                 </EditInPlace>
               )}
             </section>
 
-            <section className={onboarding.section} aria-labelledby="comunidad">
-              <h2 id="comunidad" className={styles.h3}>
-                {t('person.presence')}
+            <section className={onboarding.section} aria-labelledby="alta">
+              <h2 id="alta" className={styles.h3}>
+                {t('person.arrivalTitle')}
               </h2>
-              {person.presence.length === 0 ? (
-                <p className={styles.hint}>{t('person.presenceNone')}</p>
+              {readOnly ? (
+                arrivalFacts
+              ) : (
+                <EditInPlace label={t('person.changeArrival')} view={arrivalFacts} below>
+                  <ArrivalForm person={person} channels={channels} text={text} />
+                </EditInPlace>
+              )}
+              {stays.length === 0 ? (
+                <p className={styles.hint}>{t('person.stayNever')}</p>
               ) : (
                 <ul className={onboarding.personList}>
-                  {person.presence.map((period) => (
-                    <li key={period.id}>
-                      {period.joinedOn
-                        ? t('person.joinedOn', { date: formatDay(period.joinedOn) })
-                        : t('person.joinedUnknown')}
-                      {period.leftOn
-                        ? `, ${t('person.leftOn', { date: formatDay(period.leftOn) })}`
-                        : ''}
-                      {period.chat ? ` · ${t('person.chat')}: ${period.chat}` : ''}
+                  {stayLines}
+                  {openStay ? (
+                    <li>
+                      {t('person.stayIn')}
+                      {openStay.chat ? ` · ${t('person.chat')}: ${openStay.chat}` : ''}
                     </li>
-                  ))}
+                  ) : null}
                 </ul>
               )}
               {readOnly ? null : (

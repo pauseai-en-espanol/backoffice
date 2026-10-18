@@ -25,7 +25,7 @@ export interface PersonLabels {
   province: string;
   inCommunity: string;
   notInCommunity: string;
-  sourcesLabel: string;
+  arrivalLabel: string;
   nextAction: string;
   noNextAction: string;
   /** "vencido el {date}" */
@@ -154,12 +154,12 @@ export const PersonItem = ({
   person,
   labels,
   action,
-  showSources = false,
+  showArrival = false,
 }: {
   person: PersonSummary;
   labels: PersonLabels;
   action?: ReactNode;
-  showSources?: boolean;
+  showArrival?: boolean;
 }) => (
   <li className={styles.personItem}>
     <div className={styles.personHead}>
@@ -186,10 +186,9 @@ export const PersonItem = ({
         {labels.owner}: {person.owner?.displayName ?? labels.noOwner}
       </li>
       <li>{person.inCommunity ? labels.inCommunity : labels.notInCommunity}</li>
-      {showSources && person.sources.length > 0 ? (
+      {showArrival && person.arrival ? (
         <li>
-          {labels.sourcesLabel}:{' '}
-          {person.sources.map((source) => labels.sources[source] ?? source).join(', ')}
+          {labels.arrivalLabel}: {person.arrival.label}
         </li>
       ) : null}
     </ul>

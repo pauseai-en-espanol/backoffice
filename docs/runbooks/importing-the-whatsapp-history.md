@@ -44,8 +44,8 @@ How it reads the export:
 
 - A join ("joined using a group link.", "added", "se unió", "añadió a") opens a stay; a leave ("left", "removed",
   "salió", "eliminó a") closes it. Someone who left last is Baja; everyone else is Nuevo.
-- Someone who wrote, or changed their number, without a join line was in since before the history: their "Entró el"
-  and "Llegó el" are empty ("No se sabe").
+- Someone who wrote, or changed their number, without a join line was in since before the history: their "Entrada al
+  grupo" and "Fecha de alta" are empty ("No se sabe").
 - The name is the contact's, without what is in brackets ("[Madrid]", "(PauseAI ES)") or emoji; what is in square
   brackets is the province. A number nobody saved comes in without a name ("Sin nombre"), known by its number.
 - Lines about you ("added you") are left out: you are in the backoffice already.
@@ -67,14 +67,14 @@ Export the contacts again and convert again: it is safe to repeat, and so is imp
 ## 4. Importing
 
 In **Importar**, "Importar un CSV", pick `importar-whatsapp.csv`. Its columns map by themselves (Nombre, Teléfono,
-Correo, Provincia, Llegó el, Llegó por, Entró el, Salió el, Estado). The dry run shows the first rows and what
-applying would do; then apply.
+Correo, Provincia, Fecha de alta, Canal de alta, Entrada al grupo, Salida del grupo, Estado). The dry run shows the
+first rows and what applying would do; then apply.
 
 - **Someone already in the backoffice** (Global's form, the bot) is found by phone or email: their stays are added,
   and nothing they have is overwritten (a different name or province waits in the Bandeja). Their stage stays; if
   the history says they left, they show "Ha salido de la comunidad".
-- **Someone new** comes in as Nuevo or Baja, "Llegó por" WhatsApp, "Llegó el" their first join. The team group hears
-  only of arrivals of the last week, and "Sin asignar" counts only the last 30 days, so neither fills up.
+- **Someone new** comes in as Nuevo or Baja, "Canal de alta" WhatsApp, "Fecha de alta" their first join. The team
+  group hears only of arrivals of the last week, and "Sin asignar" counts only the last 30 days, so neither fills up.
 - **Again, later:** a stay already in the backoffice is never added twice, a newer export closes the stays that
   ended since, and an older one never reopens them.
 

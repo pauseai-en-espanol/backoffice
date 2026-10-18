@@ -17,14 +17,16 @@ Airtable's mechanics and security are in their ADRs; this spec says what they do
 - **Identity.** A way to recognise a person: an email, a phone number (E.164), a Discord username (2 to 32 lowercase
   letters, digits, `_` and `.`, never `..`; PLAN M5), an Airtable record ID. A normalised identity belongs to at most
   one person, which is what prevents duplicates.
-- **Source** ("Entró por"). How we learned about a person: `airtable`, `telegram` (reported to the bot), `census`,
-  `manual` (the web app), `csv`. A person keeps all of them, each with a date and who reported it.
-- **Arrival** (PLAN M5). "Llegó el": the day someone arrived, by default the day they're added, never in the future,
-  and empty ("No se sabe") when nobody knows, as for older members entered after the fact (Dani, 2026-10-16).
-  "Llegó por": where they came from, from a list admins edit in Ajustes (WhatsApp, Email, Discord, Formulario de
-  PauseAI Global, Otro to start), never free text; the bot's reports say WhatsApp, Global's form says itself, Añadir
-  asks, a CSV may bring a column. Not the same as the source: someone who wrote on WhatsApp and was reported through
-  the bot came from WhatsApp, and entered through the bot.
+- **Source.** How a record came into the backoffice: `airtable`, `telegram` (reported to the bot), `census`,
+  `manual` (the web app), `csv`. A person keeps all of them, each with a date and who reported it, for the history
+  ("Añadido desde …"); since PLAN R58 it is neither shown as a field nor filtered on: the channel is.
+- **Sign-up** (PLAN M5, R58; D17). "Fecha de alta": the one day someone joined us, whatever the way in (Global's
+  form, the WhatsApp group, Discord…), by default the day they're added, never in the future, and empty ("No se
+  sabe") when nobody knows, as for older members entered after the fact (Dani, 2026-10-16). "Canal de alta": the way
+  in, from a list admins edit in Ajustes (WhatsApp, Email, Discord, Formulario de PauseAI Global, Otro to start),
+  never free text; the bot's reports say WhatsApp, Global's form says itself, Añadir asks, a CSV may bring a column.
+  It is the one way in people are shown, filtered and counted by (Dani, 2026-10-18: "entro por and llego por ...
+  should be merged"); people from before it took theirs from their source (migration `20261018120000`).
 - **Community presence.** The periods (stays) during which a person was in the WhatsApp community: the day they
   joined (unknown for someone in since before the records), the day they left, who reported each. Optionally the chat
   they joined, from a list in settings (a local chat hints at a province). Leaving is a signal, not a deletion. Joins
@@ -97,8 +99,8 @@ Equipo, which suggests it. Personas and the board filter by it ("Del equipo"). T
 deactivated account keeps it without the badge.
 
 - **Hoy:** my people needing attention, then the unassigned queue with a "Me lo quedo" (claim) button.
-- **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage. Filters: owner, province, source
-  ("Entró por"), "Llegó por", "Llegó el" known or not, in the community or not, needs attention.
+- **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage. Filters: owner, province, "Canal de
+  alta", "Fecha de alta" known or not, in the community or not, needs attention.
 - **Personas:** a searchable list (name, email, phone; typo-tolerant). Exportable to CSV by admins only, and
   every export is audited.
 - **Persona:** profile, identities, community presence, timeline. Quick actions: log a contact attempt (channel
@@ -106,10 +108,11 @@ deactivated account keeps it without the badge.
   prepared message ([§7.3](#73-whatsapp-handover-links)), copy the email address. Laid out to read first and edit in
   place (PLAN R57): who they are, with "Me lo quedo" and WhatsApp; then where they are (stage, owner, next step, each
   changed where it is shown), one place to write an attempt or a note, and the history, its latest ten in view;
-  beside it, a card each for contact, profile, community and census, edited in the card; merging, the team account
-  and their data under "Más acciones".
-- **Añadir rápido:** a phone, an email or a Discord username, the name if known, "Llegó por", "Llegó el" (today,
-  emptied when nobody knows), optional note. Duplicates are checked as you type.
+  beside it, a card each for contact, profile, sign-up and community, and census, edited in the card; merging, the team
+  account and their data under "Más acciones". The sign-up's day is written once: the card "Alta y comunidad" tells
+  only what changed in the group since ("Salió del grupo el …", "Volvió al grupo el …"; PLAN R58).
+- **Añadir rápido:** a phone, an email or a Discord username, the name if known, "Canal de alta", "Fecha de alta"
+  (today, emptied when nobody knows), optional note. Duplicates are checked as you type.
 - **Bandeja:** records awaiting a decision: possible duplicates and conflicting values.
 - **Importar:** "Sincronizar Airtable ahora" with the last run's result, while an admin has the sync on in Ajustes;
   upload a CSV, preview, dry-run diff, apply ([§5.3](#53-web-and-csv-m1)).
@@ -119,9 +122,9 @@ deactivated account keeps it without the badge.
 - **Ajustes → Formulario de PauseAI Global (Airtable)**, admins only: paste Global's view link, which is never shown
   again ("Configurado el … por …"), replace or remove it, turn the sync on or off, and see how its last run went
   ([§5.1](#51-airtable-m1)).
-- **Panel:** counts by stage, arrivals per week (by "Llegó el") by source and by "Llegó por", time to first
-  contact, unassigned for more than 48 hours; people with no arrival day are left out of the weeks and the waits, and
-  counted in a line of their own.
+- **Panel:** counts by stage, sign-ups per week (by "Fecha de alta") by "Canal de alta", time to first contact,
+  unassigned for more than 48 hours; people with no sign-up day are left out of the weeks and the waits, and counted
+  in a line of their own.
 
 ## 5. Intake sources
 
@@ -173,16 +176,16 @@ to everyone else. Replies are in Spanish, and name a command by both names, Engl
 
 - **Quick-add** in the web app, for whoever prefers it to the bot. A phone, an email or a Discord username is
   required; the name only if known (PLAN R37, M5).
-- **CSV columns for older members** (PLAN M5): "Llegó el" (dd/mm/yyyy or yyyy-mm-dd; an empty cell in a mapped
-  column means nobody knows), "Llegó por" (matched to the list by name) and Discord, with the stage, so they can be
+- **CSV columns for older members** (PLAN M5): "Fecha de alta" (dd/mm/yyyy or yyyy-mm-dd; an empty cell in a mapped
+  column means nobody knows), "Canal de alta" (matched to the list by name) and Discord, with the stage, so they can be
   retrofilled in bulk.
 - **CSV import** with a column mapping, a preview, a dry run and an apply step. It covers any one-off list, and
   Airtable whenever the shared-view sync breaks. A row needs a name, or a phone, an email or a Discord username to
   find them by (PLAN R56: most of the group's numbers are in nobody's contacts).
-- **A stay in the group per row** (PLAN R56): "Entró el" (empty, when the column is there: in since before anyone
-  knows) and "Salió el" (empty: still in), and the stage Baja for someone who left. Someone who came back is a row per
-  stay, one person by their phone. A stay already recorded is never recorded twice; a later file closes the stay that
-  ended since, and an older one never reopens it.
+- **A stay in the group per row** (PLAN R56): "Entrada al grupo" (empty, when the column is there: in since before
+  anyone knows) and "Salida del grupo" (empty: still in), and the stage Baja for someone who left. Someone who came
+  back is a row per stay, one person by their phone. A stay already recorded is never recorded twice; a later file
+  closes the stay that ended since, and an older one never reopens it.
 - **The WhatsApp group's history** (PLAN R56, D16): the group's export, with the exporter's Google Contacts for the
   numbers, turned into that CSV on the exporter's laptop (`pnpm whatsapp:csv`), so none of the chat's messages reach
   the backoffice ([runbook](../runbooks/importing-the-whatsapp-history.md)). Those who left come in as Baja.
@@ -211,7 +214,7 @@ There is no list of the community's members to import, so they come in four ways
 
 1. **Airtable:** those who signed up through Global are already there after the first import.
 2. **Admins and volunteers** add the people they know, through the bot or the web app, as `new`, or straight to
-   `active` or `welcomed`, with "Llegó el" empty when nobody knows when they arrived (PLAN M5).
+   `active` or `welcomed`, with "Fecha de alta" empty when nobody knows when they joined (PLAN M5).
 3. **The census itself:** a submission from someone not yet in the system creates them in `new`.
 4. **The WhatsApp group's history** (PLAN R56): everyone who joined, left or wrote since the exporting phone was
    added, with their stays ([§5.3](#53-web-and-csv-m1)). Members since before who never wrote aren't in it.

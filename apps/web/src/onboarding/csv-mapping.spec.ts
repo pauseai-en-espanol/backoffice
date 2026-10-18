@@ -57,6 +57,14 @@ describe('suggestMapping', () => {
       'Salió el': 'leftOn',
       'Fecha de baja': 'ignore',
     });
+    expect(
+      suggestMapping(['Fecha de alta', 'Canal de alta', 'Entrada al grupo', 'Salida del grupo']),
+    ).toEqual({
+      'Fecha de alta': 'arrivedOn',
+      'Canal de alta': 'arrival',
+      'Entrada al grupo': 'joinedOn',
+      'Salida del grupo': 'leftOn',
+    });
     expect(suggestMapping(['Fecha de entrada', 'Salió el (día)'])).toEqual({
       'Fecha de entrada': 'joinedOn',
       'Salió el (día)': 'leftOn',
