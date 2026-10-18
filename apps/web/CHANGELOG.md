@@ -1,5 +1,19 @@
 # @backoffice/web
 
+## 0.11.0
+
+### Minor Changes
+
+- 47fb5d4: A person's page is read first and edited in place (PLAN R57): who they are with "Me lo quedo" and WhatsApp; stage,
+  owner and next step each changed where they are shown; one box for an attempt or a note above the history, whose
+  latest ten are in view; contact, profile, community and census in cards edited in place; merging, the team account
+  and their data under "Más acciones".
+
+### Patch Changes
+
+- Updated dependencies [47fb5d4]
+  - @backoffice/i18n@0.11.0
+
 ## 0.10.0
 
 ### Minor Changes
