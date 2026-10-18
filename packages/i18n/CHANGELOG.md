@@ -1,5 +1,28 @@
 # @backoffice/i18n
 
+## 0.15.0
+
+### Minor Changes
+
+- a4a1e91: Contacto takes a phone, an email or a Discord username in one field and tells which from what is typed, with no
+  "Tipo" to choose; each detail is one line with its icon and "Quitar" at the end. Fields side by side keep their boxes
+  in line however long their labels, and "(opcional)" moved into the hints, so labels stay on one line.
+- 32a393d: The visual system reaches every screen (PLAN R65–R68): a person's page shows their stage and next step under the
+  name, and its edits are small buttons with an icon; the Panel draws a bar to scale per stage; Hoy shows two figures
+  and the Bandeja's count as a chip; the menu and Personas' stage counters carry icons; Contactos folds its filters and
+  shows each contact's relationship as a coloured pill and its tier as a tag; the Bandeja marks "igual" in green and
+  "distinto" in amber; Ajustes adds an option from a field with its button beside it.
+- d2e6e54: A visual system for the staff app (PLAN R61, R62): each stage a pill in its own colour with its icon and word,
+  status chips and quiet tags, Lucide icons beside their words. A person's card says each fact once: "Sin asignar"
+  where the owner goes, the next step in a strip of its own (red once late, amber when today or missing), what is
+  missing last as dashed chips. Hoy lays its people out as a grid, Personas as rows lined up under their columns (a
+  card on a phone), and the Onboarding Pipeline's columns take their stage's pill and colour.
+
+### Patch Changes
+
+- a42a927: Statuses ("Posible duplicado", "Activa", "Revocada"…) carry an icon like the rest of the visual system, and Contactos'
+  "Nuevo contacto" has room above the search.
+
 ## 0.14.1
 
 ### Patch Changes

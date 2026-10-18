@@ -1,5 +1,17 @@
 # @backoffice/api
 
+## 0.11.2
+
+### Patch Changes
+
+- Updated dependencies [a4a1e91]
+- Updated dependencies [a42a927]
+- Updated dependencies [32a393d]
+- Updated dependencies [d2e6e54]
+  - @backoffice/domain@0.5.0
+  - @backoffice/i18n@0.15.0
+  - @backoffice/db@0.5.2
+
 ## 0.11.1
 
 ### Patch Changes
