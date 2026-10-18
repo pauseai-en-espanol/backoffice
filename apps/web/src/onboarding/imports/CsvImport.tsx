@@ -10,7 +10,13 @@ import * as ui from '@/ui/styles';
 import { messageFor } from '@/write';
 
 import { importCsv } from '../actions';
-import { isMappingField, MAPPING_FIELDS, type MappingField, usedMapping } from '../csv-mapping';
+import {
+  IDENTIFYING_FIELDS,
+  isMappingField,
+  MAPPING_FIELDS,
+  type MappingField,
+  usedMapping,
+} from '../csv-mapping';
 import { type CsvAnalysis, MAX_CSV_BYTES, parseAnalysis } from '../forms';
 import * as styles from '../styles';
 import { countsOf } from '../types';
@@ -111,7 +117,7 @@ export const CsvImport = ({ text }: { text: CsvImportText }) => {
     if (!csv || pending) {
       return;
     }
-    if (!Object.values(mapping).includes('name')) {
+    if (!Object.values(mapping).some((field) => IDENTIFYING_FIELDS.some((one) => one === field))) {
       setError(text.noName);
       return;
     }

@@ -34,8 +34,8 @@
   {
     "name": "an empty “Llegó el” cell in a CSV is today",
     "file": "apps/api/src/imports/csv.ts",
-    "old": "      ...(index.has('arrivedOn') ? { arrived_on: arrivedOn ?? null } : {}),",
-    "new": "      ...(arrivedOn ? { arrived_on: arrivedOn } : {}),",
+    "old": "      ...(index.has('arrivedOn') ? { arrived_on: dates.arrivedOn ?? null } : {}),",
+    "new": "      ...(dates.arrivedOn ? { arrived_on: dates.arrivedOn } : {}),",
     "cmd": "pnpm exec vitest run src/imports",
     "cwd": "apps/api"
   },
@@ -113,15 +113,15 @@
   },
   {
     "name": "any event may say when it happened",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
-    "old": "  CHECK (happened_on IS NULL OR kind IN ('contact_attempt', 'note', 'stage_changed'));",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "  CHECK (happened_on IS NULL OR kind IN ('contact_attempt', 'note', 'stage_changed', 'joined', 'left'));",
     "new": "  CHECK (true);",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
   {
     "name": "an intake’s arrival day isn’t checked",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "       AND (jsonb_typeof(payload -> 'arrived_on') <> 'string' OR (payload ->> 'arrived_on') !~ '^\\d{4}-\\d{2}-\\d{2}$') THEN",
     "new": "       AND false THEN",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -129,7 +129,7 @@
   },
   {
     "name": "an intake can’t say nobody knows when they arrived",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "            CASE WHEN jsonb_typeof(intake.payload -> 'arrived_on') = 'null' THEN NULL",
     "new": "            CASE WHEN false THEN NULL",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -137,7 +137,7 @@
   },
   {
     "name": "a later arrival day replaces an earlier one",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "            OR least((payload ->> 'arrived_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date) < subject.arrived_on) THEN",
     "new": "            OR least((payload ->> 'arrived_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date) > subject.arrived_on) THEN",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -145,7 +145,7 @@
   },
   {
     "name": "a known arrival day doesn’t fill an unknown one",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "       AND (subject.arrived_on IS NULL\n",
     "new": "       AND (false\n",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -161,7 +161,7 @@
   },
   {
     "name": "a merge keeps the survivor’s arrival day, even a later or unknown one",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261016170100_staff_person.sql",
     "old": "           arrived_on = least(p.arrived_on, gone.arrived_on),",
     "new": "           arrived_on = p.arrived_on,",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -169,7 +169,7 @@
   },
   {
     "name": "a report replaces where someone came from",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "    IF channel IS NOT NULL AND subject.arrival_channel_id IS NULL THEN",
     "new": "    IF channel IS NOT NULL THEN",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -177,7 +177,7 @@
   },
   {
     "name": "a merge drops the duplicate’s where-from",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261016170100_staff_person.sql",
     "old": "           arrival_channel_id = coalesce(p.arrival_channel_id, gone.arrival_channel_id)",
     "new": "           arrival_channel_id = p.arrival_channel_id",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -241,7 +241,7 @@
   },
   {
     "name": "a Discord username alone isn’t enough to save someone",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "WHERE x.kind IN ('phone', 'email', 'discord') AND btrim(x.value) <> ''",
     "new": "WHERE x.kind IN ('phone', 'email') AND btrim(x.value) <> ''",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",

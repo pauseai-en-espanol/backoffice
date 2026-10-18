@@ -25,8 +25,9 @@ PostgreSQL 18, database `pauseai_backoffice`.
   the caller sends is overwritten, so nobody can act in someone else's name or backdate a record.
 - **When something happened** is a second, separate date (PLAN M5): `people.arrived_on` ("Llegó el", null when
   nobody knows) and `person_events.happened_on` ("Fecha", on contact attempts, notes and stage changes made by hand;
-  a stage change takes it from the transaction's `app.happened_on`). Both are what someone says, never in the future
-  (triggers refuse it), and shown next to the record's own `created_at` and actor, which stay as above.
+  a stage change takes it from the transaction's `app.happened_on`; a join or a leave from its stay's day, PLAN R56).
+  Both are what someone says, never in the future (triggers refuse it), and shown next to the record's own
+  `created_at` and actor, which stay as above.
 - **Personal data.** Every column that holds personal data is commented `personal data`. The audit trigger never
   copies those columns into `audit_log`; an update that changes only such a column is logged with its name and no
   values. A catalog test keeps the list of such columns honest.
@@ -62,7 +63,7 @@ specified in the M1 and M3 migrations.
 | `identities`               | `(kind, value)` unique, `person_id`, verified, source, first seen; kinds: email, phone,    | Onboarding |
 |                            | Discord username (M5), Airtable record                                                     |            |
 | `person_sources`           | Each source a person came from, with date, reporter and external reference                 | Onboarding |
-| `community_presence`       | `(person_id, joined_at, left_at, chat, reported_by)`                                       | Onboarding |
+| `community_presence`       | Stays: `(person_id, joined_on, left_on, chat, *_reported_by)`; one open at a time (R56)    | Onboarding |
 | `person_events`            | The timeline. Append-only; only anonymisation redacts it. `happened_on`: its day, M5       | Onboarding |
 | `intake_records`           | Every imported or reported record: source, external ID, minimised payload, status, match   | Onboarding |
 | `imports`                  | Each import or sync run: who, when, file hash, counts, dry-run diff                        | Onboarding |
@@ -204,8 +205,10 @@ privileges the bot uses (a catalog test lists them), and they hold the bot's wor
 - What the bot may write is limited in the database
   ([ADR-0002 §4](../adr/0002-authorization-and-data-protection.md#4-row-level-security-by-module-and-channel),
   [ADR-0004](../adr/0004-telegram-bot.md)).
-- A person's `full_name` may be missing (NULL, never blank) only for someone the bot or quick-add saved with a phone
-  or an email (PLAN R37); Airtable, the CSV import and the census always name them. A later report or a merge fills
-  it, it is never matched on, and once known it is never emptied (`person_rules`).
+- A person's `full_name` may be missing (NULL, never blank) only for someone the bot, quick-add or the CSV import
+  saved with a phone, an email or a Discord username (PLAN R37, R56); Airtable and the census always name them. A
+  later report or a merge fills it, it is never matched on, and once known it is never emptied (`person_rules`).
+- An intake's stay in the community is recorded once: a later one closes the open stay it ended, an older one never
+  reopens a closed stay, and nobody leaves before joining (PLAN R56).
 - An invitation is decided once, and accepted only by the invited, verified email.
 - An aal2 session exists only for an account with a second factor.

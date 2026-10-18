@@ -49,6 +49,19 @@ describe('suggestMapping', () => {
       'Fecha de alta': 'arrivedOn',
     });
   });
+
+  it('knows the columns of a stay in the group: “Entró el” and “Salió el” (PLAN R56)', () => {
+    expect(suggestMapping(['Teléfono', 'Entró el', 'Salió el', 'Fecha de baja'])).toEqual({
+      Teléfono: 'phone',
+      'Entró el': 'joinedOn',
+      'Salió el': 'leftOn',
+      'Fecha de baja': 'ignore',
+    });
+    expect(suggestMapping(['Fecha de entrada', 'Salió el (día)'])).toEqual({
+      'Fecha de entrada': 'joinedOn',
+      'Salió el (día)': 'leftOn',
+    });
+  });
 });
 
 describe('usedMapping', () => {

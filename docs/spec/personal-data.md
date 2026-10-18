@@ -62,6 +62,11 @@ once saved, never repeats contact details, and posts none in the team group
   erasure removes it.
 - Columns holding personal data are marked as such in the database and never copied into the audit log
   ([data model §2](data-model.md#2-conventions)).
+- **The WhatsApp group's history** (PLAN R56) is converted on the laptop of the admin who exported it: what reaches
+  the backoffice is who was in the group, between which days, and the name, number or email the exporter's contacts
+  have for them; none of the chat's messages. The command prints counts only, refuses the repository, and the runbook
+  ends with deleting the files. People who left come in too, as Baja (D16, Dani's call), so nobody greets them as
+  new and the counts of who came and went are honest.
 
 ## 8. Notice and rights
 

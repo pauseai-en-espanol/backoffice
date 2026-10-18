@@ -38,6 +38,7 @@ import {
   CSV_FIELDS,
   CsvError,
   type CsvField,
+  IDENTIFYING_FIELDS,
   mapRows,
   parseCsv,
   suggestMapping,
@@ -897,7 +898,8 @@ export const peopleRoutes =
                 entry[1] !== '' && parsed.columns.includes(entry[0]),
             ),
           );
-          if (!Object.values(mapping).includes('name')) {
+          // Who each row is: a name, or a way to find them by (PLAN R37, R56).
+          if (!Object.values(mapping).some((field) => IDENTIFYING_FIELDS.includes(field))) {
             throw new Refusal(400, 'invalid', { field: 'mapping' });
           }
           const mapped = mapRows(parsed, mapping);
@@ -926,7 +928,7 @@ export const peopleRoutes =
             columns: parsed.columns,
             mapping,
             preview: mapped.rows.slice(0, 20).map((row) => ({
-              name: row.payload.name,
+              name: row.payload.name ?? null,
               email: row.payload.emails?.[0] ?? null,
               phone: row.payload.phones?.[0] ?? null,
               province: row.payload.province ?? null,
@@ -935,6 +937,8 @@ export const peopleRoutes =
               discord: row.payload.discords?.[0] ?? null,
               arrival: row.payload.arrival ?? null,
               arrivedOn: row.payload.arrived_on ?? null,
+              joinedOn: row.payload.joined_on ?? null,
+              leftOn: row.payload.left_on ?? null,
             })),
             invalid: mapped.invalid,
             counts: dry,

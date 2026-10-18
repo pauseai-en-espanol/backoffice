@@ -660,7 +660,7 @@ describe('arrivals without a name (PLAN R37)', () => {
     });
   });
 
-  it('still needs a name, a phone or an email; and Airtable and the CSV import always need a name', async () => {
+  it('still needs a name, a phone or an email; and Airtable always needs a name', async () => {
     await inRolledBackTransaction(async (client) => {
       await actAs(client, 'pauseai_backoffice_app', bot(USERS.onboarder));
       const report = "SELECT * FROM private.submit_intake('telegram', $1, $2)";
@@ -676,8 +676,8 @@ describe('arrivals without a name (PLAN R37)', () => {
       await client.query('RESET ROLE');
       await actAs(client, 'pauseai_backoffice_app', web(USERS.adminA));
       expect(
-        await errorCode(client, "SELECT private.import_csv('csv-sin-nombre', $1)", [
-          JSON.stringify([{ payload: { phones: ['+34600000031'] } }]),
+        await errorCode(client, "SELECT private.import_csv(repeat('a', 64), $1)", [
+          JSON.stringify([{ payload: { note: 'Sin nadie' } }]),
         ]),
       ).toBe('23514');
       await client.query('RESET ROLE');
@@ -1061,7 +1061,8 @@ describe('when something happened (PLAN M5)', () => {
       const dated = (
         await client.query<{ kind: string; happened_on: string; actor_id: string | null }>(
           `SELECT kind::text, to_char(happened_on, 'YYYY-MM-DD') AS happened_on, actor_id
-             FROM app.person_events WHERE person_id = $1 AND happened_on IS NOT NULL ORDER BY id`,
+             FROM app.person_events WHERE person_id = $1 AND happened_on IS NOT NULL
+              AND kind IN ('note', 'stage_changed') ORDER BY id`,
           [PEOPLE.ana],
         )
       ).rows;
@@ -1069,11 +1070,12 @@ describe('when something happened (PLAN M5)', () => {
         { kind: 'note', happened_on: await madridDay(client, 3), actor_id: USERS.onboarder },
         { kind: 'stage_changed', happened_on: '2026-01-15', actor_id: USERS.onboarder },
       ]);
-      // Only those three kinds say when they happened; the rest happened when they were written.
+      // Only those three kinds, and joins and leaves (on their stay's days), say when they happened; the rest
+      // happened when they were written.
       expect(
         await errorCode(
           client,
-          "INSERT INTO app.person_events (person_id, kind, happened_on) VALUES ($1, 'joined', '2026-01-01')",
+          "INSERT INTO app.person_events (person_id, kind, happened_on) VALUES ($1, 'owner_changed', '2026-01-01')",
           [PEOPLE.ana],
         ),
       ).toBe('23514');
@@ -1115,6 +1117,201 @@ describe('Discord usernames (PLAN M5)', () => {
         discords: ['persona_de_ejemplo'],
       });
       expect(again).toMatchObject({ status: 'attached', person_id: first.person_id });
+    });
+  });
+});
+
+describe('stays in the community, from the group’s history (PLAN R56)', () => {
+  /** Imports `payloads` as one CSV file, as the app role for an admin; its counts. */
+  /** A file's SHA-256, as the API sends it: any 64 hex digits. */
+  const someFile = () => crypto.randomUUID().replaceAll('-', '').repeat(2);
+
+  const importRows = async (client: pg.Client, payloads: object[], file = someFile()) =>
+    (
+      await as<{ counts: Record<string, number> }>(
+        client,
+        web(USERS.adminA),
+        'SELECT private.import_csv($1, $2) AS counts',
+        [file, JSON.stringify(payloads.map((payload) => ({ payload })))],
+      )
+    )[0]?.counts ?? {};
+
+  const personWith = async (client: pg.Client, phone: string): Promise<string> =>
+    (
+      await client.query<{ person_id: string }>(
+        "SELECT person_id FROM app.identities WHERE kind = 'phone' AND value = $1",
+        [phone],
+      )
+    ).rows[0]?.person_id ?? '';
+
+  const staysOf = async (client: pg.Client, person: string) =>
+    (
+      await client.query<{ joined_on: string | null; left_on: string | null }>(
+        `SELECT to_char(joined_on, 'YYYY-MM-DD') AS joined_on, to_char(left_on, 'YYYY-MM-DD') AS left_on
+           FROM app.community_presence WHERE person_id = $1 ORDER BY coalesce(joined_on, left_on), created_at`,
+        [person],
+      )
+    ).rows;
+
+  it('brings in a stay per row, on its days: someone who came back is one person, and someone who left is Baja', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const counts = await importRows(client, [
+        {
+          name: 'Vuelve de Ejemplo',
+          phones: ['+34600000040'],
+          joined_on: '2025-03-01',
+          left_on: '2025-05-02',
+          arrived_on: '2025-03-01',
+          arrival: 'whatsapp',
+          stage: 'new',
+        },
+        {
+          name: 'Vuelve de Ejemplo',
+          phones: ['+34600000040'],
+          joined_on: '2025-09-10',
+          arrived_on: '2025-03-01',
+          arrival: 'whatsapp',
+          stage: 'new',
+        },
+        { phones: ['+34600000041'], joined_on: null, left_on: '2025-06-01', stage: 'left' },
+      ]);
+      expect(counts).toMatchObject({ received: 3, created: 2, attached: 1 });
+      const back = await personWith(client, '+34600000040');
+      expect(await staysOf(client, back)).toEqual([
+        { joined_on: '2025-03-01', left_on: '2025-05-02' },
+        { joined_on: '2025-09-10', left_on: null },
+      ]);
+      expect(await arrivalOf(client, back)).toEqual({
+        arrived_on: '2025-03-01',
+        arrival: 'whatsapp',
+      });
+      const gone = await personWith(client, '+34600000041');
+      expect(await staysOf(client, gone)).toEqual([{ joined_on: null, left_on: '2025-06-01' }]);
+      const { rows } = await client.query<{ stage: string; full_name: string | null }>(
+        'SELECT stage::text AS stage, full_name FROM app.people WHERE id = $1',
+        [gone],
+      );
+      expect(rows[0]).toEqual({ stage: 'left', full_name: null });
+      expect(await reasonsOf(client, gone)).not.toContain('left_community');
+    });
+  });
+
+  it('puts joins and leaves in the history on their own day; a day to come keeps the day it was written', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await importRows(client, [
+        { phones: ['+34600000042'], joined_on: '2025-03-01', left_on: '2025-05-02' },
+      ]);
+      const person = await personWith(client, '+34600000042');
+      const days = async () =>
+        (
+          await client.query<{ kind: string; happened_on: string | null }>(
+            `SELECT kind::text AS kind, to_char(happened_on, 'YYYY-MM-DD') AS happened_on FROM app.person_events
+              WHERE person_id = $1 AND kind IN ('joined', 'left') ORDER BY id`,
+            [person],
+          )
+        ).rows;
+      expect(await days()).toEqual([
+        { kind: 'joined', happened_on: '2025-03-01' },
+        { kind: 'left', happened_on: '2025-05-02' },
+      ]);
+      await client.query(
+        "INSERT INTO app.community_presence (person_id, joined_on) VALUES ($1, (now() AT TIME ZONE 'Europe/Madrid')::date + 1)",
+        [person],
+      );
+      expect((await days()).at(-1)).toEqual({ kind: 'joined', happened_on: null });
+    });
+  });
+
+  it('records a stay once, closes it when a later export says they left, and never opens it again from an older one', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const open = { phones: ['+34600000043'], joined_on: '2025-04-01' };
+      const first = someFile();
+      await importRows(client, [open], first);
+      expect(await importRows(client, [open], first)).toMatchObject({
+        unchanged: 1,
+      });
+      const person = await personWith(client, '+34600000043');
+      const closed = { ...open, left_on: '2025-08-01', name: 'Se va de Ejemplo' };
+      await importRows(client, [closed]);
+      expect(await staysOf(client, person)).toEqual([
+        { joined_on: '2025-04-01', left_on: '2025-08-01' },
+      ]);
+      await importRows(client, [{ ...open, name: 'Se va de Ejemplo', note: 'Otra vez' }]);
+      await importRows(client, [{ ...closed, note: 'Y otra' }]);
+      expect(await staysOf(client, person)).toEqual([
+        { joined_on: '2025-04-01', left_on: '2025-08-01' },
+      ]);
+    });
+  });
+
+  it('leaves the stay open now alone when a row is about an older one', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const reported = await submit(
+        client,
+        bot(USERS.onboarder),
+        { phones: ['+34600000044'] },
+        { source: 'telegram' },
+      );
+      await importRows(client, [
+        { phones: ['+34600000044'], joined_on: '2025-01-01', left_on: '2025-02-01' },
+      ]);
+      expect(await staysOf(client, reported.person_id ?? '')).toEqual([
+        { joined_on: '2025-01-01', left_on: '2025-02-01' },
+        { joined_on: await madridDay(client), left_on: null },
+      ]);
+    });
+  });
+
+  it('closes the open stay when someone whose join nobody knows leaves', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await importRows(client, [{ phones: ['+34600000045'], joined_on: null }]);
+      const person = await personWith(client, '+34600000045');
+      expect(await staysOf(client, person)).toEqual([{ joined_on: null, left_on: null }]);
+      await importRows(client, [
+        { phones: ['+34600000045'], joined_on: null, left_on: '2025-07-07' },
+      ]);
+      expect(await staysOf(client, person)).toEqual([{ joined_on: null, left_on: '2025-07-07' }]);
+      await importRows(client, [
+        { phones: ['+34600000045'], joined_on: null, note: 'Visto antes' },
+      ]);
+      expect(await staysOf(client, person)).toEqual([{ joined_on: null, left_on: '2025-07-07' }]);
+    });
+  });
+
+  it('still opens a stay today for a row that names a chat alone, and never one in the future', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await importRows(client, [
+        { name: 'Con chat', phones: ['+34600000046'], chat: 'Chat de ejemplo' },
+        { phones: ['+34600000047'], joined_on: '2999-01-01' },
+      ]);
+      const today = await madridDay(client);
+      expect(await staysOf(client, await personWith(client, '+34600000046'))).toEqual([
+        { joined_on: today, left_on: null },
+      ]);
+      expect(await staysOf(client, await personWith(client, '+34600000047'))).toEqual([
+        { joined_on: today, left_on: null },
+      ]);
+    });
+  });
+
+  it('refuses days that aren’t days, and leaving before joining', async () => {
+    await inRolledBackTransaction(async (client) => {
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.adminA));
+      for (const payload of [
+        { phones: ['+34600000048'], joined_on: 'ayer' },
+        { phones: ['+34600000048'], joined_on: 20250101 },
+        { phones: ['+34600000048'], left_on: null },
+        { phones: ['+34600000048'], left_on: '1/2/25' },
+        { phones: ['+34600000048'], joined_on: '2025-03-01', left_on: '2025-02-28' },
+      ]) {
+        expect(
+          await errorCode(client, 'SELECT private.import_csv($1, $2)', [
+            someFile(),
+            JSON.stringify([{ payload }]),
+          ]),
+          JSON.stringify(payload),
+        ).toBe('22023');
+      }
     });
   });
 });

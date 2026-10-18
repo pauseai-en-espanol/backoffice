@@ -389,7 +389,7 @@ describe('onboarding through the staff API (M1)', () => {
 
   it('imports a CSV: a dry run says what would happen and keeps nothing; applying does it once', async () => {
     const tag = suffix();
-    const csv = `Nombre;Teléfono;Provincia\nRosa CSV ${tag};62${tag}1;Provincia CSV\nSin teléfono ${tag};;\n;600000000;\n`;
+    const csv = `Nombre;Teléfono;Provincia\nRosa CSV ${tag};62${tag}1;Provincia CSV\nSin teléfono ${tag};;\n;;Provincia sola\n`;
     const dry = (await onboarder.who.send('POST', '/api/imports/csv', { csv })).json<{
       mapping: Record<string, string>;
       counts: { received: number; created: number };
@@ -430,6 +430,32 @@ describe('onboarding through the staff API (M1)', () => {
       people: { id: string }[];
     }>();
     people.push(...made.people.map((p) => p.id));
+  });
+
+  it('imports a CSV whose rows are known by a phone alone, with their stays in the group (PLAN R37, R56)', async () => {
+    const tag = suffix();
+    const csv = `Teléfono;Entró el;Salió el;Estado\n63${tag}1;2025-03-01;2025-05-02;Baja\n`;
+    const dry = (await onboarder.who.send('POST', '/api/imports/csv', { csv })).json<{
+      mapping: Record<string, string>;
+      counts: { received: number; created: number };
+      preview: Record<string, unknown>[];
+    }>();
+    expect(dry.mapping).toEqual({
+      Teléfono: 'phone',
+      'Entró el': 'joinedOn',
+      'Salió el': 'leftOn',
+      Estado: 'stage',
+    });
+    expect(dry.counts).toMatchObject({ received: 1, created: 1 });
+    expect(dry.preview).toEqual([
+      expect.objectContaining({
+        name: null,
+        phone: `+3463${tag}1`,
+        joinedOn: '2025-03-01',
+        leftOn: '2025-05-02',
+        stage: 'left',
+      }),
+    ]);
   });
 
   it('syncs Airtable on demand as the ingest role, idempotently, and lists the run', async () => {

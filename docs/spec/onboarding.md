@@ -11,9 +11,9 @@ Airtable's mechanics and security are in their ADRs; this spec says what they do
 ## 1. Concepts
 
 - **Person.** One human, whatever the number of sources they came from. It holds the profile (names, location,
-  languages, skills, availability, interests, consent). Someone reported through the bot or quick-add may have no
-  name yet, only a phone or an email (PLAN R37); a later report, the census or a merge fills it, and a name, once
-  known, is never emptied.
+  languages, skills, availability, interests, consent). Someone reported through the bot or quick-add, or imported
+  from a CSV, may have no name yet, only a phone or an email (PLAN R37, R56); a later report, the census or a merge
+  fills it, and a name, once known, is never emptied.
 - **Identity.** A way to recognise a person: an email, a phone number (E.164), a Discord username (2 to 32 lowercase
   letters, digits, `_` and `.`, never `..`; PLAN M5), an Airtable record ID. A normalised identity belongs to at most
   one person, which is what prevents duplicates.
@@ -25,9 +25,10 @@ Airtable's mechanics and security are in their ADRs; this spec says what they do
   PauseAI Global, Otro to start), never free text; the bot's reports say WhatsApp, Global's form says itself, Añadir
   asks, a CSV may bring a column. Not the same as the source: someone who wrote on WhatsApp and was reported through
   the bot came from WhatsApp, and entered through the bot.
-- **Community presence.** The periods during which a person was in the WhatsApp community: joined at, left at,
-  who reported it. Optionally the chat they joined, from a list in settings (a local chat hints at a province).
-  Leaving is a signal, not a deletion.
+- **Community presence.** The periods (stays) during which a person was in the WhatsApp community: the day they
+  joined (unknown for someone in since before the records), the day they left, who reported each. Optionally the chat
+  they joined, from a list in settings (a local chat hints at a province). Leaving is a signal, not a deletion. Joins
+  and leaves go into the timeline on their own day (PLAN R56).
 - **Stage.** Where the person is in onboarding ([§2](#2-stages)).
 - **Owner.** The onboarder responsible for the person. It can be empty: that is exactly the "Sin asignar" queue.
 - **Next action.** Free text plus a due date ("Llamar el jueves", 2026-10-20). Every person in an open stage
@@ -172,7 +173,15 @@ to everyone else. Replies are in Spanish, and name a command by both names, Engl
   column means nobody knows), "Llegó por" (matched to the list by name) and Discord, with the stage, so they can be
   retrofilled in bulk.
 - **CSV import** with a column mapping, a preview, a dry run and an apply step. It covers any one-off list, and
-  Airtable whenever the shared-view sync breaks.
+  Airtable whenever the shared-view sync breaks. A row needs a name, or a phone, an email or a Discord username to
+  find them by (PLAN R56: most of the group's numbers are in nobody's contacts).
+- **A stay in the group per row** (PLAN R56): "Entró el" (empty, when the column is there: in since before anyone
+  knows) and "Salió el" (empty: still in), and the stage Baja for someone who left. Someone who came back is a row per
+  stay, one person by their phone. A stay already recorded is never recorded twice; a later file closes the stay that
+  ended since, and an older one never reopens it.
+- **The WhatsApp group's history** (PLAN R56, D16): the group's export, with the exporter's Google Contacts for the
+  numbers, turned into that CSV on the exporter's laptop (`pnpm whatsapp:csv`), so none of the chat's messages reach
+  the backoffice ([runbook](../runbooks/importing-the-whatsapp-history.md)). Those who left come in as Baja.
 
 ## 6. Matching and merging
 
@@ -194,12 +203,14 @@ How the 106 are recovered (G3), and how every new member is profiled afterwards.
 
 ### 7.1 How existing members get in
 
-There is no list of the community's members to import, so they come in three ways:
+There is no list of the community's members to import, so they come in four ways:
 
 1. **Airtable:** those who signed up through Global are already there after the first import.
 2. **Admins and volunteers** add the people they know, through the bot or the web app, as `new`, or straight to
    `active` or `welcomed`, with "Llegó el" empty when nobody knows when they arrived (PLAN M5).
 3. **The census itself:** a submission from someone not yet in the system creates them in `new`.
+4. **The WhatsApp group's history** (PLAN R56): everyone who joined, left or wrote since the exporting phone was
+   added, with their stays ([§5.3](#53-web-and-csv-m1)). Members since before who never wrote aren't in it.
 
 ### 7.2 The form (M2)
 

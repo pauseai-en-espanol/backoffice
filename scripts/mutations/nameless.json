@@ -17,31 +17,31 @@
   },
   {
     "name": "a report with neither name nor contact makes a person",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "AND EXISTS (SELECT 1 FROM private.intake_identities(intake.payload) x\n                             WHERE x.kind IN ('phone', 'email', 'discord') AND btrim(x.value) <> ''))",
     "new": "AND true)",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
   {
-    "name": "Airtable and the CSV import make nameless people",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
-    "old": "intake.source IN ('telegram', 'manual')",
+    "name": "Airtable makes nameless people",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "intake.source IN ('telegram', 'manual', 'csv')",
     "new": "intake.source IN ('telegram', 'manual', 'csv', 'airtable')",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
   {
     "name": "the staff app can't save a nameless person",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
-    "old": "intake.source IN ('telegram', 'manual')",
-    "new": "intake.source IN ('telegram')",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "intake.source IN ('telegram', 'manual', 'csv')",
+    "new": "intake.source IN ('telegram', 'csv')",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
   {
     "name": "a later report leaves the name missing",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "ELSIF subject.full_name IS NULL THEN\n      UPDATE app.people p SET full_name = left(btrim(payload ->> 'name'), 200) WHERE p.id = person;",
     "new": "ELSIF subject.full_name IS NULL THEN\n      NULL;",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -49,7 +49,7 @@
   },
   {
     "name": "a merge drops the tombstone's name",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261016170100_staff_person.sql",
     "old": "SET full_name = coalesce(p.full_name, gone.full_name),\n           owner_id",
     "new": "SET owner_id",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -102,5 +102,13 @@
     "new": "          if (!name?.trim()) {",
     "cmd": "pnpm exec vitest run --config vitest.db.config.ts tests/people-api.spec.ts",
     "cwd": "apps/api"
+  },
+  {
+    "name": "the CSV import can't save a nameless person",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "intake.source IN ('telegram', 'manual', 'csv')",
+    "new": "intake.source IN ('telegram', 'manual')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
   }
 ]

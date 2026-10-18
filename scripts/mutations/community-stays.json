@@ -1,0 +1,394 @@
+[
+  {
+    "name": "a join’s day isn’t checked",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "       AND (jsonb_typeof(payload -> 'joined_on') <> 'string' OR (payload ->> 'joined_on') !~ '^\\d{4}-\\d{2}-\\d{2}$') THEN",
+    "new": "       AND false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a leave’s day isn’t checked",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "       AND (jsonb_typeof(payload -> 'left_on') <> 'string' OR (payload ->> 'left_on') !~ '^\\d{4}-\\d{2}-\\d{2}$') THEN",
+    "new": "       AND false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "someone may leave before joining",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "       AND (payload ->> 'left_on') COLLATE \"C\" < (payload ->> 'joined_on') COLLATE \"C\" THEN",
+    "new": "       AND false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an intake can’t carry a leave",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "'stage', 'joined_on', 'left_on', 'arrived_on',",
+    "new": "'stage', 'joined_on', 'arrived_on',",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a stay is recorded twice",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "      IF EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = person AND c.left_on = gone) THEN",
+    "new": "      IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a leave doesn’t close the open stay",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "WHERE c.person_id = person AND c.left_on IS NULL AND coalesce(c.joined_on, gone) <= gone) THEN",
+    "new": "WHERE c.person_id = person AND c.left_on IS NULL AND false) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an older stay closes the one open now",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "WHERE c.person_id = person AND c.left_on IS NULL AND coalesce(c.joined_on, gone) <= gone) THEN",
+    "new": "WHERE c.person_id = person AND c.left_on IS NULL) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a stay closed since opens again",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "                             AND (c.left_on IS NULL\n                                  OR (payload ? 'joined_on' AND c.joined_on IS NOT DISTINCT FROM joined))) THEN",
+    "new": "                             AND c.left_on IS NULL) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a join nobody knows the day of becomes today",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "                        WHEN payload ? 'joined_on' THEN NULL",
+    "new": "                        WHEN payload ? 'joined_on' THEN today",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a join may be in the future",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "                        THEN least((payload ->> 'joined_on')::date, today)",
+    "new": "                        THEN (payload ->> 'joined_on')::date",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an intake can’t start someone as Baja",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "IN ('new', 'welcomed', 'active', 'left')",
+    "new": "IN ('new', 'welcomed', 'active')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a join goes into the history on the day it was written",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "              CASE WHEN NEW.joined_on <= today THEN NEW.joined_on END);",
+    "new": "              NULL);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a leave goes into the history on the day it was written",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "              CASE WHEN NEW.left_on <= today THEN NEW.left_on END);",
+    "new": "              NULL);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a join to come goes into the history as it is",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "CASE WHEN NEW.joined_on <= today THEN NEW.joined_on END",
+    "new": "NEW.joined_on",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "joins and leaves can’t say when they happened",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
+    "old": "  CHECK (happened_on IS NULL OR kind IN ('contact_attempt', 'note', 'stage_changed', 'joined', 'left'));",
+    "new": "  CHECK (happened_on IS NULL OR kind IN ('contact_attempt', 'note', 'stage_changed'));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a row with neither a name nor a contact comes in",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "    if (IDENTIFYING_FIELDS.every((field) => values(row, field).length === 0)) {",
+    "new": "    if (false) {",
+    "cmd": "pnpm exec vitest run src/imports/csv.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a row needs a name again",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "    if (IDENTIFYING_FIELDS.every((field) => values(row, field).length === 0)) {",
+    "new": "    if (values(row, 'name').length === 0) {",
+    "cmd": "pnpm exec vitest run src/imports/csv.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an empty “Entró el” is no stay instead of an unknown day",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "      ...(index.has('joinedOn') ? { joined_on: dates.joinedOn ?? null } : {}),",
+    "new": "      ...(dates.joinedOn ? { joined_on: dates.joinedOn } : {}),",
+    "cmd": "pnpm exec vitest run src/imports/csv.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "“Salió el” isn’t read",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "      ...(dates.leftOn === undefined ? {} : { left_on: dates.leftOn }),",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/imports/csv.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a row may leave before joining",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "      dates.leftOn < dates.joinedOn\n",
+    "new": "      false\n",
+    "cmd": "pnpm exec vitest run src/imports/csv.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Baja isn’t a stage a row may say",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "  baja: 'left',\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/imports/csv.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "“Entró el” isn’t guessed from its header",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "  joinedOn: ['entro el', 'fecha de entrada', 'entrada', 'joined', 'joined on'],",
+    "new": "  joinedOn: ['fecha de entrada', 'entrada', 'joined', 'joined on'],",
+    "cmd": "pnpm exec vitest run src/imports/csv.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an import needs a name column again",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "          if (!Object.values(mapping).some((field) => IDENTIFYING_FIELDS.includes(field))) {",
+    "new": "          if (!Object.values(mapping).includes('name')) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the dry run doesn’t show a stay",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "              joinedOn: row.payload.joined_on ?? null,\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the staff app doesn’t guess “Fecha de entrada”",
+    "file": "apps/web/src/onboarding/csv-mapping.ts",
+    "old": "  'fecha de entrada': 'joinedOn',\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/onboarding/csv-mapping.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the staff app doesn’t guess a header with “salió el” in it",
+    "file": "apps/web/src/onboarding/csv-mapping.ts",
+    "old": "  [/\\bsalio el\\b/u, 'leftOn'],\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/onboarding/csv-mapping.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "dates are always read day first",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "  const order = dayFirst ? 'dmy' : monthFirst ? 'mdy' : dateOrder;",
+    "new": "  const order: DateOrder = 'dmy';",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "every date that could be either is taken as day first",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "  const order = dayFirst ? 'dmy' : monthFirst ? 'mdy' : dateOrder;",
+    "new": "  const order = dayFirst ? 'dmy' : monthFirst ? 'mdy' : (dateOrder ?? 'dmy');",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a message passes for a leave",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "      return names.includes(': ') ? undefined : result;",
+    "new": "      return result;",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a message about switching something on is no message",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "  if (OTHER.test(body.split(': ', 1)[0] ?? body)) {",
+    "new": "  if (OTHER.test(body)) {",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "“joined using a group link.” isn’t a join",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "(?:(?:this|the|an|a|your) )?(?:(?:group|community)(?:['’]s)? )?(?:invite )?link",
+    "new": "(?:this|the|an|a|your) (?:group['’]s |community['’]s )?invite link",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the exporter is someone in the group",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "const YOU = new Set(['you', 'ti', 'tu']);",
+    "new": "const YOU = new Set<string>();",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a list of names is always split",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "  isName(list)\n    ? [list]\n    : list",
+    "new": "  list",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an empty message names someone",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "      if (who !== '' && body.slice(at + 1).trim() !== '') {",
+    "new": "      if (who !== '') {",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a leave doesn’t close the stay",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "        open.left = event.day;",
+    "new": "        one.stays.push({ joined: null, left: event.day });",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "writing doesn’t mean they were in",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "    } else if ((event.kind === 'wrote' || event.kind === 'changedNumber') && !open) {",
+    "new": "    } else if (event.kind === 'changedNumber' && !open) {",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "two contacts with the same name: one is picked",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "  if (more.length > 0) {\n    return { reason: 'severalContacts' };\n  }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a contact with neither phone nor email makes a row",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "  return contact.phones.length > 0 || contact.emails.length > 0\n",
+    "new": "  return true\n",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a changed number isn’t said",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "    if (one.changedNumber) {\n      unresolved.push({ ...summary, reason: 'changedNumber' });\n    }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "someone who left comes in as Nuevo",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "        stage: one.stays.at(-1)?.left === null ? 'Nuevo' : 'Baja',",
+    "new": "        stage: 'Nuevo',",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "“Llegó el” is each stay’s own join",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "        arrivedOn: one.stays[0]?.joined ?? '',",
+    "new": "        arrivedOn: stay.joined ?? '',",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a name keeps what people add to contacts",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "    .replaceAll(/\\[[^\\]]*\\]|\\([^)]*\\)/gu, ' ')\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a number becomes a spreadsheet’s number",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "        phone: found.phone ? spacedPhone(found.phone) : '',",
+    "new": "        phone: found.phone ?? '',",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the command may read or write inside the repository",
+    "file": "apps/api/src/imports/whatsapp-history.ts",
+    "old": "  return where === '' || (!where.startsWith('..') && !isAbsolute(where));",
+    "new": "  return false;",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a contact is found only as saved, never without its brackets",
+    "file": "apps/api/src/imports/google-contacts.ts",
+    "old": "      ...(names.get(foldName(name)) ?? bare.get(foldName(personName(name))) ?? new Set()),",
+    "new": "      ...(names.get(foldName(name)) ?? new Set()),",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a landline comes before a mobile",
+    "file": "apps/api/src/imports/google-contacts.ts",
+    "old": "      .sort((a, b) => Number(b.mobile) - Number(a.mobile))\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a cell with several numbers is one number",
+    "file": "apps/api/src/imports/google-contacts.ts",
+    "old": ".split(' ::: ')",
+    "new": ".split('\\u0000')",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the older Google export isn’t read",
+    "file": "apps/api/src/imports/google-contacts.ts",
+    "old": "  const given = at('First Name', 'Given Name');",
+    "new": "  const given = at('First Name');",
+    "cmd": "pnpm exec vitest run src/imports/whatsapp-history.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a number is written back without its spaces",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  parsePhoneNumberFromString(phone)?.formatInternational() ?? phone;",
+    "new": "  phone;",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  }
+]

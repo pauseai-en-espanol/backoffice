@@ -42,7 +42,7 @@ describe('CSV imports', () => {
 
   it('maps rows, normalising contact details, and lists the ones it leaves out', () => {
     const parsed = parseCsv(
-      'Nombre,Teléfono,Email,Estado\nAna Ejemplo,612 345 678,ana@ejemplo.test,Activo\n,600000003,,\nBea,123,,\nCarla,,no-es-correo,\nDani,,,Raro\n',
+      'Nombre,Teléfono,Email,Estado\nAna Ejemplo,612 345 678,ana@ejemplo.test,Activo\n,,,Nuevo\nBea,123,,\nCarla,,no-es-correo,\nDani,,,Raro\n',
     );
     const mapped = mapRows(parsed, {
       Nombre: 'name',
@@ -122,6 +122,65 @@ describe('CSV imports', () => {
   it('leaves the arrival day to the database when the file has no such column', () => {
     const mapped = mapRows(parseCsv('Nombre\nAna\n'), { Nombre: 'name' });
     expect(mapped.rows).toEqual([{ payload: { name: 'Ana' } }]);
+  });
+
+  it('brings in a stay in the group per row, Baja, and someone known only by a phone (PLAN R37, R56)', () => {
+    expect(suggestMapping(['Teléfono', 'Entró el', 'Salió el', 'Estado'])).toEqual({
+      Teléfono: 'phone',
+      'Entró el': 'joinedOn',
+      'Salió el': 'leftOn',
+      Estado: 'stage',
+    });
+    const parsed = parseCsv(
+      [
+        'Nombre,Teléfono,Entró el,Salió el,Estado',
+        'Ana Ejemplo,612 345 678,2025-03-01,2025-05-02,Nuevo',
+        'Ana Ejemplo,612 345 678,2025-09-10,,Nuevo',
+        ',600 000 003,,2025-06-01,Baja',
+        'Bea,,2025-03-01,,',
+        'Carla,,2025-03-01,2025-02-28,',
+        'Dani,,,ayer,',
+      ].join('\n'),
+    );
+    const mapped = mapRows(parsed, {
+      Nombre: 'name',
+      Teléfono: 'phone',
+      'Entró el': 'joinedOn',
+      'Salió el': 'leftOn',
+      Estado: 'stage',
+    });
+    expect(mapped.rows).toEqual([
+      {
+        payload: {
+          name: 'Ana Ejemplo',
+          phones: ['+34612345678'],
+          joined_on: '2025-03-01',
+          left_on: '2025-05-02',
+          stage: 'new',
+        },
+      },
+      {
+        payload: {
+          name: 'Ana Ejemplo',
+          phones: ['+34612345678'],
+          joined_on: '2025-09-10',
+          stage: 'new',
+        },
+      },
+      {
+        payload: {
+          phones: ['+34600000003'],
+          joined_on: null,
+          left_on: '2025-06-01',
+          stage: 'left',
+        },
+      },
+      { payload: { name: 'Bea', joined_on: '2025-03-01' } },
+    ]);
+    expect(mapped.invalid).toEqual([
+      { row: 6, field: 'leftOn' },
+      { row: 7, field: 'leftOn' },
+    ]);
   });
 
   it('refuses an empty or unreadable file', () => {

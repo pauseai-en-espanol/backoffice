@@ -10,5 +10,7 @@ should see.
 - [Rotating the bot's token](rotating-the-bot-token.md): the Telegram bot's token and webhook secret, together.
 - [Importing an outreach campaign](importing-an-outreach-campaign.md): from the `outreach` repo, once, dry run
   first.
+- [Importing the WhatsApp group's history](importing-the-whatsapp-history.md): the group's export and the exporter's
+  contacts, converted on their laptop, then Importar.
 
 To come: restoring the database (once Dani's gitops backups run).

@@ -25,7 +25,7 @@
   },
   {
     "name": "the bot merges people",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261016170100_staff_person.sql",
     "old": "    IF NOT private.staff_can('admin', 'onboarding') THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    IF survivor = merged THEN",
     "new": "    IF NOT private.may_intake(true) THEN\n      RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';\n    END IF;\n    IF survivor = merged THEN",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -49,7 +49,7 @@
   },
   {
     "name": "a disagreeing value overwrites the person's",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "      ELSIF private.fold_name(held) <> private.fold_name(proposed) THEN\n        conflicts := conflicts || jsonb_build_object(field, jsonb_build_object('current', held, 'proposed', proposed));",
     "new": "      ELSIF private.fold_name(held) <> private.fold_name(proposed) THEN\n        EXECUTE format('UPDATE app.people SET %I = $1 WHERE id = $2', field) USING proposed, person;",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -73,7 +73,7 @@
   },
   {
     "name": "a payload carries any field",
-    "file": "db/migrations/20261016150200_arrivals_dated_and_placed.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "    IF extra IS NOT NULL THEN\n      RAISE EXCEPTION 'an intake payload takes no %', extra USING ERRCODE = 'invalid_parameter_value';\n    END IF;",
     "new": "",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
@@ -137,7 +137,7 @@
   },
   {
     "name": "a leave writes no event",
-    "file": "db/migrations/20261016000100_people.sql",
+    "file": "db/migrations/20261018100000_community_stays_imported.sql",
     "old": "    IF NEW.left_on IS NOT NULL AND (TG_OP = 'INSERT' OR OLD.left_on IS NULL) THEN",
     "new": "    IF false THEN",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",

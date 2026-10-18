@@ -56,8 +56,11 @@ export interface IntakePayload {
   how_heard?: string;
   chat?: string;
   note?: string;
-  stage?: 'new' | 'welcomed' | 'active';
-  joined_on?: string;
+  stage?: 'new' | 'welcomed' | 'active' | 'left';
+  /** A stay in the community (PLAN R56): when it began, YYYY-MM-DD; null when nobody knows. */
+  joined_on?: string | null;
+  /** When it ended, YYYY-MM-DD; left out while they're still in. */
+  left_on?: string;
   /** "Llegó el", YYYY-MM-DD; null when nobody knows; left out, today (PLAN M5). */
   arrived_on?: string | null;
   /** "Llegó por": an entry of the list by id, key or label (PLAN M5). */

@@ -37,6 +37,13 @@ export const normalizePhone = (
 };
 
 /**
+ * A stored number as people write it, with its spaces (`+34 612 34 56 78`): what a spreadsheet keeps as text, where
+ * `+34612345678` would become a number and lose its `+`.
+ */
+export const spacedPhone = (phone: string): string =>
+  parsePhoneNumberFromString(phone)?.formatInternational() ?? phone;
+
+/**
  * A Discord username as Discord makes them (PLAN M5): 2 to 32 lowercase letters, digits, underscores and dots, never two
  * dots in a row. People write it with an `@` in front, or in capitals: both go. Undefined unless it is one; the old
  * `name#1234` form no longer exists.

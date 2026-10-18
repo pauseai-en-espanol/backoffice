@@ -22,8 +22,13 @@ export const CSV_FIELDS = [
   'discord',
   'arrival',
   'arrivedOn',
+  'joinedOn',
+  'leftOn',
 ] as const;
 export type CsvField = (typeof CSV_FIELDS)[number];
+
+/** What says who a row is: a name, or a way to find them by (PLAN R37). An import maps one of them at least. */
+export const IDENTIFYING_FIELDS: readonly CsvField[] = ['name', 'phone', 'email', 'discord'];
 
 /** The most rows one import takes (the database's limit too). */
 export const MAX_ROWS = 5000;
@@ -91,6 +96,8 @@ const SYNONYMS: Readonly<Record<CsvField, readonly string[]>> = {
   discord: ['discord', 'usuario de discord', 'discord username'],
   arrival: ['llego por', 'por donde llego', 'canal', 'via', 'origen'],
   arrivedOn: ['llego el', 'fecha de llegada', 'llegada', 'fecha de alta', 'arrived', 'arrived on'],
+  joinedOn: ['entro el', 'fecha de entrada', 'entrada', 'joined', 'joined on'],
+  leftOn: ['salio el', 'fecha de salida', 'salida', 'fecha de baja', 'left', 'left on'],
 };
 
 /** A first guess at which column is which field: each field at most once, the first matching column. */
@@ -111,8 +118,9 @@ export const suggestMapping = (columns: readonly string[]): Record<string, CsvFi
 };
 
 /**
- * The stages an import may set (onboarding spec: existing members come in as these), by id or Spanish label. "Por
- * clasificar" is no longer a stage (PLAN M5): someone so marked comes in as new.
+ * The stages an import may set (onboarding spec: existing members come in as these, and those the group's history says
+ * left as Baja, PLAN R56), by id or Spanish label. "Por clasificar" is no longer a stage (PLAN M5): someone so marked
+ * comes in as new.
  */
 const STAGE_WORDS: Readonly<Record<string, IntakePayload['stage']>> = {
   to_triage: 'new',
@@ -125,10 +133,12 @@ const STAGE_WORDS: Readonly<Record<string, IntakePayload['stage']>> = {
   active: 'active',
   activo: 'active',
   activa: 'active',
+  left: 'left',
+  baja: 'left',
 };
 
 /**
- * "Llegó el" as spreadsheets write it: day/month/year (Spain's way, with `/`, `-` or `.`, a two-digit year in this
+ * A day ("Llegó el", "Entró el", "Salió el") as spreadsheets write it: day/month/year (Spain's way, with `/`, `-` or `.`, a two-digit year in this
  * century) or year-month-day. Undefined if it isn't a real date.
  */
 export const readDate = (raw: string): string | undefined => {
@@ -161,8 +171,10 @@ export interface MappedRows {
 /**
  * Applies a mapping (column → field): emails, phones and Discord usernames normalised, stages read in Spanish or
  * English, "Llegó el" as a date (an empty cell, when the column is there: nobody knows; PLAN M5) and "Llegó por" as
- * written (the database matches it to the list, or leaves it empty). A row without a name, or with an email, phone,
- * Discord username, stage or date that isn't one, is left out and listed as invalid.
+ * written (the database matches it to the list, or leaves it empty). "Entró el" and "Salió el" are one stay in the
+ * community (PLAN R56): an empty "Entró el", when the column is there, is a join nobody knows the day of; an empty
+ * "Salió el", someone still in. A row with neither a name nor a phone, an email or a Discord username (R37), or with
+ * one that isn't one, a stage or a date that isn't one, or leaving before joining, is left out and listed as invalid.
  */
 export const mapRows = (
   parsed: ParsedCsv,
@@ -182,7 +194,7 @@ export const mapRows = (
   parsed.rows.forEach((row, at) => {
     const line = at + 2;
     const name = values(row, 'name').join(' ');
-    if (name === '') {
+    if (IDENTIFYING_FIELDS.every((field) => values(row, field).length === 0)) {
       invalid.push({ row: line, field: 'name' });
       return;
     }
@@ -201,10 +213,24 @@ export const mapRows = (
       invalid.push({ row: line, field: 'discord' });
       return;
     }
-    const arrivedWord = values(row, 'arrivedOn')[0];
-    const arrivedOn = arrivedWord === undefined ? undefined : readDate(arrivedWord);
-    if (arrivedWord !== undefined && arrivedOn === undefined) {
-      invalid.push({ row: line, field: 'arrivedOn' });
+    const dates: Partial<Record<'arrivedOn' | 'joinedOn' | 'leftOn', string>> = {};
+    for (const field of ['arrivedOn', 'joinedOn', 'leftOn'] as const) {
+      const word = values(row, field)[0];
+      const day = word === undefined ? undefined : readDate(word);
+      if (word !== undefined && day === undefined) {
+        invalid.push({ row: line, field });
+        return;
+      }
+      if (day !== undefined) {
+        dates[field] = day;
+      }
+    }
+    if (
+      dates.joinedOn !== undefined &&
+      dates.leftOn !== undefined &&
+      dates.leftOn < dates.joinedOn
+    ) {
+      invalid.push({ row: line, field: 'leftOn' });
       return;
     }
     const stageWord = values(row, 'stage')[0];
@@ -218,12 +244,14 @@ export const mapRows = (
     }
     const first = (field: CsvField) => values(row, field)[0];
     const payload: IntakePayload = {
-      name: name.slice(0, 200),
+      ...(name === '' ? {} : { name: name.slice(0, 200) }),
       ...(first('preferredName') ? { preferred_name: first('preferredName') } : {}),
       ...(emails.length > 0 ? { emails: [...new Set(emails as string[])] } : {}),
       ...(phones.length > 0 ? { phones: [...new Set(phones as string[])] } : {}),
       ...(discords.length > 0 ? { discords: [...new Set(discords as string[])] } : {}),
-      ...(index.has('arrivedOn') ? { arrived_on: arrivedOn ?? null } : {}),
+      ...(index.has('arrivedOn') ? { arrived_on: dates.arrivedOn ?? null } : {}),
+      ...(index.has('joinedOn') ? { joined_on: dates.joinedOn ?? null } : {}),
+      ...(dates.leftOn === undefined ? {} : { left_on: dates.leftOn }),
       ...(first('arrival') ? { arrival: first('arrival') } : {}),
       ...(first('province') ? { province: first('province') } : {}),
       ...(first('town') ? { town: first('town') } : {}),

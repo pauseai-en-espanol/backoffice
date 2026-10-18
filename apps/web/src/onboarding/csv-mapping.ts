@@ -17,8 +17,13 @@ export const MAPPING_FIELDS = [
   'discord',
   'arrival',
   'arrivedOn',
+  'joinedOn',
+  'leftOn',
 ] as const;
 export type MappingField = (typeof MAPPING_FIELDS)[number];
+
+/** What says who a row is: a name, or a way to find them by (PLAN R37). An import maps one of them at least. */
+export const IDENTIFYING_FIELDS: readonly MappingField[] = ['name', 'phone', 'email', 'discord'];
 
 export const isMappingField = (value: unknown): value is MappingField =>
   typeof value === 'string' && (MAPPING_FIELDS as readonly string[]).includes(value);
@@ -75,12 +80,21 @@ const EXACT: Readonly<Record<string, MappingField>> = {
   'fecha de llegada': 'arrivedOn',
   llegada: 'arrivedOn',
   'fecha de alta': 'arrivedOn',
+  'entro el': 'joinedOn',
+  'fecha de entrada': 'joinedOn',
+  entrada: 'joinedOn',
+  'salio el': 'leftOn',
+  'fecha de salida': 'leftOn',
+  salida: 'leftOn',
+  'fecha de baja': 'leftOn',
 };
 
 const WORDS: readonly [RegExp, MappingField][] = [
   [/\bdiscord\b/u, 'discord'],
   [/\bllego por\b/u, 'arrival'],
   [/\b(?:llego el|llegada)\b/u, 'arrivedOn'],
+  [/\bentro el\b/u, 'joinedOn'],
+  [/\bsalio el\b/u, 'leftOn'],
   [/\b(?:correo|email|mail)\b/u, 'email'],
   [/\b(?:telefono|movil|phone|whatsapp)\b/u, 'phone'],
   [/\bprovincia\b/u, 'province'],

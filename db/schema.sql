@@ -974,7 +974,8 @@ CREATE FUNCTION private.check_payload(payload jsonb) RETURNS void
     END IF;
     SELECT string_agg(k, ', ') INTO extra FROM jsonb_object_keys(payload) k
      WHERE k NOT IN ('name', 'preferred_name', 'emails', 'phones', 'discords', 'airtable_id', 'province', 'town',
-                     'languages', 'how_heard', 'chat', 'note', 'stage', 'joined_on', 'arrived_on', 'arrival');
+                     'languages', 'how_heard', 'chat', 'note', 'stage', 'joined_on', 'left_on', 'arrived_on',
+                     'arrival');
     IF extra IS NOT NULL THEN
       RAISE EXCEPTION 'an intake payload takes no %', extra USING ERRCODE = 'invalid_parameter_value';
     END IF;
@@ -987,6 +988,18 @@ CREATE FUNCTION private.check_payload(payload jsonb) RETURNS void
     IF payload ? 'arrived_on' AND jsonb_typeof(payload -> 'arrived_on') <> 'null'
        AND (jsonb_typeof(payload -> 'arrived_on') <> 'string' OR (payload ->> 'arrived_on') !~ '^\d{4}-\d{2}-\d{2}$') THEN
       RAISE EXCEPTION 'arrived_on is a date, YYYY-MM-DD, or null' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF payload ? 'joined_on' AND jsonb_typeof(payload -> 'joined_on') <> 'null'
+       AND (jsonb_typeof(payload -> 'joined_on') <> 'string' OR (payload ->> 'joined_on') !~ '^\d{4}-\d{2}-\d{2}$') THEN
+      RAISE EXCEPTION 'joined_on is a date, YYYY-MM-DD, or null' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF payload ? 'left_on'
+       AND (jsonb_typeof(payload -> 'left_on') <> 'string' OR (payload ->> 'left_on') !~ '^\d{4}-\d{2}-\d{2}$') THEN
+      RAISE EXCEPTION 'left_on is a date, YYYY-MM-DD' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF jsonb_typeof(payload -> 'joined_on') = 'string' AND payload ? 'left_on'
+       AND (payload ->> 'left_on') COLLATE "C" < (payload ->> 'joined_on') COLLATE "C" THEN
+      RAISE EXCEPTION 'nobody leaves before joining' USING ERRCODE = 'invalid_parameter_value';
     END IF;
   END
   $_$;
@@ -1520,6 +1533,12 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
     held text;
     taken text[] := '{}';
     channel uuid := private.arrival_channel(payload ->> 'arrival');
+    today date := (now() AT TIME ZONE 'Europe/Madrid')::date;
+    joined date := CASE WHEN jsonb_typeof(payload -> 'joined_on') = 'string'
+                        THEN least((payload ->> 'joined_on')::date, today)
+                        WHEN payload ? 'joined_on' THEN NULL
+                        ELSE today END;
+    gone date := least((payload ->> 'left_on')::date, today);
   BEGIN
     SELECT p.* INTO subject FROM app.people p WHERE p.id = person FOR UPDATE;
     FOR identity IN SELECT * FROM private.intake_identities(payload) LOOP
@@ -1575,11 +1594,24 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
       UPDATE app.people p SET arrival_channel_id = channel WHERE p.id = person;
     END IF;
 
-    IF (intake.source = 'telegram' OR payload ? 'chat' OR payload ? 'joined_on')
-       AND NOT EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = person AND c.left_on IS NULL) THEN
+    IF payload ? 'left_on' THEN
+      IF EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = person AND c.left_on = gone) THEN
+        NULL;
+      ELSIF EXISTS (SELECT 1 FROM app.community_presence c
+                     WHERE c.person_id = person AND c.left_on IS NULL AND coalesce(c.joined_on, gone) <= gone) THEN
+        UPDATE app.community_presence c SET left_on = gone, left_reported_by = intake.reported_by
+         WHERE c.person_id = person AND c.left_on IS NULL;
+      ELSE
+        INSERT INTO app.community_presence (person_id, joined_on, left_on, chat, joined_reported_by, left_reported_by)
+        VALUES (person, joined, gone, nullif(btrim(payload ->> 'chat'), ''), intake.reported_by, intake.reported_by);
+      END IF;
+    ELSIF (intake.source = 'telegram' OR payload ? 'chat' OR payload ? 'joined_on')
+          AND NOT EXISTS (SELECT 1 FROM app.community_presence c
+                           WHERE c.person_id = person
+                             AND (c.left_on IS NULL
+                                  OR (payload ? 'joined_on' AND c.joined_on IS NOT DISTINCT FROM joined))) THEN
       INSERT INTO app.community_presence (person_id, joined_on, chat, joined_reported_by)
-      VALUES (person, coalesce((payload ->> 'joined_on')::date, (now() AT TIME ZONE 'Europe/Madrid')::date),
-              nullif(btrim(payload ->> 'chat'), ''), intake.reported_by);
+      VALUES (person, joined, nullif(btrim(payload ->> 'chat'), ''), intake.reported_by);
     END IF;
     INSERT INTO app.person_events (person_id, kind, data)
     VALUES (person, CASE intake.source WHEN 'telegram' THEN 'reported'::app.event_kind
@@ -1611,7 +1643,7 @@ CREATE FUNCTION private.intake_create(intake app.intake_records) RETURNS uuid
     today date := (now() AT TIME ZONE 'Europe/Madrid')::date;
   BEGIN
     IF NOT named
-       AND NOT (intake.source IN ('telegram', 'manual')
+       AND NOT (intake.source IN ('telegram', 'manual', 'csv')
                 AND EXISTS (SELECT 1 FROM private.intake_identities(intake.payload) x
                              WHERE x.kind IN ('phone', 'email', 'discord') AND btrim(x.value) <> '')) THEN
       RAISE EXCEPTION 'a new person needs a name, or a phone, an email or a Discord username'
@@ -1619,7 +1651,7 @@ CREATE FUNCTION private.intake_create(intake app.intake_records) RETURNS uuid
     END IF;
     INSERT INTO app.people (full_name, stage, arrived_on, arrival_channel_id)
     VALUES (CASE WHEN named THEN left(btrim(intake.payload ->> 'name'), 200) END,
-            CASE WHEN intake.payload ->> 'stage' IN ('new', 'welcomed', 'active')
+            CASE WHEN intake.payload ->> 'stage' IN ('new', 'welcomed', 'active', 'left')
                  THEN (intake.payload ->> 'stage')::app.stage ELSE 'new' END,
             CASE WHEN jsonb_typeof(intake.payload -> 'arrived_on') = 'null' THEN NULL
                  ELSE least(coalesce((intake.payload ->> 'arrived_on')::date, today), today) END,
@@ -2081,14 +2113,18 @@ CREATE FUNCTION private.presence_timeline() RETURNS trigger
     LANGUAGE plpgsql
     SET search_path TO ''
     AS $$
+  DECLARE
+    today date := (now() AT TIME ZONE 'Europe/Madrid')::date;
   BEGIN
     IF TG_OP = 'INSERT' AND NEW.joined_on IS NOT NULL THEN
-      INSERT INTO app.person_events (person_id, kind, data)
-      VALUES (NEW.person_id, 'joined', jsonb_build_object('on', NEW.joined_on, 'chat', NEW.chat));
+      INSERT INTO app.person_events (person_id, kind, data, happened_on)
+      VALUES (NEW.person_id, 'joined', jsonb_build_object('on', NEW.joined_on, 'chat', NEW.chat),
+              CASE WHEN NEW.joined_on <= today THEN NEW.joined_on END);
     END IF;
     IF NEW.left_on IS NOT NULL AND (TG_OP = 'INSERT' OR OLD.left_on IS NULL) THEN
-      INSERT INTO app.person_events (person_id, kind, data)
-      VALUES (NEW.person_id, 'left', jsonb_build_object('on', NEW.left_on));
+      INSERT INTO app.person_events (person_id, kind, data, happened_on)
+      VALUES (NEW.person_id, 'left', jsonb_build_object('on', NEW.left_on),
+              CASE WHEN NEW.left_on <= today THEN NEW.left_on END);
     END IF;
     RETURN NULL;
   END
@@ -3735,7 +3771,7 @@ CREATE TABLE app.person_events (
     CONSTRAINT person_events_channel_check CHECK ((channel = ANY (ARRAY['web'::text, 'bot'::text]))),
     CONSTRAINT person_events_check CHECK (((kind <> 'contact_attempt'::app.event_kind) OR ((data ? 'channel'::text) AND (data ? 'outcome'::text) AND ((data ->> 'channel'::text) = ANY (ARRAY['whatsapp'::text, 'phone'::text, 'email'::text, 'telegram'::text, 'in_person'::text, 'other'::text])) AND ((data ->> 'outcome'::text) = ANY (ARRAY['no_answer'::text, 'replied'::text, 'left_message'::text, 'wrong_number'::text, 'declined'::text]))))),
     CONSTRAINT person_events_data_check CHECK ((jsonb_typeof(data) = 'object'::text)),
-    CONSTRAINT person_events_happened_on_check CHECK (((happened_on IS NULL) OR (kind = ANY (ARRAY['contact_attempt'::app.event_kind, 'note'::app.event_kind, 'stage_changed'::app.event_kind]))))
+    CONSTRAINT person_events_happened_on_check CHECK (((happened_on IS NULL) OR (kind = ANY (ARRAY['contact_attempt'::app.event_kind, 'note'::app.event_kind, 'stage_changed'::app.event_kind, 'joined'::app.event_kind, 'left'::app.event_kind]))))
 );
 
 

@@ -939,7 +939,9 @@
       "stage": "Etapa",
       "discord": "Discord",
       "arrival": "Llegó por",
-      "arrivedOn": "Llegó el"
+      "arrivedOn": "Llegó el",
+      "joinedOn": "Entró el",
+      "leftOn": "Salió el"
     },
     "recalculate": "Volver a calcular",
     "previewTitle": "Así quedarían las primeras filas",
@@ -948,7 +950,7 @@
     "dryRun": "Si aplicas la importación:",
     "apply": "Aplicar la importación",
     "applied": "Importación hecha.",
-    "noName": "Indica qué columna es el nombre.",
+    "noName": "Indica qué columna es el nombre, el teléfono, el correo o el Discord.",
     "history": "Importaciones anteriores",
     "historyNone": "Todavía no se ha importado nada.",
     "kinds": {

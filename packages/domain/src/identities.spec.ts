@@ -7,6 +7,7 @@ import {
   normalizeEmail,
   normalizeIdentity,
   normalizePhone,
+  spacedPhone,
 } from './identities.js';
 
 describe('Discord usernames (PLAN M5)', () => {
@@ -63,6 +64,12 @@ describe('phone numbers', () => {
     for (const raw of ['', '12345', '612 345', 'llámame', '+34 112']) {
       expect(normalizePhone(raw), raw).toBeUndefined();
     }
+  });
+
+  it('are written back with their spaces, which a spreadsheet keeps as text, and read the same again', () => {
+    expect(spacedPhone('+34612345678')).toBe('+34 612 34 56 78');
+    expect(spacedPhone('+447911123456')).toBe('+44 7911 123456');
+    expect(normalizePhone(spacedPhone('+34612345678'))).toBe('+34612345678');
   });
 });
 
