@@ -534,6 +534,20 @@ describe('stages and the timeline', () => {
     });
   });
 
+  it('logs a contact attempt by video call, and refuses a channel it doesn’t know', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const sql = `INSERT INTO app.person_events (person_id, kind, data) VALUES ($1, 'contact_attempt', $2)`;
+      const attempt = (channel: string) => [
+        PEOPLE.ana,
+        JSON.stringify({ channel, outcome: 'replied' }),
+      ];
+      await as(client, web(USERS.onboarder), sql, attempt('video'));
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.onboarder));
+      expect(await errorCode(client, sql, attempt('pigeon'))).toBe('23514');
+      await client.query('RESET ROLE');
+    });
+  });
+
   it('moves a person along with contact attempts: an attempt puts someone new in contact, a reply keeps them there, and brings back someone who had stopped answering (PLAN M5)', async () => {
     await inRolledBackTransaction(async (client) => {
       const attempt = (outcome: string) =>

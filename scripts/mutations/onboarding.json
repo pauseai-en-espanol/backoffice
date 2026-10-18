@@ -174,5 +174,23 @@
     "new": "WHERE u.id = NEW.user_id FOR SHARE;",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/telegram.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
+  },
+  {
+    "name": "the database refuses a contact attempt by video call",
+    "file": "db/migrations/20261018200000_video_call_attempts.sql",
+    "old": "('whatsapp', 'phone', 'video', 'email',",
+    "new": "('whatsapp', 'phone', 'email',",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the API and the staff app don't offer a video call",
+    "file": "packages/domain/src/stages.ts",
+    "old": "  'phone',\n  'video',\n",
+    "new": "  'phone',\n",
+    "before": "pnpm exec turbo run build --filter=@backoffice/domain --output-logs=errors-only",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api",
+    "after": "pnpm exec turbo run build --filter=@backoffice/domain --output-logs=errors-only"
   }
 ]

@@ -97,6 +97,7 @@ ALTER TYPE app.availability OWNER TO pauseai_backoffice_owner;
 CREATE TYPE app.contact_channel AS ENUM (
     'whatsapp',
     'phone',
+    'video',
     'email',
     'telegram',
     'in_person',
@@ -3771,7 +3772,7 @@ CREATE TABLE app.person_events (
     happened_on date,
     CONSTRAINT person_events_body_check CHECK ((length(body) <= 4000)),
     CONSTRAINT person_events_channel_check CHECK ((channel = ANY (ARRAY['web'::text, 'bot'::text]))),
-    CONSTRAINT person_events_check CHECK (((kind <> 'contact_attempt'::app.event_kind) OR ((data ? 'channel'::text) AND (data ? 'outcome'::text) AND ((data ->> 'channel'::text) = ANY (ARRAY['whatsapp'::text, 'phone'::text, 'email'::text, 'telegram'::text, 'in_person'::text, 'other'::text])) AND ((data ->> 'outcome'::text) = ANY (ARRAY['no_answer'::text, 'replied'::text, 'left_message'::text, 'wrong_number'::text, 'declined'::text]))))),
+    CONSTRAINT person_events_check CHECK (((kind <> 'contact_attempt'::app.event_kind) OR ((data ? 'channel'::text) AND (data ? 'outcome'::text) AND ((data ->> 'channel'::text) = ANY (ARRAY['whatsapp'::text, 'phone'::text, 'video'::text, 'email'::text, 'telegram'::text, 'in_person'::text, 'other'::text])) AND ((data ->> 'outcome'::text) = ANY (ARRAY['no_answer'::text, 'replied'::text, 'left_message'::text, 'wrong_number'::text, 'declined'::text]))))),
     CONSTRAINT person_events_data_check CHECK ((jsonb_typeof(data) = 'object'::text)),
     CONSTRAINT person_events_happened_on_check CHECK (((happened_on IS NULL) OR (kind = ANY (ARRAY['contact_attempt'::app.event_kind, 'note'::app.event_kind, 'stage_changed'::app.event_kind, 'joined'::app.event_kind, 'left'::app.event_kind]))))
 );

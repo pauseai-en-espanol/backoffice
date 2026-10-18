@@ -373,6 +373,7 @@
   "contactChannels": {
     "whatsapp": "WhatsApp",
     "phone": "Teléfono",
+    "video": "Videollamada",
     "email": "Correo",
     "telegram": "Telegram",
     "in_person": "En persona",

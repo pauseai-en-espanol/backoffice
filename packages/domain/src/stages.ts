@@ -58,6 +58,7 @@ export const isAttentionReason = (value: unknown): value is AttentionReason =>
 export const CONTACT_CHANNELS = [
   'whatsapp',
   'phone',
+  'video',
   'email',
   'telegram',
   'in_person',

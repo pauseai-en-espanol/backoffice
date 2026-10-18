@@ -274,6 +274,15 @@ describe('onboarding through the staff API (M1)', () => {
         })
       ).statusCode,
     ).toBe(201);
+    // A video call is a channel of its own (Dani, 2026-10-18).
+    expect(
+      (
+        await onboarder.who.send('POST', `/api/people/${personId}/attempts`, {
+          channel: 'video',
+          outcome: 'replied',
+        })
+      ).statusCode,
+    ).toBe(201);
     expect(
       (
         await onboarder.who.send('POST', `/api/people/${personId}/notes`, {
