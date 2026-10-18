@@ -1,5 +1,20 @@
 # @backoffice/web
 
+## 0.13.0
+
+### Minor Changes
+
+- 2b540cc: Personas counts what it finds, in all and in each stage, each stage's counter being its filter; the rest of the
+  filters are folded under "Más filtros", and those on are listed, each with a link that takes it off (PLAN R59). The
+  Onboarding Pipeline folds its filters the same way. `GET /api/people` returns the counts with its first page.
+
+### Patch Changes
+
+- a642282: A person's page no longer offers "Me lo quedo" for someone in Baja or Descartado, which it could never do: their
+  owner is set with "Cambiar de responsable".
+- Updated dependencies [2b540cc]
+  - @backoffice/i18n@0.13.0
+
 ## 0.12.0
 
 ### Minor Changes
