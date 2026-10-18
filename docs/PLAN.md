@@ -503,6 +503,13 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   day. In the data, a stay's start stays its own (`community_presence.joined_on`), as someone may join the group long
   after signing up, or come back; Importar calls those columns "Entrada al grupo" and "Salida del grupo". The bot's
   post to the team group still says "Fuente": the next change to it moves it to the channel.
+- **R59. Personas' counters and filters** (Dani, 2026-10-18: "havin counters in /personas would be nice", "the
+  filters ... could do some improvements"). The filters filled a laptop's first screen and a phone's first three,
+  counted nothing and didn't say which were on. **Now**: the search alone, with its button; a counter for every stage
+  anyone is in, "Todas" first, each a link that is its filter (the chosen one bordered and bold), counted with the rest
+  of the filters; the others folded under "Más filtros" (a `details`, no script), which says how many are on; those on,
+  under it, each a link that takes it off, and "Quitar los filtros"; "N personas" above the list. The Pipeline shares
+  the form without the counters, its stage one more folded filter. The API counts on the first page only.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

@@ -102,7 +102,9 @@ deactivated account keeps it without the badge.
 - **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage. Filters: owner, province, "Canal de
   alta", "Fecha de alta" known or not, in the community or not, needs attention.
 - **Personas:** a searchable list (name, email, phone; typo-tolerant). Exportable to CSV by admins only, and
-  every export is audited.
+  every export is audited. How many it finds is said above it, and a counter for each stage, with the rest of the
+  filters, is that stage's filter; the other filters are folded under "Más filtros", and those on are listed, each
+  with a link that takes it off (PLAN R59).
 - **Persona:** profile, identities, community presence, timeline. Quick actions: log a contact attempt (channel
   and outcome presets), set the next action, change stage, assign, add a note, open a WhatsApp chat with a
   prepared message ([§7.3](#73-whatsapp-handover-links)), copy the email address. Laid out to read first and edit in

@@ -254,6 +254,27 @@ export const listPeople = async (
   };
 };
 
+/**
+ * Personas' counters (PLAN R59): how many people a filter finds, and how many of them in each stage with the rest of
+ * the filter, so each stage's counter says what choosing it would show.
+ */
+export const countPeople = async (
+  trx: Transaction<DB>,
+  me: string,
+  filter: PeopleFilter,
+): Promise<{ total: number; stages: Partial<Record<Stage, number>> }> => {
+  const { rows } = await sql<{ stage: Stage; n: number }>`
+    SELECT p.stage::text AS stage, count(*)::int AS n FROM ${SUMMARY_FROM}
+     WHERE ${sql.join(conditions({ ...filter, stages: [] }, me), sql` AND `)}
+     GROUP BY p.stage`.execute(trx);
+  const stages: Partial<Record<Stage, number>> = Object.fromEntries(
+    rows.map((row) => [row.stage, row.n]),
+  );
+  const chosen =
+    filter.stages && filter.stages.length > 0 ? filter.stages : rows.map((row) => row.stage);
+  return { total: chosen.reduce((sum, stage) => sum + (stages[stage] ?? 0), 0), stages };
+};
+
 /** The summaries of these people, as RLS shows them; a tombstone has none (its survivor stands for it). */
 export const summariesOf = async (
   trx: Transaction<DB>,

@@ -167,6 +167,8 @@ from, Discord usernames; the team's WhatsApp messages. Everything else above sta
   yyyy-mm-dd; an empty cell in a mapped column means unknown). The export adds `discord`, `llego_por` and `llego_el`.
 - **Hoy and the bot's `/unassigned`** list the "Sin asignar" rule's people: new, nobody's, arrived in the last 30
   days.
+- **`GET /api/people`** (PLAN R59) adds, on its first page only (no `cursor`), `counts: { total, stages }`: how many
+  the filters find, and how many in each stage with the rest of the filters (a stage nobody is in is left out).
 - **CSV imports** (PLAN R56) map `joinedOn` ("Entró el"; empty: unknown) and `leftOn` ("Salió el"), a stay in the
   community per row, and `stage` takes `left` (Baja). A mapping needs one of `name`, `phone`, `email` or `discord`
   (`400 invalid`, `field: mapping`), and a row one of them filled; leaving before joining is an invalid `leftOn`. The

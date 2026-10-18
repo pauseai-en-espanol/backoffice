@@ -140,6 +140,112 @@ export const filters = css({
   '& > [data-wide]': { gridColumn: { md: '1 / -1' } },
 });
 
+/** Personas' and the Pipeline's filters (PLAN R59): the search, "Más filtros", the counters and what is on. */
+export const filterArea = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4',
+  marginBlockEnd: '6',
+});
+
+export const filterForm = css({ display: 'flex', flexDirection: 'column', gap: '3' });
+
+/** The search box and its button, side by side. */
+export const searchRow = css({
+  display: 'flex',
+  gap: '2',
+  maxWidth: '40rem',
+  '& input': { flex: '1 1 auto', minWidth: '0' },
+});
+
+/** "Más filtros": folded, its summary a 44px target that says how many are on. */
+export const moreFilters = css({
+  '& > summary': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '2',
+    minHeight: '11',
+    cursor: 'pointer',
+    fontWeight: 'bold',
+    listStyle: 'none',
+    _focusVisible: focusRing,
+    _before: { content: '"▸"', width: '1em' },
+  },
+  '& > summary::-webkit-details-marker': { display: 'none' },
+  '&[open] > summary': { marginBlockEnd: '3', _before: { content: '"▾"' } },
+  '& > div': { marginBlockEnd: '0' },
+});
+
+/** A counter for each stage, which is also its filter: the chosen one bordered and bold, never by colour alone. */
+export const stageCounters = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '2',
+  listStyle: 'none',
+  '& a': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '2',
+    minHeight: '11',
+    paddingInline: '3',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'border.subtle',
+    borderRadius: 'full',
+    color: 'fg.default',
+    textDecoration: 'none',
+    _hover: { borderColor: 'border.default' },
+    _focusVisible: focusRing,
+  },
+  '& a[aria-current="page"]': {
+    borderWidth: '2px',
+    borderColor: 'fg.default',
+    fontWeight: 'bold',
+  },
+});
+
+/** A count beside its label. */
+export const counter = css({ fontVariantNumeric: 'tabular-nums', color: 'fg.muted' });
+
+/** What is on, each a link that takes it off, and the link that takes them all off. */
+export const activeFilters = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  columnGap: '3',
+  rowGap: '2',
+});
+
+export const chips = css({ display: 'flex', flexWrap: 'wrap', gap: '2', listStyle: 'none' });
+
+export const chip = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '2',
+  minHeight: '11',
+  paddingInline: '3',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: 'border.default',
+  borderRadius: 'full',
+  bg: 'bg.subtle',
+  color: 'fg.default',
+  textDecoration: 'none',
+  _focusVisible: focusRing,
+});
+
+/** How many a list has, above it, and what can be done with it. */
+export const listHead = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: '3',
+  marginBlockEnd: '4',
+});
+
+export const listCount = css({ fontWeight: 'bold', fontSize: 'lg' });
+
 export const select = css({
   minHeight: '11',
   paddingInline: '3',

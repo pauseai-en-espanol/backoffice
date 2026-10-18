@@ -70,6 +70,7 @@ import {
   addNote,
   board,
   claimPerson,
+  countPeople,
   getPerson,
   listPeople,
   mergePeople,
@@ -326,12 +327,17 @@ export const peopleRoutes =
       { schema: { querystring: FILTER_QUERY } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) =>
-          onboarding(db, actor, (trx) =>
-            listPeople(trx, actor.userId, filterOf(request.query), {
+          onboarding(db, actor, async (trx) => {
+            const filter = filterOf(request.query);
+            const page = await listPeople(trx, actor.userId, filter, {
               limit: request.query.limit ?? 50,
               cursor: request.query.cursor,
-            }),
-          ),
+            });
+            // The counters come with the first page only: "Cargar más" needs none (PLAN R59).
+            return request.query.cursor
+              ? page
+              : { ...page, counts: await countPeople(trx, actor.userId, filter) };
+          }),
         ),
     );
 

@@ -22,8 +22,9 @@ export const metadata: Metadata = { title: t('people.title') };
 
 /**
  * Personas (onboarding spec, views): everyone in onboarding, searchable by name (typo-tolerant), phone or email, and
- * filtered; the filters are the page's address. "Cargar más" adds the next page by the API's cursor. Admins export the
- * list as CSV, every export recorded by the API.
+ * filtered; the filters are the page's address. How many there are, in all and in each stage, is counted above the
+ * list, each stage's counter its filter (PLAN R59). "Cargar más" adds the next page by the API's cursor. Admins export
+ * the list as CSV, every export recorded by the API.
  */
 const PeoplePage = async ({
   searchParams,
@@ -55,15 +56,28 @@ const PeoplePage = async ({
         team={isUnavailable(team) ? [] : team.staff}
         channels={isUnavailable(channels) ? [] : channels}
         search
+        counts={isUnavailable(page) ? undefined : page.counts}
       />
-      {isAdmin(me) ? (
-        <p className={styles.text}>
-          <a className={styles.secondaryButton} href={exportHref(filters)} download>
-            {t('people.export')}
-          </a>{' '}
-          <span className={styles.hint}>{t('people.exportHint')}</span>
-        </p>
-      ) : null}
+      <div className={onboarding.listHead}>
+        {isUnavailable(page) || !page.counts ? null : (
+          <p className={onboarding.listCount}>{t('people.count', { count: page.counts.total })}</p>
+        )}
+        {isAdmin(me) ? (
+          <p>
+            <a
+              className={styles.secondaryButton}
+              href={exportHref(filters)}
+              download
+              aria-describedby="exportar-pista"
+            >
+              {t('people.export')}
+            </a>{' '}
+            <span id="exportar-pista" className={styles.hint}>
+              {t('people.exportHint')}
+            </span>
+          </p>
+        ) : null}
+      </div>
       {isUnavailable(page) ? (
         <p className={styles.notice}>{t('web.unavailable.body')}</p>
       ) : page.people.length === 0 ? (

@@ -155,6 +155,13 @@ export interface Today {
 export interface PeoplePage {
   people: PersonSummary[];
   next: string | null;
+  /** On the first page: how many the filters find, and in each stage with the rest of them (PLAN R59). */
+  counts?: PeopleCounts;
+}
+
+export interface PeopleCounts {
+  total: number;
+  stages: Partial<Record<Stage, number>>;
 }
 
 export type Board = Partial<Record<Stage, { count: number; people: PersonSummary[] }>>;
@@ -596,7 +603,19 @@ export const parsePeople = (body: unknown): PeoplePage | undefined => {
   }
   const people = every(body.people, parseSummary);
   const next = nullable(body.next);
-  return people && next !== undefined ? { people, next } : undefined;
+  const counts =
+    isRecord(body.counts) && typeof body.counts.total === 'number' && isRecord(body.counts.stages)
+      ? {
+          total: body.counts.total,
+          stages: Object.fromEntries(
+            Object.entries(body.counts.stages).filter(
+              (entry): entry is [Stage, number] =>
+                isStage(entry[0]) && typeof entry[1] === 'number',
+            ),
+          ),
+        }
+      : undefined;
+  return people && next !== undefined ? { people, next, ...(counts ? { counts } : {}) } : undefined;
 };
 
 /** `GET /api/board`'s body. */

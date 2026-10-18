@@ -692,6 +692,42 @@ describe('when and where from, and Discord (PLAN M5)', () => {
     expect(unassigned).not.toContain(personId);
   });
 
+  it('counts what a filter finds, and each stage with the rest of the filter, on the first page only (PLAN R59)', async () => {
+    const tag = suffix();
+    const made: string[] = [];
+    for (const stage of ['new', 'new', 'active']) {
+      const added = await onboarder.who.send('POST', '/api/intake', {
+        name: `Contada ${tag} ${made.length}`,
+        email: `contada.${tag}.${made.length}@ejemplo.test`,
+        stage,
+        decision: 'new',
+      });
+      made.push(added.json<{ personId: string }>().personId);
+    }
+    people.push(...made);
+    type Counted = {
+      people: { id: string }[];
+      next: string | null;
+      counts?: { total: number; stages: Record<string, number> };
+    };
+    const search = encodeURIComponent(`contada.${tag}`);
+    const all = (await onboarder.who.send('GET', `/api/people?q=${search}`)).json<Counted>();
+    expect(all.counts).toEqual({ total: 3, stages: { new: 2, active: 1 } });
+    const fresh = (
+      await onboarder.who.send('GET', `/api/people?q=${search}&stage=new&limit=1`)
+    ).json<Counted>();
+    expect(fresh.counts).toEqual({ total: 2, stages: { new: 2, active: 1 } });
+    expect(fresh.people).toHaveLength(1);
+    const more = (
+      await onboarder.who.send(
+        'GET',
+        `/api/people?q=${search}&stage=new&limit=1&cursor=${fresh.next ?? ''}`,
+      )
+    ).json<Counted>();
+    expect(more.people).toHaveLength(1);
+    expect(more.counts).toBeUndefined();
+  });
+
   it('dates what happened another day: stage changes, attempts and notes; never a day to come', async () => {
     const added = await onboarder.who.send('POST', '/api/intake', {
       name: `Con historia ${suffix()}`,
