@@ -312,7 +312,9 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
           </div>
           {readOnly ? null : (
             <div className={onboarding.personActions}>
-              {person.owner === null ? (
+              {/* "Me lo quedo" takes someone on to welcome them: never someone gone or discarded, whose owner is
+                  changed below (claim_person refuses them). */}
+              {person.owner === null && person.stage !== 'left' && person.stage !== 'discarded' ? (
                 <ClaimButton
                   personId={person.id}
                   text={{
