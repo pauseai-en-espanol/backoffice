@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { isUnavailable } from '@/data';
 import { isForbidden } from '@/onboarding/data';
 import { formatInstant, formatInstantDay } from '@/onboarding/format';
-import { StageTag } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import {
   contactFormText,
@@ -17,7 +16,7 @@ import {
   shareText,
 } from '@/outreach/contact-text';
 import { ContactEditor } from '@/outreach/ContactForm';
-import { ContactFlags } from '@/outreach/ContactItem';
+import { ContactFlags, RelationshipTag } from '@/outreach/ContactItem';
 import { EraseContact, HoldPanel, NoteForm, ReviewPanel } from '@/outreach/ContactPanels';
 import { getContact, getMatches, getOrganisations } from '@/outreach/data';
 import { EntryWhen } from '@/outreach/EntryWhen';
@@ -115,7 +114,7 @@ const ContactPage = async ({ params }: { params: Promise<{ id: string }> }) => {
         </p>
         <ul className={onboarding.meta}>
           <li>
-            <StageTag label={words.stages[contact.stage]} />
+            <RelationshipTag stage={contact.stage} label={words.stages[contact.stage]} />
           </li>
           <li>{t('outreach.summary.tier', { tier: contact.tier })}</li>
           {contact.organisation ? (

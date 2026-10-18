@@ -8,6 +8,7 @@ import { Fragment } from 'react';
 import type { StaffRef } from '@/onboarding/types';
 
 import { isUnavailable } from '@/data';
+import { headerChipReasons } from '@/onboarding/card';
 import { consentText } from '@/onboarding/census/format';
 import * as census from '@/onboarding/census/styles';
 import { ClaimButton } from '@/onboarding/ClaimButton';
@@ -33,7 +34,14 @@ import { OwnerForm, StageForm } from '@/onboarding/person/StageOwner';
 import { TeamAccount } from '@/onboarding/person/TeamAccount';
 import { personPageText } from '@/onboarding/person/text';
 import { type WhatsAppChoice, WhatsAppHandover } from '@/onboarding/person/WhatsApp';
-import { MissingLine, NextAction, ReasonChips, StageTag, TeamTag } from '@/onboarding/PersonItem';
+import {
+  MissingLine,
+  NextAction,
+  NextStep,
+  ReasonChips,
+  StageTag,
+  TeamTag,
+} from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, isAdmin } from '@/onboarding/text';
 import { describeEvent } from '@/onboarding/timeline';
@@ -297,18 +305,23 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
               <p className={styles.muted}>{person.fullName}</p>
             )}
             {person.summary ? <p className={onboarding.summary}>{person.summary}</p> : null}
-            <MissingLine missing={person.missing} labels={text.labels} />
-            <ul className={onboarding.meta}>
-              <li>{open ? t('person.inCommunity') : t('person.notInCommunity')}</li>
-              {person.team ? (
+            {/* Where they are, under the name (PLAN R65): the stage, and the next step in its strip, red once late,
+                amber when today or missing. Whether they are in the community is told under "Alta y comunidad". */}
+            <div className={onboarding.personStatus}>
+              {stageTag}
+              <NextStep person={person} labels={text.labels} />
+            </div>
+            <ReasonChips reasons={headerChipReasons(person.reasons)} labels={text.labels} />
+            {person.team ? (
+              <ul className={onboarding.meta}>
                 <li>
                   <TeamTag team={person.team} labels={text.labels} />{' '}
                   {t('person.teamAccount.linkedTo', { name: person.team.displayName })}
                   {person.team.active ? null : ` ${t('person.teamAccount.inactive')}`}
                 </li>
-              ) : null}
-            </ul>
-            <ReasonChips reasons={person.reasons} labels={text.labels} />
+              </ul>
+            ) : null}
+            <MissingLine missing={person.missing} labels={text.labels} />
           </div>
           {readOnly ? null : (
             <div className={onboarding.personActions}>
@@ -383,6 +396,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                           : t('person.changeNextAction')
                       }
                       view={nextAction}
+                      adds={person.nextAction === null}
                     >
                       <NextActionForm person={person} text={text} />
                     </EditInPlace>

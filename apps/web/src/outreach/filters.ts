@@ -217,3 +217,16 @@ export const nextApiQuery = ({ campaign, skip }: NextFilters): string => {
   }
   return query(params);
 };
+
+/** How many of Contactos' filters folded under "Más filtros" are on (PLAN R67): all but the search. */
+export const foldedContactFilters = (filters: ContactFilters): number =>
+  [
+    filters.tier,
+    filters.territory,
+    filters.kind,
+    filters.stage,
+    filters.owner,
+    filters.review,
+    filters.hold,
+    filters.visibility,
+  ].filter((value) => value !== '').length;

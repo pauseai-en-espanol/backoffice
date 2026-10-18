@@ -15,6 +15,13 @@ export const SHOWN_BY_SLOTS = ['unassigned', 'no_next_step', 'action_due'] as co
 export const chipReasons = (reasons: readonly string[]): string[] =>
   reasons.filter((reason) => !(SHOWN_BY_SLOTS as readonly string[]).includes(reason));
 
+/**
+ * The reasons a person's page gives a chip under its next step's strip (PLAN R65): the strip shows a missing, due or
+ * late step, so those get none; "Sin asignar" keeps its chip, as the page's heading has no owner of its own.
+ */
+export const headerChipReasons = (reasons: readonly string[]): string[] =>
+  reasons.filter((reason) => reason !== 'no_next_step' && reason !== 'action_due');
+
 /** The owner slot: a name, "Sin asignar" when the person waits for someone (a reason), or "Sin responsable". */
 export const ownerSlot = (
   owner: { displayName: string } | null,

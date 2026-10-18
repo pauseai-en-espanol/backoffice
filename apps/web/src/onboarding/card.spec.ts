@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { MISSING_ICONS, STAGE_ICONS, STAGE_TONE } from '@/ui/icons';
 
-import { chipReasons, nextStepTone, ownerSlot, SHOWN_BY_SLOTS } from './card';
+import { chipReasons, headerChipReasons, nextStepTone, ownerSlot, SHOWN_BY_SLOTS } from './card';
 
 describe('a card says each fact once (PLAN R61)', () => {
   it('gives no chip to what a slot already shows, and keeps a chip for the rest', () => {
@@ -19,6 +19,15 @@ describe('a card says each fact once (PLAN R61)', () => {
     expect(
       SHOWN_BY_SLOTS.every((reason) => (ATTENTION_REASONS as readonly string[]).includes(reason)),
     ).toBe(true);
+  });
+
+  it('gives a person page no chip for its strip, and keeps "Sin asignar", which its heading has no slot for (PLAN R65)', () => {
+    expect(headerChipReasons([...ATTENTION_REASONS])).toEqual([
+      'unassigned',
+      'follow_up',
+      'left_community',
+      'possible_duplicate',
+    ]);
   });
 
   it('puts "Sin asignar" in the owner slot only for someone waiting for one', () => {

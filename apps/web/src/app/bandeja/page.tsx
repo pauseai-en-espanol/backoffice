@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { foldName, spacedPhone } from '@backoffice/domain/identities';
 import { getTranslator } from '@backoffice/i18n/messages';
+import { Check } from 'lucide-react';
 import Link from 'next/link';
 import { Fragment } from 'react';
 
@@ -12,6 +13,7 @@ import { BandejaActions } from '@/onboarding/BandejaActions';
 import { BandejaSearch } from '@/onboarding/BandejaSearch';
 import { getCensusOptions } from '@/onboarding/census/data';
 import { answerRows } from '@/onboarding/census/format';
+import { cellMatch } from '@/onboarding/compare';
 import { getBandeja } from '@/onboarding/data';
 import { formatDay, formatInstant } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
@@ -28,6 +30,8 @@ import {
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { Announcer } from '@/ui/Announcer';
+import { Icon } from '@/ui/Icon';
+import { icons } from '@/ui/icons';
 import { Status } from '@/ui/Status';
 import * as styles from '@/ui/styles';
 
@@ -113,6 +117,8 @@ const BandejaPage = async () => {
       key: string;
       brought: string;
       of: (candidate: BandejaCandidate) => { value: string; same: boolean };
+      /** Whether the row compares (an amber "distinto" where it differs), or only shows (PLAN R68). */
+      compared?: false;
     }[] = [
       {
         key: 'name',
@@ -182,6 +188,7 @@ const BandejaPage = async () => {
           value: candidate.inCommunity ? t('bandeja.groupIn') : t('bandeja.groupOut'),
           same: false,
         }),
+        compared: false,
       },
       {
         key: 'stage',
@@ -198,11 +205,13 @@ const BandejaPage = async () => {
           value: candidate.owner?.displayName ?? t('person.noOwner'),
           same: false,
         }),
+        compared: false,
       },
       {
         key: 'summary',
         brought: '—',
         of: (candidate) => ({ value: candidate.summary ?? '—', same: false }),
+        compared: false,
       },
     ];
     const caption = `comparar-${entry.id}`;
@@ -244,18 +253,27 @@ const BandejaPage = async () => {
                   <td className={styles.breakAnywhere}>{row.brought}</td>
                   {entry.candidates.map((candidate) => {
                     const cell = row.of(candidate);
+                    const match = cellMatch(
+                      row.compared !== false,
+                      cell.same,
+                      row.brought,
+                      cell.value,
+                    );
                     return (
                       <td key={candidate.id} className={styles.breakAnywhere}>
                         {cell.value}
-                        {cell.same ? (
+                        {match === 'none' ? null : (
                           <>
                             {' '}
-                            <span className={onboarding.same}>
-                              <span aria-hidden="true">✓ </span>
-                              {t('bandeja.same')}
+                            <span
+                              className={onboarding.reason}
+                              data-tone={match === 'same' ? 'positive' : undefined}
+                            >
+                              <Icon icon={match === 'same' ? Check : icons.attention} size={14} />
+                              {match === 'same' ? t('bandeja.same') : t('bandeja.different')}
                             </span>
                           </>
-                        ) : null}
+                        )}
                       </td>
                     );
                   })}

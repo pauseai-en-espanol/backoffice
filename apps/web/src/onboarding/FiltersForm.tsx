@@ -4,6 +4,8 @@ import Link from 'next/link';
 
 import type { TeamMember } from '@/team/data';
 
+import { Icon } from '@/ui/Icon';
+import { STAGE_ICONS, STAGE_TONE } from '@/ui/icons';
 import * as ui from '@/ui/styles';
 
 import type { ArrivalChannel, PeopleCounts } from './types';
@@ -322,6 +324,10 @@ export const FiltersForm = ({
                     href={href({ stages: [value] })}
                     aria-current={value === stage ? 'page' : undefined}
                   >
+                    {/* Its stage's icon in its colour, as on every pill (PLAN R66): the word still says it. */}
+                    <span className={styles.stageMark} data-tone={STAGE_TONE[value]}>
+                      <Icon icon={STAGE_ICONS[value]} size={15} />
+                    </span>
                     {t(`stages.${value}`)}{' '}
                     <span className={styles.counter}>{counts.stages[value] ?? 0}</span>
                   </Link>

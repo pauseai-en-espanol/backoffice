@@ -555,6 +555,28 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   column on a phone. Labels in such rows are kept to one line anyway: "(opcional)" moved into the hint ("Cuándo
   fue", "Para cuándo"; outreach's "Cuándo fue" too). Used by the Registrar row, the next step, and Añadir; an e2e
   test lengthens a label until it wraps and checks the boxes. Mutation list `forms`.
+- **R65. A person's page says where someone is under their name** (Dani, 2026-10-18: "do everything", the visual
+  review's step 4). The heading had "Fuera de la comunidad" and an amber chip floating above the panels. **Now**: the
+  stage's pill and the next step's strip under the name, red once late and amber when today or missing (the card's
+  strip, R61), and a chip only for the reasons it doesn't show ("Sin asignar" keeps one, as the heading has no owner);
+  whether they are in the group is told under "Alta y comunidad". Each edit is a small outlined button with its icon
+  (a pencil, a plus to add), never underlined words beside the value; once Etapa's or Responsable's editor opens, its
+  field's label is said only to a reader, as the row already says it. "Abrir WhatsApp" stays the one orange button.
+- **R66. The other screens follow** (the review's step 5). The Panel's "Por etapa": each stage in its pill and a bar in
+  its colour before its number, drawn to scale (the most people, the longest; 4.5rem on a phone, 14rem from a tablet
+  up), the number staying. Personas' stage counters: each stage's icon in its colour. Hoy: two figures at a glance
+  (mine pending; unassigned, amber when any) and the Bandeja's count as a blue chip that leads to it. The menu: one
+  icon per section beside its word, none borrowed from a card (`NAV_ICONS`). Ajustes' "Nueva opción": its button
+  beside the field, as Contacto's (R63).
+- **R67. Outreach takes the same pills** (the review's step 5). Contactos shows its search and folds its other eight
+  filters under "Más filtros", saying how many are on, as Personas does. A contact's relationship is a pill from the
+  onboarding's hues: Identificado and Cualificado blue, Contactado violet, En conversación teal, Aliado green, "Ha
+  dicho que no" and "En reposo" grey, the pairs that share a colour told apart by their icon; its tier is a quiet tag
+  ("Nivel A"). The contact's page and every list of contacts (an organisation's, a campaign's) show the same.
+- **R68. The Bandeja marks agreement and difference** (the review's step 5). "Igual" is a green chip with a check
+  where a candidate agrees with what came in; "distinto" an amber one where both say something and it differs;
+  nothing where either says nothing, or on a row that only shows (the group, the owner, the summary). Mutation list
+  `visual-pages` covers R65 to R68.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

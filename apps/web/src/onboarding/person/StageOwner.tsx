@@ -53,7 +53,8 @@ export const StageForm = ({
   return (
     <form className={ui.form} onSubmit={submit}>
       <div className={ui.field}>
-        <label className={ui.label} htmlFor="etapa-persona">
+        {/* Seguimiento's row already says "Etapa": said here only to a reader (PLAN R65). */}
+        <label className={ui.srOnly} htmlFor="etapa-persona">
           {t.stage}
         </label>
         <select
@@ -135,7 +136,8 @@ export const OwnerForm = ({
   return (
     <form className={ui.form} onSubmit={submit}>
       <div className={ui.field}>
-        <label className={ui.label} htmlFor="responsable-persona">
+        {/* Seguimiento's row already says "Responsable": said here only to a reader (PLAN R65). */}
+        <label className={ui.srOnly} htmlFor="responsable-persona">
           {t.owner}
         </label>
         <select

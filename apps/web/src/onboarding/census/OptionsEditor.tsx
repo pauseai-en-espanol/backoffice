@@ -1,5 +1,6 @@
 'use client';
 
+import { Plus } from 'lucide-react';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import { fill } from '@/fill';
@@ -268,11 +269,12 @@ export const OptionsEditor = ({
         </ol>
       )}
       <FormError message={write.error} />
-      <form className={ui.form} onSubmit={submit}>
-        <div className={ui.field}>
-          <label className={ui.label} htmlFor={add}>
-            {text.newOption}
-          </label>
+      {/* The field with its button beside it, as Contacto's (PLAN R66). */}
+      <form className={ui.field} onSubmit={submit}>
+        <label className={ui.label} htmlFor={add}>
+          {text.newOption}
+        </label>
+        <div className={styles.identityAdd}>
           <input
             id={add}
             className={ui.input}
@@ -281,13 +283,12 @@ export const OptionsEditor = ({
             aria-invalid={missing}
             aria-describedby={missing ? `${add}-error` : undefined}
           />
-          <FormError id={`${add}-error`} message={missing ? text.missing : undefined} />
-        </div>
-        <div>
-          <button type="submit" className={ui.button} aria-disabled={write.pending}>
+          <button type="submit" className={ui.secondaryButton} aria-disabled={write.pending}>
+            <Plus className={styles.buttonIcon} aria-hidden="true" />
             {text.add}
           </button>
         </div>
+        <FormError id={`${add}-error`} message={missing ? text.missing : undefined} />
       </form>
     </div>
   );

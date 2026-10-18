@@ -119,6 +119,7 @@ export const navLink = css({
   display: 'flex',
   width: '100%',
   alignItems: 'center',
+  gap: '2.5',
   minHeight: { base: '11', lg: '7' },
   paddingInline: '3',
   color: 'fg.default',
@@ -324,12 +325,38 @@ export const textButton = css({
   '&[aria-disabled="true"]': { cursor: 'progress', opacity: 0.7 },
 });
 
+/**
+ * The button that edits a value in place (PLAN R65): small and outlined, with an icon beside its words, so it reads
+ * as an action and never as part of the value it sits next to.
+ */
+export const editButton = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '1.5',
+  minHeight: '8',
+  paddingInline: '2.5',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: 'border.default',
+  borderRadius: 'md',
+  bg: 'bg.canvas',
+  color: 'fg.default',
+  fontSize: 'sm',
+  fontWeight: 'semibold',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  _hover: { bg: 'bg.subtle' },
+  _focusVisible: focusRing,
+  '&[aria-disabled="true"]': { cursor: 'progress', opacity: 0.7 },
+});
+
 /** A value with the button that edits it beside it, which wraps under it on a narrow screen (EditInPlace). */
 export const editBeside = css({
   display: 'flex',
   flexWrap: 'wrap',
   alignItems: 'center',
   columnGap: '3',
+  rowGap: '2',
 });
 
 /** A longer value (a list of facts), with the button that edits it under it. */
@@ -337,6 +364,7 @@ export const editBelow = css({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
+  gap: '3',
 });
 
 export const editValue = css({ minWidth: '0', overflowWrap: 'anywhere' });

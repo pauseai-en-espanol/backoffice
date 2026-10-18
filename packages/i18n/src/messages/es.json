@@ -514,6 +514,9 @@
     "counts": "{mine, plural, =0 {Nadie a tu cargo pendiente} one {# persona a tu cargo pendiente} other {# personas a tu cargo pendientes}} · {unassigned, plural, =0 {nadie sin asignar} one {# sin asignar} other {# sin asignar}}",
     "bandeja": "{count, plural, one {Hay # registro en la Bandeja esperando una decisión.} other {Hay # registros en la Bandeja esperando una decisión.}}",
     "toBandeja": "Ir a la Bandeja",
+    "figureMine": "a tu cargo, pendientes",
+    "figureUnassigned": "sin asignar",
+    "bandejaChip": "{count, plural, one {# registro espera una decisión en la Bandeja} other {# registros esperan una decisión en la Bandeja}}",
     "claim": "Me lo quedo",
     "claimFor": "Me quedo a {name}",
     "claimed": "Ahora {name} está a tu cargo.",
@@ -867,7 +870,7 @@
     "record": "Lo que ha llegado",
     "candidates": "Fichas parecidas",
     "compare": "Comparación",
-    "compareIntro": "Lo que ha llegado, al lado de cada ficha parecida: «igual» marca lo que coincide.",
+    "compareIntro": "Lo que ha llegado, al lado de cada ficha parecida: «igual» marca lo que coincide y «distinto», lo que no.",
     "compareFields": {
       "name": "Nombre",
       "phone": "Teléfono",
@@ -882,6 +885,7 @@
       "summary": "Resumen interno"
     },
     "same": "igual",
+    "different": "distinto",
     "censusContacts": "Una respuesta al censo no muestra su teléfono ni su correo: cualquiera puede escribir los de otra persona.",
     "groupJoined": "Entró el {date}",
     "groupLeft": "Salió el {date}",

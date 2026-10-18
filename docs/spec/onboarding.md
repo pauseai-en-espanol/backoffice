@@ -106,33 +106,36 @@ person, from the person's page ("Cuenta del equipo"), where the account sharing 
 Equipo, which suggests it. Personas and the board filter by it ("Del equipo"). The link grants nothing, and a
 deactivated account keeps it without the badge.
 
-- **Hoy:** my people needing attention, then the unassigned queue with a "Me lo quedo" (claim) button, each as a
-  grid of cards: as many columns as fit, one on a phone (PLAN R62).
+- **Hoy:** two figures at a glance, mine pending and unassigned (amber when any are), and the Bandeja's count as a
+  blue chip that leads to it (PLAN R66); then my people needing attention, then the unassigned queue with a "Me lo
+  quedo" (claim) button, each as a grid of cards: as many columns as fit, one on a phone (PLAN R62).
 - **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage, each column under its stage's pill
   and a rule in its colour; its cards leave the stage out. Filters: owner, province, "Canal de alta", "Fecha de
   alta" known or not, in the community or not, needs attention.
 - **Personas:** a searchable list (name, email, phone; typo-tolerant), as rows from a tablet up: Persona · Etapa ·
-  Responsable · Siguiente paso · Falta, lined up down the page; on a phone each row is a card (PLAN R62). Exportable
-  to CSV by admins only, and
-  every export is audited. How many it finds is said above it, and a counter for each stage, with the rest of the
-  filters, is that stage's filter; the other filters are folded under "Más filtros", and those on are listed, each
-  with a link that takes it off (PLAN R59).
-- **Persona:** profile, identities, community presence, timeline. Quick actions: log a contact attempt (channel
-  and outcome presets), set the next action, change stage, assign, add a note, open a WhatsApp chat with a
-  prepared message ([§7.3](#73-whatsapp-handover-links)), copy the email address. Laid out to read first and edit in
-  place (PLAN R57): who they are, with "Me lo quedo" and WhatsApp; then where they are (stage, owner, next step, each
-  changed where it is shown), one place to write an attempt or a note, and the history, its latest ten in view;
-  beside it, a card each for contact, profile, sign-up and community, and census, edited in the card; merging, the team
-  account and their data under "Más acciones". The sign-up's day is written once: the card "Alta y comunidad" tells
-  only what changed in the group since ("Salió del grupo el …", "Volvió al grupo el …"; PLAN R58). The contact card
-  lists each phone, email and Discord username on one line, its kind's icon, the value and "Quitar"; below them one
-  field, "Añadir teléfono, correo o Discord", takes any of the three and tells which it is from what is typed (PLAN
-  R63). Fields side by side keep their boxes in line whatever their labels (PLAN R64).
+  Responsable · Siguiente paso · Falta, lined up down the page; on a phone each row is a card (PLAN R62). Exportable to
+  CSV by admins only, and every export is audited. How many it finds is said above it, and a counter for each stage,
+  with its stage's icon in its colour (PLAN R66), with the rest of the filters, is that stage's filter; the other
+  filters are folded under "Más filtros", and those on are listed, each with a link that takes it off (PLAN R59).
+- **Persona:** profile, identities, community presence, timeline. Quick actions: log a contact attempt (channel and
+  outcome presets), set the next action, change stage, assign, add a note, open a WhatsApp chat with a prepared message
+  ([§7.3](#73-whatsapp-handover-links)), copy the email address. Laid out to read first and edit in place (PLAN R57):
+  who they are, with "Me lo quedo" and WhatsApp, and under the name their stage's pill and the next step's strip, red
+  once late and amber when today or missing, with a chip only for reasons the strip doesn't show (PLAN R65); then where
+  they are (stage, owner, next step, each changed where it is shown by a small button with its icon, its form's first
+  label said only to a reader as the row already says it), one place to write an attempt or a note, and the history, its
+  latest ten in view; beside it, a card each for contact, profile, sign-up and community, and census, edited in the
+  card; merging, the team account and their data under "Más acciones". The sign-up's day is written once: the card "Alta
+  y comunidad" tells only what changed in the group since ("Salió del grupo el …", "Volvió al grupo el …"; PLAN R58).
+  The contact card lists each phone, email and Discord username on one line, its kind's icon, the value and "Quitar";
+  below them one field, "Añadir teléfono, correo o Discord", takes any of the three and tells which it is from what is
+  typed (PLAN R63). Fields side by side keep their boxes in line whatever their labels (PLAN R64).
 - **Añadir rápido:** a phone, an email or a Discord username, the name if known, "Canal de alta", "Fecha de alta"
   (today, emptied when nobody knows), optional note. Duplicates are checked as you type.
 - **Bandeja:** records awaiting a decision: possible duplicates and conflicting values. A possible duplicate is
   compared, row by row, with each record it looks like, phones and emails included but for a census answer's, with
-  "igual" where they agree; when the one it is isn't among them, it is searched for and attached to whoever is found
+  a green "igual" where they agree and an amber "distinto" where both say something different, each a chip with its
+  icon (PLAN R68); when the one it is isn't among them, it is searched for and attached to whoever is found
   (a census answer, only to its candidates; PLAN R60).
 - **Importar:** "Sincronizar Airtable ahora" with the last run's result, while an admin has the sync on in Ajustes;
   upload a CSV, preview, dry-run diff, apply ([§5.3](#53-web-and-csv-m1)).
@@ -142,7 +145,8 @@ deactivated account keeps it without the badge.
 - **Ajustes → Formulario de PauseAI Global (Airtable)**, admins only: paste Global's view link, which is never shown
   again ("Configurado el … por …"), replace or remove it, turn the sync on or off, and see how its last run went
   ([§5.1](#51-airtable-m1)).
-- **Panel:** counts by stage, sign-ups per week (by "Fecha de alta") by "Canal de alta", time to first contact,
+- **Panel:** counts by stage, each stage in its pill with a bar in its colour drawn to scale before its number
+  (PLAN R66), sign-ups per week (by "Fecha de alta") by "Canal de alta", time to first contact,
   unassigned for more than 48 hours; people with no sign-up day are left out of the weeks and the waits, and counted
   in a line of their own.
 

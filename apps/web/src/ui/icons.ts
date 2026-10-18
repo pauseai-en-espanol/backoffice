@@ -6,31 +6,53 @@ import {
   ArrowRight,
   BadgeCheck,
   Ban,
+  Building2,
   Calendar,
   CalendarX,
+  ChartColumn,
+  CircleArrowRight,
   CircleCheck,
   CircleDashed,
+  ClipboardCheck,
+  ClipboardList,
   Clock,
+  Contact,
   Copy,
   DoorOpen,
+  Handshake,
   HeartHandshake,
+  IdCard,
   Inbox,
   Lock,
   LogOut,
   type LucideIcon,
   Mail,
   MapPin,
+  Megaphone,
+  MessageSquareText,
   MessagesSquare,
   Moon,
   Phone,
   PhoneOff,
+  Power,
+  ScrollText,
+  Send,
+  Settings,
+  SquareKanban,
+  Sun,
   Target,
   TriangleAlert,
+  Upload,
   User,
   UserMinus,
+  UserPlus,
   Users,
+  UsersRound,
   UserX,
 } from 'lucide-react';
+
+import type { RelationshipStage } from '@/outreach/types';
+import type { NavItem } from '@/shell/nav';
 
 /**
  * The staff app's icons (PLAN R61): one meaning, one Lucide icon, everywhere. An icon is decoration next to its word,
@@ -85,3 +107,51 @@ export const MISSING_ICONS = {
   province: MapPin,
   interests: Target,
 } as const satisfies Record<MissingDetail, LucideIcon>;
+
+/**
+ * Outreach's relationship stages (PLAN R67), from the same cool hues as the onboarding's: blue before a first letter,
+ * violet once written to, teal in conversation, green for an ally, greys for declined and dormant. Identified and
+ * qualified share the blue, and declined the closed grey; their icons tell them apart.
+ */
+export const RELATIONSHIP_ICONS = {
+  identified: CircleDashed,
+  qualified: ClipboardCheck,
+  contacted: Send,
+  engaged: MessagesSquare,
+  ally: Handshake,
+  declined: Ban,
+  dormant: Moon,
+} as const satisfies Record<RelationshipStage, LucideIcon>;
+
+export const RELATIONSHIP_TONE = {
+  identified: 'stageNew',
+  qualified: 'stageNew',
+  contacted: 'stageContacting',
+  engaged: 'stageWelcomed',
+  ally: 'stageActive',
+  declined: 'stageClosed',
+  dormant: 'stageDormant',
+} as const satisfies Record<RelationshipStage, StageTone>;
+
+/** Each section of the menu (PLAN R66), beside its word; "Salir" too. None shares a card's icon. */
+export const NAV_ICONS = {
+  today: Sun,
+  people: IdCard,
+  board: SquareKanban,
+  add: UserPlus,
+  bandeja: Inbox,
+  imports: Upload,
+  panel: ChartColumn,
+  census: ClipboardList,
+  messages: MessageSquareText,
+  next: CircleArrowRight,
+  campaigns: Megaphone,
+  contacts: Contact,
+  organisations: Building2,
+  team: UsersRound,
+  audit: ScrollText,
+  settings: Settings,
+  signOut: Power,
+} as const satisfies Record<NavItem['label'] | 'settings' | 'signOut', LucideIcon>;
+
+export type NavIcon = keyof typeof NAV_ICONS;

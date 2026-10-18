@@ -4,6 +4,7 @@ import {
   contactApiQuery,
   contactFiltersFromPage,
   contactPageQuery,
+  foldedContactFilters,
   hasContactFilters,
   MAX_SKIPPED,
   nextApiQuery,
@@ -95,5 +96,15 @@ describe("Siguiente's address", () => {
     expect(nextApiQuery({ campaign: ID, skip: [] })).toBe(`?campaign=${ID}`);
     expect(nextApiQuery({ campaign: '', skip: [] })).toBe('');
     expect(nextApiQuery({ campaign: '', skip: [ID, ID] })).toBe(`?skip=${ID}`);
+  });
+});
+
+describe('Contactos folds its filters under "Más filtros" (PLAN R67)', () => {
+  it('says how many of the folded ones are on, the search apart', () => {
+    expect(foldedContactFilters(NO_CONTACT_FILTERS)).toBe(0);
+    expect(foldedContactFilters({ ...NO_CONTACT_FILTERS, q: 'Ana' })).toBe(0);
+    expect(
+      foldedContactFilters({ ...NO_CONTACT_FILTERS, tier: 'A', hold: 'no', visibility: 'team' }),
+    ).toBe(3);
   });
 });

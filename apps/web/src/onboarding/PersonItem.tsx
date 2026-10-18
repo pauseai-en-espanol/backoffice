@@ -1,4 +1,5 @@
 import type { Stage } from '@backoffice/domain/stages';
+import type { StageTone } from '@backoffice/ui/brand';
 import type { LucideIcon } from 'lucide-react';
 
 import { cx } from '@styled-system/css';
@@ -57,15 +58,28 @@ export interface PersonLabels {
 const isOnboardingStage = (stage: string): stage is Stage => stage in STAGE_ICONS;
 
 /**
- * A stage (PLAN R61): a pill in its stage's colour with its icon and its word, so it is never a colour alone. Given
- * only a word (outreach's relationship stages, for now), an outline in words.
+ * A pill in a stage's colour with its icon and its word (PLAN R61), so it is never a colour alone: the onboarding's
+ * stages (StageTag) and outreach's relationships (RelationshipTag).
  */
+export const StagePill = ({
+  tone,
+  icon,
+  label,
+}: {
+  tone: StageTone;
+  icon: LucideIcon;
+  label: string;
+}) => (
+  <span className={styles.stage} data-tone={tone}>
+    <Icon icon={icon} size={15} />
+    {label}
+  </span>
+);
+
+/** An onboarding stage as its pill; given a word alone, an outline in words. */
 export const StageTag = ({ label, stage }: { label: string; stage?: string }) =>
   stage !== undefined && isOnboardingStage(stage) ? (
-    <span className={styles.stage} data-tone={STAGE_TONE[stage]}>
-      <Icon icon={STAGE_ICONS[stage]} size={15} />
-      {label}
-    </span>
+    <StagePill tone={STAGE_TONE[stage]} icon={STAGE_ICONS[stage]} label={label} />
   ) : (
     <span className={styles.stage}>{label}</span>
   );

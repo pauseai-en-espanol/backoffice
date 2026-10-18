@@ -76,8 +76,10 @@ dry run shows the counts and problems before anything is written. How the files 
 ## 5. Views
 
 Campañas (list and per-campaign board by target status), Contactos (directory with filters by tier, territory,
-organisation type, relationship and who sees it), Organizaciones, Plantillas (with a rendered preview per contact),
-and the Siguiente queue.
+organisation type, relationship and who sees it, the search shown and the rest under "Más filtros", as Personas'),
+Organizaciones, Plantillas (with a rendered preview per contact), and the Siguiente queue. A contact's relationship
+is a pill in a stage colour with its icon and word, as the onboarding's stages are, and its tier a quiet tag
+("Nivel A"; PLAN R67).
 
 ## 6. Private records: "Solo yo" (PLAN M5, step 6)
 

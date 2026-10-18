@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { CSSProperties } from 'react';
 
 import { STAGES } from '@backoffice/domain/stages';
 import { getTranslator } from '@backoffice/i18n/messages';
@@ -9,11 +10,20 @@ import { getPanel } from '@/onboarding/data';
 import { formatDay, formatInstantDay } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
-import { channelsIn, PANEL_WEEKS, waitIn, weeksFrom, weekTotal } from '@/onboarding/panel/types';
+import {
+  barShare,
+  channelsIn,
+  PANEL_WEEKS,
+  waitIn,
+  weeksFrom,
+  weekTotal,
+} from '@/onboarding/panel/types';
+import { StageTag } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard } from '@/onboarding/text';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
+import { STAGE_TONE } from '@/ui/icons';
 import * as styles from '@/ui/styles';
 
 const t = getTranslator();
@@ -56,6 +66,7 @@ const PanelPage = async ({
   }
   const channels = channelsIn(panel.arrivalsByChannel);
   const totalPeople = STAGES.reduce((sum, stage) => sum + (panel.stages[stage] ?? 0), 0);
+  const mostInAStage = Math.max(0, ...STAGES.map((stage) => panel.stages[stage] ?? 0));
   const { arrived, contacted, medianHours, p90Hours } = panel.firstContact;
 
   return (
@@ -97,10 +108,26 @@ const PanelPage = async ({
               </tr>
             </thead>
             <tbody>
+              {/* Each stage in its pill, and beside its number a bar to scale in its colour (PLAN R66): the number
+                  says it, the bar only shows it. */}
               {STAGES.map((stage) => (
                 <tr key={stage}>
-                  <th scope="row">{t(`stages.${stage}`)}</th>
-                  <td>{panel.stages[stage] ?? 0}</td>
+                  <th scope="row">
+                    <StageTag stage={stage} label={t(`stages.${stage}`)} />
+                  </th>
+                  <td className={onboarding.countWithBar}>
+                    <span
+                      className={onboarding.bar}
+                      data-tone={STAGE_TONE[stage]}
+                      aria-hidden="true"
+                      style={
+                        {
+                          '--share': barShare(panel.stages[stage] ?? 0, mostInAStage) / 100,
+                        } as CSSProperties
+                      }
+                    />
+                    {panel.stages[stage] ?? 0}
+                  </td>
                 </tr>
               ))}
             </tbody>

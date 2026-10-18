@@ -406,6 +406,72 @@ export const stageCounters = css({
   },
 });
 
+/** A stage's icon in its colour, beside its word (the stage counters, PLAN R66). */
+export const stageMark = css({
+  display: 'inline-flex',
+  color: 'fg.muted',
+  '&[data-tone=stageNew]': { color: 'fg.stageNew' },
+  '&[data-tone=stageContacting]': { color: 'fg.stageContacting' },
+  '&[data-tone=stageWelcomed]': { color: 'fg.stageWelcomed' },
+  '&[data-tone=stageActive]': { color: 'fg.stageActive' },
+  '&[data-tone=stageDormant]': { color: 'fg.stageDormant' },
+  '&[data-tone=stageUnresponsive]': { color: 'fg.stageUnresponsive' },
+  '&[data-tone=stageClosed]': { color: 'fg.stageClosed' },
+});
+
+/**
+ * Hoy's figures (PLAN R66): each a number above its words, the words first for a reader (dt before dd, the number
+ * shown above by column-reverse). One in amber when it asks someone to act, with its words saying what.
+ */
+export const figures = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '3',
+  marginBlockEnd: '4',
+  '& > div': {
+    display: 'flex',
+    flexDirection: 'column-reverse',
+    gap: '0.5',
+    minWidth: '10rem',
+    paddingBlock: '3',
+    paddingInline: '4',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'border.subtle',
+    borderRadius: 'md',
+  },
+  '& > div[data-tone=attention]': { bg: 'bg.attention', borderColor: 'border.attention' },
+  '& dt': { color: 'fg.muted', fontSize: 'sm' },
+  '& > div[data-tone=attention] dt, & > div[data-tone=attention] dd': { color: 'fg.attention' },
+  '& dd': {
+    margin: '0',
+    fontSize: '3xl',
+    fontWeight: 'bold',
+    lineHeight: '1.1',
+    fontVariantNumeric: 'tabular-nums',
+  },
+});
+
+/** A status chip that leads somewhere (Hoy's Bandeja, PLAN R66): blue, for information, with its icon and words. */
+export const statusLink = css({
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '2',
+  minHeight: '11',
+  paddingInline: '3',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: 'border.info',
+  borderRadius: 'sm',
+  bg: 'bg.info',
+  color: 'fg.info',
+  fontWeight: 'semibold',
+  textDecoration: 'underline',
+  textUnderlineOffset: '0.2em',
+  marginBlockEnd: '4',
+  _focusVisible: focusRing,
+});
+
 /** A count beside its label. */
 export const counter = css({ fontVariantNumeric: 'tabular-nums', color: 'fg.muted' });
 
@@ -556,6 +622,16 @@ export const personHeading = css({
   '& h1': { marginBlockEnd: '0' },
 });
 
+/** Under a person's name (PLAN R65): their stage and the next step's strip side by side, wrapping on a phone. */
+export const personStatus = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: '2',
+  maxWidth: '44rem',
+  '& > p': { flex: '1 1 16rem' },
+});
+
 /** "Me lo quedo" and WhatsApp, side by side. */
 export const personActions = css({
   display: 'flex',
@@ -660,6 +736,35 @@ export const timelineBody = css({
   overflowWrap: 'anywhere',
 });
 
+/** A count with its bar before it (the Panel's "Por etapa", PLAN R66): every bar starts at the same edge. */
+export const countWithBar = css({
+  whiteSpace: 'nowrap',
+  fontVariantNumeric: 'tabular-nums',
+  fontWeight: 'bold',
+});
+
+/**
+ * A bar to scale, in its stage's ink: it shows what the number at its end says (PLAN R66). Its length is its share of
+ * the longest (`--share`, 0 to 1) of a track that fits the screen, 4.5rem on a phone and 14rem from a tablet up;
+ * every bar starts at its cell's edge.
+ */
+export const bar = css({
+  display: 'inline-block',
+  verticalAlign: 'middle',
+  width: { base: 'calc(var(--share, 0) * 4.5rem)', md: 'calc(var(--share, 0) * 14rem)' },
+  height: '3',
+  marginInlineEnd: '2',
+  borderRadius: 'sm',
+  bg: 'fg.muted',
+  '&[data-tone=stageNew]': { bg: 'fg.stageNew' },
+  '&[data-tone=stageContacting]': { bg: 'fg.stageContacting' },
+  '&[data-tone=stageWelcomed]': { bg: 'fg.stageWelcomed' },
+  '&[data-tone=stageActive]': { bg: 'fg.stageActive' },
+  '&[data-tone=stageDormant]': { bg: 'fg.stageDormant' },
+  '&[data-tone=stageUnresponsive]': { bg: 'fg.stageUnresponsive' },
+  '&[data-tone=stageClosed]': { bg: 'fg.stageClosed' },
+});
+
 /** A counts list: each count with its words. */
 export const counts = css({
   display: 'grid',
@@ -720,18 +825,6 @@ export const choicesRow = css({
     cursor: 'pointer',
   },
   '& input': { width: '5', height: '5', accentColor: 'fg.default', _focusVisible: focusRing },
-});
-
-/** "igual" in the Bandeja's comparison: in words, outlined, never by colour alone (PLAN R60). */
-export const same = css({
-  display: 'inline-block',
-  paddingInline: '1.5',
-  borderWidth: '1px',
-  borderStyle: 'solid',
-  borderColor: 'border.default',
-  borderRadius: 'sm',
-  fontSize: 'sm',
-  whiteSpace: 'nowrap',
 });
 
 /** People found by a search, each with the button that picks them. */

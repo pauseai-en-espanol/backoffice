@@ -153,3 +153,10 @@ export const waitIn = (value: number): { unit: 'hours' | 'days'; amount: number 
   value < 48
     ? { unit: 'hours', amount: Math.round(value) }
     : { unit: 'days', amount: Math.round(value / 24) };
+
+/**
+ * A bar's length, as a share of the longest (PLAN R66): drawn to scale, so the stage with most people fills its row and
+ * none is a bar of nothing. A percentage, 0 to 100.
+ */
+export const barShare = (count: number, most: number): number =>
+  most <= 0 ? 0 : Math.round((Math.max(0, count) / most) * 1000) / 10;

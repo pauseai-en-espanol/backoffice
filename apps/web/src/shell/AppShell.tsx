@@ -63,6 +63,7 @@ export const AppShell = ({
                             ? t('web.nav.bandejaCount', { count: bandeja })
                             : t(`web.nav.${item.label}`)
                         }
+                        icon={item.label}
                       />
                     </li>
                   ))}
@@ -71,10 +72,10 @@ export const AppShell = ({
             ))}
             <ul className={styles.navList}>
               <li>
-                <NavLink href="/ajustes" label={t('web.nav.settings')} />
+                <NavLink href="/ajustes" label={t('web.nav.settings')} icon="settings" />
               </li>
               <li>
-                <SignOutButton label={t('web.nav.signOut')} className={styles.navLink} />
+                <SignOutButton label={t('web.nav.signOut')} className={styles.navLink} icon />
               </li>
             </ul>
           </NavMenu>

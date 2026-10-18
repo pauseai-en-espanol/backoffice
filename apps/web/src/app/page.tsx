@@ -18,6 +18,8 @@ import { canOutreach } from '@/outreach/text';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { Announcer } from '@/ui/Announcer';
+import { Icon } from '@/ui/Icon';
+import { icons } from '@/ui/icons';
 import * as styles from '@/ui/styles';
 
 const t = getTranslator();
@@ -89,17 +91,22 @@ const Today = async () => {
         <p className={styles.notice}>{t('web.unavailable.body')}</p>
       ) : (
         <Announcer>
-          <p className={styles.text}>
-            {t('today.counts', {
-              mine: today.counts.mine,
-              unassigned: today.counts.unassigned,
-            })}
-          </p>
+          {/* Two figures, read at a glance (PLAN R66): each number above its words, which a reader hears first. */}
+          <dl className={onboarding.figures}>
+            <div>
+              <dt>{t('today.figureMine')}</dt>
+              <dd>{today.counts.mine}</dd>
+            </div>
+            <div data-tone={today.counts.unassigned > 0 ? 'attention' : undefined}>
+              <dt>{t('today.figureUnassigned')}</dt>
+              <dd>{today.counts.unassigned}</dd>
+            </div>
+          </dl>
           {today.counts.bandeja > 0 ? (
-            <p className={styles.notice}>
-              {t('today.bandeja', { count: today.counts.bandeja })}{' '}
-              <Link className={styles.link} href="/bandeja">
-                {t('today.toBandeja')}
+            <p>
+              <Link className={onboarding.statusLink} href="/bandeja">
+                <Icon icon={icons.inbox} size={16} />
+                {t('today.bandejaChip', { count: today.counts.bandeja })}
               </Link>
             </p>
           ) : null}

@@ -1,0 +1,160 @@
+[
+  {
+    "name": "a person's page gives a chip to a missing step its strip already shows",
+    "file": "apps/web/src/onboarding/card.ts",
+    "old": "  reasons.filter((reason) => reason !== 'no_next_step' && reason !== 'action_due');",
+    "new": "  reasons.filter((reason) => reason !== 'action_due');",
+    "cmd": "pnpm exec vitest run src/onboarding/card.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the Panel's bars not drawn to scale",
+    "file": "apps/web/src/onboarding/panel/types.ts",
+    "old": "Math.round((Math.max(0, count) / most) * 1000) / 10",
+    "new": "Math.round(Math.sqrt(Math.max(0, count) / most) * 1000) / 10",
+    "cmd": "pnpm exec vitest run src/onboarding/panel/types.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "Contactos counts its search among the folded filters",
+    "file": "apps/web/src/outreach/filters.ts",
+    "old": "    filters.tier,\n    filters.territory,",
+    "new": "    filters.q,\n    filters.tier,\n    filters.territory,",
+    "cmd": "pnpm exec vitest run src/outreach/filters.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the Bandeja says \"distinto\" where one side says nothing",
+    "file": "apps/web/src/onboarding/compare.ts",
+    "old": "compared && brought !== NOTHING && value !== NOTHING ? 'different'",
+    "new": "compared ? 'different'",
+    "cmd": "pnpm exec vitest run src/onboarding/compare.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "two relationship stages share a colour and an icon",
+    "file": "apps/web/src/ui/icons.ts",
+    "old": "  qualified: ClipboardCheck,",
+    "new": "  qualified: CircleDashed,",
+    "cmd": "pnpm exec vitest run src/ui/icons.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "a section of the menu borrows a card's icon",
+    "file": "apps/web/src/ui/icons.ts",
+    "old": "  people: IdCard,",
+    "new": "  people: Users,",
+    "cmd": "pnpm exec vitest run src/ui/icons.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "an edit's button without its icon, as underlined words could be",
+    "file": "apps/web/src/ui/EditInPlace.tsx",
+    "old": "          <Icon icon={adds ? Plus : Pencil} size={14} />\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "\"Etapa\" shown twice once its editor opens",
+    "file": "apps/web/src/onboarding/person/StageOwner.tsx",
+    "old": "        <label className={ui.srOnly} htmlFor=\"etapa-persona\">",
+    "new": "        <label className={ui.label} htmlFor=\"etapa-persona\">",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a person's page says the next step only under Seguimiento",
+    "file": "apps/web/src/app/personas/[id]/page.tsx",
+    "old": "              <NextStep person={person} labels={text.labels} />\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "every stage's bar as long as the longest",
+    "file": "apps/web/src/app/panel/page.tsx",
+    "old": "'--share': barShare(panel.stages[stage] ?? 0, mostInAStage) / 100,",
+    "new": "'--share': 1,",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Hoy's figure without its number",
+    "file": "apps/web/src/app/page.tsx",
+    "old": "              <dd>{today.counts.unassigned}</dd>",
+    "new": "              <dd>{t('today.figureUnassigned')}</dd>",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "the menu's sections without their icons",
+    "file": "apps/web/src/shell/NavLink.tsx",
+    "old": "      <Icon icon={NAV_ICONS[icon]} size={17} />\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "the stage counters without their icons",
+    "file": "apps/web/src/onboarding/FiltersForm.tsx",
+    "old": "                      <Icon icon={STAGE_ICONS[value]} size={15} />\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Contactos' filters all open above the list",
+    "file": "apps/web/src/outreach/ContactFiltersForm.tsx",
+    "old": "        <details className={onboarding.moreFilters}>",
+    "new": "        <details className={onboarding.moreFilters} open>",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a contact's tier tag without its icon",
+    "file": "apps/web/src/outreach/ContactItem.tsx",
+    "old": "    <Icon icon={Layers} size={13} />\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "the Bandeja's \"igual\" without its icon",
+    "file": "apps/web/src/app/bandeja/page.tsx",
+    "old": "<Icon icon={match === 'same' ? Check : icons.attention} size={14} />",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Ajustes' add button under its field, not beside it",
+    "file": "apps/web/src/onboarding/census/OptionsEditor.tsx",
+    "old": "        <div className={styles.identityAdd}>",
+    "new": "        <div className={ui.form}>",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  }
+]

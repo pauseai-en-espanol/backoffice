@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parsePanel, waitIn, weeksFrom, weekTotal } from './types';
+import { barShare, parsePanel, waitIn, weeksFrom, weekTotal } from './types';
 
 const PANEL = {
   weeks: 2,
@@ -63,5 +63,15 @@ describe('the Panel', () => {
     expect(waitIn(5.4)).toEqual({ unit: 'hours', amount: 5 });
     expect(waitIn(47.9)).toEqual({ unit: 'hours', amount: 48 });
     expect(waitIn(72)).toEqual({ unit: 'days', amount: 3 });
+  });
+});
+
+describe('the Panel draws its bars to scale (PLAN R66)', () => {
+  it('fills the largest, halves the half, and leaves nothing for none', () => {
+    expect(barShare(424, 424)).toBe(100);
+    expect(barShare(212, 424)).toBe(50);
+    expect(barShare(1, 3)).toBe(33.3);
+    expect(barShare(0, 424)).toBe(0);
+    expect(barShare(0, 0)).toBe(0);
   });
 });
