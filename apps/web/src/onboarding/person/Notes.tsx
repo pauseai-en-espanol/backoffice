@@ -9,6 +9,7 @@ import {
 import { type FormEvent, useState } from 'react';
 
 import { formText } from '@/auth/client';
+import { useEditDone } from '@/ui/edit-done';
 import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
@@ -26,7 +27,10 @@ const isChannel = (value: unknown): value is ContactChannel =>
 const isOutcome = (value: unknown): value is ContactOutcome =>
   typeof value === 'string' && (CONTACT_OUTCOMES as readonly string[]).includes(value);
 
-/** The next action (onboarding spec, concepts): what to do and, optionally, by when; or none. */
+/**
+ * The next action (onboarding spec, concepts): what to do and, optionally, by when; or none. Edited in place, where it
+ * is shown (EditInPlace), it closes once saved or taken away.
+ */
 export const NextActionForm = ({
   person,
   text,
@@ -36,6 +40,7 @@ export const NextActionForm = ({
 }) => {
   const t = text.nextAction;
   const write = useWrite({ ...text.errors, nextAction: t.missing });
+  const done = useEditDone();
   const [missing, setMissing] = useState(false);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -47,10 +52,13 @@ export const NextActionForm = ({
     if (action === '') {
       return;
     }
-    await write.run(
+    const answer = await write.run(
       () => updatePerson(person.id, { nextAction: action, nextActionDue: due === '' ? null : due }),
       { done: t.saved },
     );
+    if (answer?.ok) {
+      done?.();
+    }
   };
 
   return (
@@ -96,16 +104,24 @@ export const NextActionForm = ({
             type="button"
             className={ui.textButton}
             aria-disabled={write.pending}
-            onClick={() =>
-              void write.run(
+            onClick={async () => {
+              const answer = await write.run(
                 () => updatePerson(person.id, { nextAction: null, nextActionDue: null }),
                 { done: t.cleared },
-              )
-            }
+              );
+              if (answer?.ok) {
+                done?.();
+              }
+            }}
           >
             {t.clear}
           </button>
         )}
+        {done ? (
+          <button type="button" className={ui.textButton} onClick={done}>
+            {text.cancel}
+          </button>
+        ) : null}
       </div>
     </form>
   );
@@ -145,7 +161,7 @@ export const AttemptForm = ({ personId, text }: { personId: string; text: Person
 
   return (
     <form className={ui.form} onSubmit={submit}>
-      <div className={styles.pair}>
+      <div className={styles.trio}>
         <div className={ui.field}>
           <label className={ui.label} htmlFor="intento-canal">
             {t.channel}
@@ -180,6 +196,7 @@ export const AttemptForm = ({ personId, text }: { personId: string; text: Person
             ))}
           </select>
         </div>
+        <HappenedOn id="intento-fecha" text={text} />
       </div>
       <div className={ui.field}>
         <label className={ui.label} htmlFor="intento-nota">
@@ -196,7 +213,6 @@ export const AttemptForm = ({ personId, text }: { personId: string; text: Person
           {text.note.warning}
         </span>
       </div>
-      <HappenedOn id="intento-fecha" text={text} />
       <FormError message={write.error} />
       <div>
         <button type="submit" className={ui.button} aria-disabled={write.pending}>
@@ -248,7 +264,9 @@ export const NoteForm = ({ personId, text }: { personId: string; text: PersonPag
           {t.warning}
         </span>
       </div>
-      <HappenedOn id="nota-fecha" text={text} />
+      <div className={styles.narrowField}>
+        <HappenedOn id="nota-fecha" text={text} />
+      </div>
       <FormError id="nota-error" message={missing ? t.missing : write.error} />
       <div>
         <button type="submit" className={ui.button} aria-disabled={write.pending}>

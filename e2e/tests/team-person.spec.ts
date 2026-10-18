@@ -24,6 +24,8 @@ test('an admin links a team account to its person, suggested by a shared email',
   await expect(page).toHaveURL(/\/personas\/[0-9a-f-]{36}$/u);
   const personPage = page.url();
 
+  // Done once per member, so folded under "Más acciones" (PLAN R57).
+  await page.getByRole('button', { name: 'Cuenta del equipo', exact: true }).click();
   const account = page.getByLabel('Cuenta', { exact: true });
   await expect(account.locator('option:checked')).toHaveText(`${colleague.name} (mismo correo)`);
   await expectAccessible(page);

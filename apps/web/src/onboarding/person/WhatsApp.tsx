@@ -55,7 +55,6 @@ export const WhatsAppHandover = ({
   const { template } = choice;
   return (
     <div className={ui.form}>
-      <p className={ui.hint}>{t.intro}</p>
       {choices.length > 1 ? (
         <div className={ui.field}>
           <label className={ui.label} htmlFor={`whatsapp-${personId}`}>
@@ -88,10 +87,14 @@ export const WhatsAppHandover = ({
           href={choice.link}
           target="_blank"
           rel="noopener noreferrer"
+          aria-describedby={`whatsapp-${personId}-intro`}
           onClick={() => setAsking(true)}
         >
           {t.open}
         </a>
+        <p id={`whatsapp-${personId}-intro`} className={ui.hint}>
+          {t.intro}
+        </p>
       </div>
       {asking ? (
         <div ref={question} tabIndex={-1} role="group" aria-label={t.sent} className={ui.confirm}>

@@ -1,5 +1,6 @@
 'use client';
 
+import { spacedPhone } from '@backoffice/domain/identities';
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
 
@@ -151,17 +152,20 @@ export const Identities = ({
       {identities.length === 0 ? null : (
         <ul className={styles.personList}>
           {identities.map((identity) => (
-            <li key={identity.id} className={styles.boardCard}>
+            <li key={identity.id} className={styles.identityRow}>
               <span className={ui.hint}>
                 {text.identityKinds[identity.kind]}
                 {identity.verified ? ` · ✓ ${t.verified}` : ''}
               </span>
-              <span className={ui.breakAnywhere}>{identity.value}</span>
+              <span className={ui.breakAnywhere}>
+                {identity.kind === 'phone' ? spacedPhone(identity.value) : identity.value}
+              </span>
               <div className={ui.rowActions}>
                 {identity.kind === 'email' ? <CopyEmail email={identity.value} text={t} /> : null}
                 {identity.kind === 'airtable' ? null : (
                   <ConfirmAction
                     label={fill(t.remove, { value: identity.value })}
+                    short={t.removeShort}
                     text={{
                       question: fill(t.confirmRemove, { value: identity.value }),
                       confirm: t.confirm,

@@ -324,6 +324,23 @@ export const textButton = css({
   '&[aria-disabled="true"]': { cursor: 'progress', opacity: 0.7 },
 });
 
+/** A value with the button that edits it beside it, which wraps under it on a narrow screen (EditInPlace). */
+export const editBeside = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  columnGap: '3',
+});
+
+/** A longer value (a list of facts), with the button that edits it under it. */
+export const editBelow = css({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'flex-start',
+});
+
+export const editValue = css({ minWidth: '0', overflowWrap: 'anywhere' });
+
 export const tags = css({ display: 'flex', flexWrap: 'wrap', gap: '2', listStyle: 'none' });
 
 /** A role, or any short label: outlined, so it never depends on a fill colour. */

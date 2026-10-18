@@ -103,7 +103,11 @@ deactivated account keeps it without the badge.
   every export is audited.
 - **Persona:** profile, identities, community presence, timeline. Quick actions: log a contact attempt (channel
   and outcome presets), set the next action, change stage, assign, add a note, open a WhatsApp chat with a
-  prepared message ([§7.3](#73-whatsapp-handover-links)), copy the email address.
+  prepared message ([§7.3](#73-whatsapp-handover-links)), copy the email address. Laid out to read first and edit in
+  place (PLAN R57): who they are, with "Me lo quedo" and WhatsApp; then where they are (stage, owner, next step, each
+  changed where it is shown), one place to write an attempt or a note, and the history, its latest ten in view;
+  beside it, a card each for contact, profile, community and census, edited in the card; merging, the team account
+  and their data under "Más acciones".
 - **Añadir rápido:** a phone, an email or a Discord username, the name if known, "Llegó por", "Llegó el" (today,
   emptied when nobody knows), optional note. Duplicates are checked as you type.
 - **Bandeja:** records awaiting a decision: possible duplicates and conflicting values.

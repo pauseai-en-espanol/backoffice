@@ -81,18 +81,20 @@ test('a person’s page: next action, a contact attempt, a note, a phone, and le
   const { personId } = (await response.json()) as { personId: string };
   await page.goto(`/personas/${personId}`);
 
+  // Each is changed where it is shown (PLAN R57).
+  await page.getByRole('button', { name: 'Añadir el siguiente paso' }).click();
   await page.getByLabel('Qué hay que hacer').fill('Llamar el jueves');
   await page.getByRole('button', { name: 'Guardar el siguiente paso' }).click();
   await expect(page.getByText('Siguiente paso guardado.')).toBeVisible();
 
-  // Attempts and notes are folded behind their buttons (PLAN M5).
-  await page.getByRole('button', { name: 'Registrar un intento de contacto' }).click();
+  // An attempt or a note, written in one place above the history (PLAN R57): an attempt unless a note is chosen.
+  await expect(page.getByRole('button', { name: 'Cambiar el siguiente paso' })).toBeFocused();
   await page.getByLabel('Por dónde').selectOption({ label: 'WhatsApp' });
   await page.getByLabel('Cómo fue').selectOption({ label: 'Ha respondido' });
   await page.getByRole('button', { name: 'Registrar el intento' }).click();
   await expect(page.getByText('Intento registrado.')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Añadir una nota' }).click();
+  await page.getByRole('radio', { name: 'Una nota' }).check();
   await page.getByLabel('Nota', { exact: true }).fill('Le interesa la divulgación');
   await page.getByRole('button', { name: 'Guardar la nota' }).click();
   await expect(page.getByText('Nota guardada.')).toBeVisible();
@@ -263,9 +265,9 @@ test('an older member entered after the fact: no arrival day, where from, Discor
   await page.getByLabel('Llegó el').fill('2025-03-01');
   await page.getByRole('button', { name: 'Guardar el perfil' }).click();
   await expect(page.getByText('1 de marzo de 2025')).toBeVisible();
-  await page.getByRole('button', { name: 'Añadir una nota' }).click();
+  await page.getByRole('radio', { name: 'Una nota' }).check();
   await page.getByLabel('Nota', { exact: true }).fill('Nos conocimos en una charla');
-  // The note's own date field (the attempt form, folded, has one too).
+  // The note's own date field (the attempt form, hidden, has one too).
   await page.locator('#nota-fecha').fill('2025-03-01');
   await page.getByRole('button', { name: 'Guardar la nota' }).click();
   await expect(page.getByText('Nota guardada.')).toBeVisible();

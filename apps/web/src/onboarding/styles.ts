@@ -206,6 +206,58 @@ export const boardCard = css({
 });
 
 /** A person's page: the main column, and the quick actions beside it from a wide screen up. */
+/** A person's page heading: who they are, and beside it (under it on a phone) what is done first. */
+export const personHeader = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  justifyContent: 'space-between',
+  alignItems: 'flex-start',
+  gap: '6',
+  marginBlockEnd: '6',
+});
+
+export const personHeading = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2',
+  flex: '1 1 24rem',
+  minWidth: '0',
+  '& h1': { marginBlockEnd: '0' },
+});
+
+/** "Me lo quedo" and WhatsApp, side by side. */
+export const personActions = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'flex-start',
+  gap: '3',
+  flex: '0 1 28rem',
+  minWidth: '0',
+  '& > *': { flex: '0 1 auto', minWidth: '0' },
+});
+
+/** Where someone is (stage, owner, next step): each label above its value on a phone, beside it from a tablet. */
+export const followUp = css({
+  display: 'grid',
+  gridTemplateColumns: { base: '1fr', md: 'auto minmax(0, 1fr)' },
+  columnGap: '4',
+  alignItems: 'baseline',
+  '& dt': { color: 'fg.muted', fontWeight: 'bold' },
+  '& dd': { margin: '0', marginBlockEnd: { base: '3', md: '1' } },
+});
+
+/** A phone, an email or a Discord username, with what can be done with it: a row, not a box in the box. */
+export const identityRow = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.5',
+  paddingBlock: '2',
+  borderBlockEndWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: 'border.subtle',
+  _last: { borderBlockEndWidth: '0' },
+});
+
 export const personPage = css({
   display: 'grid',
   gridTemplateColumns: { base: '1fr', lg: 'minmax(0, 3fr) minmax(0, 2fr)' },
@@ -258,6 +310,47 @@ export const choices = css({
   display: 'flex',
   flexDirection: 'column',
   gap: '1',
+  border: 'none',
+  padding: '0',
+  margin: '0',
+  '& legend': { fontWeight: 'bold', marginBlockEnd: '1' },
+  '& label': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '3',
+    minHeight: '11',
+    cursor: 'pointer',
+  },
+  '& input': { width: '5', height: '5', accentColor: 'fg.default', _focusVisible: focusRing },
+});
+
+/** Three short fields side by side from a tablet up (an attempt's channel, outcome and day). */
+export const trio = css({
+  display: 'grid',
+  gridTemplateColumns: { base: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+  gap: '4',
+  alignItems: 'start',
+});
+
+/** A field that needs no more width than a date. */
+export const narrowField = css({ maxWidth: '20rem' });
+
+/** A form's group of fields under its name ("Quién es", "Dónde vive"): no box, the name in bold. */
+export const fieldGroup = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4',
+  border: 'none',
+  padding: '0',
+  margin: '0',
+  '& legend': { fontWeight: 'bold', fontSize: 'lg', marginBlockEnd: '2' },
+});
+
+/** The same radio choices side by side, wrapping on a narrow screen (an attempt or a note). */
+export const choicesRow = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  columnGap: '6',
   border: 'none',
   padding: '0',
   margin: '0',

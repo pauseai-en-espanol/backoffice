@@ -24,10 +24,11 @@ import { Forbidden, OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { EraseData } from '@/onboarding/person/Erase';
 import { Identities } from '@/onboarding/person/Identities';
 import { MergePanel } from '@/onboarding/person/Merge';
-import { AttemptForm, NextActionForm, NoteForm } from '@/onboarding/person/Notes';
+import { NextActionForm } from '@/onboarding/person/Notes';
 import { PresenceActions } from '@/onboarding/person/Presence';
 import { ProfileEditor } from '@/onboarding/person/ProfileEditor';
-import { StageOwner } from '@/onboarding/person/StageOwner';
+import { RecordActivity } from '@/onboarding/person/Record';
+import { OwnerForm, StageForm } from '@/onboarding/person/StageOwner';
 import { TeamAccount } from '@/onboarding/person/TeamAccount';
 import { personPageText } from '@/onboarding/person/text';
 import { type WhatsAppChoice, WhatsAppHandover } from '@/onboarding/person/WhatsApp';
@@ -42,19 +43,24 @@ import { AppShell } from '@/shell/AppShell';
 import { getPersonSuggestions, getTeam } from '@/team/data';
 import { Announcer } from '@/ui/Announcer';
 import { Disclosure } from '@/ui/Disclosure';
+import { EditInPlace } from '@/ui/EditInPlace';
 import * as styles from '@/ui/styles';
 
 const t = getTranslator();
 
 export const metadata: Metadata = { title: t('people.title') };
 
+/** How much of the history is in view; the rest is behind "Ver lo anterior". */
+const RECENT_EVENTS = 10;
+
 /**
- * A person (onboarding spec, views: Persona), led by what is done most, which is what a phone shows first, opened
- * from the bot's "Abrir" (PLAN M5): "Me lo quedo" by the owner line, then the quick actions (WhatsApp, the stage and
- * the owner), the next step, and a contact attempt or a note behind their buttons. Then what is known: contact (adding
- * another phone or email folded), the profile, the census, the community, the history that lets anyone pick them up,
- * and merging. A tombstone (merged into another record) is shown as such, read only, with a link to the record that
- * stays.
+ * A person (onboarding spec, views: Persona; PLAN R57), opened from the bot's "Abrir" too. Who they are heads it, with
+ * what is done first: "Me lo quedo" and WhatsApp. Then, in the wider column, where they are (stage, owner and next
+ * step, each changed where it is shown), what happened since (an attempt or a note, written above the history it
+ * joins), and the history, its latest in view. Beside it, what is known, each edited in its own card: contact, the
+ * profile, the community, the census; and what is done rarely, folded under "Más acciones": merging, the team account,
+ * their data. A phone shows the same, one column, in that order. A tombstone (merged into another record) is shown as
+ * such, read only, with a link to the record that stays.
  */
 const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   const me = await requireStaff();
@@ -159,6 +165,114 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   const reporter = (value: StaffRef | string | null): string | undefined =>
     value === null ? undefined : typeof value === 'string' ? staffName(value) : value.displayName;
 
+  // What is known of them; their names are the page's heading already.
+  const profileFacts = (
+    <dl className={styles.facts}>
+      {person.province ? (
+        <>
+          <dt>{t('person.province')}</dt>
+          <dd>{person.province}</dd>
+        </>
+      ) : null}
+      {person.town ? (
+        <>
+          <dt>{t('person.town')}</dt>
+          <dd>{person.town}</dd>
+        </>
+      ) : null}
+      {person.pronouns ? (
+        <>
+          <dt>{t('person.pronouns')}</dt>
+          <dd>{person.pronouns}</dd>
+        </>
+      ) : null}
+      <dt>{t('person.arrivedOn')}</dt>
+      <dd>{person.arrivedOn ? formatDay(person.arrivedOn) : t('person.arrivedOnUnknown')}</dd>
+      <dt>{t('person.arrival')}</dt>
+      <dd>{person.arrival?.label ?? t('person.arrivalNone')}</dd>
+      {person.howHeard ? (
+        <>
+          <dt>{t('person.howHeard')}</dt>
+          <dd>{person.howHeard}</dd>
+        </>
+      ) : null}
+      {person.languages.length > 0 ? (
+        <>
+          <dt>{t('person.languages')}</dt>
+          <dd>{person.languages.join(', ')}</dd>
+        </>
+      ) : null}
+      {person.availability ? (
+        <>
+          <dt>{t('person.availability')}</dt>
+          <dd>
+            {(text.availability as Record<string, string>)[person.availability] ??
+              person.availability}
+          </dd>
+        </>
+      ) : null}
+      {person.sources.length > 0 ? (
+        <>
+          <dt>{t('person.sources')}</dt>
+          <dd>
+            <ul className={onboarding.meta}>
+              {person.sources.map((source) => {
+                const by = reporter(source.reportedBy);
+                return (
+                  <li key={source.source}>
+                    {sourceName(t, source.source)}
+                    {source.firstSeenAt ? ` · ${formatInstant(source.firstSeenAt)}` : ''}
+                    {by ? ` · ${by}` : ''}
+                  </li>
+                );
+              })}
+            </ul>
+          </dd>
+        </>
+      ) : null}
+    </dl>
+  );
+
+  // The history, newest first: the latest in view, the rest behind a button, so it never outgrows the page.
+  const events = [...timeline].sort((a, b) =>
+    happened(a) < happened(b) ? 1 : happened(a) > happened(b) ? -1 : 0,
+  );
+  const recent = events.slice(0, RECENT_EVENTS);
+  const older = events.slice(RECENT_EVENTS);
+  const eventItem = (event: (typeof timeline)[number]) => {
+    const described = describeEvent(event, { t, staffName, templateTitle });
+    const who = event.actor?.displayName ?? t('person.system');
+    return (
+      <li key={event.id}>
+        <strong>{described.title}</strong>
+        {event.happenedOn ? (
+          <span className={styles.block}>
+            <time dateTime={event.happenedOn}>
+              {t('timeline.happened', { date: formatDay(event.happenedOn) })}
+            </time>
+          </span>
+        ) : null}
+        <span className={`${styles.block} ${styles.hint}`}>
+          {who}
+          {event.channel === 'bot' ? ` ${t('person.viaBot')}` : ''} ·{' '}
+          {event.happenedOn ? (
+            <time dateTime={event.at}>
+              {t('timeline.recorded', { date: formatInstant(event.at) })}
+            </time>
+          ) : (
+            <time dateTime={event.at}>{formatInstant(event.at)}</time>
+          )}
+        </span>
+        {described.detail ? <p className={onboarding.timelineBody}>{described.detail}</p> : null}
+      </li>
+    );
+  };
+  const stageTag = <StageTag label={text.stages[person.stage]} />;
+  const ownerName = person.owner?.displayName ?? t('person.noOwner');
+  const nextAction = (
+    <NextAction text={person.nextAction} due={person.nextActionDue} labels={text.labels} />
+  );
+
   return (
     <AppShell me={me}>
       <Announcer>
@@ -169,47 +283,46 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
         </p>
         {person.id === id ? null : <p className={styles.notice}>{t('person.tombstoneNotice')}</p>}
         {anonymised ? <p className={styles.notice}>{t('person.anonymised')}</p> : null}
-        <h1 className={styles.h1}>{shown.name}</h1>
-        {person.fullName === null || person.name === person.fullName ? null : (
-          <p className={styles.text}>{person.fullName}</p>
-        )}
-        {person.summary ? <p className={onboarding.summary}>{person.summary}</p> : null}
-        <MissingLine missing={person.missing} labels={text.labels} />
-        <ul className={onboarding.meta}>
-          <li>
-            <StageTag label={text.stages[person.stage]} />
-          </li>
-          <li>
-            {t('person.owner')}: {person.owner?.displayName ?? t('person.noOwner')}
-          </li>
-          {person.owner === null && !readOnly ? (
-            <li>
-              <ClaimButton
-                personId={person.id}
-                text={{
-                  label: t('person.claim'),
-                  visible: t('person.claim'),
-                  claimed: t('today.claimed', { name: shown.name }),
-                  taken: t('today.claimTaken', { name: shown.name }),
-                  errors: text.errors,
-                }}
-              />
-            </li>
-          ) : null}
-          <li>{open ? t('person.inCommunity') : t('person.notInCommunity')}</li>
-          {person.team ? (
-            <li>
-              <TeamTag team={person.team} labels={text.labels} />{' '}
-              {t('person.teamAccount.linkedTo', { name: person.team.displayName })}
-              {person.team.active ? null : ` ${t('person.teamAccount.inactive')}`}
-            </li>
-          ) : null}
-        </ul>
-        <p>
-          <span className={styles.muted}>{t('person.nextAction')}: </span>
-          <NextAction text={person.nextAction} due={person.nextActionDue} labels={text.labels} />
-        </p>
-        <ReasonChips reasons={person.reasons} labels={text.labels} />
+        <div className={onboarding.personHeader}>
+          <div className={onboarding.personHeading}>
+            <h1 className={styles.h1}>{shown.name}</h1>
+            {person.fullName === null || person.name === person.fullName ? null : (
+              <p className={styles.muted}>{person.fullName}</p>
+            )}
+            {person.summary ? <p className={onboarding.summary}>{person.summary}</p> : null}
+            <MissingLine missing={person.missing} labels={text.labels} />
+            <ul className={onboarding.meta}>
+              <li>{open ? t('person.inCommunity') : t('person.notInCommunity')}</li>
+              {person.team ? (
+                <li>
+                  <TeamTag team={person.team} labels={text.labels} />{' '}
+                  {t('person.teamAccount.linkedTo', { name: person.team.displayName })}
+                  {person.team.active ? null : ` ${t('person.teamAccount.inactive')}`}
+                </li>
+              ) : null}
+            </ul>
+            <ReasonChips reasons={person.reasons} labels={text.labels} />
+          </div>
+          {readOnly ? null : (
+            <div className={onboarding.personActions}>
+              {person.owner === null ? (
+                <ClaimButton
+                  personId={person.id}
+                  text={{
+                    label: t('person.claim'),
+                    visible: t('person.claim'),
+                    claimed: t('today.claimed', { name: shown.name }),
+                    taken: t('today.claimTaken', { name: shown.name }),
+                    errors: text.errors,
+                  }}
+                />
+              ) : null}
+              {choices[0]?.link === undefined ? null : (
+                <WhatsAppHandover personId={person.id} choices={choices} text={text} />
+              )}
+            </div>
+          )}
+        </div>
         {merged ? (
           <p className={styles.notice}>
             {t('person.merged')}{' '}
@@ -223,36 +336,80 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
         ) : null}
 
         <div className={onboarding.personPage}>
-          {readOnly ? null : (
-            <div>
-              <section className={onboarding.section} aria-labelledby="acciones">
-                <h2 id="acciones" className={styles.h3}>
-                  {t('person.quickTitle')}
-                </h2>
-                {choices[0]?.link === undefined ? null : (
-                  <WhatsAppHandover personId={person.id} choices={choices} text={text} />
-                )}
-                <StageOwner person={shown} team={owners} text={text} />
-              </section>
-              <section className={onboarding.section} aria-labelledby="siguiente">
-                <h2 id="siguiente" className={styles.h3}>
-                  {t('person.nextActionTitle')}
-                </h2>
-                <NextActionForm person={person} text={text} />
-              </section>
+          <div>
+            <section className={onboarding.section} aria-labelledby="seguimiento">
+              <h2 id="seguimiento" className={styles.h3}>
+                {t('person.followUp')}
+              </h2>
+              <dl className={onboarding.followUp}>
+                <dt>{t('person.stageLabel')}</dt>
+                <dd>
+                  {readOnly ? (
+                    stageTag
+                  ) : (
+                    <EditInPlace label={t('person.changeStage')} view={stageTag}>
+                      <StageForm person={person} text={text} />
+                    </EditInPlace>
+                  )}
+                </dd>
+                <dt>{t('person.owner')}</dt>
+                <dd>
+                  {readOnly ? (
+                    ownerName
+                  ) : (
+                    <EditInPlace label={t('person.changeOwner')} view={ownerName}>
+                      <OwnerForm person={person} team={owners} text={text} />
+                    </EditInPlace>
+                  )}
+                </dd>
+                <dt>{t('person.nextAction')}</dt>
+                <dd>
+                  {readOnly ? (
+                    nextAction
+                  ) : (
+                    <EditInPlace
+                      label={
+                        person.nextAction === null
+                          ? t('person.addNextAction')
+                          : t('person.changeNextAction')
+                      }
+                      view={nextAction}
+                    >
+                      <NextActionForm person={person} text={text} />
+                    </EditInPlace>
+                  )}
+                </dd>
+              </dl>
+            </section>
+
+            {readOnly ? null : (
               <section className={onboarding.section} aria-labelledby="registrar">
                 <h2 id="registrar" className={styles.h3}>
                   {t('person.recordTitle')}
                 </h2>
-                <Disclosure id="registrar-intento" label={t('person.attemptTitle')}>
-                  <AttemptForm personId={person.id} text={text} />
-                </Disclosure>
-                <Disclosure id="registrar-nota" label={t('person.noteTitle')}>
-                  <NoteForm personId={person.id} text={text} />
-                </Disclosure>
+                <RecordActivity personId={person.id} text={text} />
               </section>
-            </div>
-          )}
+            )}
+
+            <section className={onboarding.section} aria-labelledby="historia">
+              <h2 id="historia" className={styles.h3}>
+                {t('person.timeline')}
+              </h2>
+              {events.length === 0 ? (
+                <p className={styles.hint}>{t('person.timelineNone')}</p>
+              ) : (
+                <ol className={onboarding.timeline}>{recent.map(eventItem)}</ol>
+              )}
+              {older.length === 0 ? null : (
+                <Disclosure
+                  id="historia-anterior"
+                  label={t('person.timelineOlder', { count: older.length })}
+                >
+                  <ol className={onboarding.timeline}>{older.map(eventItem)}</ol>
+                </Disclosure>
+              )}
+            </section>
+          </div>
 
           <div>
             <section className={onboarding.section} aria-labelledby="contacto">
@@ -274,123 +431,51 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 <Identities personId={person.id} identities={person.identities} text={text} />
               )}
             </section>
+
             <section className={onboarding.section} aria-labelledby="perfil">
               <h2 id="perfil" className={styles.h3}>
                 {t('person.profile')}
               </h2>
-              <dl className={styles.facts}>
-                <dt>{t('person.fullName')}</dt>
-                <dd>{shown.fullName ?? t('people.noName')}</dd>
-                {person.preferredName ? (
-                  <>
-                    <dt>{t('person.preferredName')}</dt>
-                    <dd>{person.preferredName}</dd>
-                  </>
-                ) : null}
-                {person.province ? (
-                  <>
-                    <dt>{t('person.province')}</dt>
-                    <dd>{person.province}</dd>
-                  </>
-                ) : null}
-                {person.town ? (
-                  <>
-                    <dt>{t('person.town')}</dt>
-                    <dd>{person.town}</dd>
-                  </>
-                ) : null}
-                {person.languages.length > 0 ? (
-                  <>
-                    <dt>{t('person.languages')}</dt>
-                    <dd>{person.languages.join(', ')}</dd>
-                  </>
-                ) : null}
-                {person.pronouns ? (
-                  <>
-                    <dt>{t('person.pronouns')}</dt>
-                    <dd>{person.pronouns}</dd>
-                  </>
-                ) : null}
-                {person.availability ? (
-                  <>
-                    <dt>{t('person.availability')}</dt>
-                    <dd>
-                      {(text.availability as Record<string, string>)[person.availability] ??
-                        person.availability}
-                    </dd>
-                  </>
-                ) : null}
-                {person.howHeard ? (
-                  <>
-                    <dt>{t('person.howHeard')}</dt>
-                    <dd>{person.howHeard}</dd>
-                  </>
-                ) : null}
-                <dt>{t('person.arrivedOn')}</dt>
-                <dd>
-                  {person.arrivedOn ? formatDay(person.arrivedOn) : t('person.arrivedOnUnknown')}
-                </dd>
-                <dt>{t('person.arrival')}</dt>
-                <dd>{person.arrival?.label ?? t('person.arrivalNone')}</dd>
-                {person.sources.length > 0 ? (
-                  <>
-                    <dt>{t('person.sources')}</dt>
-                    <dd>
-                      <ul className={onboarding.meta}>
-                        {person.sources.map((source) => {
-                          const by = reporter(source.reportedBy);
-                          return (
-                            <li key={source.source}>
-                              {sourceName(t, source.source)}
-                              {source.firstSeenAt ? ` · ${formatInstant(source.firstSeenAt)}` : ''}
-                              {by ? ` · ${by}` : ''}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </dd>
-                  </>
-                ) : null}
-              </dl>
-              {readOnly ? null : <ProfileEditor person={person} channels={channels} text={text} />}
+              {readOnly ? (
+                profileFacts
+              ) : (
+                <EditInPlace label={t('person.editProfile')} view={profileFacts} below>
+                  <ProfileEditor person={person} channels={channels} text={text} />
+                </EditInPlace>
+              )}
             </section>
 
-            {admin && !readOnly ? (
-              <section className={onboarding.section} aria-labelledby="cuenta-del-equipo">
-                <h2 id="cuenta-del-equipo" className={styles.h3}>
-                  {t('person.teamAccount.title')}
-                </h2>
-                <TeamAccount
+            <section className={onboarding.section} aria-labelledby="comunidad">
+              <h2 id="comunidad" className={styles.h3}>
+                {t('person.presence')}
+              </h2>
+              {person.presence.length === 0 ? (
+                <p className={styles.hint}>{t('person.presenceNone')}</p>
+              ) : (
+                <ul className={onboarding.personList}>
+                  {person.presence.map((period) => (
+                    <li key={period.id}>
+                      {period.joinedOn
+                        ? t('person.joinedOn', { date: formatDay(period.joinedOn) })
+                        : t('person.joinedUnknown')}
+                      {period.leftOn
+                        ? `, ${t('person.leftOn', { date: formatDay(period.leftOn) })}`
+                        : ''}
+                      {period.chat ? ` · ${t('person.chat')}: ${period.chat}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {readOnly ? null : (
+                <PresenceActions
                   personId={person.id}
-                  linked={person.team}
-                  accounts={members
-                    .filter((member) => member.personId === null)
-                    .map(({ userId, displayName }) => ({
-                      userId,
-                      displayName,
-                      suggested:
-                        !isUnavailable(suggestions) &&
-                        suggestions.some(
-                          (suggestion) =>
-                            suggestion.userId === userId && suggestion.person.id === person.id,
-                        ),
-                    }))}
-                  text={{
-                    linkedTo: String(t.raw('person.teamAccount.linkedTo')),
-                    inactive: t('person.teamAccount.inactive'),
-                    hint: t('person.teamAccount.hint'),
-                    account: t('person.teamAccount.account'),
-                    sameEmail: t('person.teamAccount.sameEmail'),
-                    link: t('person.teamAccount.link'),
-                    linked: t('person.teamAccount.linked'),
-                    unlink: t('person.teamAccount.unlink'),
-                    unlinked: t('person.teamAccount.unlinked'),
-                    noAccounts: t('person.teamAccount.noAccounts'),
-                    errors: text.errors,
-                  }}
+                  inCommunity={open}
+                  chats={chats}
+                  text={text}
                 />
-              </section>
-            ) : null}
+              )}
+            </section>
+
             <section className={onboarding.section} aria-labelledby="censo">
               <h2 id="censo" className={styles.h3}>
                 {t('person.census')}
@@ -426,138 +511,95 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                   );
                 })}
               </dl>
-              <h3 className={styles.h3}>{t('person.consents')}</h3>
-              <dl className={styles.facts}>
-                {CONSENT_KINDS.map((kind) => (
-                  <Fragment key={kind}>
-                    <dt>{t(`person.consentKinds.${kind}`)}</dt>
-                    <dd>{consentText(person.consents[kind], consentWords)}</dd>
-                  </Fragment>
-                ))}
-              </dl>
-            </section>
-
-            <section className={onboarding.section} aria-labelledby="comunidad">
-              <h2 id="comunidad" className={styles.h3}>
-                {t('person.presence')}
-              </h2>
-              {person.presence.length === 0 ? (
-                <p className={styles.hint}>{t('person.presenceNone')}</p>
-              ) : (
-                <ul className={onboarding.personList}>
-                  {person.presence.map((period) => (
-                    <li key={period.id}>
-                      {period.joinedOn
-                        ? t('person.joinedOn', { date: formatDay(period.joinedOn) })
-                        : t('person.joinedUnknown')}
-                      {period.leftOn
-                        ? `, ${t('person.leftOn', { date: formatDay(period.leftOn) })}`
-                        : ''}
-                      {period.chat ? ` · ${t('person.chat')}: ${period.chat}` : ''}
-                    </li>
+              <Disclosure id="consentimientos" label={t('person.showConsents')}>
+                <dl className={styles.facts}>
+                  {CONSENT_KINDS.map((kind) => (
+                    <Fragment key={kind}>
+                      <dt>{t(`person.consentKinds.${kind}`)}</dt>
+                      <dd>{consentText(person.consents[kind], consentWords)}</dd>
+                    </Fragment>
                   ))}
-                </ul>
-              )}
-              {readOnly ? null : (
-                <PresenceActions
-                  personId={person.id}
-                  inCommunity={open}
-                  chats={chats}
-                  text={text}
-                />
-              )}
-            </section>
-
-            <section className={onboarding.section} aria-labelledby="historia">
-              <h2 id="historia" className={styles.h3}>
-                {t('person.timeline')}
-              </h2>
-              {timeline.length === 0 ? (
-                <p className={styles.hint}>{t('person.timelineNone')}</p>
-              ) : (
-                <ol className={onboarding.timeline} reversed>
-                  {[...timeline]
-                    .sort((a, b) =>
-                      happened(a) < happened(b) ? 1 : happened(a) > happened(b) ? -1 : 0,
-                    )
-                    .map((event) => {
-                      const described = describeEvent(event, { t, staffName, templateTitle });
-                      const who = event.actor?.displayName ?? t('person.system');
-                      return (
-                        <li key={event.id}>
-                          <strong>{described.title}</strong>
-                          {event.happenedOn ? (
-                            <span className={styles.block}>
-                              <time dateTime={event.happenedOn}>
-                                {t('timeline.happened', { date: formatDay(event.happenedOn) })}
-                              </time>
-                            </span>
-                          ) : null}
-                          <span className={`${styles.block} ${styles.hint}`}>
-                            {who}
-                            {event.channel === 'bot' ? ` ${t('person.viaBot')}` : ''} ·{' '}
-                            {event.happenedOn ? (
-                              <time dateTime={event.at}>
-                                {t('timeline.recorded', { date: formatInstant(event.at) })}
-                              </time>
-                            ) : (
-                              <time dateTime={event.at}>{formatInstant(event.at)}</time>
-                            )}
-                          </span>
-                          {described.detail ? (
-                            <p className={onboarding.timelineBody}>{described.detail}</p>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                </ol>
-              )}
+                </dl>
+              </Disclosure>
             </section>
 
             {readOnly ? null : (
-              <section className={onboarding.section} aria-labelledby="fusionar">
-                <h2 id="fusionar" className={styles.h3}>
-                  {t('person.mergeTitle')}
+              <section className={onboarding.section} aria-labelledby="mas">
+                <h2 id="mas" className={styles.h3}>
+                  {t('person.more')}
                 </h2>
-                <MergePanel person={shown} text={text} />
+                <Disclosure id="fusionar" label={t('person.mergeTitle')}>
+                  <MergePanel person={shown} text={text} />
+                </Disclosure>
+                {admin ? (
+                  <Disclosure id="cuenta-del-equipo" label={t('person.teamAccount.title')}>
+                    <TeamAccount
+                      personId={person.id}
+                      linked={person.team}
+                      accounts={members
+                        .filter((member) => member.personId === null)
+                        .map(({ userId, displayName }) => ({
+                          userId,
+                          displayName,
+                          suggested:
+                            !isUnavailable(suggestions) &&
+                            suggestions.some(
+                              (suggestion) =>
+                                suggestion.userId === userId && suggestion.person.id === person.id,
+                            ),
+                        }))}
+                      text={{
+                        linkedTo: String(t.raw('person.teamAccount.linkedTo')),
+                        inactive: t('person.teamAccount.inactive'),
+                        hint: t('person.teamAccount.hint'),
+                        account: t('person.teamAccount.account'),
+                        sameEmail: t('person.teamAccount.sameEmail'),
+                        link: t('person.teamAccount.link'),
+                        linked: t('person.teamAccount.linked'),
+                        unlink: t('person.teamAccount.unlink'),
+                        unlinked: t('person.teamAccount.unlinked'),
+                        noAccounts: t('person.teamAccount.noAccounts'),
+                        errors: text.errors,
+                      }}
+                    />
+                  </Disclosure>
+                ) : null}
+                {admin ? (
+                  <Disclosure id="sus-datos" label={t('person.rights')}>
+                    <div className={styles.form}>
+                      <p className={styles.hint}>{t('person.rightsIntro')}</p>
+                      <div>
+                        <a
+                          className={styles.secondaryButton}
+                          href={`/api/people/${encodeURIComponent(person.id)}/export`}
+                          download
+                          aria-describedby="exportar-pista"
+                        >
+                          {t('person.export')}
+                        </a>
+                        <p id="exportar-pista" className={styles.hint}>
+                          {t('person.exportHint')}
+                        </p>
+                      </div>
+                      <EraseData
+                        personId={person.id}
+                        text={{
+                          erase: t('person.erase'),
+                          question: t('person.eraseQuestion', {
+                            name: shown.fullName ?? shown.name,
+                          }),
+                          understand: t('person.eraseUnderstand'),
+                          confirm: t('person.eraseConfirm'),
+                          cancel: t('person.cancel'),
+                          done: t('person.erased'),
+                          errors: { ...text.errors, stale: t('person.eraseAlready') },
+                        }}
+                      />
+                    </div>
+                  </Disclosure>
+                ) : null}
               </section>
             )}
-
-            {admin && !readOnly ? (
-              <section className={onboarding.section} aria-labelledby="sus-datos">
-                <h2 id="sus-datos" className={styles.h3}>
-                  {t('person.rights')}
-                </h2>
-                <div className={styles.form}>
-                  <p className={styles.hint}>{t('person.rightsIntro')}</p>
-                  <div>
-                    <a
-                      className={styles.secondaryButton}
-                      href={`/api/people/${encodeURIComponent(person.id)}/export`}
-                      download
-                      aria-describedby="exportar-pista"
-                    >
-                      {t('person.export')}
-                    </a>
-                    <p id="exportar-pista" className={styles.hint}>
-                      {t('person.exportHint')}
-                    </p>
-                  </div>
-                  <EraseData
-                    personId={person.id}
-                    text={{
-                      erase: t('person.erase'),
-                      question: t('person.eraseQuestion', { name: shown.fullName ?? shown.name }),
-                      understand: t('person.eraseUnderstand'),
-                      confirm: t('person.eraseConfirm'),
-                      cancel: t('person.cancel'),
-                      done: t('person.erased'),
-                      errors: { ...text.errors, stale: t('person.eraseAlready') },
-                    }}
-                  />
-                </div>
-              </section>
-            ) : null}
           </div>
         </div>
       </Announcer>

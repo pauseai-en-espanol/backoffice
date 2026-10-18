@@ -22,14 +22,18 @@ export interface ConfirmText {
 /**
  * A change that matters (deactivating someone, revoking an invitation), asked about in place first: the button opens
  * the question, which takes focus; "Cancelar" puts focus back on the button. Once done, the result is said in the
- * page's live region and the page's data is read again; a refusal is said here, next to the button.
+ * page's live region and the page's data is read again; a refusal is said here, next to the button. In a list of
+ * things (a person's phones), `short` is what the button shows, as a link-like button: its accessible name, `label`,
+ * still starts with it (WCAG 2.5.3) and says which.
  */
 export const ConfirmAction = ({
   label,
+  short,
   text,
   run,
 }: {
   label: string;
+  short?: string;
   text: ConfirmText;
   run: () => Promise<WriteAnswer>;
 }) => {
@@ -95,14 +99,15 @@ export const ConfirmAction = ({
         <button
           ref={opener}
           type="button"
-          className={styles.secondaryButton}
+          className={short === undefined ? styles.secondaryButton : styles.textButton}
+          aria-label={short === undefined ? undefined : label}
           onClick={() => {
             opened.current = true;
             setError(undefined);
             setAsking(true);
           }}
         >
-          {label}
+          {short ?? label}
         </button>
       )}
       <div role="alert">

@@ -479,6 +479,18 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   save someone with only a phone, an email or a Discord username, as the bot does (R37; Dani: "that is fine"), and
   start them as Baja; current members come in as Nuevo, moved to Activo by hand (Dani: "yes"). Migration
   `20261018100000`; mutation list `community-stays`.
+- **R57. A person's page, read first and edited in place** (Dani, 2026-10-18: "too many fields, too many forms in
+  the same page, forms that are not inline compared to the view, right bar dramatically taller than the center").
+  Options: trim the forms where they are; rearrange the page. **Chose to rearrange it**: the heading says who they
+  are, with "Me lo quedo" and WhatsApp beside it; the wider column holds where they are (stage, owner and next step,
+  each a value with "Cambiar…" that turns into its form in that very place, focus going in and coming back), one box
+  for an attempt or a note (an attempt unless a note is chosen; both keep what was typed), and the history, its
+  latest ten in view and the rest behind "Ver lo anterior". The narrower column holds what is known, each card
+  edited in place: contact (phones written with their spaces, "Quitar" as a quiet button), the profile (only what
+  is known, its editor in four groups: who they are, where they live, how they came, how they would help), the
+  community, the census (its consents folded). Merging, the team account and their data, done rarely, are folded
+  under "Más acciones". A phone shows the same in one column; claiming, WhatsApp and the stage stay on its first
+  screen. The edit-in-place pattern is `EditInPlace` (`apps/web/src/ui`).
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).
