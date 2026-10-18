@@ -184,7 +184,7 @@ export const HoldPanel = ({
 export interface NoteText {
   note: string;
   warning: string;
-  /** "Cuándo fue (opcional)": its label, hint, and today's date in Madrid, the latest it takes. */
+  /** "Cuándo fue", optional: its label, hint, and today's date in Madrid, the latest it takes. */
   happened: { label: string; hint: string; today: string };
   /** "Solo para mí", and on a private record, that its notes are private too. */
   mine: string;

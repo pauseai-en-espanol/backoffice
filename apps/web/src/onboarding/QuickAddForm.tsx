@@ -332,7 +332,7 @@ export const QuickAddForm = ({
           </span>
         </div>
       </fieldset>
-      <div className={styles.pair}>
+      <div className={ui.fieldRow} data-columns="wide-narrow">
         <div className={ui.field}>
           <label className={ui.label} htmlFor="alta-llegada">
             {text.arrival}
@@ -373,7 +373,7 @@ export const QuickAddForm = ({
           </span>
         </div>
       </div>
-      <div className={styles.pair}>
+      <div className={ui.fieldRow} data-columns="wide-narrow">
         <div className={ui.field}>
           <label className={ui.label} htmlFor="alta-provincia">
             {text.province}

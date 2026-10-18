@@ -352,16 +352,50 @@ export const followUp = css({
   '& dd': { margin: '0', marginBlockEnd: { base: '3', md: '1' } },
 });
 
-/** A phone, an email or a Discord username, with what can be done with it: a row, not a box in the box. */
+/** Contacto's details, one row each (PLAN R63). */
+export const identityList = css({ display: 'flex', flexDirection: 'column', listStyle: 'none' });
+
+/**
+ * A phone, an email or a Discord username on one line: its kind's mark, the value, and what can be done with it at
+ * the row's end ("Copiar", "Quitar"), wrapping under the value when there's no room. A row, not a box in the box.
+ */
 export const identityRow = css({
   display: 'flex',
-  flexDirection: 'column',
-  gap: '0.5',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  columnGap: '3',
+  rowGap: '1',
   paddingBlock: '2',
   borderBlockEndWidth: '1px',
   borderStyle: 'solid',
   borderColor: 'border.subtle',
-  _last: { borderBlockEndWidth: '0' },
+});
+
+/** An icon beside its words: the text's size, never on its own. */
+export const identityIcon = css({ width: '4', height: '4', flex: 'none', color: 'fg.muted' });
+
+/** An icon inside a button, before its word. */
+export const buttonIcon = css({ width: '4', height: '4', flex: 'none' });
+
+/** At least 10rem before it shares its line: a long address sends the actions under it, not itself into pieces. */
+export const identityValue = css({ flex: '1 1 10rem', minWidth: '0', overflowWrap: 'anywhere' });
+
+export const identityActions = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '3',
+  marginInlineStart: 'auto',
+});
+
+/** Adding one: its label, the field with "Añadir" beside it (bottoms aligned), then how it will be stored. */
+export const identityForm = css({ display: 'flex', flexDirection: 'column', gap: '1.5' });
+
+export const identityAdd = css({
+  display: 'flex',
+  gap: '2',
+  alignItems: 'stretch',
+  '& > input': { flex: '1', minWidth: '0' },
+  '& > button': { flex: 'none', display: 'inline-flex', alignItems: 'center', gap: '1.5' },
 });
 
 export const personPage = css({
@@ -430,14 +464,6 @@ export const choices = css({
   '& input': { width: '5', height: '5', accentColor: 'fg.default', _focusVisible: focusRing },
 });
 
-/** Three short fields side by side from a tablet up (an attempt's channel, outcome and day). */
-export const trio = css({
-  display: 'grid',
-  gridTemplateColumns: { base: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-  gap: '4',
-  alignItems: 'start',
-});
-
 /** A field that needs no more width than a date. */
 export const narrowField = css({ maxWidth: '20rem' });
 
@@ -469,13 +495,6 @@ export const choicesRow = css({
     cursor: 'pointer',
   },
   '& input': { width: '5', height: '5', accentColor: 'fg.default', _focusVisible: focusRing },
-});
-
-/** A pair of fields side by side from a tablet up (a date beside its text). */
-export const pair = css({
-  display: 'grid',
-  gridTemplateColumns: { base: '1fr', md: 'minmax(0, 2fr) minmax(0, 1fr)' },
-  gap: '4',
 });
 
 /** "igual" in the Bandeja's comparison: in words, outlined, never by colour alone (PLAN R60). */

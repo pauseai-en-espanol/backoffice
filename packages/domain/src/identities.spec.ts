@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   foldName,
+  inferIdentityKind,
   normalizeAirtableId,
   normalizeDiscord,
   normalizeEmail,
@@ -20,6 +21,45 @@ describe('Discord usernames (PLAN M5)', () => {
   it('refuse what Discord wouldn’t make', () => {
     for (const raw of ['', 'a', 'x'.repeat(33), 'per..sona', 'per sona', 'persona#1234', 'peña']) {
       expect(normalizeDiscord(raw), raw).toBeUndefined();
+    }
+  });
+});
+
+describe('inferIdentityKind: what someone typed in Contacto (PLAN R63)', () => {
+  it('reads a phone number as people write it', () => {
+    for (const raw of ['612 34 56 78', '+34 612 34 56 78', '0034 612345678', '(612) 345-678']) {
+      expect(inferIdentityKind(raw), raw).toBe('phone');
+    }
+  });
+
+  it('reads an @ with a dot after it as an email', () => {
+    for (const raw of [
+      'ana@ejemplo.test',
+      ' Ana.Garcia@Ejemplo.TEST ',
+      'mailto:ana@ejemplo.test',
+    ]) {
+      expect(inferIdentityKind(raw), raw).toBe('email');
+    }
+  });
+
+  it('reads anything else Discord would make as a Discord username, a leading @ too', () => {
+    for (const raw of ['persona_de.ejemplo', '@Persona', 'ab']) {
+      expect(inferIdentityKind(raw), raw).toBe('discord');
+    }
+  });
+
+  it('knows nothing it couldn’t store: a short number, an address without a dot, a space or a #', () => {
+    for (const raw of [
+      '',
+      '   ',
+      '612 34',
+      '123',
+      'ana@ejemplo',
+      'ana @ejemplo.test',
+      'persona#1234',
+      'a',
+    ]) {
+      expect(inferIdentityKind(raw), raw).toBeUndefined();
     }
   });
 });

@@ -63,7 +63,7 @@ export const NextActionForm = ({
 
   return (
     <form className={ui.form} onSubmit={submit}>
-      <div className={styles.pair}>
+      <div className={ui.fieldRow} data-columns="wide-narrow">
         <div className={ui.field}>
           <label className={ui.label} htmlFor="siguiente-texto">
             {t.text}
@@ -91,7 +91,11 @@ export const NextActionForm = ({
             type="date"
             name="nextActionDue"
             defaultValue={person.nextActionDue ?? ''}
+            aria-describedby="siguiente-fecha-hint"
           />
+          <span id="siguiente-fecha-hint" className={ui.hint}>
+            {t.dueHint}
+          </span>
         </div>
       </div>
       <FormError id="siguiente-error" message={missing ? t.missing : write.error} />
@@ -161,7 +165,7 @@ export const AttemptForm = ({ personId, text }: { personId: string; text: Person
 
   return (
     <form className={ui.form} onSubmit={submit}>
-      <div className={styles.trio}>
+      <div className={ui.fieldRow}>
         <div className={ui.field}>
           <label className={ui.label} htmlFor="intento-canal">
             {t.channel}

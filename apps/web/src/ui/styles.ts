@@ -399,6 +399,32 @@ export const disclosure = css({ display: 'flex', flexDirection: 'column', gap: '
 
 export const field = css({ display: 'flex', flexDirection: 'column', gap: '1.5' });
 
+/**
+ * Fields side by side (PLAN R64), each a `field` (a div: its label, its box, maybe a hint). From a tablet up they share
+ * their rows (CSS subgrid): the labels one row, the boxes the next, the hints the last, so a label that wraps lowers its
+ * neighbours' too and every box stays in line. Even columns, or `data-columns="wide-narrow"` for a text beside a date.
+ * One column on a phone, where nothing sits beside anything.
+ */
+export const fieldRow = css({
+  display: 'grid',
+  gridTemplateColumns: 'minmax(0, 1fr)',
+  gap: '4',
+  md: {
+    gridTemplateColumns: 'none',
+    gridAutoFlow: 'column',
+    gridAutoColumns: 'minmax(0, 1fr)',
+    columnGap: '4',
+    rowGap: '1.5',
+    '& > div': {
+      gridRow: 'span 3',
+      display: 'grid',
+      gridTemplateRows: 'subgrid',
+      alignContent: 'start',
+    },
+    '&[data-columns="wide-narrow"]': { gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)' },
+  },
+});
+
 export const label = css({ fontWeight: 'bold' });
 
 export const hint = css({ color: 'fg.muted', fontSize: 'sm' });

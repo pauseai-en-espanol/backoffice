@@ -112,7 +112,10 @@ deactivated account keeps it without the badge.
   changed where it is shown), one place to write an attempt or a note, and the history, its latest ten in view;
   beside it, a card each for contact, profile, sign-up and community, and census, edited in the card; merging, the team
   account and their data under "Más acciones". The sign-up's day is written once: the card "Alta y comunidad" tells
-  only what changed in the group since ("Salió del grupo el …", "Volvió al grupo el …"; PLAN R58).
+  only what changed in the group since ("Salió del grupo el …", "Volvió al grupo el …"; PLAN R58). The contact card
+  lists each phone, email and Discord username on one line, its kind's icon, the value and "Quitar"; below them one
+  field, "Añadir teléfono, correo o Discord", takes any of the three and tells which it is from what is typed (PLAN
+  R63). Fields side by side keep their boxes in line whatever their labels (PLAN R64).
 - **Añadir rápido:** a phone, an email or a Discord username, the name if known, "Canal de alta", "Fecha de alta"
   (today, emptied when nobody knows), optional note. Duplicates are checked as you type.
 - **Bandeja:** records awaiting a decision: possible duplicates and conflicting values. A possible duplicate is

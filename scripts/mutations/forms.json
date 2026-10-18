@@ -1,0 +1,116 @@
+[
+  {
+    "name": "Contacto never recognises an email",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  if (value.indexOf('@') > 0) {",
+    "new": "  if (false) {",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a leading @ makes an email, not a Discord username",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  if (value.indexOf('@') > 0) {",
+    "new": "  if (value.indexOf('@') >= 0) {",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "any address with an @ passes as an email",
+    "file": "packages/domain/src/identities.ts",
+    "old": "    return normalizeEmail(value) === undefined ? undefined : 'email';",
+    "new": "    return 'email';",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "Contacto never recognises a phone",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  if (/^[\\d\\s+().-]+$/u.test(value)) {",
+    "new": "  if (false) {",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "any digits pass as a phone",
+    "file": "packages/domain/src/identities.ts",
+    "old": "    return normalizePhone(value) === undefined ? undefined : 'phone';",
+    "new": "    return 'phone';",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a number too short is taken for a Discord username",
+    "file": "packages/domain/src/identities.ts",
+    "old": "    return normalizePhone(value) === undefined ? undefined : 'phone';",
+    "new": "    return normalizePhone(value) === undefined ? (normalizeDiscord(value) === undefined ? undefined : 'discord') : 'phone';",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "Contacto never recognises a Discord username",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  return normalizeDiscord(value) === undefined ? undefined : 'discord';",
+    "new": "  return undefined;",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "anything else passes as a Discord username",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  return normalizeDiscord(value) === undefined ? undefined : 'discord';",
+    "new": "  return 'discord';",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "Contacto sends every value as a phone, whatever it is",
+    "file": "apps/web/src/onboarding/person/Identities.tsx",
+    "old": "addIdentity(personId, { kind, value: value.trim() })",
+    "new": "addIdentity(personId, { kind: 'phone', value: value.trim() })",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"Contacto takes|stay in line\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Contacto sends what is none of the three, and the API's refusal is all that's said",
+    "file": "apps/web/src/onboarding/person/Identities.tsx",
+    "old": "    if (kind === undefined) {\n      return;\n    }\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"Contacto takes|stay in line\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "\"Quitar\" doesn't say which detail it takes away",
+    "file": "apps/web/src/onboarding/person/Identities.tsx",
+    "old": "label={fill(t.remove, { value: identity.value })}",
+    "new": "label={t.removeShort}",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"Contacto takes|stay in line\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "the preview calls everything a phone",
+    "file": "apps/web/src/onboarding/person/Identities.tsx",
+    "old": "fill(t.willBe[kind], {",
+    "new": "fill(t.willBe.phone, {",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"Contacto takes|stay in line\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "fields side by side don't share their rows, so a wrapping label pushes its box down",
+    "file": "apps/web/src/ui/styles.ts",
+    "old": "      gridTemplateRows: 'subgrid',\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"Contacto takes|stay in line\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  }
+]

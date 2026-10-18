@@ -521,6 +521,22 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   persona? Búscala" searches as Personas does and attaches the record to whoever is found: `resolve_intake` takes any
   live person for it (migration `20261018140000`), but a census answer still only one of its candidates. Mutation list
   `bandeja`.
+- **R63. Contacto: one field, its kind read from what is typed** (the visual review, 2026-10-18; Dani: "accepted go
+  for it", "do everything"). Options: keep the "Tipo" select; infer the kind. **Chose to infer it**
+  (`inferIdentityKind` in domain): an @ after the first character is an email; only digits, spaces, `+`, brackets,
+  dots and dashes, a phone; anything else Discord would make, a Discord username (a leading @ goes). A number too
+  short is no Discord name: it's refused, as is anything none of the three, in words, before anything is sent. The
+  hint says what it will be stored as ("Se guardará como correo: …"). Each detail is one row: its kind's icon (the
+  kind said to screen readers), the value, and "Copiar el correo" and "Quitar" at the row's end, which go under a
+  long value instead of breaking it. The add field is always there, no longer folded. The API still takes
+  `{ kind, value }`. Mutation list `forms`.
+- **R64. Fields side by side stay in line** (the visual review; Dani, 2026-10-18: "alignment is horrible"). A row of
+  fields shared its columns but not its rows, so a label that wrapped pushed its own box below its neighbours'.
+  **Now** one rule, `fieldRow` (apps/web/src/ui/styles.ts): from a tablet up the fields share their rows (CSS
+  subgrid), labels in one, boxes in the next, hints in the last, so boxes stay in line whatever the labels; one
+  column on a phone. Labels in such rows are kept to one line anyway: "(opcional)" moved into the hint ("Cuándo
+  fue", "Para cuándo"; outreach's "Cuándo fue" too). Used by the Registrar row, the next step, and Añadir; an e2e
+  test lengthens a label until it wraps and checks the boxes. Mutation list `forms`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

@@ -99,8 +99,8 @@ test('a person’s page: next action, a contact attempt, a note, a phone, and le
   await page.getByRole('button', { name: 'Guardar la nota' }).click();
   await expect(page.getByText('Nota guardada.')).toBeVisible();
 
-  await page.getByLabel('Teléfono, correo o usuario de Discord').fill(phone());
-  await page.getByRole('button', { name: 'Añadir teléfono, correo o Discord' }).click();
+  await page.getByLabel('Añadir teléfono, correo o Discord').fill(phone());
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await expect(page.getByText('Dato de contacto añadido.')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Abrir WhatsApp' })).toHaveAttribute(
     'href',
@@ -112,6 +112,82 @@ test('a person’s page: next action, a contact attempt, a note, a phone, and le
   await expect(page.getByText('Etapa: de «Nuevo» a «En contacto»')).toBeVisible();
   await expect(page.getByText('Le interesa la divulgación')).toBeVisible();
   await expectAccessible(page);
+});
+
+test('Contacto takes a phone, an email or a Discord username in one field, and says when it is none (PLAN R63)', async ({
+  page,
+}) => {
+  await signedInStaff(page, ['onboarding']);
+  const origin = new URL(page.url()).origin;
+  const created = await page.request.post('/api/intake', {
+    headers: { origin },
+    data: { name: uniqueName(), decision: 'new' },
+  });
+  expect(created.status()).toBe(201);
+  const { personId } = (await created.json()) as { personId: string };
+  await page.goto(`/personas/${personId}`);
+
+  const field = page.getByLabel('Añadir teléfono, correo o Discord');
+  const add = page.getByRole('button', { name: 'Añadir', exact: true });
+  await expect(page.getByRole('combobox', { name: 'Tipo' })).toHaveCount(0);
+
+  // Nothing typed, then something that is none of the three: said in words, nothing sent.
+  await add.click();
+  await expect(
+    page.getByRole('alert').getByText('Escribe un teléfono, un correo o un usuario de Discord.'),
+  ).toBeVisible();
+  await field.fill('ana@ejemplo');
+  await expect(
+    page.getByText('No parece un teléfono, correo o usuario de Discord válido.'),
+  ).toBeVisible();
+  await add.click();
+  await expect(
+    page
+      .getByRole('alert')
+      .getByText('Eso no es un teléfono, un correo ni un usuario de Discord: revísalo.'),
+  ).toBeVisible();
+
+  // Each kind recognised as typed, said before it's added, then listed with its own "Quitar".
+  const number = phone();
+  const email = `contacto.${tag()}@ejemplo.test`;
+  const discord = `persona_${tag()}`;
+  for (const [typed, preview, stored] of [
+    [number, /^Se guardará como teléfono: \+34 /u, `+34${number}`],
+    [email, `Se guardará como correo: ${email}`, email],
+    [`@${discord}`, `Se guardará como usuario de Discord: ${discord}`, discord],
+  ] as const) {
+    await field.fill(typed);
+    await expect(page.getByText(preview)).toBeVisible();
+    await add.click();
+    await expect(page.getByRole('button', { name: `Quitar ${stored}` })).toBeVisible();
+    await expect(field).toHaveValue('');
+  }
+  await expectAccessible(page);
+});
+
+test('fields side by side stay in line when a label wraps (PLAN R64)', async ({ page }) => {
+  await signedInStaff(page, ['onboarding']);
+  const origin = new URL(page.url()).origin;
+  const created = await page.request.post('/api/intake', {
+    headers: { origin },
+    data: { name: uniqueName(), decision: 'new' },
+  });
+  const { personId } = (await created.json()) as { personId: string };
+  await page.goto(`/personas/${personId}`);
+  const boxes = ['#intento-canal', '#intento-resultado', '#intento-fecha'].map((id) =>
+    page.locator(id),
+  );
+  // A label much longer than its column, as another wording or a narrower screen could make it.
+  await page.locator('label[for="intento-canal"]').evaluate((label) => {
+    label.textContent =
+      'Por dónde fue el intento, si fue por más de un canal el primero que se usó';
+  });
+  // It does wrap: several lines tall.
+  expect((await page.locator('label[for="intento-canal"]').boundingBox())?.height).toBeGreaterThan(
+    60,
+  );
+  const tops = await Promise.all(boxes.map(async (box) => (await box.boundingBox())?.y ?? -1));
+  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(1);
 });
 
 test('a likely duplicate is caught as you type, and a decided one goes through', async ({

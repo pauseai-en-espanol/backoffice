@@ -27,7 +27,7 @@ test('an organisation keeps notes of past conversations, dated when they happene
   await page
     .getByRole('textbox', { name: 'Nota', exact: true })
     .fill('Su junta nos recibió en su sede');
-  await page.getByLabel('Cuándo fue (opcional)').fill('2026-03-01');
+  await page.getByLabel('Cuándo fue', { exact: true }).fill('2026-03-01');
   await page.getByRole('button', { name: 'Guardar la nota' }).click();
   await expect(page.getByText('Nota guardada.')).toBeVisible();
 

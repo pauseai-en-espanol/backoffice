@@ -59,6 +59,25 @@ export const normalizeAirtableId = (raw: string): string | undefined => {
   return /^rec[A-Za-z0-9]{14}$/u.test(value) ? value : undefined;
 };
 
+/**
+ * Which kind a value typed in Contacto is (PLAN R63), so nobody chooses it: an @ after the first character makes it an
+ * email; only digits, spaces, `+`, brackets, dots and dashes, a phone; anything else, a Discord username (with or
+ * without its @). Undefined when it isn't a valid one of what it looks like: a number too short is no Discord name.
+ */
+export const inferIdentityKind = (raw: string): 'email' | 'phone' | 'discord' | undefined => {
+  const value = raw.trim();
+  if (value === '') {
+    return undefined;
+  }
+  if (value.indexOf('@') > 0) {
+    return normalizeEmail(value) === undefined ? undefined : 'email';
+  }
+  if (/^[\d\s+().-]+$/u.test(value)) {
+    return normalizePhone(value) === undefined ? undefined : 'phone';
+  }
+  return normalizeDiscord(value) === undefined ? undefined : 'discord';
+};
+
 export const normalizeIdentity = (kind: IdentityKind, raw: string): string | undefined =>
   kind === 'email'
     ? normalizeEmail(raw)
