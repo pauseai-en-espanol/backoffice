@@ -1,6 +1,6 @@
 {
   "name": "@backoffice/web",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "private": true,
   "description": "Staff web app: sign-in, the team and the audit log; the onboarding and outreach views from M1",
   "type": "module",

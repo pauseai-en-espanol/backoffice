@@ -1,6 +1,6 @@
 {
   "name": "@backoffice/domain",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Pure shared logic: normalising contact details, stages and attention, parsing what the bot is told",
   "type": "module",

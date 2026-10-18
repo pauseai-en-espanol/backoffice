@@ -1,5 +1,14 @@
 # @backoffice/web
 
+## 0.14.1
+
+### Patch Changes
+
+- 4e92c54: A contact attempt may be a video call: "Videollamada" in "Por dónde", after "Teléfono".
+- Updated dependencies [4e92c54]
+  - @backoffice/domain@0.4.1
+  - @backoffice/i18n@0.14.1
+
 ## 0.14.0
 
 ### Minor Changes

@@ -1,5 +1,11 @@
 # @backoffice/migrations
 
+## 0.9.1
+
+### Patch Changes
+
+- 4e92c54: A contact attempt may be a video call: "Videollamada" in "Por dónde", after "Teléfono".
+
 ## 0.9.0
 
 ### Minor Changes
