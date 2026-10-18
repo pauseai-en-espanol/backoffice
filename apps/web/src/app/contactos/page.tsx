@@ -64,7 +64,7 @@ const ContactsPage = async ({
     <AppShell me={me}>
       <h1 className={styles.h1}>{t('contacts.title')}</h1>
       <p className={styles.text}>{t('contacts.intro')}</p>
-      <p>
+      <p className={styles.text}>
         <a className={styles.secondaryButton} href="#nuevo">
           {t('contacts.new')}
         </a>

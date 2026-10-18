@@ -1,19 +1,23 @@
 import type { Status as Kind } from '@backoffice/ui/brand';
+import type { LucideIcon } from 'lucide-react';
 
+import { Check, Info, TriangleAlert, X } from 'lucide-react';
+
+import { Icon } from './Icon';
 import * as styles from './styles';
 
-/** Each status's mark, so it never depends on colour (BRIEF, accessibility). */
-const MARKS: Readonly<Record<Kind, string>> = {
-  positive: '✓',
-  attention: '!',
-  negative: '✕',
-  info: 'i',
+/** Each status's icon, so it never depends on colour (BRIEF, accessibility; PLAN R61). */
+const ICONS: Readonly<Record<Kind, LucideIcon>> = {
+  positive: Check,
+  attention: TriangleAlert,
+  negative: X,
+  info: Info,
 };
 
-/** A status in words, with its mark and colours: "✓ Activa", "✕ Revocada". */
+/** A status in words, with its icon and colours: "✓ Activa", "✕ Revocada". */
 export const Status = ({ kind, label }: { kind: Kind; label: string }) => (
   <span className={styles.status} data-status={kind}>
-    <span aria-hidden="true">{MARKS[kind]}</span>
+    <Icon icon={ICONS[kind]} size={14} />
     {label}
   </span>
 );

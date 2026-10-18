@@ -511,8 +511,6 @@
     "unassigned": "Sin asignar",
     "unassignedIntro": "Personas nuevas que nadie ha cogido todavía, de la más antigua a la más reciente.",
     "unassignedNone": "No hay nadie sin asignar. Cuando llegue alguien aparecerá aquí.",
-    "counts": "{mine, plural, =0 {Nadie a tu cargo pendiente} one {# persona a tu cargo pendiente} other {# personas a tu cargo pendientes}} · {unassigned, plural, =0 {nadie sin asignar} one {# sin asignar} other {# sin asignar}}",
-    "bandeja": "{count, plural, one {Hay # registro en la Bandeja esperando una decisión.} other {Hay # registros en la Bandeja esperando una decisión.}}",
     "toBandeja": "Ir a la Bandeja",
     "figureMine": "a tu cargo, pendientes",
     "figureUnassigned": "sin asignar",
