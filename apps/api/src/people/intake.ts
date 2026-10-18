@@ -105,6 +105,25 @@ export const submitIntake = async (
   return { intakeId: row.intake_id, status: row.status, personId: row.person_id };
 };
 
+/** A person's ways to be reached, as the Bandeja compares them (PLAN R60). */
+export interface Contacts {
+  phones: string[];
+  emails: string[];
+  discords: string[];
+}
+
+/** What a record brought in, beyond its name and place, for the Bandeja's comparison (PLAN R60). */
+export interface Brought {
+  /** Empty for a census answer, which comes without them (R24). */
+  contacts: Contacts;
+  /** "Canal de alta", as the list names it, if the record says one. */
+  arrival: string | null;
+  arrivedOn: string | null;
+  joinedOn: string | null;
+  leftOn: string | null;
+  stage: string | null;
+}
+
 export interface BandejaItem {
   id: string;
   source: string;
@@ -112,6 +131,7 @@ export interface BandejaItem {
   name: string | null;
   province: string | null;
   town: string | null;
+  brought: Brought;
   reportedBy: string | null;
   createdAt: string;
   candidates: string[];
@@ -151,9 +171,9 @@ const censusAnswer = (answer: unknown): Record<string, unknown> => {
 };
 
 /**
- * Records waiting for a person's decision: possible duplicates and conflicting values, oldest first. Only what the
- * decision needs of the payload (name, province, town), never its contact details: a census answer comes without its
- * email and phone.
+ * Records waiting for a person's decision: possible duplicates and conflicting values, oldest first. What the decision
+ * needs of the payload (PLAN R60): name, place, sign-up, stay and stage, and its phones, emails and Discord usernames,
+ * but for a census answer, which comes without them (R24: anyone can type anyone's number).
  */
 export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> => {
   const { rows } = await sql<{
@@ -168,9 +188,26 @@ export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> 
     candidates: string[];
     person_id: string | null;
     conflicts: Record<string, unknown>;
+    phones: string[] | null;
+    emails: string[] | null;
+    discords: string[] | null;
+    arrival: string | null;
+    arrived_on: string | null;
+    joined_on: string | null;
+    left_on: string | null;
+    stage: string | null;
   }>`
     SELECT i.id, i.source::text AS source, i.status::text AS status, i.payload ->> 'name' AS name,
            i.payload ->> 'province' AS province, i.payload ->> 'town' AS town, s.display_name AS reported_by,
+           CASE WHEN i.source <> 'census' THEN i.payload -> 'phones' END AS phones,
+           CASE WHEN i.source <> 'census' THEN i.payload -> 'emails' END AS emails,
+           CASE WHEN i.source <> 'census' THEN i.payload -> 'discords' END AS discords,
+           (SELECT c.label FROM app.arrival_channels c
+             WHERE c.id::text = lower(btrim(i.payload ->> 'arrival')) OR c.key = lower(btrim(i.payload ->> 'arrival'))
+                OR lower(c.label) = lower(btrim(i.payload ->> 'arrival'))
+             ORDER BY c.position LIMIT 1) AS arrival,
+           i.payload ->> 'arrived_on' AS arrived_on, i.payload ->> 'joined_on' AS joined_on,
+           i.payload ->> 'left_on' AS left_on, i.payload ->> 'stage' AS stage,
            to_json(i.created_at)#>>'{}' AS created_at, i.candidates, i.person_id, i.conflicts - 'identities'
              || CASE WHEN i.conflicts ? 'identities'
                      THEN jsonb_build_object('identities', jsonb_array_length(i.conflicts -> 'identities'))
@@ -187,6 +224,18 @@ export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> 
     name: row.name,
     province: row.province,
     town: row.town,
+    brought: {
+      contacts: {
+        phones: row.phones ?? [],
+        emails: row.emails ?? [],
+        discords: row.discords ?? [],
+      },
+      arrival: row.arrival,
+      arrivedOn: row.arrived_on,
+      joinedOn: row.joined_on,
+      leftOn: row.left_on,
+      stage: row.stage,
+    },
     reportedBy: row.reported_by,
     createdAt: row.created_at,
     candidates: row.candidates,
@@ -195,6 +244,31 @@ export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> 
       ? { ...row.conflicts, census: censusAnswer(row.conflicts['census']) }
       : row.conflicts,
   }));
+};
+
+/** The phones, emails and Discord usernames of these people, for the Bandeja's comparison (PLAN R60). */
+export const contactsOf = async (
+  trx: Transaction<DB>,
+  ids: readonly string[],
+): Promise<Map<string, Contacts>> => {
+  const contacts = new Map<string, Contacts>(
+    ids.map((id) => [id, { phones: [], emails: [], discords: [] }]),
+  );
+  if (ids.length === 0) {
+    return contacts;
+  }
+  const { rows } = await sql<{
+    person_id: string;
+    kind: 'phone' | 'email' | 'discord';
+    value: string;
+  }>`
+    SELECT person_id, kind::text AS kind, value FROM app.identities
+     WHERE person_id = ANY (${[...ids]}::uuid[]) AND kind IN ('phone', 'email', 'discord')
+     ORDER BY person_id, kind, value`.execute(trx);
+  for (const row of rows) {
+    contacts.get(row.person_id)?.[`${row.kind}s`].push(row.value);
+  }
+  return contacts;
 };
 
 export const resolveBandeja = async (

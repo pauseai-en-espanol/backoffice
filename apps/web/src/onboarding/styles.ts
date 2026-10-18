@@ -477,3 +477,34 @@ export const pair = css({
   gridTemplateColumns: { base: '1fr', md: 'minmax(0, 2fr) minmax(0, 1fr)' },
   gap: '4',
 });
+
+/** "igual" in the Bandeja's comparison: in words, outlined, never by colour alone (PLAN R60). */
+export const same = css({
+  display: 'inline-block',
+  paddingInline: '1.5',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: 'border.default',
+  borderRadius: 'sm',
+  fontSize: 'sm',
+  whiteSpace: 'nowrap',
+});
+
+/** People found by a search, each with the button that picks them. */
+export const foundList = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '2',
+  listStyle: 'none',
+  '& > li': {
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: '2',
+    paddingBlock: '2',
+    borderBlockEndWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'border.subtle',
+  },
+});

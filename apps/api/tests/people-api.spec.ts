@@ -387,6 +387,53 @@ describe('onboarding through the staff API (M1)', () => {
     expect(tombstone.person).toMatchObject({ id: first.personId, mergedInto: first.personId });
   });
 
+  it('shows a duplicate beside its candidates, contact details included, and attaches it to whoever is found (PLAN R60)', async () => {
+    const tag = suffix();
+    const name = `Iratxe Comparada ${tag}`;
+    const first = (
+      await onboarder.who.send('POST', '/api/intake', {
+        name,
+        email: `iratxe.${tag}@ejemplo.test`,
+        decision: 'new',
+      })
+    ).json<{ personId: string }>();
+    const elsewhere = (
+      await onboarder.who.send('POST', '/api/intake', {
+        name: `Encontrada ${tag}`,
+        decision: 'new',
+      })
+    ).json<{ personId: string }>();
+    people.push(first.personId, elsewhere.personId);
+    const second = (
+      await onboarder.who.send('POST', '/api/intake', { name, phone: `63${tag}2` })
+    ).json<{ intakeId: string; status: string }>();
+    expect(second.status).toBe('review');
+    const bandeja = (await onboarder.who.send('GET', '/api/bandeja')).json<{
+      items: {
+        id: string;
+        brought: { contacts: { phones: string[] } };
+        candidates: { id: string; contacts?: { emails: string[] } }[];
+      }[];
+    }>();
+    const item = bandeja.items.find((i) => i.id === second.intakeId);
+    expect(item?.brought.contacts.phones).toEqual([`+3463${tag}2`]);
+    expect(item?.candidates.find((c) => c.id === first.personId)?.contacts?.emails).toEqual([
+      `iratxe.${tag}@ejemplo.test`,
+    ]);
+    expect(
+      (
+        await onboarder.who.send('POST', `/api/bandeja/${second.intakeId}`, {
+          decision: 'attach',
+          target: elsewhere.personId,
+        })
+      ).statusCode,
+    ).toBe(200);
+    const found = (await onboarder.who.send('GET', `/api/people/${elsewhere.personId}`)).json<{
+      person: { identities: { value: string }[] };
+    }>();
+    expect(found.person.identities.map((identity) => identity.value)).toContain(`+3463${tag}2`);
+  });
+
   it('imports a CSV: a dry run says what would happen and keeps nothing; applying does it once', async () => {
     const tag = suffix();
     const csv = `Nombre;Teléfono;Provincia\nRosa CSV ${tag};62${tag}1;Provincia CSV\nSin teléfono ${tag};;\n;;Provincia sola\n`;

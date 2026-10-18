@@ -81,7 +81,7 @@
   },
   {
     "name": "an answer that matched two people can't be attached",
-    "file": "db/migrations/20261016040000_erasure_and_census_fixes.sql",
+    "file": "db/migrations/20261018140000_bandeja_attach_anyone.sql",
     "old": "      UPDATE app.intake_records i\n         SET status = 'conflict', person_id = private.survivor(target), candidates = '{}'\n       WHERE i.id = intake_id;\n      RETURN 'conflict';",
     "new": "      RETURN private.intake_process(intake_id, decision, target);",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/census.spec.ts tests/onboarding.spec.ts tests/catalog.spec.ts",

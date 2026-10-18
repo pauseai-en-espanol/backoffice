@@ -254,6 +254,45 @@ describe('submitting intake', () => {
     });
   });
 
+  it('attaches a possible duplicate to whoever is found, not only to its candidates, but a census answer only to its own (PLAN R60)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const alike = await submit(client, web(USERS.onboarder), {
+        name: 'Ana Ejemplo Uno',
+        town: 'Villa de ejemplo',
+      });
+      expect(alike.status).toBe('review');
+      const found = (
+        await client.query<{ id: string }>(
+          // Added after the record went to the Bandeja: not among its candidates.
+          "INSERT INTO app.people (full_name, stage) VALUES ('Ana Ejemplo Uno', 'new') RETURNING id",
+        )
+      ).rows[0]?.id;
+      const resolve = "SELECT private.resolve_intake($1, 'attach', $2)::text AS status";
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.onboarder));
+      expect(await errorCode(client, resolve, [alike.intake_id, null])).toBe('22023');
+      const [attached] = (await client.query<{ status: string }>(resolve, [alike.intake_id, found]))
+        .rows;
+      expect(attached?.status).toBe('attached');
+      await client.query('RESET ROLE');
+      const { rows } = await client.query<{ person_id: string }>(
+        'SELECT person_id FROM app.intake_records WHERE id = $1',
+        [alike.intake_id],
+      );
+      expect(rows[0]?.person_id).toBe(found);
+
+      const census = (
+        await client.query<{ id: string }>(
+          `INSERT INTO app.intake_records (source, external_id, payload, status, candidates)
+           VALUES ('census', 'censo-de-ejemplo', '{"name": "Ana Ejemplo Uno"}', 'review', ARRAY[$1::uuid])
+           RETURNING id`,
+          [PEOPLE.ana],
+        )
+      ).rows[0]?.id;
+      await actAs(client, 'pauseai_backoffice_app', web(USERS.onboarder));
+      expect(await errorCode(client, resolve, [census, found])).toBe('22023');
+    });
+  });
+
   it('takes each source through its own channel only, and only from onboarding staff', async () => {
     await inRolledBackTransaction(async (client) => {
       const sql = 'SELECT * FROM private.submit_intake($1, \'x\', \'{"name": "Dora Ejemplo"}\')';

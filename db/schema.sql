@@ -2300,8 +2300,10 @@ CREATE FUNCTION private.resolve_intake(intake_id uuid, decision text, target uui
       RETURN 'conflict';
     END IF;
     IF intake.status = 'review' AND decision IN ('attach', 'new', 'discard') THEN
-      IF decision = 'attach' AND NOT (target = ANY (intake.candidates)) THEN
-        RAISE EXCEPTION 'attach to one of the candidates' USING ERRCODE = 'invalid_parameter_value';
+      IF decision = 'attach'
+         AND (target IS NULL OR (intake.source = 'census' AND NOT (target = ANY (intake.candidates)))) THEN
+        RAISE EXCEPTION 'attach to someone; a census answer, to one of its candidates'
+          USING ERRCODE = 'invalid_parameter_value';
       END IF;
       outcome := private.intake_process(intake_id, decision, target);
       IF census IS NOT NULL AND outcome IN ('attached', 'conflict', 'created') THEN

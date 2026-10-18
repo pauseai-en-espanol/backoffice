@@ -328,7 +328,7 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   naming anyone.
 - **R24. The Bandeja shows a census answer without its email and phone.** The database keeps the whole answer (to
   apply it), but the staff app only needs the rest to decide, and the staff API's rule is no contact details in
-  lists. Applying it still adds them to the person.
+  lists. Applying it still adds them to the person. Other records' are shown since R60, to compare them.
 - **R25. Outreach contacts get erasure too** (`private.anonymise_contact`, admins): their name, addresses, phone,
   notes and timeline words go; the organisation, the campaign row and its status stay for the counts; they are held
   for good, so no queue offers them again. Outreach contacts are mostly public, professional details, but they can
@@ -510,6 +510,17 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   of the filters; the others folded under "Más filtros" (a `details`, no script), which says how many are on; those on,
   under it, each a link that takes it off, and "Quitar los filtros"; "N personas" above the list. The Pipeline shares
   the form without the counters, its stage one more folded filter. The API counts on the first page only.
+- **R60. A duplicate seen beside its candidates, and attached to whoever is found** (Dani, 2026-10-18: "duplicates
+  currently are hard to manage because you cannot see much of one of them, and when you search by hand only the
+  original shows"). The Bandeja showed what came in by its name and place only, and the candidates as cards without
+  contact details; what came in isn't a person yet, so no search found it. **Now**: a table compares what came in with
+  each candidate, row by row (name, phone, email, Discord, province, channel and day of sign-up, the group, stage,
+  owner, summary), "igual" where they agree, in words. Phones and emails are shown, of what came in and of the
+  candidates (Dani: "Yes, but not census answers"): onboarding staff see them on every person's page already, and
+  the decision needs them; a census answer still shows none (R24: anyone can type anyone's number). "¿Es otra
+  persona? Búscala" searches as Personas does and attaches the record to whoever is found: `resolve_intake` takes any
+  live person for it (migration `20261018140000`), but a census answer still only one of its candidates. Mutation list
+  `bandeja`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

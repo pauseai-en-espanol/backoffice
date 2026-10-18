@@ -1,16 +1,19 @@
 import type { Metadata } from 'next';
 
+import { foldName, spacedPhone } from '@backoffice/domain/identities';
 import { getTranslator } from '@backoffice/i18n/messages';
+import Link from 'next/link';
 import { Fragment } from 'react';
 
-import type { BandejaItem } from '@/onboarding/types';
+import type { BandejaCandidate, BandejaItem } from '@/onboarding/types';
 
 import { isUnavailable } from '@/data';
 import { BandejaActions } from '@/onboarding/BandejaActions';
+import { BandejaSearch } from '@/onboarding/BandejaSearch';
 import { getCensusOptions } from '@/onboarding/census/data';
 import { answerRows } from '@/onboarding/census/format';
 import { getBandeja } from '@/onboarding/data';
-import { formatInstant } from '@/onboarding/format';
+import { formatDay, formatInstant } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { PersonItem } from '@/onboarding/PersonItem';
@@ -72,10 +75,10 @@ const shown = (value: unknown): string =>
 
 /**
  * The Bandeja (onboarding spec, views and matching): records waiting for a person's decision. A possible duplicate
- * shows what arrived beside the records it looks like; a conflict shows each field as the person has it and as it
- * arrived. Contact details never appear here: an identity someone else holds is only counted. A census answer that
- * matched someone (through the generic link, where anyone can type anyone's number) shows its fields in words, to
- * check before it's applied.
+ * shows what arrived beside the records it looks like, row by row, phones and emails included (PLAN R60), with a search
+ * for the one it is when it isn't among them; a conflict shows each field as the person has it and as it arrived, and
+ * an identity someone else holds is only counted. A census answer (through the generic link, where anyone can type
+ * anyone's number) never shows its phone or email (R24), and shows its fields in words, to check before it's applied.
  */
 const BandejaPage = async () => {
   const me = await requireStaff();
@@ -97,6 +100,172 @@ const BandejaPage = async () => {
     yes: t('bandeja.yes'),
     no: t('bandeja.no'),
     unknownOption: isUnavailable(options) ? '—' : t('bandeja.unknownOption'),
+  };
+
+  // A possible duplicate beside each record it looks like, row by row, "igual" where they agree (PLAN R60). A census
+  // answer's phone and email aren't shown (R24), nor compared.
+  const comparison = (entry: BandejaItem) => {
+    const brought = entry.brought;
+    const census = entry.source === 'census';
+    const list = (values: readonly string[]) => (values.length === 0 ? '—' : values.join(', '));
+    const day = (value: string | null) => (value ? formatDay(value) : '—');
+    const rows: {
+      key: string;
+      brought: string;
+      of: (candidate: BandejaCandidate) => { value: string; same: boolean };
+    }[] = [
+      {
+        key: 'name',
+        brought: entry.name ?? '—',
+        of: (candidate) => {
+          const value = candidate.fullName ?? personName(candidate.name, t('people.noName'));
+          return {
+            value,
+            same: entry.name !== null && foldName(entry.name) === foldName(value),
+          };
+        },
+      },
+      ...(census
+        ? []
+        : (['phone', 'email', 'discord'] as const).map((kind) => {
+            const theirs = (candidate: BandejaCandidate) => candidate.contacts?.[`${kind}s`] ?? [];
+            const shown = (values: readonly string[]) =>
+              list(kind === 'phone' ? values.map(spacedPhone) : values);
+            return {
+              key: kind,
+              brought: shown(brought.contacts[`${kind}s`]),
+              of: (candidate: BandejaCandidate) => ({
+                value: shown(theirs(candidate)),
+                same: brought.contacts[`${kind}s`].some((value) =>
+                  theirs(candidate).includes(value),
+                ),
+              }),
+            };
+          })),
+      {
+        key: 'province',
+        brought: entry.province ?? '—',
+        of: (candidate) => ({
+          value: candidate.province ?? '—',
+          same:
+            entry.province !== null &&
+            candidate.province !== null &&
+            foldName(entry.province) === foldName(candidate.province),
+        }),
+      },
+      {
+        key: 'arrival',
+        brought: brought.arrival ?? '—',
+        of: (candidate) => ({
+          value: candidate.arrival?.label ?? '—',
+          same: brought.arrival !== null && brought.arrival === candidate.arrival?.label,
+        }),
+      },
+      {
+        key: 'arrivedOn',
+        brought: day(brought.arrivedOn),
+        of: (candidate) => ({
+          value: day(candidate.arrivedOn),
+          same: brought.arrivedOn !== null && brought.arrivedOn === candidate.arrivedOn,
+        }),
+      },
+      {
+        key: 'group',
+        brought:
+          [
+            brought.joinedOn ? t('bandeja.groupJoined', { date: formatDay(brought.joinedOn) }) : '',
+            brought.leftOn ? t('bandeja.groupLeft', { date: formatDay(brought.leftOn) }) : '',
+          ]
+            .filter(Boolean)
+            .join(' · ') || '—',
+        of: (candidate) => ({
+          value: candidate.inCommunity ? t('bandeja.groupIn') : t('bandeja.groupOut'),
+          same: false,
+        }),
+      },
+      {
+        key: 'stage',
+        brought: brought.stage ? labels.stages[brought.stage] : '—',
+        of: (candidate) => ({
+          value: labels.stages[candidate.stage],
+          same: brought.stage === candidate.stage,
+        }),
+      },
+      {
+        key: 'owner',
+        brought: '—',
+        of: (candidate) => ({
+          value: candidate.owner?.displayName ?? t('person.noOwner'),
+          same: false,
+        }),
+      },
+      {
+        key: 'summary',
+        brought: '—',
+        of: (candidate) => ({ value: candidate.summary ?? '—', same: false }),
+      },
+    ];
+    const caption = `comparar-${entry.id}`;
+    return (
+      <>
+        <h3 id={caption} className={styles.h3}>
+          {t('bandeja.compare')}
+        </h3>
+        <p className={styles.hint}>
+          {t('bandeja.compareIntro')}
+          {census ? ` ${t('bandeja.censusContacts')}` : ''}
+        </p>
+        {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be focusable */}
+        <div className={styles.tableWrap} tabIndex={0} role="region" aria-labelledby={caption}>
+          <table className={styles.table}>
+            <caption className={styles.srOnly}>{t('bandeja.compare')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('bandeja.field')}</th>
+                <th scope="col">{t('bandeja.record')}</th>
+                {entry.candidates.map((candidate) => (
+                  <th key={candidate.id} scope="col">
+                    <Link
+                      className={styles.link}
+                      href={`/personas/${encodeURIComponent(candidate.id)}`}
+                    >
+                      {personName(candidate.name, t('people.noName'))}
+                    </Link>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.key}>
+                  <th scope="row">
+                    {t(`bandeja.compareFields.${row.key}` as 'bandeja.compareFields.name')}
+                  </th>
+                  <td className={styles.breakAnywhere}>{row.brought}</td>
+                  {entry.candidates.map((candidate) => {
+                    const cell = row.of(candidate);
+                    return (
+                      <td key={candidate.id} className={styles.breakAnywhere}>
+                        {cell.value}
+                        {cell.same ? (
+                          <>
+                            {' '}
+                            <span className={onboarding.same}>
+                              <span aria-hidden="true">✓ </span>
+                              {t('bandeja.same')}
+                            </span>
+                          </>
+                        ) : null}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
   };
 
   const item = (entry: BandejaItem) => {
@@ -141,31 +310,7 @@ const BandejaPage = async () => {
           </>
         ) : null}
         {entry.status === 'review' ? (
-          <>
-            <h3 className={styles.h3}>{t('bandeja.record')}</h3>
-            <dl className={styles.facts}>
-              <dt>{t('bandeja.fields.full_name')}</dt>
-              <dd>{entry.name ?? '—'}</dd>
-              {entry.province ? (
-                <>
-                  <dt>{t('bandeja.fields.province')}</dt>
-                  <dd>{entry.province}</dd>
-                </>
-              ) : null}
-              {entry.town ? (
-                <>
-                  <dt>{t('bandeja.fields.town')}</dt>
-                  <dd>{entry.town}</dd>
-                </>
-              ) : null}
-            </dl>
-            <h3 className={styles.h3}>{t('bandeja.candidates')}</h3>
-            <ul className={onboarding.personList}>
-              {entry.candidates.map((candidate) => (
-                <PersonItem key={candidate.id} person={candidate} labels={labels} />
-              ))}
-            </ul>
-          </>
+          comparison(entry)
         ) : (
           <>
             {entry.person ? (
@@ -232,6 +377,25 @@ const BandejaPage = async () => {
             errors,
           }}
         />
+        {entry.status === 'review' && entry.source !== 'census' ? (
+          <details className={onboarding.moreFilters}>
+            <summary>{t('bandeja.searchTitle')}</summary>
+            <BandejaSearch
+              itemId={entry.id}
+              text={{
+                label: t('bandeja.searchLabel'),
+                hint: t('bandeja.searchHint'),
+                button: t('bandeja.searchButton'),
+                none: t('bandeja.searchNone'),
+                attachTo: String(t.raw('bandeja.attachTo')),
+                noName: t('people.noName'),
+                stages: labels.stages,
+                done: t('bandeja.done'),
+                errors,
+              }}
+            />
+          </details>
+        ) : null}
       </li>
     );
   };

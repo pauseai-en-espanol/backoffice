@@ -174,6 +174,26 @@ export interface Candidate {
   exact: boolean;
 }
 
+/** A person's ways to be reached, as the Bandeja compares them (PLAN R60). */
+export interface Contacts {
+  phones: string[];
+  emails: string[];
+  discords: string[];
+}
+
+/** What a record brought in, beyond its name and place (PLAN R60); no contact details for a census answer. */
+export interface Brought {
+  contacts: Contacts;
+  arrival: string | null;
+  arrivedOn: string | null;
+  joinedOn: string | null;
+  leftOn: string | null;
+  stage: Stage | null;
+}
+
+/** A candidate in the Bandeja, with their contact details when the record is compared with them (PLAN R60). */
+export type BandejaCandidate = PersonSummary & { contacts?: Contacts };
+
 export interface BandejaItem {
   id: string;
   source: string;
@@ -181,9 +201,10 @@ export interface BandejaItem {
   name: string | null;
   province: string | null;
   town: string | null;
+  brought: Brought;
   reportedBy: string | null;
   createdAt: string;
-  candidates: PersonSummary[];
+  candidates: BandejaCandidate[];
   person: PersonSummary | null;
   conflicts: Record<string, unknown>;
 }
@@ -658,6 +679,31 @@ const parseCandidate = (value: unknown): Candidate | undefined =>
 export const parseCandidates = (body: unknown): Candidate[] | undefined =>
   isRecord(body) ? every(body.candidates, parseCandidate) : undefined;
 
+const parseContacts = (value: unknown): Contacts | undefined =>
+  isRecord(value)
+    ? {
+        phones: strings(value.phones) ?? [],
+        emails: strings(value.emails) ?? [],
+        discords: strings(value.discords) ?? [],
+      }
+    : undefined;
+
+const text = (value: unknown): string | null =>
+  typeof value === 'string' && value !== '' ? value : null;
+
+/** What a record brought; nothing, from an API that doesn't say. */
+const parseBrought = (value: unknown): Brought => {
+  const brought = isRecord(value) ? value : {};
+  return {
+    contacts: parseContacts(brought.contacts) ?? { phones: [], emails: [], discords: [] },
+    arrival: text(brought.arrival),
+    arrivedOn: text(brought.arrivedOn),
+    joinedOn: text(brought.joinedOn),
+    leftOn: text(brought.leftOn),
+    stage: isStage(brought.stage) ? brought.stage : null,
+  };
+};
+
 const parseBandejaItem = (value: unknown): BandejaItem | undefined => {
   if (
     !isRecord(value) ||
@@ -669,7 +715,14 @@ const parseBandejaItem = (value: unknown): BandejaItem | undefined => {
   const name = nullable(value.name);
   const province = nullable(value.province);
   const town = nullable(value.town);
-  const candidates = value.candidates === undefined ? [] : every(value.candidates, parseSummary);
+  const candidates =
+    value.candidates === undefined
+      ? []
+      : every(value.candidates, (candidate: unknown) => {
+          const summary = parseSummary(candidate);
+          const contacts = isRecord(candidate) ? parseContacts(candidate.contacts) : undefined;
+          return summary && contacts ? { ...summary, contacts } : summary;
+        });
   const person =
     value.person === undefined || value.person === null ? null : parseSummary(value.person);
   if (
@@ -688,6 +741,7 @@ const parseBandejaItem = (value: unknown): BandejaItem | undefined => {
     name,
     province,
     town,
+    brought: parseBrought(value.brought),
     reportedBy: ownerName(value.reportedBy),
     createdAt: str(value.createdAt) ? value.createdAt : '',
     candidates,

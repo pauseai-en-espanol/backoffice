@@ -115,7 +115,10 @@ deactivated account keeps it without the badge.
   only what changed in the group since ("Salió del grupo el …", "Volvió al grupo el …"; PLAN R58).
 - **Añadir rápido:** a phone, an email or a Discord username, the name if known, "Canal de alta", "Fecha de alta"
   (today, emptied when nobody knows), optional note. Duplicates are checked as you type.
-- **Bandeja:** records awaiting a decision: possible duplicates and conflicting values.
+- **Bandeja:** records awaiting a decision: possible duplicates and conflicting values. A possible duplicate is
+  compared, row by row, with each record it looks like, phones and emails included but for a census answer's, with
+  "igual" where they agree; when the one it is isn't among them, it is searched for and attached to whoever is found
+  (a census answer, only to its candidates; PLAN R60).
 - **Importar:** "Sincronizar Airtable ahora" with the last run's result, while an admin has the sync on in Ajustes;
   upload a CSV, preview, dry-run diff, apply ([§5.3](#53-web-and-csv-m1)).
 - **Censo:** progress of the census, and the queue of personal links still to send ([§7](#7-the-census)), oldest

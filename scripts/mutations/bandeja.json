@@ -1,0 +1,26 @@
+[
+  {
+    "name": "a duplicate is attached only to its candidates",
+    "file": "db/migrations/20261018140000_bandeja_attach_anyone.sql",
+    "old": "         AND (target IS NULL OR (intake.source = 'census' AND NOT (target = ANY (intake.candidates)))) THEN",
+    "new": "         AND (target IS NULL OR NOT (target = ANY (intake.candidates))) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a census answer is attached to anyone found",
+    "file": "db/migrations/20261018140000_bandeja_attach_anyone.sql",
+    "old": "         AND (target IS NULL OR (intake.source = 'census' AND NOT (target = ANY (intake.candidates)))) THEN",
+    "new": "         AND target IS NULL THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a duplicate is attached to nobody",
+    "file": "db/migrations/20261018140000_bandeja_attach_anyone.sql",
+    "old": "         AND (target IS NULL OR (intake.source = 'census' AND NOT (target = ANY (intake.candidates)))) THEN",
+    "new": "         AND false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/census.spec.ts",
+    "cwd": "packages/db"
+  }
+]

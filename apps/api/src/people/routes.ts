@@ -52,6 +52,7 @@ import {
   orderArrivalChannels,
 } from './arrival-channels.js';
 import {
+  contactsOf,
   findCandidates,
   importCsv,
   listBandeja,
@@ -774,10 +775,25 @@ export const peopleRoutes =
           const summaries = new Map(
             (await summariesOf(trx, ids)).map((person) => [person.id, person]),
           );
+          // The candidates' ways to be reached, beside what came in, but for a census answer's (PLAN R60, R24).
+          const compared = (item: (typeof items)[number]) =>
+            item.status === 'review' && item.source !== 'census';
+          const contacts = await contactsOf(trx, [
+            ...new Set(items.filter(compared).flatMap((item) => item.candidates)),
+          ]);
           return {
             items: items.map(({ personId, candidates, ...item }) => ({
               ...item,
-              candidates: candidates.flatMap((id) => summaries.get(id) ?? []),
+              candidates: candidates.flatMap((id) => {
+                const summary = summaries.get(id);
+                if (!summary) {
+                  return [];
+                }
+                const theirs = compared({ ...item, personId, candidates })
+                  ? contacts.get(id)
+                  : undefined;
+                return [theirs ? { ...summary, contacts: theirs } : summary];
+              }),
               person: personId ? (summaries.get(personId) ?? null) : null,
             })),
           };
