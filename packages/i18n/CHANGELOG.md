@@ -1,5 +1,13 @@
 # @backoffice/i18n
 
+## 0.14.0
+
+### Minor Changes
+
+- 7956029: The Bandeja compares a possible duplicate with each candidate, row by row, phones and emails included but for a
+  census answer's, with "igual" where they agree; "¿Es otra persona? Búscala" attaches it to whoever is found, not only
+  to its candidates (a census answer, still only to its own) (PLAN R60).
+
 ## 0.13.0
 
 ### Minor Changes
