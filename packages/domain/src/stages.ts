@@ -61,6 +61,7 @@ export const CONTACT_CHANNELS = [
   'video',
   'email',
   'telegram',
+  'discord',
   'in_person',
   'other',
 ] as const;

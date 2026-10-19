@@ -78,6 +78,13 @@ export const inferIdentityKind = (raw: string): 'email' | 'phone' | 'discord' | 
   return normalizeDiscord(value) === undefined ? undefined : 'discord';
 };
 
+/**
+ * Whether what was read as a phone, or refused, is a Discord username too (PLAN R69): the one overlap, only digits and
+ * maybe dots (`612345678`). Only whoever typed it knows which; an @ in front makes it Discord.
+ */
+export const mayBeDiscord = (raw: string): boolean =>
+  inferIdentityKind(raw) !== 'discord' && normalizeDiscord(raw) !== undefined;
+
 export const normalizeIdentity = (kind: IdentityKind, raw: string): string | undefined =>
   kind === 'email'
     ? normalizeEmail(raw)

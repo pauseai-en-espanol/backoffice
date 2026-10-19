@@ -64,6 +64,22 @@
     "cwd": "packages/domain"
   },
   {
+    "name": "a number that is a Discord username too is never said to be one",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  inferIdentityKind(raw) !== 'discord' && normalizeDiscord(raw) !== undefined;",
+    "new": "  false;",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "whatever isn't read as Discord is said to maybe be one",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  inferIdentityKind(raw) !== 'discord' && normalizeDiscord(raw) !== undefined;",
+    "new": "  inferIdentityKind(raw) !== 'discord';",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
     "name": "Contacto sends every value as a phone, whatever it is",
     "file": "apps/web/src/onboarding/person/Identities.tsx",
     "old": "addIdentity(personId, { kind, value: value.trim() })",
@@ -107,6 +123,26 @@
     "name": "fields side by side don't share their rows, so a wrapping label pushes its box down",
     "file": "apps/web/src/ui/styles.ts",
     "old": "      gridTemplateRows: 'subgrid',\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"Contacto takes|stay in line\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Contacto never says how to write a Discord username made of digits",
+    "file": "apps/web/src/onboarding/person/Identities.tsx",
+    "old": "        {discordWithAt ? (",
+    "new": "        {false ? (",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"Contacto takes|stay in line\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a detail the person already has is only \"Ya existe algo con esos datos\"",
+    "file": "apps/web/src/onboarding/person/Identities.tsx",
+    "old": "      setAlready(kind);\n",
     "new": "",
     "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
     "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"Contacto takes|stay in line\"",

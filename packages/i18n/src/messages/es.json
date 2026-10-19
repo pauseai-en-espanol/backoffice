@@ -376,6 +376,7 @@
     "video": "Videollamada",
     "email": "Correo",
     "telegram": "Telegram",
+    "discord": "Discord",
     "in_person": "En persona",
     "other": "Otro"
   },
@@ -605,12 +606,18 @@
       "email": "Se guardará como correo: {value}",
       "discord": "Se guardará como usuario de Discord: {value}"
     },
+    "identityDiscordWithAt": "Si es un usuario de Discord, escríbelo con @ delante.",
     "identityNotValid": "No parece un teléfono, correo o usuario de Discord válido.",
     "identityMissing": "Escribe un teléfono, un correo o un usuario de Discord.",
     "identityUnknown": "Eso no es un teléfono, un correo ni un usuario de Discord: revísalo.",
     "identityAdded": "Dato de contacto añadido.",
     "identityTaken": "Otra persona ya tiene este dato.",
     "identityTakenLink": "Ver a quién lo tiene",
+    "identityAlreadyHere": {
+      "phone": "Esta ficha ya tiene ese teléfono.",
+      "email": "Esta ficha ya tiene ese correo.",
+      "discord": "Esta ficha ya tiene ese usuario de Discord."
+    },
     "removeIdentity": "Quitar {value}",
     "removeIdentityShort": "Quitar",
     "confirmRemoveIdentity": "¿Quitar {value} de esta ficha?",

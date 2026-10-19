@@ -1,6 +1,6 @@
 'use client';
 
-import { inferIdentityKind, spacedPhone } from '@backoffice/domain/identities';
+import { inferIdentityKind, mayBeDiscord, spacedPhone } from '@backoffice/domain/identities';
 import { Hash, Mail, Phone, Plus, Table2 } from 'lucide-react';
 import Link from 'next/link';
 import { type FormEvent, useState } from 'react';
@@ -44,7 +44,8 @@ const KIND_ICONS = { phone: Phone, email: Mail, discord: Hash, airtable: Table2 
  * A person's phones, emails and Discord usernames (onboarding spec, concepts: identities): one row each, its kind's
  * mark, the value and "Quitar" at the row's end, asked about first. Below them one field adds another, whatever it is
  * (PLAN R63): what was typed says its kind (domain/identities inferIdentityKind), and the hint shows how it will be
- * stored. If someone else already has it, a link to them (the API's `409 taken { personId }`).
+ * stored; only digits could be a Discord username too, so it says how to write one (R69). If someone else already has
+ * it, a link to them (the API's `409 taken { personId }`); if this person does, which detail it is (`personId: null`).
  */
 export const Identities = ({
   personId,
@@ -59,6 +60,7 @@ export const Identities = ({
   const write = useWrite(text.errors);
   const [value, setValue] = useState('');
   const [holder, setHolder] = useState<string>();
+  const [already, setAlready] = useState<'email' | 'phone' | 'discord'>();
   const [unknown, setUnknown] = useState(false);
   const kind = inferIdentityKind(value);
   const stored = kind === undefined ? undefined : normalised(kind, value);
@@ -66,6 +68,7 @@ export const Identities = ({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setHolder(undefined);
+    setAlready(undefined);
     setUnknown(kind === undefined);
     if (kind === undefined) {
       return;
@@ -77,10 +80,13 @@ export const Identities = ({
       setValue('');
     } else if (answer?.status === 409 && typeof answer.body.personId === 'string') {
       setHolder(answer.body.personId);
+    } else if (answer?.status === 409 && answer.body.personId === null) {
+      setAlready(kind);
     }
   };
 
   const error = unknown ? (value.trim() === '' ? t.missing : t.unknown) : write.error;
+  const discordWithAt = mayBeDiscord(value);
 
   return (
     <>
@@ -144,7 +150,11 @@ export const Identities = ({
             maxLength={254}
             required
             aria-invalid={unknown || (value.trim() !== '' && stored === undefined)}
-            aria-describedby="contacto-hint contacto-error"
+            aria-describedby={
+              discordWithAt
+                ? 'contacto-hint contacto-discord contacto-error'
+                : 'contacto-hint contacto-error'
+            }
           />
           <button type="submit" className={ui.secondaryButton} aria-disabled={write.pending}>
             <Plus className={styles.buttonIcon} aria-hidden="true" />
@@ -158,12 +168,21 @@ export const Identities = ({
               ? t.notValid
               : fill(t.willBe[kind], { value: kind === 'phone' ? spacedPhone(stored) : stored })}
         </span>
+        {discordWithAt ? (
+          <span id="contacto-discord" className={ui.hint}>
+            {t.discordWithAt}
+          </span>
+        ) : null}
         <div id="contacto-error" role="alert">
           {error ? (
             <div className={ui.alert}>
               <p>
                 <span aria-hidden="true">⚠ </span>
-                {holder === undefined ? error : t.taken}
+                {holder !== undefined
+                  ? t.taken
+                  : already !== undefined
+                    ? t.alreadyHere[already]
+                    : error}
               </p>
               {holder === undefined ? null : (
                 <Link className={ui.link} href={`/personas/${encodeURIComponent(holder)}`}>

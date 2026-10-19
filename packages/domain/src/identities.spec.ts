@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   foldName,
   inferIdentityKind,
+  mayBeDiscord,
   normalizeAirtableId,
   normalizeDiscord,
   normalizeEmail,
@@ -45,6 +46,29 @@ describe('inferIdentityKind: what someone typed in Contacto (PLAN R63)', () => {
   it('reads anything else Discord would make as a Discord username, a leading @ too', () => {
     for (const raw of ['persona_de.ejemplo', '@Persona', 'ab']) {
       expect(inferIdentityKind(raw), raw).toBe('discord');
+    }
+  });
+
+  it('reads only digits as a phone, and the same digits with an @ in front as a Discord username (PLAN R69)', () => {
+    expect(inferIdentityKind('612345678')).toBe('phone');
+    expect(inferIdentityKind('@612345678')).toBe('discord');
+    expect(inferIdentityKind('@2024')).toBe('discord');
+  });
+
+  it('says when what it read as a phone, or refused, could be a Discord username (PLAN R69)', () => {
+    for (const raw of ['612345678', ' 612.345.678 ', '2024']) {
+      expect(mayBeDiscord(raw), raw).toBe(true);
+    }
+    for (const raw of [
+      '612 34 56 78',
+      '+34612345678',
+      '@612345678',
+      'persona',
+      'ana@ejemplo.test',
+      '1',
+      '',
+    ]) {
+      expect(mayBeDiscord(raw), raw).toBe(false);
     }
   });
 

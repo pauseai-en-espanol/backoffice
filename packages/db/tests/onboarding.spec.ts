@@ -534,7 +534,7 @@ describe('stages and the timeline', () => {
     });
   });
 
-  it('logs a contact attempt by video call, and refuses a channel it doesn’t know', async () => {
+  it('logs a contact attempt by video call or on Discord, and refuses a channel it doesn’t know', async () => {
     await inRolledBackTransaction(async (client) => {
       const sql = `INSERT INTO app.person_events (person_id, kind, data) VALUES ($1, 'contact_attempt', $2)`;
       const attempt = (channel: string) => [
@@ -542,6 +542,7 @@ describe('stages and the timeline', () => {
         JSON.stringify({ channel, outcome: 'replied' }),
       ];
       await as(client, web(USERS.onboarder), sql, attempt('video'));
+      await as(client, web(USERS.onboarder), sql, attempt('discord'));
       await actAs(client, 'pauseai_backoffice_app', web(USERS.onboarder));
       expect(await errorCode(client, sql, attempt('pigeon'))).toBe('23514');
       await client.query('RESET ROLE');

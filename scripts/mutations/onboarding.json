@@ -177,7 +177,7 @@
   },
   {
     "name": "the database refuses a contact attempt by video call",
-    "file": "db/migrations/20261018200000_video_call_attempts.sql",
+    "file": "db/migrations/20261019100000_discord_contact_attempts.sql",
     "old": "('whatsapp', 'phone', 'video', 'email',",
     "new": "('whatsapp', 'phone', 'email',",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
@@ -188,6 +188,24 @@
     "file": "packages/domain/src/stages.ts",
     "old": "  'phone',\n  'video',\n",
     "new": "  'phone',\n",
+    "before": "pnpm exec turbo run build --filter=@backoffice/domain --output-logs=errors-only",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api",
+    "after": "pnpm exec turbo run build --filter=@backoffice/domain --output-logs=errors-only"
+  },
+  {
+    "name": "the database refuses a contact attempt on Discord",
+    "file": "db/migrations/20261019100000_discord_contact_attempts.sql",
+    "old": "'telegram', 'discord', 'in_person',",
+    "new": "'telegram', 'in_person',",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the API and the staff app don't offer Discord",
+    "file": "packages/domain/src/stages.ts",
+    "old": "  'telegram',\n  'discord',\n",
+    "new": "  'telegram',\n",
     "before": "pnpm exec turbo run build --filter=@backoffice/domain --output-logs=errors-only",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
     "cwd": "apps/api",

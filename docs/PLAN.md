@@ -577,6 +577,15 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   where a candidate agrees with what came in; "distinto" an amber one where both say something and it differs;
   nothing where either says nothing, or on a row that only shows (the group, the owner, the summary). Mutation list
   `visual-pages` covers R65 to R68.
+- **R69. Discord in "Por dónde", and Contacto's one overlap** (Dani, 2026-10-19: "i think we should also list
+  discord there", "i am not sure format can 100% tell apart discord from email and phone"). A contact attempt may be
+  made on Discord, after Telegram (migration `20261019100000`). R63's reading, checked: an email is never anything
+  else, since neither a phone nor a Discord username has an @ after its first character; a phone and a Discord
+  username overlap only in digits and dots (`612345678` is both), still read as a phone, and **now** the hint then
+  says "Si es un usuario de Discord, escríbelo con @ delante" (`mayBeDiscord` in domain). What no format tells apart
+  is a word that is no username of ours (a name, a Telegram or Instagram handle): it passes as Discord, and the hint
+  says so before anything is sent. A detail the person already has is said as such ("Esta ficha ya tiene ese
+  teléfono."), not "Ya existe algo con esos datos". Mutation lists `onboarding` and `forms`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

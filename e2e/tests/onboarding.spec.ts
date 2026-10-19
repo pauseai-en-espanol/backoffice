@@ -162,6 +162,21 @@ test('Contacto takes a phone, an email or a Discord username in one field, and s
     await expect(page.getByRole('button', { name: `Quitar ${stored}` })).toBeVisible();
     await expect(field).toHaveValue('');
   }
+
+  // Only digits could be a Discord username too (PLAN R69): read as a phone, and the hint says how to write one. The
+  // same phone again is this person's already, said as such; with an @ in front, the digits are a Discord username.
+  const tip = page.getByText('Si es un usuario de Discord, escríbelo con @ delante.');
+  await field.fill(number);
+  await expect(tip).toBeVisible();
+  await add.click();
+  await expect(
+    page.getByRole('alert').getByText('Esta ficha ya tiene ese teléfono.'),
+  ).toBeVisible();
+  await field.fill(`@${number}`);
+  await expect(page.getByText(`Se guardará como usuario de Discord: ${number}`)).toBeVisible();
+  await expect(tip).toHaveCount(0);
+  await add.click();
+  await expect(page.getByRole('button', { name: `Quitar ${number}`, exact: true })).toBeVisible();
   await expectAccessible(page);
 });
 

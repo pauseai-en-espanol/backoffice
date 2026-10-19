@@ -283,6 +283,15 @@ describe('onboarding through the staff API (M1)', () => {
         })
       ).statusCode,
     ).toBe(201);
+    // So is Discord (Dani, 2026-10-19).
+    expect(
+      (
+        await onboarder.who.send('POST', `/api/people/${personId}/attempts`, {
+          channel: 'discord',
+          outcome: 'no_answer',
+        })
+      ).statusCode,
+    ).toBe(201);
     expect(
       (
         await onboarder.who.send('POST', `/api/people/${personId}/notes`, {
