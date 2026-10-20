@@ -353,6 +353,59 @@ describe('onboarding through the staff API (M1)', () => {
     expect(page.timeline.every((e) => e.channel === 'web' || e.channel === null)).toBe(true);
   });
 
+  it('lists my people on Hoy most urgent first: a late step, one for today, someone not contacted yet, then the rest (PLAN R70)', async () => {
+    const taken = async (name: string) => {
+      const { personId } = (
+        await onboarder.who.send('POST', '/api/intake', {
+          name: `${name} ${suffix()}`,
+          decision: 'new',
+        })
+      ).json<{ personId: string }>();
+      people.push(personId);
+      expect((await onboarder.who.send('POST', `/api/people/${personId}/claim`)).statusCode).toBe(
+        204,
+      );
+      return personId;
+    };
+    const step = async (personId: string, due: string) =>
+      expect(
+        (
+          await onboarder.who.send('PATCH', `/api/people/${personId}`, {
+            nextAction: 'Llamar',
+            nextActionDue: due,
+          })
+        ).statusCode,
+      ).toBe(204);
+    const { rows } = await superuser.query(
+      `SELECT to_char(d, 'YYYY-MM-DD') AS today, to_char(d - 1, 'YYYY-MM-DD') AS yesterday
+         FROM (SELECT (now() AT TIME ZONE 'Europe/Madrid')::date AS d) AS madrid`,
+    );
+    const { today, yesterday } = rows[0] as { today: string; yesterday: string };
+
+    // Made in the reverse order, so that by age alone the one just taken would come after the one in contact.
+    const inContact = await taken('Ines Contactada');
+    expect(
+      (
+        await onboarder.who.send('POST', `/api/people/${inContact}/attempts`, {
+          channel: 'whatsapp',
+          outcome: 'no_answer',
+        })
+      ).statusCode,
+    ).toBe(201);
+    const justTaken = await taken('Nora Recien');
+    const forToday = await taken('Olga Hoy');
+    await step(forToday, today);
+    const late = await taken('Paula Tarde');
+    await step(late, yesterday);
+
+    const { mine } = (await onboarder.who.send('GET', '/api/today')).json<{
+      mine: { id: string; reasons: string[] }[];
+    }>();
+    const ours = [late, forToday, justTaken, inContact];
+    expect(mine.map((p) => p.id).filter((id) => ours.includes(id))).toEqual(ours);
+    expect(mine.find((p) => p.id === justTaken)?.reasons).toEqual(['no_next_step']);
+  });
+
   it('sends a likely duplicate to the Bandeja, where it is attached; then merges two people', async () => {
     const name = `Nerea Duplicada ${suffix()}`;
     const first = (await onboarder.who.send('POST', '/api/intake', { name })).json<{

@@ -586,6 +586,15 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   is a word that is no username of ours (a name, a Telegram or Instagram handle): it passes as Discord, and the hint
   says so before anything is sent. A detail the person already has is said as such ("Esta ficha ya tiene ese
   teléfono."), not "Ya existe algo con esos datos". Mutation lists `onboarding` and `forms`.
+- **R70. Hoy's "Mis personas": most urgent first, and a way to all of mine** (Dani, 2026-10-20: "i only assigned
+  someone to me (who just arrived) and I kinda expected to see it there"). Someone just taken counts ("Sin siguiente
+  paso"), but the list went by the step's day, the undated last, then the oldest first: the newest, with no step, came
+  last, and past the first 100 it wasn't there at all, with nothing said. Options: rename the section and link to all
+  of mine; list everyone mine still in progress; order by urgency. **Chose to order by urgency, and link**: a step
+  already late, then one for today, then whoever is still "Nuevo" (not contacted yet, as any attempt moves them on),
+  then the rest; "Ver todas mis personas" always (Personas, `responsable=yo`), and "Ver las N que necesitan algo"
+  when Hoy shows fewer than it counts. The bot's `/mine` and the digest keep their order for now. Mutation list
+  `hoy`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

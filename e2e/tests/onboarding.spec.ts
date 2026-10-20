@@ -44,6 +44,13 @@ test('quick-add someone, find them through Hoy’s unassigned queue, and claim f
   const claimed = ((await oldest.getAttribute('aria-label')) ?? '').replace(/^Me lo quedo: /u, '');
   await oldest.click();
   await expect(page.getByText(`Ahora ${claimed} está a tu cargo.`)).toBeVisible();
+
+  // Someone just taken waits for a first contact: on Hoy, under "Mis personas", and among all of mine (PLAN R70).
+  const mine = page.getByRole('region', { name: 'Mis personas' });
+  await expect(mine.getByRole('listitem').filter({ hasText: claimed })).toBeVisible();
+  await mine.getByRole('link', { name: 'Ver todas mis personas' }).click();
+  await expect(page).toHaveURL(/\/personas\?responsable=yo$/u);
+  await expect(page.getByRole('listitem').filter({ hasText: claimed })).toBeVisible();
 });
 
 test('quick-add someone with only a phone, shown as «Sin nombre» until named (PLAN R37)', async ({

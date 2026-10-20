@@ -507,8 +507,10 @@
   },
   "today": {
     "mine": "Mis personas",
-    "mineIntro": "Las personas a tu cargo que necesitan algo de ti.",
+    "mineIntro": "Las personas a tu cargo que necesitan algo de ti: primero lo vencido y lo de hoy, después quien aún espera un primer contacto.",
     "mineNone": "Nadie a tu cargo necesita nada ahora. Mira la cola de sin asignar o el Onboarding Pipeline.",
+    "seeAllMine": "Ver todas mis personas",
+    "seeMinePending": "Ver las {count} que necesitan algo",
     "unassigned": "Sin asignar",
     "unassignedIntro": "Personas nuevas que nadie ha cogido todavía, de la más antigua a la más reciente.",
     "unassignedNone": "No hay nadie sin asignar. Cuando llegue alguien aparecerá aquí.",

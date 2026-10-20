@@ -13,7 +13,7 @@ import { personName } from '@/onboarding/names';
 import { PersonItem } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, onboardingErrors, personLabels } from '@/onboarding/text';
-import { unassignedQueue } from '@/onboarding/today';
+import { mineLinks, unassignedQueue } from '@/onboarding/today';
 import { canOutreach } from '@/outreach/text';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
@@ -28,8 +28,9 @@ export const metadata: Metadata = { title: t('web.home.title') };
 
 /**
  * Hoy (onboarding spec, views): where signing in ends. The staff member's people needing attention, each with why,
- * then the unassigned queue, its ten oldest with "Me lo quedo" and a link to all of them in Personas (PLAN M5). Staff
- * without the onboarding role see the team and their settings from here.
+ * most urgent first, and a link to all of theirs (PLAN R70); then the unassigned queue, its ten oldest with "Me lo
+ * quedo" and a link to all of them in Personas (PLAN M5). Staff without the onboarding role see the team and their
+ * settings from here.
  */
 const Today = async () => {
   const me = await requireStaff();
@@ -82,6 +83,7 @@ const Today = async () => {
   const queue = isUnavailable(today)
     ? undefined
     : unassignedQueue(today.unassigned, today.counts.unassigned);
+  const mine = isUnavailable(today) ? undefined : mineLinks(today.mine.length, today.counts.mine);
 
   return (
     <AppShell me={me} bandeja={isUnavailable(today) ? undefined : today.counts.bandeja}>
@@ -122,6 +124,22 @@ const Today = async () => {
                 {today.mine.map((person) => (
                   <PersonItem key={person.id} person={person} labels={labels} />
                 ))}
+              </ul>
+            )}
+            {mine === undefined ? null : (
+              <ul className={styles.linkList}>
+                {mine.pending === undefined ? null : (
+                  <li>
+                    <Link className={styles.link} href={mine.pending.href}>
+                      {t('today.seeMinePending', { count: mine.pending.count })}
+                    </Link>
+                  </li>
+                )}
+                <li>
+                  <Link className={styles.link} href={mine.all}>
+                    {t('today.seeAllMine')}
+                  </Link>
+                </li>
               </ul>
             )}
           </section>

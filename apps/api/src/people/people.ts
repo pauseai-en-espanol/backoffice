@@ -399,13 +399,24 @@ export const panel = async (trx: Transaction<DB>, weeks: number) => {
   };
 };
 
+/**
+ * Hoy's order for my people (PLAN R70), most urgent first: a step already late, then one for today, then whoever is
+ * still "Nuevo", not contacted yet (any attempt moves them on), then the rest; within each, by the step's day, then the
+ * oldest first. Someone just taken has no step yet, and the first contact is what onboarding measures (the Panel).
+ */
+const URGENCY = sql`
+  CASE WHEN p.next_action_due < (now() AT TIME ZONE 'Europe/Madrid')::date THEN 0
+       WHEN p.next_action_due = (now() AT TIME ZONE 'Europe/Madrid')::date THEN 1
+       WHEN p.stage = 'new' THEN 2
+       ELSE 3 END`;
+
 /** Hoy: my people needing attention, the unassigned queue (oldest first), and the Bandeja's size. */
 export const today = async (trx: Transaction<DB>, me: string) => {
   const mine = await sql<SummaryRow>`
     SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
      WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.owner_id = ${me}
        AND cardinality(a.reasons) > 0
-     ORDER BY p.next_action_due NULLS LAST, p.created_at
+     ORDER BY ${URGENCY}, p.next_action_due NULLS LAST, p.created_at
      LIMIT 100`.execute(trx);
   const unassigned = await sql<SummaryRow>`
     SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}

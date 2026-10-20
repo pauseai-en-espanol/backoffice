@@ -107,7 +107,8 @@ Equipo, which suggests it. Personas and the board filter by it ("Del equipo"). T
 deactivated account keeps it without the badge.
 
 - **Hoy:** two figures at a glance, mine pending and unassigned (amber when any are), and the Bandeja's count as a
-  blue chip that leads to it (PLAN R66); then my people needing attention, then the unassigned queue with a "Me lo
+  blue chip that leads to it (PLAN R66); then my people needing attention, most urgent first (a late step, one for
+  today, not contacted yet, the rest) with a link to all of mine (PLAN R70), then the unassigned queue with a "Me lo
   quedo" (claim) button, each as a grid of cards: as many columns as fit, one on a phone (PLAN R62).
 - **Onboarding Pipeline** (`/pipeline`; Embudo until D14): a board by stage, each column under its stage's pill
   and a rule in its colour; its cards leave the stage out. Filters: owner, province, "Canal de alta", "Fecha de

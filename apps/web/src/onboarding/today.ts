@@ -25,3 +25,21 @@ export const unassignedQueue = <T>(
         : undefined,
   };
 };
+
+/**
+ * Where Hoy's "Mis personas" leads (PLAN R70): always to everyone mine in Personas, since whoever needs nothing today
+ * isn't on Hoy; and, when Hoy got fewer than it counted, to every one of mine that needs something, by the same rule.
+ */
+export const mineLinks = (
+  shown: number,
+  total: number,
+): { all: string; pending: { count: number; href: string } | undefined } => ({
+  all: `/personas${pageQuery({ ...NO_FILTERS, owner: 'me' })}`,
+  pending:
+    total > shown
+      ? {
+          count: total,
+          href: `/personas${pageQuery({ ...NO_FILTERS, owner: 'me', attention: true })}`,
+        }
+      : undefined,
+});
