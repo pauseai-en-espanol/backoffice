@@ -517,7 +517,7 @@
     "figureUnassigned": "sin asignar",
     "bandejaChip": "{count, plural, one {# registro espera una decisión en la Bandeja} other {# registros esperan una decisión en la Bandeja}}",
     "claim": "Me lo quedo",
-    "claimFor": "Me quedo a {name}",
+    "claimFor": "Me lo quedo: {name}",
     "claimed": "Ahora {name} está a tu cargo.",
     "claimTaken": "Alguien ha sido más rápido: {name} ya tiene responsable.",
     "seeAllUnassigned": "Ver los {count} sin asignar",

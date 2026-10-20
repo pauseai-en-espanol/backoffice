@@ -10,7 +10,10 @@ import { useWrite } from '@/ui/useWrite';
 import { claim } from './actions';
 
 export interface ClaimText {
-  /** The button's name for screen readers, with the person's name ("Me quedo a Ana"). */
+  /**
+   * The button's name for screen readers, its visible words and then the person's name ("Me lo quedo: Ana"): the name
+   * holds what is shown (WCAG 2.5.3), so voice control finds it by the words on it.
+   */
   label: string;
   visible: string;
   claimed: string;

@@ -100,5 +100,15 @@
     "cmd": "pnpm exec playwright test tests/lists.spec.ts --project chromium",
     "cwd": "e2e",
     "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Hoy's \"Me lo quedo\" is named without the words it shows",
+    "file": "packages/i18n/src/messages/es.json",
+    "old": "\"claimFor\": \"Me lo quedo: {name}\",",
+    "new": "\"claimFor\": \"Me quedo a {name}\",",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"claim from it\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
   }
 ]

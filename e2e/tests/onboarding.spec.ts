@@ -32,7 +32,7 @@ test('quick-add someone, find them through Hoy’s unassigned queue, and claim f
   await page.goto('/');
   await expectAccessible(page);
   const queue = page.getByRole('region', { name: 'Sin asignar' });
-  await expect(queue.getByRole('button', { name: /^Me quedo a /u })).toHaveCount(10);
+  await expect(queue.getByRole('button', { name: /^Me lo quedo: /u })).toHaveCount(10);
   await queue.getByRole('link', { name: /^Ver los \d+ sin asignar$/u }).click();
   await expect(page).toHaveURL(/\/personas\?motivo=sin-asignar$/u);
   const card = page.getByRole('listitem').filter({ hasText: name });
@@ -40,8 +40,8 @@ test('quick-add someone, find them through Hoy’s unassigned queue, and claim f
   await expect(card).toContainText('Sin asignar');
 
   await page.goto('/');
-  const oldest = queue.getByRole('button', { name: /^Me quedo a /u }).first();
-  const claimed = ((await oldest.getAttribute('aria-label')) ?? '').replace(/^Me quedo a /u, '');
+  const oldest = queue.getByRole('button', { name: /^Me lo quedo: /u }).first();
+  const claimed = ((await oldest.getAttribute('aria-label')) ?? '').replace(/^Me lo quedo: /u, '');
   await oldest.click();
   await expect(page.getByText(`Ahora ${claimed} está a tu cargo.`)).toBeVisible();
 });
