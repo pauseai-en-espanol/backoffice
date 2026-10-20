@@ -1,5 +1,23 @@
 # @backoffice/api
 
+## 0.11.3
+
+### Patch Changes
+
+- cead178: A contact attempt may be made on Discord: "Discord" in "Por dónde", after "Telegram". In Contacto, only digits are
+  read as a phone and the hint says to write a Discord username made of digits with an @ in front; adding a detail the
+  person already has says which one ("Esta ficha ya tiene ese teléfono.") instead of "Ya existe algo con esos datos."
+- 11e8e7d: Hoy's "Mis personas" goes most urgent first: a late step, then one for today, then whoever is still "Nuevo" (not
+  contacted yet, as someone just taken), then the rest. It always links to all of mine in Personas ("Ver todas mis
+  personas"), and to all of mine that need something when it shows fewer than it counts.
+- ee905db: Dependencies bump: Node 26.12.0 (images on node:26.12.0-alpine) and pnpm 12.14.0.
+- Updated dependencies [cd098d5]
+- Updated dependencies [cead178]
+- Updated dependencies [11e8e7d]
+  - @backoffice/i18n@0.15.1
+  - @backoffice/domain@0.5.1
+  - @backoffice/db@0.5.2
+
 ## 0.11.2
 
 ### Patch Changes

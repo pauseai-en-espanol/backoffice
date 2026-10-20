@@ -1,5 +1,13 @@
 # @backoffice/domain
 
+## 0.5.1
+
+### Patch Changes
+
+- cead178: A contact attempt may be made on Discord: "Discord" in "Por dónde", after "Telegram". In Contacto, only digits are
+  read as a phone and the hint says to write a Discord username made of digits with an @ in front; adding a detail the
+  person already has says which one ("Esta ficha ya tiene ese teléfono.") instead of "Ya existe algo con esos datos."
+
 ## 0.5.0
 
 ### Minor Changes

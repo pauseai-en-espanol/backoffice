@@ -1,5 +1,16 @@
 # @backoffice/forms
 
+## 0.1.20
+
+### Patch Changes
+
+- ee905db: Dependencies bump: Node 26.12.0 (images on node:26.12.0-alpine) and pnpm 12.14.0.
+- Updated dependencies [cd098d5]
+- Updated dependencies [cead178]
+- Updated dependencies [11e8e7d]
+  - @backoffice/i18n@0.15.1
+  - @backoffice/domain@0.5.1
+
 ## 0.1.19
 
 ### Patch Changes
