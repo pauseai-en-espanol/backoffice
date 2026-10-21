@@ -1,5 +1,11 @@
 # @backoffice/forms
 
+## 0.1.21
+
+### Patch Changes
+
+- 1d230ad: Node.js 26.12.1 (images on node:26.12.1-alpine), the October 21 security release.
+
 ## 0.1.20
 
 ### Patch Changes

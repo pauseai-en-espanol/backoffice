@@ -1,5 +1,11 @@
 # @backoffice/migrations
 
+## 0.9.3
+
+### Patch Changes
+
+- 1d230ad: Node.js 26.12.1 (images on node:26.12.1-alpine), the October 21 security release.
+
 ## 0.9.2
 
 ### Patch Changes
