@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { fill } from '@/fill';
+import { MessageOptions } from '@/onboarding/messages/MessageOptions';
 import * as onboarding from '@/onboarding/styles';
 import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
@@ -29,9 +30,12 @@ export interface CensusLinkText {
   copyFailed: string;
   whatsapp: string;
   whatsappIntro: string;
-  /** "Mensaje": the picker of the team's census link messages, when there are several (Mensajes, PLAN M5). */
+  /** "Mensaje": the picker of the census link messages, when there are several (Mensajes, PLAN M5). */
   choose: string;
   chooseHint: string;
+  /** "Tuyos" and "Del equipo", the picker's groups when it has both (PLAN R71). */
+  chooseMine: string;
+  chooseTeam: string;
   noPhone: string;
   sent: string;
   sentYes: string;
@@ -43,9 +47,9 @@ export interface CensusLinkText {
 /**
  * A person's personal link in the Censo queue (census spec): what their last link went through, said in words by the
  * page, and a new one made on request. Its URL is shown only now, to copy or to open WhatsApp with the message ready,
- * written in the team's census link message (Mensajes, PLAN M5), picked first when there are several; the onboarder
- * sends it from their own number and, back here, says so ("¿Lo has enviado?"), which logs the attempt. Without a phone
- * there is no WhatsApp: the link is copied and sent another way.
+ * written in a census link message from Mensajes (PLAN M5), one's own or the team's (PLAN R71), picked first when
+ * there are several; the onboarder sends it from their own number and, back here, says so ("¿Lo has enviado?"), which
+ * logs the attempt. Without a phone there is no WhatsApp: the link is copied and sent another way.
  */
 export const CensusLinkPanel = ({
   personId,
@@ -58,8 +62,8 @@ export const CensusLinkPanel = ({
   name: string;
   /** The last link, as the page words it (format.ts linkText), and whether it still serves. */
   link: { line: string; serves: boolean } | null;
-  /** The team's census link messages in use, in their order; none for the code's own. */
-  messages: readonly { id: string; title: string }[];
+  /** The census link messages in use, one's own and then the team's, in their order; none for the code's own. */
+  messages: readonly { id: string; title: string; mine: boolean }[];
   text: CensusLinkText;
 }) => {
   const write = useWrite(text.errors);
@@ -188,11 +192,10 @@ export const CensusLinkPanel = ({
                 aria-describedby={`${base}-mensaje-pista`}
                 onChange={(event) => setMessage(event.target.value)}
               >
-                {messages.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.title}
-                  </option>
-                ))}
+                <MessageOptions
+                  options={messages.map(({ id, title, mine }) => ({ value: id, title, mine }))}
+                  text={{ mine: text.chooseMine, team: text.chooseTeam }}
+                />
               </select>
               <span id={`${base}-mensaje-pista`} className={ui.hint}>
                 {text.chooseHint}

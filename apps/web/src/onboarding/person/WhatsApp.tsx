@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { MessageOptions } from '@/onboarding/messages/MessageOptions';
 import * as onboarding from '@/onboarding/styles';
 import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
@@ -11,11 +12,13 @@ import type { PersonPageText } from './text';
 
 import { addAttempt } from '../actions';
 
-/** A message to open WhatsApp with: one the team wrote in Mensajes (its id and version), or the code's own. */
+/** A message to open WhatsApp with: one written in Mensajes (its id and version), or the code's own. */
 export interface WhatsAppChoice {
   template: { id: string; version: number } | null;
   /** Its title in Mensajes; none for the code's own. */
   title: string | null;
+  /** One's own (PLAN R71), rather than the team's or the code's. */
+  mine: boolean;
   /** The handover link with this message (whatsapp-message.ts), or undefined without a phone. */
   link: string | undefined;
 }
@@ -23,8 +26,9 @@ export interface WhatsAppChoice {
 /**
  * The WhatsApp handover (onboarding spec, WhatsApp handover links): a link that opens WhatsApp with the message ready,
  * which the onboarder sends from their own number; back here, "¿Lo has enviado?" logs it as a contact attempt (a
- * message left), naming the message when the team wrote it (Mensajes, PLAN M5). With several of the team's in use, the
- * one to open is picked first, the first already picked. Nothing is ever sent by the backoffice.
+ * message left), naming the message when it was written in Mensajes (PLAN M5). With several in use, one's own first and
+ * then the team's (PLAN R71), the one to open is picked first, the first already picked. Nothing is ever sent by the
+ * backoffice.
  */
 export const WhatsAppHandover = ({
   personId,
@@ -32,7 +36,7 @@ export const WhatsAppHandover = ({
   text,
 }: {
   personId: string;
-  /** At least one: the team's in use, in their order, or the code's own. */
+  /** At least one: those in use, one's own and then the team's, in their order; or the code's own. */
   choices: readonly WhatsAppChoice[];
   text: PersonPageText;
 }) => {
@@ -70,11 +74,14 @@ export const WhatsAppHandover = ({
               setAsking(false);
             }}
           >
-            {choices.map((option, index) => (
-              <option key={option.template?.id ?? 'propio'} value={index}>
-                {option.title}
-              </option>
-            ))}
+            <MessageOptions
+              options={choices.map((option, index) => ({
+                value: String(index),
+                title: option.title ?? '',
+                mine: option.mine,
+              }))}
+              text={{ mine: t.chooseMine, team: t.chooseTeam }}
+            />
           </select>
           <span id={`whatsapp-${personId}-pista`} className={ui.hint}>
             {t.chooseHint}

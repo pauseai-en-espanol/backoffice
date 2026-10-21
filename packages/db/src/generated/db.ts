@@ -434,6 +434,7 @@ export interface AppMessageTemplates {
   created_at: Generated<Timestamp>;
   created_by: string | null;
   id: Generated<string>;
+  private_to: string | null;
   purpose: AppMessagePurpose;
   title: string;
   updated_at: Generated<Timestamp>;

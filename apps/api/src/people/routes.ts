@@ -1054,7 +1054,8 @@ export const peopleRoutes =
         }),
     );
 
-    // The team's WhatsApp messages (Mensajes, PLAN M5): onboarding staff and admins read and write them ------------
+    // The WhatsApp messages (Mensajes, PLAN M5): onboarding staff and admins read the team's and write their own,
+    // which only they see; admins alone write the team's (PLAN R71) -------------------------------------------------
 
     scope.get('/message-templates', async (request, reply) =>
       signedIn(request, reply, async (db, actor) =>
@@ -1071,6 +1072,7 @@ export const peopleRoutes =
         title: string;
         body: string;
         bodyNameless?: string | null;
+        private: boolean;
       };
     }>(
       '/message-templates',
@@ -1078,13 +1080,15 @@ export const peopleRoutes =
         schema: {
           body: {
             type: 'object',
-            required: ['purpose', 'title', 'body'],
+            required: ['purpose', 'title', 'body', 'private'],
             additionalProperties: false,
             properties: {
               purpose: { type: 'string', enum: [...MESSAGE_PURPOSES] },
               title: TITLE,
               body: BODY,
               bodyNameless: NULLABLE_TEXT(2000),
+              // "Solo yo" (true), the writer's own; the team's (false) only for admins, which RLS says.
+              private: { type: 'boolean' },
             },
           },
         },
@@ -1122,8 +1126,11 @@ export const peopleRoutes =
           const changed = await onboarding(db, actor, (trx) =>
             changeMessageTemplate(trx, request.params.id, request.body),
           );
-          if (!changed) {
+          if (changed === 'notFound') {
             throw new Refusal(404, 'notFound');
+          }
+          if (changed === 'forbidden') {
+            throw new Refusal(403, 'forbidden');
           }
           return reply.code(204).send();
         }),

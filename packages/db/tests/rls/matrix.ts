@@ -9,6 +9,7 @@ import {
   INVITATION_IDS,
   MESSAGE_TEMPLATE_ID,
   OUTREACH,
+  OWN_MESSAGE_TEMPLATE_ID,
   PEOPLE,
   type StaffRole,
   tokenHash,
@@ -38,6 +39,8 @@ const ONBOARDING: Rule = { web: ['admin', 'onboarding'] };
 const OUTREACH_STAFF: Rule = { web: ['admin', 'outreach'] };
 /** A record private to the outreacher ("Solo yo", PLAN M5, step 6): they alone, not other outreach staff nor admins. */
 const OUTREACHER_ALONE: Rule = { ...OUTREACH_STAFF, only: [USERS.outreacher] };
+/** The onboarder's own message (PLAN R71): they alone, not the rest of the onboarding team nor admins. */
+const ONBOARDER_ALONE: Rule = { ...ONBOARDING, only: [USERS.onboarder] };
 const NOBODY: Rule = {};
 
 export interface Row {
@@ -464,27 +467,47 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
     ],
   },
   'app.message_templates': {
+    // The team's are read by the onboarding team and written by admins; one's own by its person alone (PLAN R71).
     rows: [
       {
-        id: 'a welcome message',
+        id: "the team's welcome message",
         where: `id = '${MESSAGE_TEMPLATE_ID}'`,
         select: ONBOARDING,
-        update: { set: "title = 'Bienvenida cambiada'", rule: ONBOARDING },
+        update: { set: "title = 'Bienvenida cambiada'", rule: ADMIN },
         delete: NOBODY,
       },
       {
-        id: 'retiring a welcome message',
+        id: "retiring the team's welcome message",
         where: `id = '${MESSAGE_TEMPLATE_ID}'`,
         select: ONBOARDING,
-        update: { set: 'active = false', rule: ONBOARDING },
+        update: { set: 'active = false', rule: ADMIN },
+      },
+      {
+        id: "the onboarder's own welcome message",
+        where: `id = '${OWN_MESSAGE_TEMPLATE_ID}'`,
+        select: ONBOARDER_ALONE,
+        update: { set: "body = '¡Hola de nuevo! Soy {yo}.'", rule: ONBOARDER_ALONE },
+        delete: NOBODY,
+      },
+      {
+        id: "giving one's own message to the team",
+        where: `id = '${OWN_MESSAGE_TEMPLATE_ID}'`,
+        select: ONBOARDER_ALONE,
+        update: { set: 'private_to = NULL', rule: NOBODY },
       },
     ],
     inserts: [
       {
-        id: 'a census link message',
+        id: "a census link message of the team's",
         sql: `INSERT INTO app.message_templates (purpose, title, body)
               VALUES ('census_link', 'Censo de ejemplo', 'Soy {yo}: {enlace}')`,
-        rule: ONBOARDING,
+        rule: ADMIN,
+      },
+      {
+        id: "a census link message of the onboarder's own",
+        sql: `INSERT INTO app.message_templates (purpose, title, body, private_to)
+              VALUES ('census_link', 'Censo de ejemplo', 'Soy {yo}: {enlace}', ${user('onboarder')})`,
+        rule: ONBOARDER_ALONE,
       },
     ],
   },

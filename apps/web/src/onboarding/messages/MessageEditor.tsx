@@ -11,6 +11,7 @@ import { type FormEvent, type Ref, useState } from 'react';
 import { describedBy, formText } from '@/auth/client';
 import { fill } from '@/fill';
 import * as onboarding from '@/onboarding/styles';
+import { VisibilityChoice } from '@/outreach/Visibility';
 import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
@@ -33,11 +34,13 @@ const REFUSED: Readonly<Record<string, keyof MessagesPageText['problem']>> = {
  * A message written or rewritten in place (Mensajes, PLAN M5): its title, what it says with its placeholders, and,
  * when it uses {nombre}, how it reads for someone without a name, drafted from the message until it's touched. What
  * the database would refuse is listed as it's typed and said on saving; below, the message as it goes out, to an
- * example person and to someone without a name.
+ * example person and to someone without a name. A new one is the writer's own, or for an admin the team's if picked
+ * (PLAN R71), for good.
  */
 export const MessageEditor = ({
   purpose,
   template,
+  chooseWhose,
   me,
   heading,
   title,
@@ -47,6 +50,8 @@ export const MessageEditor = ({
   purpose: MessagePurpose;
   /** The message rewritten; none for a new one. */
   template: MessageTemplate | null;
+  /** For a new one: whether the writer picks the team's or their own (an admin); else it's their own. */
+  chooseWhose: boolean;
   /** Who writes, for {yo} in the preview: the staff member's display name. */
   me: string;
   heading: Ref<HTMLHeadingElement>;
@@ -81,6 +86,7 @@ export const MessageEditor = ({
     event.preventDefault();
     setTried(true);
     const titleValue = formText(event.currentTarget, 'title').trim();
+    const isPrivate = !chooseWhose || formText(event.currentTarget, 'visibility') === 'private';
     const why =
       titleValue === ''
         ? text.titleMissing
@@ -99,7 +105,7 @@ export const MessageEditor = ({
       () =>
         template
           ? changeMessageTemplate(template.id, message)
-          : addMessageTemplate({ purpose, ...message }),
+          : addMessageTemplate({ purpose, ...message, private: isPrivate }),
       { done: template ? text.saved : text.added },
     );
     if (answer?.ok) {
@@ -129,6 +135,7 @@ export const MessageEditor = ({
       <h3 ref={heading} tabIndex={-1} className={ui.h3}>
         {title}
       </h3>
+      {template === null && !chooseWhose ? <p className={ui.hint}>{text.ownHint}</p> : null}
       <div className={ui.field}>
         <label className={ui.label} htmlFor={`${base}-titulo`}>
           {text.titleLabel}
@@ -212,6 +219,9 @@ export const MessageEditor = ({
               <div className={styles.message}>{preview.message}</div>
             </div>
           ))}
+      {template === null && chooseWhose ? (
+        <VisibilityChoice prefix={`${base}-de-quien`} text={text.whose} />
+      ) : null}
       <FormError id={errorId} message={error} />
       <div className={ui.rowActions}>
         <button type="submit" className={ui.button} aria-disabled={write.pending}>

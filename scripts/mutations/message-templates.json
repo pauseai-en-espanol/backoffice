@@ -89,17 +89,17 @@
   },
   {
     "name": "outreach staff read the messages",
-    "file": "db/migrations/20261016160000_message_templates.sql",
-    "old": "FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding')));",
-    "new": "FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach')));",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "  USING ((SELECT private.staff_can('admin', 'onboarding'))\n         AND (private_to IS NULL",
+    "new": "  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach'))\n         AND (private_to IS NULL",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
   {
     "name": "the bot writes a message",
-    "file": "db/migrations/20261016160000_message_templates.sql",
-    "old": "FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'onboarding')));",
-    "new": "FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'onboarding') OR private.bot_can('onboarding')));",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "                  AND (SELECT private.staff_can('admin', 'onboarding'))));\nDROP POLICY onboarding_update",
+    "new": "                  AND (SELECT private.staff_can('admin', 'onboarding')))\n              OR (SELECT private.bot_can('onboarding')));\nDROP POLICY onboarding_update",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
@@ -144,6 +144,70 @@
     "cwd": "packages/db"
   },
   {
+    "name": "the rest of the team reads someone's own messages",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "  USING ((SELECT private.staff_can('admin', 'onboarding'))\n         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id())));",
+    "new": "  USING ((SELECT private.staff_can('admin', 'onboarding')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "admins read someone's own messages",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id())));",
+    "new": "         AND (private_to IS NULL OR private_to = (SELECT private.current_user_id())\n              OR (SELECT private.staff_can('admin'))));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarders write the team's messages",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((private_to IS NULL AND (SELECT private.staff_can('admin')))",
+    "new": "FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((private_to IS NULL AND (SELECT private.staff_can('admin', 'onboarding')))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarders change the team's messages",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "  USING ((private_to IS NULL AND (SELECT private.staff_can('admin')))\n         OR (private_to = (SELECT private.current_user_id())\n             AND (SELECT private.staff_can('admin', 'onboarding'))))\n  WITH CHECK ((private_to IS NULL AND (SELECT private.staff_can('admin')))",
+    "new": "  USING ((private_to IS NULL AND (SELECT private.staff_can('admin', 'onboarding')))\n         OR (private_to = (SELECT private.current_user_id())\n             AND (SELECT private.staff_can('admin', 'onboarding'))))\n  WITH CHECK ((private_to IS NULL AND (SELECT private.staff_can('admin', 'onboarding')))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "someone writes a message as someone else's own",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((private_to IS NULL AND (SELECT private.staff_can('admin')))\n              OR (private_to = (SELECT private.current_user_id())",
+    "new": "FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((private_to IS NULL AND (SELECT private.staff_can('admin')))\n              OR (private_to IS NOT NULL",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "one's own message is given to the team, or to someone else",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "GRANT INSERT (private_to) ON app.message_templates",
+    "new": "GRANT INSERT (private_to), UPDATE (private_to) ON app.message_templates",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a title is taken across everyone's own messages",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "UNIQUE NULLS NOT DISTINCT (purpose, private_to, title)",
+    "new": "UNIQUE (purpose, title)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the team's messages take a title twice",
+    "file": "db/migrations/20261021100000_own_messages.sql",
+    "old": "UNIQUE NULLS NOT DISTINCT (purpose, private_to, title)",
+    "new": "UNIQUE (purpose, private_to, title)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
     "name": "the census link ignores the message asked for",
     "file": "apps/api/src/census/routes.ts",
     "old": "const message = await messageFor(trx, 'census_link', request.body.templateId);",
@@ -172,6 +236,38 @@
     "file": "apps/api/src/people/people.ts",
     "old": "    ...(attempt.templateId === undefined ? {} : { templateId: attempt.templateId }),\n",
     "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a new message is the team's, whoever asked for their own",
+    "file": "apps/api/src/people/message-templates.ts",
+    "old": "${template.private ? sql`private.current_user_id()` : sql`NULL::uuid`}",
+    "new": "${sql`NULL::uuid`}",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Mensajes lists the team's before one's own",
+    "file": "apps/api/src/people/message-templates.ts",
+    "old": "ORDER BY m.purpose, m.active DESC, m.private_to IS NULL, m.created_at, m.id",
+    "new": "ORDER BY m.purpose, m.active DESC, m.created_at, m.id",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the team's message is offered before one's own",
+    "file": "apps/api/src/people/message-templates.ts",
+    "old": "ORDER BY private_to IS NULL, created_at, id",
+    "new": "ORDER BY created_at, id",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an onboarder's change to the team's message isn't refused as such",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "if (changed === 'forbidden') {\n            throw new Refusal(403, 'forbidden');",
+    "new": "if (changed === 'forbidden') {\n            throw new Refusal(404, 'notFound');",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
     "cwd": "apps/api"
   },

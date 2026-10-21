@@ -142,7 +142,8 @@ export const censusRoutes =
       {
         schema: {
           params: ID_PARAMS,
-          // The message to write it in, among the team's in use (Mensajes, PLAN M5); the first by default.
+          // The message to write it in, among those in use: one's own, then the team's (Mensajes, PLAN M5, R71);
+          // the first by default.
           body: {
             type: 'object',
             additionalProperties: false,
@@ -187,8 +188,8 @@ export const censusRoutes =
             const link = await createCensusLink(trx, request.params.id, token, message);
             return { ...link, person, message };
           });
-          // Someone saved with only a phone (PLAN R37) is greeted without a name; with no message of the team's in
-          // use, the code's neutral one.
+          // Someone saved with only a phone (PLAN R37) is greeted without a name; with no message in use, the code's
+          // neutral one.
           const { name, me } = made.person;
           const text = made.message
             ? fillMessage(made.message, { nombre: name ?? undefined, yo: me, enlace: url })

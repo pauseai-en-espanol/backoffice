@@ -934,13 +934,14 @@ describe('when and where from, and Discord (PLAN M5)', () => {
     }
   });
 
-  it('lets onboarding staff write the team’s messages, checked by the database, and log which went out', async () => {
+  it('lets onboarding staff write their own messages, checked by the database, and log which went out', async () => {
     expect((await outreacher.who.send('GET', '/api/message-templates')).statusCode).toBe(403);
     const title = `Bienvenida ${suffix()}`;
     const welcome = (fields: Record<string, unknown>) =>
       onboarder.who.send('POST', '/api/message-templates', {
         purpose: 'welcome',
         title,
+        private: true,
         ...fields,
       });
     // The database says what's wrong, by the rule's name, for the staff app to point at.
@@ -973,13 +974,14 @@ describe('when and where from, and Discord (PLAN M5)', () => {
         ).statusCode,
       ).toBe(204);
       expect(
-        (await admin.who.send('PATCH', `/api/message-templates/${id}`, { active: false }))
+        (await onboarder.who.send('PATCH', `/api/message-templates/${id}`, { active: false }))
           .statusCode,
       ).toBe(204);
       const { templates } = (await onboarder.who.send('GET', '/api/message-templates')).json<{
         templates: {
           id: string;
           bodyNameless: string;
+          mine: boolean;
           version: number;
           active: boolean;
           updatedBy: { displayName: string } | null;
@@ -987,6 +989,7 @@ describe('when and where from, and Discord (PLAN M5)', () => {
       }>();
       expect(templates.find((template) => template.id === id)).toMatchObject({
         bodyNameless: 'Hola: soy {yo}, de nuevo.',
+        mine: true,
         version: 2,
         active: false,
         updatedBy: { displayName: expect.any(String) },
@@ -1025,6 +1028,60 @@ describe('when and where from, and Discord (PLAN M5)', () => {
       ]);
     } finally {
       await superuser.query('DELETE FROM app.message_templates WHERE id = $1', [id]);
+    }
+  });
+
+  it('keeps one’s own messages to oneself, offered before the team’s, which admins alone write (PLAN R71)', async () => {
+    const other = await staffMember('onboarding');
+    const tag = suffix();
+    const write = (who: typeof onboarder, title: string, isPrivate: boolean) =>
+      who.who.send('POST', '/api/message-templates', {
+        purpose: 'welcome',
+        title,
+        body: 'Hola: soy {yo}.',
+        private: isPrivate,
+      });
+    // The team's are an admin's to write, and to change.
+    expect((await write(onboarder, `Del equipo ${tag}`, false)).statusCode).toBe(403);
+    const team = await write(admin, `Del equipo ${tag}`, false);
+    expect(team.statusCode).toBe(201);
+    const teamId = team.json<{ id: string }>().id;
+    const own = await write(onboarder, `Mía ${tag}`, true);
+    expect(own.statusCode).toBe(201);
+    const ownId = own.json<{ id: string }>().id;
+    try {
+      expect(
+        (
+          await onboarder.who.send('PATCH', `/api/message-templates/${teamId}`, {
+            body: 'Hola: soy {yo}, de nuevo.',
+          })
+        ).statusCode,
+      ).toBe(403);
+      // Nobody else sees one's own, admins included: to them it isn't there.
+      const ids = async (who: typeof onboarder) =>
+        (await who.who.send('GET', '/api/message-templates'))
+          .json<{ templates: { id: string; mine: boolean }[] }>()
+          .templates.filter((template) => template.id === teamId || template.id === ownId);
+      expect(await ids(onboarder)).toMatchObject([
+        { id: ownId, mine: true },
+        { id: teamId, mine: false },
+      ]);
+      expect(await ids(other)).toMatchObject([{ id: teamId, mine: false }]);
+      expect(await ids(admin)).toMatchObject([{ id: teamId, mine: false }]);
+      expect(
+        (await other.who.send('PATCH', `/api/message-templates/${ownId}`, { active: false }))
+          .statusCode,
+      ).toBe(404);
+      // A title of someone else's, which they can't see, is free.
+      const same = await write(other, `Mía ${tag}`, true);
+      expect(same.statusCode).toBe(201);
+      await superuser.query('DELETE FROM app.message_templates WHERE id = $1', [
+        same.json<{ id: string }>().id,
+      ]);
+    } finally {
+      await superuser.query('DELETE FROM app.message_templates WHERE id = ANY($1::uuid[])', [
+        [teamId, ownId],
+      ]);
     }
   });
 });

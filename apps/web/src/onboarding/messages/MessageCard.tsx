@@ -3,6 +3,7 @@
 import type { MessagePurpose } from '@backoffice/domain/message-templates';
 
 import { fill } from '@/fill';
+import { PrivateMark } from '@/outreach/PrivateMark';
 import { useDisclosure } from '@/outreach/useDisclosure';
 import { ConfirmAction } from '@/ui/ConfirmAction';
 import { FormError } from '@/ui/FormError';
@@ -17,19 +18,23 @@ import { MessageEditor } from './MessageEditor';
 import * as styles from './styles';
 
 /**
- * A message the team wrote (Mensajes, PLAN M5): its title, its version (worded by the page), what it says and, when it
- * names someone, what someone without a name gets. Rewritten in place; retired after a question (it stops being
- * offered, and the history still names it), or put back in use.
+ * A message in Mensajes (PLAN M5): its title, whether it's the reader's own (PLAN R71), its version (worded by the
+ * page), what it says and, when it names someone, what someone without a name gets. Rewritten in place; retired after
+ * a question (it stops being offered, and the history still names it), or put back in use, by whoever may write it:
+ * its own person, or an admin for the team's. To anyone else, the team's says who changes it.
  */
 export const MessageCard = ({
   template,
   version,
+  editable,
   me,
   text,
 }: {
   template: MessageTemplate;
   /** "Versión 2, del 16 de octubre de 2026, de Ana", worded by the page. */
   version: string;
+  /** Whether the reader may change it: their own, or the team's for an admin. */
+  editable: boolean;
   me: string;
   text: MessagesPageText;
 }) => {
@@ -42,6 +47,7 @@ export const MessageCard = ({
       <h3 id={`mensaje-${template.id}-titulo`} className={ui.h3}>
         {template.title}
       </h3>
+      {template.mine ? <PrivateMark label={text.ownMark} /> : null}
       <p className={ui.hint}>{version}</p>
       <div className={styles.message}>{template.body}</div>
       {template.bodyNameless === null ? null : (
@@ -50,10 +56,13 @@ export const MessageCard = ({
           <div className={styles.message}>{template.bodyNameless}</div>
         </div>
       )}
-      {open ? (
+      {!editable ? (
+        <p className={ui.hint}>{text.teamReadOnly}</p>
+      ) : open ? (
         <MessageEditor
           purpose={template.purpose}
           template={template}
+          chooseWhose={false}
           me={me}
           heading={heading}
           title={fill(text.editFor, name)}
@@ -105,13 +114,16 @@ export const MessageCard = ({
   );
 };
 
-/** A new message for a purpose, written in place behind its button. */
+/** A new message for a purpose, written in place behind its button: one's own, or for an admin the team's too. */
 export const NewMessage = ({
   purpose,
+  chooseWhose,
   me,
   text,
 }: {
   purpose: MessagePurpose;
+  /** Whether the writer picks the team's or their own (an admin); else it's their own. */
+  chooseWhose: boolean;
   me: string;
   text: MessagesPageText;
 }) => {
@@ -121,6 +133,7 @@ export const NewMessage = ({
     <MessageEditor
       purpose={purpose}
       template={null}
+      chooseWhose={chooseWhose}
       me={me}
       heading={heading}
       title={label}

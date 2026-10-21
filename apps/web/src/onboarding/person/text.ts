@@ -158,6 +158,8 @@ export const personPageText = (t: Translator) => {
       open: t('person.whatsappOpen'),
       choose: t('person.whatsappChoose'),
       chooseHint: t('person.whatsappChooseHint'),
+      chooseMine: t('messageTemplates.pickerMine'),
+      chooseTeam: t('messageTemplates.pickerTeam'),
       noPhone: t('person.whatsappNoPhone'),
       message: raw('person.whatsappMessage'),
       messageNameless: raw('person.whatsappMessageNameless'),

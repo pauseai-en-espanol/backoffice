@@ -265,7 +265,7 @@ describe('the forms app’s routes (M2)', () => {
 });
 
 describe('the census’s staff side (M2)', () => {
-  it('writes a personal link in the team’s message, which the link and its attempt name (Mensajes, PLAN M5)', async () => {
+  it('writes a personal link in the message picked, which the link and its attempt name (Mensajes, PLAN M5)', async () => {
     const added = (
       await onboarder.who.send('POST', '/api/intake', {
         name: `Censo Mensaje ${crypto.randomUUID().slice(0, 6)}`,
@@ -276,11 +276,23 @@ describe('the census’s staff side (M2)', () => {
       })
     ).json<{ personId: string }>();
     people.push(added.personId);
+    // The team's, written first, and the onboarder's own (PLAN R71).
+    expect(
+      (
+        await admin.who.send('POST', '/api/message-templates', {
+          purpose: 'census_link',
+          title: `Censo de prueba ${crypto.randomUUID().slice(0, 6)}`,
+          body: 'Soy {yo}, del equipo. Tu enlace: {enlace}',
+          private: false,
+        })
+      ).statusCode,
+    ).toBe(201);
     const written = await onboarder.who.send('POST', '/api/message-templates', {
       purpose: 'census_link',
       title: `Censo de prueba ${crypto.randomUUID().slice(0, 6)}`,
       body: 'Hola, {nombre}: soy {yo}. Tu enlace: {enlace}',
       bodyNameless: 'Hola: soy {yo}. Tu enlace: {enlace}',
+      private: true,
     });
     expect(written.statusCode).toBe(201);
     const templateId = written.json<{ id: string }>().id;
@@ -312,6 +324,17 @@ describe('the census’s staff side (M2)', () => {
         )
       ).rows.map((row: { data: unknown }) => row.data),
     ).toEqual([{ channel: 'whatsapp', outcome: 'left_message', templateId, templateVersion: 1 }]);
+
+    // None asked for: one's own goes first, before the team's however old (PLAN R71).
+    const again = await onboarder.who.send('POST', `/api/people/${added.personId}/census-link`);
+    expect(again.statusCode).toBe(201);
+    expect(
+      (
+        await superuser.query('SELECT template_id FROM app.census_links WHERE id = $1', [
+          again.json<{ id: string }>().id,
+        ])
+      ).rows,
+    ).toEqual([{ template_id: templateId }]);
 
     // A message retired meanwhile isn't offered any more: the page is out of date.
     await onboarder.who.send('PATCH', `/api/message-templates/${templateId}`, { active: false });

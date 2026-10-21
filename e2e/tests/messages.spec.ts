@@ -4,12 +4,12 @@ import { signedInStaff } from '../staff.js';
 import { expect, test } from '../test.js';
 
 /**
- * Mensajes (PLAN M5): the onboarding team writes the welcome newcomers get by WhatsApp, the page saying what a
- * placeholder typo would do before anything is saved, and drafting how it reads for someone without a name. A person's
- * page then opens WhatsApp with it, and "Sí, lo he enviado" logs which message and version went out. The message is
- * retired at the end, so other tests keep their own.
+ * Mensajes (PLAN M5): an onboarder writes a welcome newcomers get by WhatsApp, their own (PLAN R71), the page saying
+ * what a placeholder typo would do before anything is saved, and drafting how it reads for someone without a name. A
+ * person's page then opens WhatsApp with it, and "Sí, lo he enviado" logs which message and version went out. The
+ * message is retired at the end.
  */
-test('the team writes a welcome, offered on a person’s page and named in their history', async ({
+test('an onboarder writes a welcome, offered on a person’s page and named in their history', async ({
   page,
 }) => {
   await signedInStaff(page, ['onboarding']);
@@ -36,6 +36,9 @@ test('the team writes a welcome, offered on a person’s page and named in their
   await welcome.getByRole('button', { name: 'Guardar' }).click();
   await expect(page.getByText('Mensaje guardado.')).toBeVisible();
   await expect(welcome.getByRole('heading', { level: 3, name: title })).toBeVisible();
+  await expect(
+    welcome.getByRole('article', { name: title }).getByText('Solo tú lo ves'),
+  ).toBeVisible();
 
   const name = uniqueName();
   const response = await page.request.post('/api/intake', {
@@ -76,4 +79,77 @@ test('the team writes a welcome, offered on a person’s page and named in their
   await welcome.getByRole('button', { name: 'Retirar', exact: true }).click();
   await expect(page.getByText('Mensaje retirado.')).toBeVisible();
   await expect(welcome.getByRole('heading', { level: 3, name: title })).toBeHidden();
+});
+
+/**
+ * One's own and the team's (PLAN R71): an admin writes the team's welcome; an onboarder sees it without changing it,
+ * writes their own, which nobody else sees, an admin neither, and a person's page offers theirs first, each kind under
+ * its name. Both are retired at the end.
+ */
+test('an onboarder’s welcome is theirs alone, offered before the team’s, which an admin writes', async ({
+  page,
+  newContext,
+}) => {
+  await signedInStaff(page, ['admin']);
+  await page.goto('/mensajes');
+  const teams = page.getByRole('region', { name: 'Bienvenida' });
+  await teams.getByRole('button', { name: 'Escribir un mensaje de Bienvenida' }).click();
+  const teamTitle = `Del equipo ${uniqueName()}`;
+  await teams.getByLabel('Título').fill(teamTitle);
+  await teams.getByLabel('Mensaje', { exact: true }).fill('Hola: soy {yo}, del equipo.');
+  await expect(teams.getByRole('radio', { name: 'El equipo' })).toBeChecked();
+  await expectAccessible(page);
+  await teams.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText('Mensaje guardado.')).toBeVisible();
+  await expect(teams.getByRole('heading', { level: 3, name: teamTitle })).toBeVisible();
+
+  const onboarder = await (await newContext()).newPage();
+  await signedInStaff(onboarder, ['onboarding']);
+  await onboarder.goto('/mensajes');
+  const welcome = onboarder.getByRole('region', { name: 'Bienvenida' });
+  const team = welcome.getByRole('article', { name: teamTitle });
+  await expect(team.getByText('Es del equipo: lo cambia quien administra.')).toBeVisible();
+  await expect(team.getByRole('button')).toHaveCount(0);
+  await welcome.getByRole('button', { name: 'Escribir un mensaje de Bienvenida' }).click();
+  await expect(welcome.getByText(/^Será tuyo: solo tú lo ves/u)).toBeVisible();
+  await expect(welcome.getByRole('radio')).toHaveCount(0);
+  const ownTitle = `Mía ${uniqueName()}`;
+  await welcome.getByLabel('Título').fill(ownTitle);
+  await welcome.getByLabel('Mensaje', { exact: true }).fill('Hola: soy {yo}, y este es mío.');
+  await welcome.getByRole('button', { name: 'Guardar' }).click();
+  await expect(onboarder.getByText('Mensaje guardado.')).toBeVisible();
+  await expect(
+    welcome.getByRole('article', { name: ownTitle }).getByText('Solo tú lo ves'),
+  ).toBeVisible();
+  await expectAccessible(onboarder);
+
+  await page.reload();
+  await expect(teams.getByRole('heading', { level: 3, name: teamTitle })).toBeVisible();
+  await expect(teams.getByRole('heading', { level: 3, name: ownTitle })).toHaveCount(0);
+
+  const response = await onboarder.request.post('/api/intake', {
+    headers: { origin: new URL(onboarder.url()).origin },
+    data: { name: uniqueName(), phone: phone(), decision: 'new' },
+  });
+  expect(response.status()).toBe(201);
+  const { personId } = (await response.json()) as { personId: string };
+  await onboarder.goto(`/personas/${personId}`);
+  const picker = onboarder.getByLabel('Mensaje', { exact: true });
+  await expect(picker.locator('option:checked')).toHaveText(ownTitle);
+  await expect(picker.locator('optgroup[label="Tuyos"] option')).toHaveText([ownTitle]);
+  await expect(
+    picker.locator('optgroup[label="Del equipo"] option', { hasText: teamTitle }),
+  ).toHaveCount(1);
+  const href = await onboarder.getByRole('link', { name: 'Abrir WhatsApp' }).getAttribute('href');
+  expect(decodeURIComponent(href?.split('?text=')[1] ?? '')).toMatch(
+    /^Hola: soy .+, y este es mío\.$/u,
+  );
+
+  await onboarder.goto('/mensajes');
+  await welcome.getByRole('button', { name: `Retirar «${ownTitle}»` }).click();
+  await welcome.getByRole('button', { name: 'Retirar', exact: true }).click();
+  await expect(onboarder.getByText('Mensaje retirado.')).toBeVisible();
+  await teams.getByRole('button', { name: `Retirar «${teamTitle}»` }).click();
+  await teams.getByRole('button', { name: 'Retirar', exact: true }).click();
+  await expect(page.getByText('Mensaje retirado.')).toBeVisible();
 });

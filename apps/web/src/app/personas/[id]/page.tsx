@@ -138,7 +138,8 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   };
   // "Sin nombre" for someone saved with only a phone (PLAN R37), who is greeted without one.
   const shown = { ...person, name: personName(person.name, t('people.noName')) };
-  // The welcome: the team's messages in use (Mensajes, PLAN M5), in their order, or else the code's own.
+  // The welcome: the messages in use (Mensajes, PLAN M5), one's own and then the team's (R71), in their order, or else
+  // the code's own.
   const greeting = greetingName(person);
   const messages = isUnavailable(templates) ? [] : templates;
   const welcomes = messages.filter((template) => template.purpose === 'welcome' && template.active);
@@ -148,6 +149,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
           {
             template: null,
             title: null,
+            mine: false,
             link: handoverLink(
               person,
               greeting === undefined
@@ -162,13 +164,17 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
       : welcomes.map((template) => ({
           template: { id: template.id, version: template.version },
           title: template.title,
+          mine: template.mine,
           link: handoverLink(
             person,
             fillMessage(template, { nombre: greeting, yo: me.staff.displayName }),
           ),
         }));
+  // Every message the reader may see is here: one that isn't is someone else's own (PLAN R71).
   const templateTitle = (templateId: string) =>
-    messages.find((template) => template.id === templateId)?.title;
+    isUnavailable(templates)
+      ? undefined
+      : (messages.find((template) => template.id === templateId)?.title ?? null);
   const open = person.presence.some((period) => period.leftOn === null);
 
   // What is known of them; their names are the page's heading already.

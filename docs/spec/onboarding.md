@@ -271,14 +271,15 @@ message prepared from a template. The onboarder taps it, WhatsApp opens with the
 send. Back in the app they confirm "Enviado", which logs the attempt. Nothing is sent automatically, and the
 message comes from a real person's number, which is also what makes a reply likely.
 
-The templates are the team's, written in the staff app's **Mensajes** (PLAN M5, D15), not in code: the welcome (a
-person's page) and the census link's (Censo), several per purpose, each with a title, offered in the order they were
-written, the first already picked. Their placeholders are `{nombre}` (the name to greet them by), `{yo}` (the
-onboarder's name) and, for the census link, `{enlace}`, which it must carry; any other brace is refused as it's typed
-and by the database. A template that uses `{nombre}` also says how it reads for someone saved without a name (PLAN
-R37). Each change adds a version, and the attempt logged by "Enviado" names the template and version that went out,
-as the census link does. A template is retired, never deleted. With none in use, the code's own neutral message goes
-out.
+The templates are written in the staff app's **Mensajes** (PLAN M5, D15), not in code: the welcome (a person's page)
+and the census link's (Censo), several per purpose, each with a title. A template is the team's, written by admins,
+or an onboarder's own (PLAN R71, D18), which only they see; one's own are offered first, then the team's, each in the
+order they were written, the first already picked. Their placeholders are `{nombre}` (the name to greet them by),
+`{yo}` (the onboarder's name) and, for the census link, `{enlace}`, which it must carry; any other brace is refused as
+it's typed and by the database. A template that uses `{nombre}` also says how it reads for someone saved without a
+name (PLAN R37). Each change adds a version, and the attempt logged by "Enviado" names the template and version that
+went out, as the census link does. A template is retired, never deleted. With none in use, the code's own neutral
+message goes out.
 
 ## 8. Notifications
 

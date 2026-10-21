@@ -3545,6 +3545,7 @@ CREATE TABLE app.message_templates (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    private_to uuid,
     CONSTRAINT message_templates_body_check CHECK (((btrim(body) <> ''::text) AND (length(body) <= 2000))),
     CONSTRAINT message_templates_body_nameless_check CHECK (((btrim(body_nameless) <> ''::text) AND (length(body_nameless) <= 2000))),
     CONSTRAINT message_templates_link_check CHECK (((purpose <> 'census_link'::app.message_purpose) OR ((strpos(body, '{enlace}'::text) > 0) AND ((body_nameless IS NULL) OR (strpos(body_nameless, '{enlace}'::text) > 0))))),
@@ -4459,11 +4460,11 @@ ALTER TABLE ONLY app.message_templates
 
 
 --
--- Name: message_templates message_templates_purpose_title_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+-- Name: message_templates message_templates_purpose_private_to_title_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 ALTER TABLE ONLY app.message_templates
-    ADD CONSTRAINT message_templates_purpose_title_key UNIQUE (purpose, title);
+    ADD CONSTRAINT message_templates_purpose_private_to_title_key UNIQUE NULLS NOT DISTINCT (purpose, private_to, title);
 
 
 --
@@ -4792,6 +4793,13 @@ CREATE INDEX intake_records_status_idx ON app.intake_records USING btree (status
 --
 
 CREATE INDEX invitations_created_by_idx ON app.invitations USING btree (created_by);
+
+
+--
+-- Name: message_templates_private_to_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX message_templates_private_to_idx ON app.message_templates USING btree (private_to) WHERE (private_to IS NOT NULL);
 
 
 --
@@ -5856,6 +5864,14 @@ ALTER TABLE ONLY app.invitations
 
 
 --
+-- Name: message_templates message_templates_private_to_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.message_templates
+    ADD CONSTRAINT message_templates_private_to_fkey FOREIGN KEY (private_to) REFERENCES app.staff(user_id);
+
+
+--
 -- Name: organisation_notes organisation_notes_organisation_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -6293,13 +6309,6 @@ CREATE POLICY onboarding_insert ON app.identities FOR INSERT TO pauseai_backoffi
 
 
 --
--- Name: message_templates onboarding_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
---
-
-CREATE POLICY onboarding_insert ON app.message_templates FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
-
-
---
 -- Name: person_events onboarding_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -6373,7 +6382,7 @@ CREATE POLICY onboarding_read ON app.intake_records FOR SELECT TO pauseai_backof
 -- Name: message_templates onboarding_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY onboarding_read ON app.message_templates FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
+CREATE POLICY onboarding_read ON app.message_templates FOR SELECT TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can) AND ((private_to IS NULL) OR (private_to = ( SELECT private.current_user_id() AS current_user_id)))));
 
 
 --
@@ -6423,13 +6432,6 @@ CREATE POLICY onboarding_update ON app.community_presence FOR UPDATE TO pauseai_
 --
 
 CREATE POLICY onboarding_update ON app.identities FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
-
-
---
--- Name: message_templates onboarding_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
---
-
-CREATE POLICY onboarding_update ON app.message_templates FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can));
 
 
 --
@@ -6696,6 +6698,20 @@ CREATE POLICY staff_read ON app.staff_roles FOR SELECT TO pauseai_backoffice_app
 --
 
 ALTER TABLE app.staff_roles ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: message_templates team_or_own_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY team_or_own_insert ON app.message_templates FOR INSERT TO pauseai_backoffice_app WITH CHECK ((((private_to IS NULL) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) OR ((private_to = ( SELECT private.current_user_id() AS current_user_id)) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can))));
+
+
+--
+-- Name: message_templates team_or_own_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY team_or_own_update ON app.message_templates FOR UPDATE TO pauseai_backoffice_app USING ((((private_to IS NULL) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) OR ((private_to = ( SELECT private.current_user_id() AS current_user_id)) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can)))) WITH CHECK ((((private_to IS NULL) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) OR ((private_to = ( SELECT private.current_user_id() AS current_user_id)) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can))));
+
 
 --
 -- Name: SCHEMA app; Type: ACL; Schema: -; Owner: pauseai_backoffice_owner
@@ -8276,6 +8292,13 @@ GRANT INSERT(body_nameless),UPDATE(body_nameless) ON TABLE app.message_templates
 --
 
 GRANT INSERT(active),UPDATE(active) ON TABLE app.message_templates TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN message_templates.private_to; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(private_to) ON TABLE app.message_templates TO pauseai_backoffice_app;
 
 
 --

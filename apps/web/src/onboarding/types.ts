@@ -61,6 +61,8 @@ export interface MessageTemplate {
   body: string;
   bodyNameless: string | null;
   active: boolean;
+  /** The reader's own ("Solo yo", PLAN R71), which nobody else sees; else the team's. */
+  mine: boolean;
   version: number;
   updatedAt: string;
   updatedBy: StaffRef | null;
@@ -559,6 +561,7 @@ export const parseMessageTemplates = (body: unknown): MessageTemplate[] | undefi
           !str(value.title) ||
           !str(value.body) ||
           typeof value.active !== 'boolean' ||
+          typeof value.mine !== 'boolean' ||
           typeof value.version !== 'number' ||
           !str(value.updatedAt)
         ) {
@@ -575,6 +578,7 @@ export const parseMessageTemplates = (body: unknown): MessageTemplate[] | undefi
               body: value.body,
               bodyNameless,
               active: value.active,
+              mine: value.mine,
               version: value.version,
               updatedAt: value.updatedAt,
               updatedBy,

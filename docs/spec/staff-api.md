@@ -174,26 +174,31 @@ from, Discord usernames; the team's WhatsApp messages. Everything else above sta
   (`400 invalid`, `field: mapping`), and a row one of them filled; leaving before joining is an invalid `leftOn`. The
   preview adds `joinedOn` and `leftOn`, and its `name` is null for a row without one.
 
-Mensajes ([PLAN M5](../PLAN.md#m5-after-first-use), step 7): the WhatsApp messages the team writes, for onboarding
-staff and admins; never the bot.
+Mensajes ([PLAN M5](../PLAN.md#m5-after-first-use), step 7): the WhatsApp messages written in the staff app, for
+onboarding staff and admins; never the bot. A message is the team's, written by admins, or a staff member's own
+(PLAN R71), which nobody else sees, admins included.
 
-- **`GET /api/message-templates`**: `{ templates: [{ id, purpose, title, body, bodyNameless, active, version,
-updatedAt, updatedBy: { userId, displayName } | null }] }`, by purpose (`welcome`, `census_link`), those in use
-  first, each purpose's in the order they were written (the order they're offered).
-- **`POST /api/message-templates`** `{ purpose, title, body, bodyNameless? }` (`201 { id }`) and
-  **`PATCH /api/message-templates/:id`** `{ title?, body?, bodyNameless?, active? }` (`204`, `404` for no such
-  message). Text is trimmed, and a blank `bodyNameless` is none. The database refuses, `422 incomplete` with the rule's
-  name in `constraint`: a placeholder the purpose doesn't have or a stray brace
-  (`message_templates_placeholders_check`), a census link's message without `{enlace}` in either version
-  (`message_templates_link_check`), and a message with `{nombre}` without a version for someone without a name, or one
-  without `{nombre}` with one (`message_templates_nameless_check`). A title in use for the purpose: `409 taken`.
-  Every change to `body` or `bodyNameless` adds a version; the purpose and version can't be written. Never deleted:
-  `active: false` retires one.
+- **`GET /api/message-templates`**: `{ templates: [{ id, purpose, title, body, bodyNameless, active, mine, version,
+updatedAt, updatedBy: { userId, displayName } | null }] }`, the team's and the reader's own (`mine`), by purpose
+  (`welcome`, `census_link`), those in use first, one's own before the team's, each in the order they were written
+  (the order they're offered).
+- **`POST /api/message-templates`** `{ purpose, title, body, bodyNameless?, private }` (`201 { id }`): one's own
+  (`private: true`), or the team's (`false`, admins only: `403 forbidden` otherwise), for good. And
+  **`PATCH /api/message-templates/:id`** `{ title?, body?, bodyNameless?, active? }` (`204`; `403 forbidden` for the
+  team's to someone who isn't an admin; `404` for no such message, or someone else's own). Text is trimmed, and a
+  blank `bodyNameless` is none. The database refuses, `422 incomplete` with the rule's name in `constraint`: a
+  placeholder the purpose doesn't have or a stray brace (`message_templates_placeholders_check`), a census link's
+  message without `{enlace}` in either version (`message_templates_link_check`), and a message with `{nombre}` without
+  a version for someone without a name, or one without `{nombre}` with one (`message_templates_nameless_check`). A
+  title in use for the purpose, among the team's or among one's own: `409 taken`. Every change to `body` or
+  `bodyNameless` adds a version; the purpose and version can't be written. Never deleted: `active: false` retires
+  one.
 - **`POST /api/people/:id/attempts`** also takes `templateId` and `templateVersion`, both or neither: the message
-  that went out, one the template has had (`422` otherwise).
+  that went out, one the template has had and the writer sees (`422` otherwise).
 - **`POST /api/people/:id/census-link`** takes an optional body `{ templateId? }`: the census link message to write it
-  in, else the first in use, else the code's own. `409 stale` when the one asked for is retired or isn't a census
-  link's. The link records the message and its version, and `/sent`'s contact attempt names them.
+  in, else the first in use (one's own before the team's), else the code's own. `409 stale` when the one asked for is
+  retired, isn't a census link's, or isn't one the writer sees. The link records the message and its version, and
+  `/sent`'s contact attempt names them.
 
 Step 4, cards that say who someone is:
 

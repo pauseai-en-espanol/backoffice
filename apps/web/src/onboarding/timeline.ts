@@ -46,8 +46,11 @@ export const describeEvent = (
   }: {
     t: Translator;
     staffName: (userId: string) => string | undefined;
-    /** A message's title in Mensajes, by its id (PLAN M5); none when the page doesn't have it. */
-    templateTitle?: (templateId: string) => string | undefined;
+    /**
+     * A message's title in Mensajes, by its id (PLAN M5); null for one the reader can't see, someone else's own (PLAN
+     * R71); undefined when the page doesn't have them.
+     */
+    templateTitle?: (templateId: string) => string | null | undefined;
   },
 ): Described => {
   const { data } = event;
@@ -78,7 +81,7 @@ export const describeEvent = (
         channel: channel === undefined ? '—' : t(`contactChannels.${channel}`),
         outcome: outcome === undefined ? '—' : t(`contactOutcomes.${outcome}`),
       };
-      // The message that went out, when the team wrote it in Mensajes (PLAN M5): by its title, if it's known here.
+      // The message that went out, when it was written in Mensajes (PLAN M5): by its title, if it's known here.
       const templateId = text(data.templateId);
       const version = data.templateVersion;
       if (templateId === undefined || typeof version !== 'number') {
@@ -88,8 +91,10 @@ export const describeEvent = (
       return {
         title:
           title === undefined
-            ? t('timeline.contact_attempt_team_message', { ...how, version })
-            : t('timeline.contact_attempt_message', { ...how, version, title }),
+            ? t('timeline.contact_attempt_some_message', { ...how, version })
+            : title === null
+              ? t('timeline.contact_attempt_own_message', { ...how, version })
+              : t('timeline.contact_attempt_message', { ...how, version, title }),
         detail: body,
       };
     }

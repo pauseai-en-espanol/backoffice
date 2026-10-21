@@ -19,6 +19,19 @@ export const messagesPageText = (t: Translator) => {
     body: t('messageTemplates.body'),
     bodyNameless: t('messageTemplates.bodyNameless'),
     bodyNamelessHint: t('messageTemplates.bodyNamelessHint'),
+    /** One's own (PLAN R71): its mark, and what a new one is for someone who isn't an admin. */
+    ownMark: t('messageTemplates.ownMark'),
+    ownHint: t('messageTemplates.ownHint'),
+    /** The team's, to someone who can't change it. */
+    teamReadOnly: t('messageTemplates.teamReadOnly'),
+    /** An admin's choice for a new one: the team's, or their own. */
+    whose: {
+      legend: t('messageTemplates.whose.legend'),
+      team: t('messageTemplates.whose.team'),
+      teamHint: t('messageTemplates.whose.teamHint'),
+      mine: t('messageTemplates.whose.mine'),
+      mineHint: t('messageTemplates.whose.mineHint'),
+    },
     /** "Escribir un mensaje de {purpose}" */
     addFor: raw('messageTemplates.addFor'),
     add: t('messageTemplates.add'),

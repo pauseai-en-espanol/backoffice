@@ -12,7 +12,7 @@ import * as messages from '@/onboarding/messages/styles';
 import { messagesPageText } from '@/onboarding/messages/text';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import * as onboarding from '@/onboarding/styles';
-import { canOnboard } from '@/onboarding/text';
+import { canOnboard, isAdmin } from '@/onboarding/text';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { Announcer } from '@/ui/Announcer';
@@ -30,9 +30,10 @@ const SECTION_IDS: Readonly<Record<MessagePurpose, string>> = {
 };
 
 /**
- * Mensajes (PLAN M5): the WhatsApp messages newcomers receive, as the onboarding team writes them, by purpose (the
- * welcome, the census link's), those in use in the order they're offered, the retired folded below. With none in use,
- * the page shows the neutral one the code sends instead. Onboarding staff and admins read and write them (ADR-0002).
+ * Mensajes (PLAN M5): the WhatsApp messages newcomers receive, by purpose (the welcome, the census link's), those in
+ * use in the order they're offered (one's own, then the team's), the retired folded below. With none in use, the page
+ * shows the neutral one the code sends instead. Onboarding staff and admins read the team's and write their own, which
+ * nobody else sees; admins alone write the team's (PLAN R71, ADR-0002).
  */
 const MessagesPage = async () => {
   const me = await requireStaff();
@@ -45,6 +46,7 @@ const MessagesPage = async () => {
   }
   const templates = await getMessageTemplates();
   const text = messagesPageText(t);
+  const admin = isAdmin(me);
   const raw = (key: Parameters<typeof t.raw>[0]) => String(t.raw(key));
   const example = {
     name: text.exampleName,
@@ -109,6 +111,7 @@ const MessagesPage = async () => {
                           <MessageCard
                             template={template}
                             version={versionOf(template)}
+                            editable={template.mine || admin}
                             me={me.staff.displayName}
                             text={text}
                           />
@@ -117,7 +120,12 @@ const MessagesPage = async () => {
                     </ol>
                   </>
                 )}
-                <NewMessage purpose={purpose} me={me.staff.displayName} text={text} />
+                <NewMessage
+                  purpose={purpose}
+                  chooseWhose={admin}
+                  me={me.staff.displayName}
+                  text={text}
+                />
                 {retired.length === 0 ? null : (
                   <Disclosure
                     id={`${id}-retirados`}
@@ -129,6 +137,7 @@ const MessagesPage = async () => {
                           <MessageCard
                             template={template}
                             version={versionOf(template)}
+                            editable={template.mine || admin}
                             me={me.staff.displayName}
                             text={text}
                           />

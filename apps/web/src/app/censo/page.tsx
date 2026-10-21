@@ -61,12 +61,12 @@ const CensusPage = async ({
   const q = one(params.buscar);
   const cursor = one(params.desde);
   const [census, templates] = await Promise.all([getCensus({ q, cursor }), getMessageTemplates()]);
-  // The team's census link messages in use, in their order (Mensajes, PLAN M5); none: the code's own.
+  // The census link messages in use, one's own and then the team's (Mensajes, PLAN M5, R71); none: the code's own.
   const messages = isUnavailable(templates)
     ? []
     : templates
         .filter((template) => template.purpose === 'census_link' && template.active)
-        .map(({ id, title }) => ({ id, title }));
+        .map(({ id, title, mine }) => ({ id, title, mine }));
   const general = censusUrl();
   const labels = personLabels(t);
   const raw = (key: Parameters<typeof t.raw>[0]) => String(t.raw(key));
@@ -97,6 +97,8 @@ const CensusPage = async ({
     whatsapp: t('censo.whatsapp'),
     whatsappIntro: t('censo.whatsappIntro'),
     choose: t('censo.choose'),
+    chooseMine: t('messageTemplates.pickerMine'),
+    chooseTeam: t('messageTemplates.pickerTeam'),
     chooseHint: t('censo.chooseHint'),
     noPhone: t('censo.noPhone'),
     sent: t('censo.sent'),

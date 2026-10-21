@@ -75,6 +75,8 @@ export const CENSUS_LINK_ID = '0190f8c4-0000-7000-8000-0000000004d1';
 export const CENSUS_TOKEN = 'token-de-censo-de-ana';
 /** A welcome message the team wrote (PLAN M5, Mensajes), at version 1, with its version for someone without a name. */
 export const MESSAGE_TEMPLATE_ID = '0190f8c4-0000-7000-8000-0000000004e1';
+/** The onboarder's own welcome ("Solo yo", PLAN R71), which only they see. */
+export const OWN_MESSAGE_TEMPLATE_ID = '0190f8c4-0000-7000-8000-0000000004e2';
 
 /** Outreach (M3): an organisation, its contacts, and a campaign with a template, an anchor and two targets. */
 export const OUTREACH = {
@@ -197,6 +199,11 @@ export const loadFixtures = async (client: pg.Client): Promise<void> => {
       `INSERT INTO app.message_templates (id, purpose, title, body, body_nameless)
        VALUES ($1, 'welcome', 'Bienvenida de ejemplo', 'Hola, {nombre}: soy {yo}.', 'Hola: soy {yo}.')`,
       [MESSAGE_TEMPLATE_ID],
+    );
+    await client.query(
+      `INSERT INTO app.message_templates (id, purpose, title, body, private_to)
+       VALUES ($1, 'welcome', 'Mi bienvenida de ejemplo', '¡Hola! Soy {yo}.', $2)`,
+      [OWN_MESSAGE_TEMPLATE_ID, USERS.onboarder],
     );
     await client.query(
       `INSERT INTO app.organisations (id, name, kind, territory) VALUES ($1, 'Asociación Ejemplo', 'association', 'Aragón')`,

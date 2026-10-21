@@ -68,7 +68,7 @@ specified in the M1 and M3 migrations.
 | `intake_records`           | Every imported or reported record: source, external ID, minimised payload, status, match   | Onboarding |
 | `imports`                  | Each import or sync run: who, when, file hash, counts, dry-run diff                        | Onboarding |
 | `census_links`             | Personal links: person, token hash, expiry, used at; the message it went in (M5)           | Onboarding |
-| `message_templates`        | Mensajes: the team's WhatsApp messages by purpose, title, versions, retired (M5)           | Onboarding |
+| `message_templates`        | Mensajes: WhatsApp messages by purpose, the team's or one's own (R71), versions, retired   | Onboarding |
 | `skills`, `interests`      | Lists edited in settings, and the people linked to them                                    | Onboarding |
 | `organisations`            | Outreach organisations (their old `notes` column became their first note, then went)       | Outreach   |
 | `organisation_notes`       | An organisation's timeline of notes. Append-only. `happened_on`: its day (M5, step 6)      | Outreach   |

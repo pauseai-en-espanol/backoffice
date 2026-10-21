@@ -32,7 +32,7 @@ describe('timeline events in words', () => {
     });
   });
 
-  it('name the message a contact attempt sent, when the team wrote it (Mensajes, PLAN M5)', () => {
+  it('name the message a contact attempt sent, when it was written in Mensajes (PLAN M5)', () => {
     const data = {
       channel: 'whatsapp',
       outcome: 'left_message',
@@ -48,7 +48,16 @@ describe('timeline events in words', () => {
       'Intento de contacto por WhatsApp: Mensaje dejado, con el mensaje «Bienvenida corta» (versión 2)',
     );
     expect(describe_('contact_attempt', data).title).toBe(
-      'Intento de contacto por WhatsApp: Mensaje dejado, con un mensaje del equipo (versión 2)',
+      'Intento de contacto por WhatsApp: Mensaje dejado, con un mensaje de Mensajes (versión 2)',
+    );
+    // Someone else's own, which the reader can't see (PLAN R71).
+    expect(
+      describeEvent(
+        { kind: 'contact_attempt', data, body: null },
+        { t, staffName, templateTitle: () => null },
+      ).title,
+    ).toBe(
+      'Intento de contacto por WhatsApp: Mensaje dejado, con un mensaje propio de quien lo envió (versión 2)',
     );
   });
 
