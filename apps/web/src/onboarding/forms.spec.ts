@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  happenedOnOf,
   listFrom,
   normalised,
   parseAnalysis,
@@ -215,5 +216,13 @@ describe("a CSV dry run's answer", () => {
       Email: 'email',
     });
     expect(parseAnalysis({ rows: [] })).toBeUndefined();
+  });
+});
+
+describe('a "Cuándo fue" field (PLAN R73)', () => {
+  it('is now when left on today, as it starts, or emptied; another day when changed to one', () => {
+    expect(happenedOnOf('2026-10-22', '2026-10-22')).toEqual({});
+    expect(happenedOnOf('  ', '2026-10-22')).toEqual({});
+    expect(happenedOnOf('2026-10-20', '2026-10-22')).toEqual({ happenedOn: '2026-10-20' });
   });
 });

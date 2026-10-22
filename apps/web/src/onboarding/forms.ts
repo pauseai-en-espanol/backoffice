@@ -92,9 +92,14 @@ export const profileChange = (
   return change;
 };
 
-/** A "Cuándo fue" field's value as the API takes it (PLAN M5): a date, or nothing for today. */
-export const happenedOnOf = (value: string): { happenedOn?: string } =>
-  value.trim() === '' ? {} : { happenedOn: value.trim() };
+/**
+ * A "Cuándo fue" field's value as the API takes it (PLAN M5): a date, or nothing for now. The field starts on today, as
+ * the page counted it (`today`): left so, or emptied, it is now, and the history says nothing of another day (PLAN R73).
+ */
+export const happenedOnOf = (value: string, today: string): { happenedOn?: string } => {
+  const day = value.trim();
+  return day === '' || day === today ? {} : { happenedOn: day };
+};
 
 /** Reads a form's text fields for profileChange and settingsChange. */
 export const fieldsOf = (form: HTMLFormElement) => (name: string) => formText(form, name);

@@ -146,7 +146,9 @@ from, Discord usernames; the team's WhatsApp messages. Everything else above sta
   null): "Llegó el" and "Llegó por". A timeline event adds `happenedOn` (`YYYY-MM-DD` or null); the timeline is in
   that day's order, else the day it was written. `identities[].kind` may be `discord`.
 - **`GET /api/people` and `/api/board`** also take `arrival` (an entry's id, or `none`), `arrivedOn` (`known` or
-  `unknown`) and `reason` (one attention reason, such as `unassigned`). `q` also matches a Discord username exactly.
+  `unknown`) and `reason` (one attention reason, such as `unassigned`). `q` also matches a Discord username exactly,
+  and a phone by its digits (PLAN R72): `q` written only as a phone, with 6 digits or more once a prefix's leading
+  zeros go, matches every stored number with them in it.
 - **`PATCH /api/people/:id`** also takes `arrivedOn` (a date, or null for unknown; never a day to come: `422`),
   `arrivalId` (an entry's id, or null) and `stageOn` (with `stage` only, else `400 invalid { field: 'stageOn' }`):
   the day a stage change happened, which its timeline event carries.

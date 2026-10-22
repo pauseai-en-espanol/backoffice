@@ -1,7 +1,12 @@
 import type { DB } from '@backoffice/db/generated/db';
 import type { AttentionReason, Stage } from '@backoffice/domain/stages';
 
-import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import {
+  normalizeDiscord,
+  normalizeEmail,
+  normalizePhone,
+  phoneSearchDigits,
+} from '@backoffice/domain/identities';
 import { type MissingDetail, missingDetails } from '@backoffice/domain/missing';
 import { type RawBuilder, sql, type Transaction } from 'kysely';
 
@@ -144,7 +149,7 @@ export interface PeopleFilter {
 
 /**
  * The conditions a filter adds, for the actor `me`. Names match folded and typo-tolerant; phones, emails and Discord
- * usernames exactly.
+ * usernames exactly, and a phone also by part of its digits, however it was written (PLAN R72).
  */
 const conditions = (filter: PeopleFilter, me: string): RawBuilder<unknown>[] => {
   const where: RawBuilder<unknown>[] = [sql`p.merged_into IS NULL AND p.anonymised_at IS NULL`];
@@ -153,11 +158,18 @@ const conditions = (filter: PeopleFilter, me: string): RawBuilder<unknown>[] => 
     const phone = normalizePhone(q);
     const email = normalizeEmail(q);
     const discord = normalizeDiscord(q);
+    const digits = phoneSearchDigits(q);
+    // A stored phone is E.164, a `+` and its digits: one with the typed digits in it.
+    const inPart =
+      digits === undefined
+        ? sql`false`
+        : sql`(i.kind = 'phone' AND strpos(i.value, ${digits}) > 0)`;
     where.push(sql`(p.name_folded LIKE '%' || private.fold_name(${q}) || '%'
                     OR extensions.similarity(p.name_folded, private.fold_name(${q})) >= 0.35
                     OR EXISTS (SELECT 1 FROM app.identities i WHERE i.person_id = p.id
                                 AND ((i.kind IN ('phone', 'email') AND i.value IN (${phone ?? ''}, ${email ?? ''}))
-                                     OR (i.kind = 'discord' AND i.value = ${discord ?? ''}))))`);
+                                     OR (i.kind = 'discord' AND i.value = ${discord ?? ''})
+                                     OR ${inPart})))`);
   }
   if (filter.stages && filter.stages.length > 0) {
     where.push(sql`p.stage::text IN (${sql.join(filter.stages)})`);

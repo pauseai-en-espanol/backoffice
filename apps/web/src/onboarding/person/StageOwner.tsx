@@ -20,7 +20,7 @@ import { HappenedOn } from './HappenedOn';
 /**
  * A person's stage (onboarding spec, stages), edited in place (EditInPlace): any stage can move to any other by hand,
  * the expected path is only a guide, so the selector offers them all, with what the chosen one means; once another is
- * chosen, the day it happened may be said, if not today (PLAN M5).
+ * chosen, the day it happened, today to start with (PLAN M5, R73).
  */
 export const StageForm = ({
   person,
@@ -40,7 +40,10 @@ export const StageForm = ({
       done?.();
       return;
     }
-    const on = happenedOnOf(formText(event.currentTarget, 'happenedOn')).happenedOn;
+    const on = happenedOnOf(
+      formText(event.currentTarget, 'happenedOn'),
+      text.happened.today,
+    ).happenedOn;
     const answer = await write.run(
       () => updatePerson(person.id, { stage, ...(on === undefined ? {} : { stageOn: on }) }),
       { done: t.stageChanged },

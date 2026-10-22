@@ -78,6 +78,24 @@ export const inferIdentityKind = (raw: string): 'email' | 'phone' | 'discord' | 
   return normalizeDiscord(value) === undefined ? undefined : 'discord';
 };
 
+/** The fewest digits a search finds a phone by, in part: fewer would match too many numbers. */
+export const PHONE_SEARCH_DIGITS = 6;
+
+/**
+ * What a search finds a phone by, in part (PLAN R72): the digits of a query written only as a phone is (digits,
+ * spaces, `+`, brackets, dots and dashes), without the zeros a `00` or a national prefix starts with, at least
+ * PHONE_SEARCH_DIGITS of them. A stored number with these digits in it matches, so a foreign number written without its
+ * country code ("857 756 3987" for +1 857 756 3987), or the end of one, finds it. Undefined for anything else.
+ */
+export const phoneSearchDigits = (raw: string): string | undefined => {
+  const value = raw.trim();
+  if (!/^[\d\s+().-]+$/u.test(value)) {
+    return undefined;
+  }
+  const digits = value.replace(/\D/gu, '').replace(/^0+/u, '');
+  return digits.length >= PHONE_SEARCH_DIGITS ? digits : undefined;
+};
+
 /**
  * Whether what was read as a phone, or refused, is a Discord username too (PLAN R69): the one overlap, only digits and
  * maybe dots (`612345678`). Only whoever typed it knows which; an @ in front makes it Discord.

@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 import { formText } from '@/auth/client';
 import { fill } from '@/fill';
+import { happenedOnOf } from '@/onboarding/forms';
 import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
@@ -198,8 +199,8 @@ export interface NoteText {
 
 /**
  * A note on a timeline, a contact's or an organisation's, with the reminder not to write down what the relationship
- * doesn't need, the day the conversation it tells happened, if not today, never a day to come, and whether it is for
- * its writer alone (PLAN M5, step 6). On a private record every note is, and the form says so.
+ * doesn't need, the day the conversation it tells happened (today to start with), never a day to come, and whether it
+ * is for its writer alone (PLAN M5, step 6). On a private record every note is, and the form says so.
  */
 export const NoteForm = ({
   on,
@@ -219,7 +220,9 @@ export const NoteForm = ({
     if (body === '') {
       return;
     }
-    const happenedOn = formText(form, 'happenedOn').trim();
+    // Today to start with, which is now (PLAN R73).
+    const happenedOn =
+      happenedOnOf(formText(form, 'happenedOn'), text.happened.today).happenedOn ?? '';
     const isPrivate = formText(form, 'private') === '1';
     const answer = await write.run(() => addNote(on, body, { happenedOn, isPrivate }), {
       done: text.saved,
@@ -252,6 +255,7 @@ export const NoteForm = ({
           type="date"
           name="happenedOn"
           max={text.happened.today}
+          defaultValue={text.happened.today}
           aria-describedby="nota-fecha-hint"
         />
         <span id="nota-fecha-hint" className={ui.hint}>

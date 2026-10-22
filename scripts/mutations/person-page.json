@@ -14,5 +14,13 @@
     "new": "  const arrivedOn = optional(typedArrivedOn ?? '');",
     "cmd": "pnpm exec vitest run src/onboarding",
     "cwd": "apps/web"
+  },
+  {
+    "name": "a \"Cuándo fue\" left on today records another day",
+    "file": "apps/web/src/onboarding/forms.ts",
+    "old": "return day === '' || day === today ? {} : { happenedOn: day };",
+    "new": "return day === '' ? {} : { happenedOn: day };",
+    "cmd": "pnpm exec vitest run src/onboarding",
+    "cwd": "apps/web"
   }
 ]

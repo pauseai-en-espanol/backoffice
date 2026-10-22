@@ -610,6 +610,19 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   writer sees; someone else reading that person's history reads "con un mensaje propio de quien lo envió". Every message
   written until now stays the team's, so onboarders no longer change those. Migration `20261021100000`; mutation list
   `message-templates`.
+- **R72. A phone found however it is written** (Dani, 2026-10-22: "search does not seem to be working fine", searching
+  "857 756 3987" for someone saved as +1 857 756 3987). A search found a phone only when what was typed read as the same
+  whole number, Spanish when it had no `+`: a foreign number written as at home, or part of one, found nobody. Options:
+  assume more countries; match the digits. **Chose to match the digits too**: a query written only as a phone is
+  (digits, spaces, `+`, brackets, dots, dashes), with at least 6 digits once the zeros a `00` or national prefix starts
+  with are dropped, finds every stored number with those digits in it, as well as the exact match. Fewer digits would
+  list too many. Personas and Censo search alike (the same filter); the bot's `/search` still matches whole numbers.
+  Mutation list `onboarding`.
+- **R73. "Cuándo fue" starts on today** (Dani, 2026-10-22: "by default it should pick today in the date"). Options: an
+  empty field that means today, as until now; today filled in. **Chose today filled in**, for a contact attempt, a note
+  and a stage change on a person's page, and for a note in Contactos and Organizaciones, alike. Left on today (or
+  emptied) it is still now: nothing is recorded as another day, so the history doesn't add "ocurrió el" to every entry.
+  Mutation list `person-page`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

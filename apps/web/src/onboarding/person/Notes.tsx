@@ -154,7 +154,7 @@ export const AttemptForm = ({ personId, text }: { personId: string; text: Person
           channel,
           outcome,
           ...(note === '' ? {} : { note }),
-          ...happenedOnOf(formText(form, 'happenedOn')),
+          ...happenedOnOf(formText(form, 'happenedOn'), text.happened.today),
         }),
       { done: t.saved },
     );
@@ -242,7 +242,11 @@ export const NoteForm = ({ personId, text }: { personId: string; text: PersonPag
       return;
     }
     const answer = await write.run(
-      () => addNote(personId, { body, ...happenedOnOf(formText(form, 'happenedOn')) }),
+      () =>
+        addNote(personId, {
+          body,
+          ...happenedOnOf(formText(form, 'happenedOn'), text.happened.today),
+        }),
       { done: t.saved },
     );
     if (answer?.ok) {

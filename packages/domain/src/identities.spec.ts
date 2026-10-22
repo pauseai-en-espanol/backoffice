@@ -9,6 +9,7 @@ import {
   normalizeEmail,
   normalizeIdentity,
   normalizePhone,
+  phoneSearchDigits,
   spacedPhone,
 } from './identities.js';
 
@@ -134,6 +135,25 @@ describe('phone numbers', () => {
     expect(spacedPhone('+34612345678')).toBe('+34 612 34 56 78');
     expect(spacedPhone('+447911123456')).toBe('+44 7911 123456');
     expect(normalizePhone(spacedPhone('+34612345678'))).toBe('+34612345678');
+  });
+});
+
+describe('a phone searched for in part (PLAN R72)', () => {
+  it('is the digits of a query written as a phone, without the zeros its prefix starts with', () => {
+    expect(phoneSearchDigits('857 756 3987')).toBe('8577563987');
+    expect(phoneSearchDigits('(857) 756-3987')).toBe('8577563987');
+    expect(phoneSearchDigits('+1 857 756 3987')).toBe('18577563987');
+    expect(phoneSearchDigits('0044 7700 900123')).toBe('447700900123');
+    expect(phoneSearchDigits('07700 900123')).toBe('7700900123');
+    expect(phoneSearchDigits('56 78 90')).toBe('567890');
+  });
+
+  it('is nothing for fewer digits, or for what isn’t only a phone', () => {
+    expect(phoneSearchDigits('56 789')).toBeUndefined();
+    expect(phoneSearchDigits('000 0000 0')).toBeUndefined();
+    expect(phoneSearchDigits('Ana 612345678')).toBeUndefined();
+    expect(phoneSearchDigits('ana@ejemplo.test')).toBeUndefined();
+    expect(phoneSearchDigits('@612345678')).toBeUndefined();
   });
 });
 

@@ -210,5 +210,37 @@
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
     "cwd": "apps/api",
     "after": "pnpm exec turbo run build --filter=@backoffice/domain --output-logs=errors-only"
+  },
+  {
+    "name": "the search finds a phone only written whole, and Spanish without its prefix",
+    "file": "apps/api/src/people/people.ts",
+    "old": "                                     OR (i.kind = 'discord' AND i.value = ${discord ?? ''})\n                                     OR ${inPart})))`);",
+    "new": "                                     OR (i.kind = 'discord' AND i.value = ${discord ?? ''}))))`);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a search finds a phone by a digit or two",
+    "file": "packages/domain/src/identities.ts",
+    "old": "export const PHONE_SEARCH_DIGITS = 6;",
+    "new": "export const PHONE_SEARCH_DIGITS = 1;",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a search keeps the zeros a phone's prefix starts with",
+    "file": "packages/domain/src/identities.ts",
+    "old": "const digits = value.replace(/\\D/gu, '').replace(/^0+/u, '');",
+    "new": "const digits = value.replace(/\\D/gu, '');",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a search reads the digits of any text as a phone",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  if (!/^[\\d\\s+().-]+$/u.test(value)) {\n    return undefined;\n  }\n  const digits",
+    "new": "  const digits",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
   }
 ]

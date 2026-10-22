@@ -221,6 +221,25 @@ describe('onboarding through the staff API (M1)', () => {
     expect(found.body).not.toContain(phone.slice(-6));
   });
 
+  it('finds a phone however it is written: a foreign one without its country code, or by its end (PLAN R72)', async () => {
+    // From the range kept for fiction.
+    const end = suffix().slice(-2);
+    const added = await onboarder.who.send('POST', '/api/intake', { phone: `+1 202 555 01${end}` });
+    expect(added.statusCode).toBe(201);
+    const { personId } = added.json<{ personId: string }>();
+    people.push(personId);
+    const ids = async (q: string) =>
+      (await onboarder.who.send('GET', `/api/people?q=${encodeURIComponent(q)}&limit=200`))
+        .json<{ people: { id: string }[] }>()
+        .people.map((person) => person.id);
+    expect(await ids(`202 555 01${end}`)).toContain(personId);
+    expect(await ids(`(202) 555-01${end}`)).toContain(personId);
+    expect(await ids(`001 202 555 01${end}`)).toContain(personId);
+    expect(await ids(`555 01${end}`)).toContain(personId);
+    // Too few digits to tell whose.
+    expect(await ids(`5 01${end}`)).not.toContain(personId);
+  });
+
   it('quick-adds someone with only a phone, nameless until a name is set (PLAN R37)', async () => {
     expect(
       (await onboarder.who.send('POST', '/api/intake', { province: 'Provincia de ejemplo' }))
