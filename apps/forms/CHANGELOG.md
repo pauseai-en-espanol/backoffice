@@ -1,5 +1,24 @@
 # @backoffice/forms
 
+## 0.1.22
+
+### Patch Changes
+
+- 0886a95: Where someone lives has a country, and where they're from can be said too ("De dónde es": a country and a province
+  or region), for Spain's community, Spaniards abroad, Latin America's and Latin Americans abroad (PLAN R74). In the
+  staff app a country is picked by typing part of its name, in Spanish or English, Spain first, then Latin America,
+  then the rest of the world; while it's Spain, Spain's provinces are offered the same way, by any of their names, and
+  anything else typed is kept. The census form asks the same with the phone's own picker, and its privacy summary lists
+  the new data. Cards say "Maite (Baviera, Alemania)", Personas filters by country, the Bandeja compares countries,
+  the CSV import reads "País", "País de origen" and "De dónde es", the Airtable sync reads Global's Country, and the
+  people export adds "pais". Someone living abroad isn't asked for a province. Everyone already in the backoffice whose
+  province is one of Spain's, or who came from Global's view, is set as living in Spain.
+- Updated dependencies [e129c02]
+- Updated dependencies [0886a95]
+- Updated dependencies [76bca35]
+  - @backoffice/i18n@0.15.2
+  - @backoffice/domain@0.5.2
+
 ## 0.1.21
 
 ### Patch Changes
