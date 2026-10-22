@@ -533,7 +533,7 @@
     "due": "para el {date}",
     "overdue": "vencido el {date}",
     "dueToday": "para hoy",
-    "province": "Provincia",
+    "province": "Provincia o región",
     "inCommunity": "En la comunidad",
     "notInCommunity": "Fuera de la comunidad",
     "arrivedOn": "Fecha de alta",
@@ -575,7 +575,7 @@
     "missing": {
       "phone": "teléfono",
       "email": "correo",
-      "province": "provincia",
+      "province": "dónde vive",
       "interests": "qué quiere hacer"
     },
     "profileCompleted": "Perfil completado el {date}",
@@ -583,6 +583,7 @@
     "editProfile": "Editar el perfil",
     "profileWho": "Quién es",
     "profileWhere": "Dónde vive",
+    "profileFrom": "De dónde es",
     "profileHelp": "Para colaborar",
     "saveProfile": "Guardar el perfil",
     "cancel": "Cancelar",
@@ -801,7 +802,7 @@
     "arrivedOnAny": "Da igual",
     "arrivedOnKnown": "Se sabe",
     "arrivedOnUnknown": "No se sabe",
-    "province": "Provincia",
+    "province": "Provincia o región",
     "apply": "Aplicar",
     "moreFilters": "Más filtros",
     "moreFiltersOn": "{count, plural, one {# activo} other {# activos}}",
@@ -813,7 +814,10 @@
     "more": "Cargar más",
     "export": "Exportar CSV",
     "exportHint": "Descarga las personas de esta lista, con sus teléfonos y correos. Cada exportación queda registrada.",
-    "listLabel": "Resultados"
+    "listLabel": "Resultados",
+    "country": "País",
+    "countryAny": "Cualquiera",
+    "countryNone": "Sin indicar"
   },
   "board": {
     "title": "Onboarding Pipeline",
@@ -840,7 +844,7 @@
     "arrivalNone": "Sin indicar",
     "arrivedOn": "Fecha de alta",
     "arrivedOnHint": "Si ya estaba en la comunidad, el día que se dio de alta. Déjalo vacío si no se sabe.",
-    "province": "Provincia",
+    "province": "Provincia o región",
     "town": "Localidad",
     "chat": "Chat de la comunidad",
     "chatHint": "Opcional. Escribe o elige el chat por el que entró.",
@@ -884,13 +888,14 @@
       "phone": "Teléfono",
       "email": "Correo",
       "discord": "Discord",
-      "province": "Provincia",
+      "province": "Provincia o región",
       "arrival": "Canal de alta",
       "arrivedOn": "Fecha de alta",
       "group": "Grupo de WhatsApp",
       "stage": "Etapa",
       "owner": "Responsable",
-      "summary": "Resumen interno"
+      "summary": "Resumen interno",
+      "country": "País"
     },
     "same": "igual",
     "different": "distinto",
@@ -918,9 +923,12 @@
     "fields": {
       "full_name": "Nombre",
       "preferred_name": "Nombre preferido",
-      "province": "Provincia",
+      "province": "Provincia o región",
       "town": "Localidad",
-      "how_heard": "Cómo conoció PauseAI"
+      "how_heard": "Cómo conoció PauseAI",
+      "country": "País",
+      "origin_country": "País de origen",
+      "origin_province": "De dónde es"
     },
     "census": "Respuesta al censo",
     "censusIntro": "Llegó por el enlace general y coincide con una ficha. Antes de aplicarla, comprueba que es de esa persona: cualquiera puede escribir el teléfono de otra.",
@@ -929,7 +937,7 @@
     "censusFields": {
       "name": "Nombre",
       "preferredName": "Nombre preferido",
-      "province": "Provincia",
+      "province": "Provincia o región",
       "town": "Localidad",
       "languages": "Idiomas",
       "availability": "Disponibilidad",
@@ -942,7 +950,10 @@
       "consentEmail": "Contacto por correo",
       "consentWhatsapp": "Contacto por WhatsApp",
       "consentPrivacy": "Aviso de privacidad",
-      "wordingVersion": "Versión del texto"
+      "wordingVersion": "Versión del texto",
+      "country": "País",
+      "originCountry": "País de origen",
+      "originProvince": "De dónde es"
     },
     "yes": "Sí",
     "no": "No",
@@ -1000,7 +1011,7 @@
       "preferredName": "Nombre preferido",
       "email": "Correo",
       "phone": "Teléfono",
-      "province": "Provincia",
+      "province": "Provincia o región",
       "town": "Localidad",
       "chat": "Chat",
       "note": "Nota",
@@ -1009,7 +1020,10 @@
       "arrival": "Canal de alta",
       "arrivedOn": "Fecha de alta",
       "joinedOn": "Entrada al grupo",
-      "leftOn": "Salida del grupo"
+      "leftOn": "Salida del grupo",
+      "country": "País",
+      "originCountry": "País de origen",
+      "originProvince": "De dónde es"
     },
     "recalculate": "Volver a calcular",
     "previewTitle": "Así quedarían las primeras filas",
@@ -1264,8 +1278,16 @@
     "phone": "Teléfono",
     "phoneHint": "Con o sin prefijo: si no lo lleva, se entiende que es de España.",
     "willBe": "Se guardará como {value}",
-    "province": "Provincia",
+    "country": "País donde vives",
+    "countryNone": "Sin indicar",
+    "countriesLatinAmerica": "Latinoamérica",
+    "countriesWorld": "Resto del mundo",
+    "province": "Provincia o región",
     "town": "Localidad",
+    "origin": "De dónde eres",
+    "originHint": "Opcional, si no es donde vives ahora: por ejemplo, de Madrid aunque vivas en Alemania.",
+    "originCountry": "País",
+    "originProvince": "Provincia o región",
     "languages": "Idiomas que hablas",
     "languagesHint": "Separados por comas. Por ejemplo: castellano, catalán, inglés.",
     "skills": "Qué sabes hacer",
@@ -1320,7 +1342,7 @@
       "purposeTitle": "Para qué",
       "purpose": "Para organizar a las personas voluntarias de la asociación: saber quién forma parte de la comunidad, cómo contactar contigo, qué sabes hacer y en qué te gustaría ayudar, y darte la bienvenida.",
       "dataTitle": "Qué datos",
-      "data": "Los que nos das en este formulario: nombre, cómo prefieres que te llamemos, correo, teléfono, provincia y localidad, idiomas, habilidades, en qué te gustaría ayudar, disponibilidad, cómo conociste PauseAI y, si quieres, tus pronombres. Si te apuntaste en el formulario de PauseAI Global, también los que Global compartió con nosotros (nombre, correo, teléfono, ciudad, idiomas y cómo nos conociste). Además, lo que el equipo anota sobre cómo va tu onboarding.",
+      "data": "Los que nos das en este formulario: nombre, cómo prefieres que te llamemos, correo, teléfono, país, provincia o región y localidad donde vives, idiomas, habilidades, en qué te gustaría ayudar, disponibilidad, cómo conociste PauseAI y, si quieres, tus pronombres y de dónde eres. Si te apuntaste en el formulario de PauseAI Global, también los que Global compartió con nosotros (nombre, correo, teléfono, ciudad, país, idiomas y cómo nos conociste). Además, lo que el equipo anota sobre cómo va tu onboarding.",
       "basisTitle": "Con qué base legal",
       "basis": "Formar parte de una organización con fines políticos puede revelar opiniones políticas, que el Reglamento General de Protección de Datos (RGPD) protege especialmente. Las tratamos porque somos una asociación sin ánimo de lucro y lo hacemos dentro de nuestras actividades legítimas, con datos de nuestros miembros y de personas en contacto regular con nosotros (art. 9.2.d del RGPD), con las garantías de la Ley Orgánica 3/2018 (LOPDGDD). Escribirte por correo o por WhatsApp se basa en tu consentimiento, que puedes retirar cuando quieras.",
       "recipientsTitle": "Con quién los compartimos",
@@ -1961,5 +1983,19 @@
     "confirm": "Importar la campaña",
     "back": "Volver a Campañas",
     "toCampaigns": "Ver las campañas"
+  },
+  "place": {
+    "country": "País",
+    "countryPlaceholder": "Escribe para buscar",
+    "noCountry": "Ningún país se llama así.",
+    "latinAmerica": "Latinoamérica",
+    "world": "Resto del mundo",
+    "province": "Provincia o región",
+    "provinceHint": "Escribe para ver las provincias; si no es una de ellas, escríbelo igual.",
+    "regionHint": "Estado, región o provincia, como se diga allí.",
+    "town": "Localidad",
+    "openCountries": "Ver los países",
+    "clearCountry": "Vaciar el país",
+    "openProvinces": "Ver las provincias"
   }
 }

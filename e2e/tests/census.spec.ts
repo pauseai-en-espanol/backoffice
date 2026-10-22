@@ -52,6 +52,14 @@ test('a personal census link: made in Censo, answered in the form, shown on the 
   await visitor
     .getByRole('textbox', { name: 'Correo electrónico' })
     .fill(`${first.toLowerCase()}.censo@ejemplo.test`);
+  // Where they live and where they're from, countries from a list (PLAN R74).
+  await visitor
+    .getByRole('combobox', { name: 'País donde vives' })
+    .selectOption({ label: 'México' });
+  await visitor.getByRole('textbox', { name: 'Localidad' }).fill('Puebla');
+  const origin = visitor.getByRole('group', { name: 'De dónde eres' });
+  await origin.getByRole('combobox', { name: 'País' }).selectOption({ label: 'España' });
+  await origin.getByRole('combobox', { name: 'Provincia o región' }).fill('Sevilla');
   await visitor.getByRole('checkbox', { name: 'Diseño' }).check();
   await visitor.getByRole('checkbox', { name: 'He leído y acepto el aviso de privacidad' }).check();
   await visitor.getByRole('checkbox', { name: 'Tengo 14 años o más' }).check();
@@ -66,6 +74,8 @@ test('a personal census link: made in Censo, answered in the form, shown on the 
   const census = page.getByRole('region', { name: 'Censo' });
   await expect(census.getByText(/^Perfil completado el /u)).toBeVisible();
   await expect(census.getByText('Diseño')).toBeVisible();
+  await expect(page.locator('dl').getByText('Puebla, México')).toBeVisible();
+  await expect(page.locator('dl').getByText('Sevilla', { exact: true })).toBeVisible();
   await expectAccessible(page);
 });
 

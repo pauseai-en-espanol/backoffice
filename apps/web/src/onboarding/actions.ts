@@ -39,6 +39,9 @@ export interface PersonChange {
   preferredName?: string | null;
   province?: string | null;
   town?: string | null;
+  country?: string | null;
+  originCountry?: string | null;
+  originProvince?: string | null;
   languages?: string[];
   pronouns?: string | null;
   availability?: string | null;
@@ -107,6 +110,8 @@ export interface QuickAdd {
   arrivedOn?: string | null;
   province?: string;
   town?: string;
+  /** Where they live, a country's code (PLAN R74). */
+  country?: string;
   chat?: string;
   note?: string;
   stage?: string;

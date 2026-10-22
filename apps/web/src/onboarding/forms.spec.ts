@@ -19,6 +19,9 @@ describe('the profile form', () => {
     preferredName: null,
     province: 'Madrid',
     town: null,
+    country: null,
+    originCountry: null,
+    originProvince: null,
     languages: ['castellano'],
     pronouns: null,
     availability: null,
@@ -46,6 +49,33 @@ describe('the profile form', () => {
       languages: ['castellano', 'catalán'],
       availability: 'under_2h',
     });
+  });
+
+  it('sends where they live and where they are from, a country by its code (PLAN R74)', () => {
+    expect(
+      profileChange(
+        profile,
+        reader({
+          fullName: 'Ana Ejemplo',
+          province: 'Baviera',
+          country: 'DE',
+          originCountry: 'ES',
+          originProvince: ' Madrid ',
+          languages: 'castellano',
+        }),
+      ),
+    ).toEqual({
+      province: 'Baviera',
+      country: 'DE',
+      originCountry: 'ES',
+      originProvince: 'Madrid',
+    });
+    expect(
+      profileChange(
+        { ...profile, country: 'DE' },
+        reader({ fullName: 'Ana Ejemplo', province: 'Madrid', languages: 'castellano' }),
+      ),
+    ).toEqual({ country: null });
   });
 
   it('sends the one-line internal summary, trimmed, and null once emptied (PLAN M5, step 4)', () => {

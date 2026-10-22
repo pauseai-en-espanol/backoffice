@@ -30,6 +30,9 @@ export type Profile = Pick<
   | 'preferredName'
   | 'province'
   | 'town'
+  | 'country'
+  | 'originCountry'
+  | 'originProvince'
   | 'languages'
   | 'pronouns'
   | 'availability'
@@ -58,6 +61,9 @@ export const profileChange = (
     'preferredName',
     'province',
     'town',
+    'country',
+    'originCountry',
+    'originProvince',
     'pronouns',
     'howHeard',
     'summary',

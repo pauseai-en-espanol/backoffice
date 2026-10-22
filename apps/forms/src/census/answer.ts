@@ -1,4 +1,5 @@
 import { normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { COUNTRY_CODES } from '@backoffice/domain/places';
 
 /**
  * The census answer (onboarding spec §7.2; staff API spec, the forms app's routes), built from the form and checked
@@ -29,6 +30,10 @@ export interface CensusAnswer {
   phone?: string;
   province?: string;
   town?: string;
+  /** Where they live and where they're from (PLAN R74): countries by their ISO 3166-1 code. */
+  country?: string;
+  originCountry?: string;
+  originProvince?: string;
   languages?: string[];
   options?: string[];
   skillsOther?: string;
@@ -65,6 +70,7 @@ const LIMITS = {
   phone: 50,
   province: 100,
   town: 100,
+  originProvince: 100,
   language: 50,
   skillsOther: 300,
   interestsOther: 300,
@@ -79,6 +85,12 @@ const text = (form: FormData, field: string, limit: number): string | undefined 
 };
 
 const checked = (form: FormData, field: string): boolean => form.get(field) === 'on';
+
+/** A country picked from the list, by its code; nothing for "Sin indicar" or anything else. */
+const country = (form: FormData, field: string): string | undefined => {
+  const value = form.get(field);
+  return typeof value === 'string' && COUNTRY_CODES.includes(value) ? value : undefined;
+};
 
 /** Languages as people write them: separated by commas, semicolons or "y"; at most 20, each once. */
 export const splitLanguages = (value: string | undefined): string[] =>
@@ -114,6 +126,9 @@ export const buildAnswer = (
     phone,
     province: text(form, 'province', LIMITS.province),
     town: text(form, 'town', LIMITS.town),
+    country: country(form, 'country'),
+    originCountry: country(form, 'originCountry'),
+    originProvince: text(form, 'originProvince', LIMITS.originProvince),
     skillsOther: text(form, 'skillsOther', LIMITS.skillsOther),
     interestsOther: text(form, 'interestsOther', LIMITS.interestsOther),
     howHeard: text(form, 'howHeard', LIMITS.howHeard),

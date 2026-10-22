@@ -478,6 +478,10 @@ export interface AppPeople {
    * personal data
    */
   availability: AppAvailability | null;
+  /**
+   * personal data
+   */
+  country: string | null;
   created_at: Generated<Timestamp>;
   created_by: string | null;
   /**
@@ -507,6 +511,14 @@ export interface AppPeople {
    */
   next_action: string | null;
   next_action_due: Timestamp | null;
+  /**
+   * personal data
+   */
+  origin_country: string | null;
+  /**
+   * personal data
+   */
+  origin_province: string | null;
   owner_id: string | null;
   /**
    * personal data

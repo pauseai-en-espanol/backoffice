@@ -35,6 +35,7 @@ describe('the people filters', () => {
       arrivedOn: '',
       reason: '',
       province: 'Provincia de ejemplo',
+      country: '',
     });
   });
 
@@ -81,6 +82,14 @@ describe('the people filters', () => {
     expect(
       apiQuery({ ...NO_FILTERS, arrival: 'none', arrivedOn: 'unknown', reason: 'unassigned' }),
     ).toBe('?arrival=none&arrivedOn=unknown&reason=unassigned');
+  });
+
+  it('ask for where they live by country, or for those nobody said, in Spanish (PLAN R74)', () => {
+    expect(pageQuery({ ...NO_FILTERS, country: 'DE' })).toBe('?pais=de');
+    expect(filtersFromPage({ pais: 'mx' })).toEqual({ ...NO_FILTERS, country: 'MX' });
+    expect(filtersFromPage({ pais: 'ninguno' })).toEqual({ ...NO_FILTERS, country: 'none' });
+    expect(filtersFromPage({ pais: 'narnia' })).toEqual(NO_FILTERS);
+    expect(apiQuery({ ...NO_FILTERS, country: 'none' })).toBe('?country=none');
   });
 
   it('ask for the team, or everyone but the team, in Spanish (PLAN M5, step 5)', () => {

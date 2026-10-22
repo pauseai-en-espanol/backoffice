@@ -27,6 +27,8 @@ export interface PersonSummary {
   stage: Stage;
   owner: { userId: string; displayName: string } | null;
   province: string | null;
+  /** Where they live, its ISO 3166-1 code (PLAN R74). */
+  country: string | null;
   nextAction: string | null;
   nextActionDue: string | null;
   reasons: AttentionReason[];
@@ -53,6 +55,7 @@ interface SummaryRow {
   owner_id: string | null;
   owner_name: string | null;
   province: string | null;
+  country: string | null;
   next_action: string | null;
   next_action_due: string | null;
   reasons: AttentionReason[];
@@ -73,7 +76,7 @@ interface SummaryRow {
 
 const SUMMARY_COLUMNS = sql`
   p.id, p.full_name, p.preferred_name, p.stage::text AS stage, p.owner_id, s.display_name AS owner_name, p.province,
-  p.next_action, to_char(p.next_action_due, 'YYYY-MM-DD') AS next_action_due, coalesce(a.reasons, '{}') AS reasons,
+  p.country, p.next_action, to_char(p.next_action_due, 'YYYY-MM-DD') AS next_action_due, coalesce(a.reasons, '{}') AS reasons,
   EXISTS (SELECT 1 FROM app.community_presence c WHERE c.person_id = p.id AND c.left_on IS NULL) AS in_community,
   ARRAY(SELECT ps.source::text FROM app.person_sources ps WHERE ps.person_id = p.id ORDER BY ps.first_seen_at)
     AS sources,
@@ -100,6 +103,7 @@ const toSummary = (row: SummaryRow): PersonSummary => ({
   stage: row.stage,
   owner: row.owner_id ? { userId: row.owner_id, displayName: row.owner_name ?? '' } : null,
   province: row.province,
+  country: row.country,
   nextAction: row.next_action,
   nextActionDue: row.next_action_due,
   reasons: row.reasons,
@@ -115,6 +119,7 @@ const toSummary = (row: SummaryRow): PersonSummary => ({
     hasPhone: row.has_phone,
     hasEmail: row.has_email,
     province: row.province,
+    country: row.country,
     hasInterests: row.has_interests,
   }),
   team: row.team_user_id
@@ -143,6 +148,8 @@ export interface PeopleFilter {
   /** One attention reason: Hoy's "Ver los N sin asignar" is `unassigned`. */
   reason?: AttentionReason | undefined;
   province?: string | undefined;
+  /** Where they live (PLAN R74): a country's code, or `none` for those nobody knows. */
+  country?: string | undefined;
   /** Censo's queue: still in onboarding, profile not completed yet. Not a Personas filter. */
   censusPending?: boolean | undefined;
 }
@@ -211,6 +218,11 @@ const conditions = (filter: PeopleFilter, me: string): RawBuilder<unknown>[] => 
   }
   if (filter.province?.trim()) {
     where.push(sql`private.fold_name(p.province) = private.fold_name(${filter.province})`);
+  }
+  if (filter.country === 'none') {
+    where.push(sql`p.country IS NULL`);
+  } else if (filter.country) {
+    where.push(sql`p.country = ${filter.country}`);
   }
   if (filter.censusPending) {
     where.push(sql`p.profile_completed_at IS NULL
@@ -516,6 +528,8 @@ export const getPerson = async (trx: Transaction<DB>, id: string) => {
   const profile = (
     await sql<{
       town: string | null;
+      origin_country: string | null;
+      origin_province: string | null;
       languages: string[];
       pronouns: string | null;
       availability: string | null;
@@ -523,7 +537,7 @@ export const getPerson = async (trx: Transaction<DB>, id: string) => {
       profile_completed_at: string | null;
       anonymised_at: string | null;
     }>`
-      SELECT town, languages, pronouns, availability::text AS availability, how_heard,
+      SELECT town, origin_country, origin_province, languages, pronouns, availability::text AS availability, how_heard,
              to_json(profile_completed_at)#>>'{}' AS profile_completed_at,
              to_json(anonymised_at)#>>'{}' AS anonymised_at
         FROM app.people WHERE id = ${survivor}`.execute(trx)
@@ -591,6 +605,9 @@ export const getPerson = async (trx: Transaction<DB>, id: string) => {
       ...toSummary(summary),
       preferredName: summary.preferred_name,
       town: profile?.town ?? null,
+      /** "De dónde es" (PLAN R74). */
+      originCountry: profile?.origin_country ?? null,
+      originProvince: profile?.origin_province ?? null,
       languages: profile?.languages ?? [],
       pronouns: profile?.pronouns ?? null,
       availability: profile?.availability ?? null,
@@ -623,6 +640,9 @@ export const PROFILE_FIELDS = {
   preferredName: 'preferred_name',
   province: 'province',
   town: 'town',
+  country: 'country',
+  originCountry: 'origin_country',
+  originProvince: 'origin_province',
   languages: 'languages',
   pronouns: 'pronouns',
   availability: 'availability',

@@ -6,6 +6,7 @@ import { isUnavailable } from '@/data';
 import { getArrivalChannels, getSettings } from '@/onboarding/data';
 import { madridToday } from '@/onboarding/format';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
+import { placeText } from '@/onboarding/place/text';
 import { QuickAddForm } from '@/onboarding/QuickAddForm';
 import { canOnboard, onboardingErrors, stageNames } from '@/onboarding/text';
 import { requireStaff } from '@/session';
@@ -51,8 +52,7 @@ const QuickAddPage = async () => {
           arrivalNone: t('intake.arrivalNone'),
           arrivedOn: t('intake.arrivedOn'),
           arrivedOnHint: t('intake.arrivedOnHint'),
-          province: t('intake.province'),
-          town: t('intake.town'),
+          place: placeText(t),
           chat: t('intake.chat'),
           chatHint: t('intake.chatHint'),
           stage: t('intake.stage'),

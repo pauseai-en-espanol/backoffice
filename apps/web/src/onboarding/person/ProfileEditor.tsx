@@ -11,13 +11,15 @@ import type { PersonPageText } from './text';
 
 import { updatePerson } from '../actions';
 import { fieldsIn, type Profile, profileChange } from '../forms';
+import { PlaceFields } from '../place/PlaceFields';
 import * as styles from '../styles';
 import { AVAILABILITY } from '../text';
 
 /**
- * A person's profile, edited in place of what it shows (EditInPlace), its fields in three groups: who they are, where
- * they live, and how they would help. Their sign-up is edited apart (ArrivalForm). Saving sends only what changed. The
- * full name is required; the rest may be emptied.
+ * A person's profile, edited in place of what it shows (EditInPlace), its fields in four groups: who they are, where
+ * they live (a country, then a province or region), where they're from (PLAN R74), and how they would help. Their
+ * sign-up is edited apart (ArrivalForm). Saving sends only what changed. The full name is required; the rest may be
+ * emptied.
  */
 export const ProfileEditor = ({ person, text }: { person: Profile; text: PersonPageText }) => {
   const write = useWrite(text.errors);
@@ -88,10 +90,21 @@ export const ProfileEditor = ({ person, text }: { person: Profile; text: PersonP
       )}
       {group(
         t.where,
-        <>
-          {field('province', t.province)}
-          {field('town', t.town)}
-        </>,
+        <PlaceFields
+          prefix="perfil"
+          names={{ country: 'country', province: 'province', town: 'town' }}
+          initial={{ country: person.country, province: person.province, town: person.town }}
+          text={text.place}
+        />,
+      )}
+      {group(
+        t.from,
+        <PlaceFields
+          prefix="perfil-origen"
+          names={{ country: 'originCountry', province: 'originProvince' }}
+          initial={{ country: person.originCountry, province: person.originProvince }}
+          text={text.place}
+        />,
       )}
       {group(
         t.help,

@@ -210,6 +210,42 @@ describe('the forms app’s routes (M2)', () => {
     expect(form.json<{ options: unknown[] }>().options.length).toBeGreaterThan(0);
   });
 
+  it('take where someone lives and where they are from, a country by its code (PLAN R74)', async () => {
+    const name = uniqueName();
+    const started = Date.now() - 10_000;
+    const sent = await forms(
+      '/submit',
+      {
+        startedAt: started,
+        answer: answer({
+          name,
+          country: 'MX',
+          town: 'Puebla',
+          originCountry: 'ES',
+          originProvince: 'Sevilla',
+        }),
+      },
+      '203.0.113.15',
+    );
+    expect(sent.json()).toEqual({ outcome: 'received' });
+    expect(
+      (
+        await superuser.query(
+          'SELECT country, town, origin_country, origin_province FROM app.people WHERE full_name = $1',
+          [name],
+        )
+      ).rows,
+    ).toEqual([
+      { country: 'MX', town: 'Puebla', origin_country: 'ES', origin_province: 'Sevilla' },
+    ]);
+    const wrong = await forms(
+      '/submit',
+      { startedAt: started, answer: answer({ country: 'México' }) },
+      '203.0.113.15',
+    );
+    expect(wrong.statusCode).toBe(400);
+  });
+
   it('take a generic answer, which makes someone new; drop a honeypot’s; refuse one too fast or invalid', async () => {
     clock = Date.now();
     const started = clock - 10_000;

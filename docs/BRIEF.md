@@ -88,7 +88,8 @@
 
 - **One organisation, one country.** The backoffice serves PauseAI España only. Another chapter runs its own
   instance, on its own Postgres server (D5): role and database names are fixed in the migrations.
-- **Spain only.** Arrivals, members and outreach are Spanish. The UI is in Spanish (D6).
+- **Spain's community, and Spanish speakers.** Arrivals and members are people in Spain, Spaniards abroad, Latin
+  Americans and Latin Americans abroad (PLAN R74, D19); outreach is Spanish. The UI is in Spanish (D6).
 - **Self-hosted in the EU.** Everything runs on Dani's cluster, in the EU, deployed through gitops
   ([ADR-0001](adr/0001-hosting-and-delivery.md)). No third-party analytics in the staff app.
 - **The app never reads WhatsApp.** Arrivals and leaves seen in the community are reported to a Telegram bot

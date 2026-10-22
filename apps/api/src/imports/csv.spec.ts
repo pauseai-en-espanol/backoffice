@@ -68,6 +68,40 @@ describe('CSV imports', () => {
     ]);
   });
 
+  it('reads where someone lives and where they are from, a country by its name or code (PLAN R74)', () => {
+    expect(suggestMapping(['País', 'País de origen', 'De dónde es'])).toEqual({
+      País: 'country',
+      'País de origen': 'originCountry',
+      'De dónde es': 'originProvince',
+    });
+    const parsed = parseCsv(
+      [
+        'Nombre;Ciudad;País;País de origen;De dónde es',
+        'Ana;Berlín;Alemania;España;Madrid',
+        'Bea;;Narnia;;',
+      ].join('\n'),
+    );
+    const mapped = mapRows(parsed, {
+      Nombre: 'name',
+      Ciudad: 'town',
+      País: 'country',
+      'País de origen': 'originCountry',
+      'De dónde es': 'originProvince',
+    });
+    expect(mapped.rows).toEqual([
+      {
+        payload: {
+          name: 'Ana',
+          town: 'Berlín',
+          country: 'DE',
+          origin_country: 'ES',
+          origin_province: 'Madrid',
+        },
+      },
+    ]);
+    expect(mapped.invalid).toEqual([{ row: 3, field: 'country' }]);
+  });
+
   it('retrofills older members: when they arrived (empty: nobody knows), where from, Discord, and the old “Por clasificar” as new (PLAN M5)', () => {
     expect(suggestMapping(['Llegó el', 'Llegó por', 'Discord'])).toEqual({
       'Llegó el': 'arrivedOn',

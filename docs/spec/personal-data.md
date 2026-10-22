@@ -55,6 +55,8 @@ once saved, never repeats contact details, and posts none in the team group
 ## 7. Minimisation
 
 - No fields beyond the census list ([onboarding §7.2](onboarding.md#72-the-form-m2)).
+- **Where someone is from** (PLAN R74) is a place, a country and a province or region, optional, asked only as "De
+  dónde eres", and never a nationality: it can hint at one, so nothing depends on it and nobody is asked twice.
 - The UI asks staff not to record health, ideology or other sensitive details in notes, nor in a person's one-line
   internal summary (PLAN M5, step 4), which stays in the staff app and its admins' CSV export: never sent to
   Telegram, in the person's export, cleared by erasure.

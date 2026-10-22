@@ -1,3 +1,4 @@
+import { COUNTRY_GROUPS, countryName } from '@backoffice/domain/places';
 import { STAGES } from '@backoffice/domain/stages';
 import { getTranslator } from '@backoffice/i18n/messages';
 import Link from 'next/link';
@@ -113,6 +114,16 @@ export const FiltersForm = ({
       : []),
     ...(filters.province
       ? [{ label: `${t('people.province')}: ${filters.province}`, without: { province: '' } }]
+      : []),
+    ...(filters.country
+      ? [
+          {
+            label: `${t('people.country')}: ${
+              filters.country === 'none' ? t('people.countryNone') : countryName(filters.country)
+            }`,
+            without: { country: '' },
+          },
+        ]
       : []),
     ...(filters.attention ? [{ label: t('people.attention'), without: { attention: false } }] : []),
     ...(filters.reason
@@ -276,6 +287,42 @@ export const FiltersForm = ({
                 <option value="">{t('people.arrivedOnAny')}</option>
                 <option value="sabida">{t('people.arrivedOnKnown')}</option>
                 <option value="no-se-sabe">{t('people.arrivedOnUnknown')}</option>
+              </select>
+            </div>
+            <div className={ui.field}>
+              <label className={ui.label} htmlFor="pais">
+                {t('people.country')}
+              </label>
+              <select
+                id="pais"
+                name="pais"
+                className={styles.select}
+                defaultValue={
+                  filters.country === 'none' ? 'ninguno' : filters.country.toLowerCase()
+                }
+              >
+                <option value="">{t('people.countryAny')}</option>
+                <option value="ninguno">{t('people.countryNone')}</option>
+                {COUNTRY_GROUPS.map(({ group, codes }) =>
+                  group === 'spain' ? (
+                    codes.map((code) => (
+                      <option key={code} value={code.toLowerCase()}>
+                        {countryName(code)}
+                      </option>
+                    ))
+                  ) : (
+                    <optgroup
+                      key={group}
+                      label={group === 'latinAmerica' ? t('place.latinAmerica') : t('place.world')}
+                    >
+                      {codes.map((code) => (
+                        <option key={code} value={code.toLowerCase()}>
+                          {countryName(code)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ),
+                )}
               </select>
             </div>
             <div className={ui.field}>

@@ -1,3 +1,4 @@
+import { COUNTRY_CODES } from '@backoffice/domain/places';
 import {
   ATTENTION_REASONS,
   type AttentionReason,
@@ -26,6 +27,8 @@ export interface PeopleFilters {
   /** One attention reason: Hoy's "Ver los N sin asignar" asks for `unassigned`. */
   reason: AttentionReason | '';
   province: string;
+  /** Where they live (PLAN R74): a country's code, 'none' for not said, or '' for any. */
+  country: string;
 }
 
 export const NO_FILTERS: PeopleFilters = {
@@ -39,6 +42,7 @@ export const NO_FILTERS: PeopleFilters = {
   arrivedOn: '',
   reason: '',
   province: '',
+  country: '',
 };
 
 /** The reasons as the address spells them, in Spanish. */
@@ -67,6 +71,7 @@ export const filtersFromPage = (params: SearchParams): PeopleFilters => {
   const team = first(params.equipo);
   const arrival = first(params.llegada);
   const arrivedOn = first(params.fecha);
+  const country = first(params.pais);
   const reason = ATTENTION_REASONS.find((key) => REASON_WORDS[key] === first(params.motivo));
   return {
     q: first(params.buscar).slice(0, 200),
@@ -79,6 +84,12 @@ export const filtersFromPage = (params: SearchParams): PeopleFilters => {
     arrivedOn: arrivedOn === 'sabida' ? 'known' : arrivedOn === 'no-se-sabe' ? 'unknown' : '',
     reason: reason ?? '',
     province: first(params.provincia).slice(0, 100),
+    country:
+      country === 'ninguno'
+        ? 'none'
+        : COUNTRY_CODES.includes(country.toUpperCase())
+          ? country.toUpperCase()
+          : '',
   };
 };
 
@@ -126,6 +137,9 @@ export const pageQuery = (filters: PeopleFilters): string => {
   if (filters.province) {
     params.set('provincia', filters.province);
   }
+  if (filters.country) {
+    params.set('pais', filters.country === 'none' ? 'ninguno' : filters.country.toLowerCase());
+  }
   return query(params);
 };
 
@@ -164,6 +178,9 @@ export const apiQuery = (
   }
   if (filters.province) {
     params.set('province', filters.province);
+  }
+  if (filters.country) {
+    params.set('country', filters.country);
   }
   if (limit !== undefined) {
     params.set('limit', String(limit));

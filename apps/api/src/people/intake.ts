@@ -52,6 +52,10 @@ export interface IntakePayload {
   airtable_id?: string;
   province?: string;
   town?: string;
+  /** Where they live and where they're from (PLAN R74): countries by their ISO 3166-1 code. */
+  country?: string;
+  origin_country?: string;
+  origin_province?: string;
   languages?: string[];
   how_heard?: string;
   chat?: string;
@@ -131,6 +135,8 @@ export interface BandejaItem {
   name: string | null;
   province: string | null;
   town: string | null;
+  /** Where they live, its code (PLAN R74). */
+  country: string | null;
   brought: Brought;
   reportedBy: string | null;
   createdAt: string;
@@ -145,6 +151,9 @@ const CENSUS_ANSWER_FIELDS = {
   preferred_name: 'preferredName',
   province: 'province',
   town: 'town',
+  country: 'country',
+  origin_country: 'originCountry',
+  origin_province: 'originProvince',
   languages: 'languages',
   options: 'options',
   skills_other: 'skillsOther',
@@ -183,6 +192,7 @@ export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> 
     name: string | null;
     province: string | null;
     town: string | null;
+    country: string | null;
     reported_by: string | null;
     created_at: string;
     candidates: string[];
@@ -198,7 +208,8 @@ export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> 
     stage: string | null;
   }>`
     SELECT i.id, i.source::text AS source, i.status::text AS status, i.payload ->> 'name' AS name,
-           i.payload ->> 'province' AS province, i.payload ->> 'town' AS town, s.display_name AS reported_by,
+           i.payload ->> 'province' AS province, i.payload ->> 'town' AS town, i.payload ->> 'country' AS country,
+           s.display_name AS reported_by,
            CASE WHEN i.source <> 'census' THEN i.payload -> 'phones' END AS phones,
            CASE WHEN i.source <> 'census' THEN i.payload -> 'emails' END AS emails,
            CASE WHEN i.source <> 'census' THEN i.payload -> 'discords' END AS discords,
@@ -224,6 +235,7 @@ export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> 
     name: row.name,
     province: row.province,
     town: row.town,
+    country: row.country,
     brought: {
       contacts: {
         phones: row.phones ?? [],

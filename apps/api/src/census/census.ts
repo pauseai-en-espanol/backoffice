@@ -304,7 +304,8 @@ export const exportPerson = async (
   const chain = await mergedChain(trx, person);
   const [survivor, ...merged] = chain;
   const profileOf = (id: string) => sql`
-    SELECT p.id, p.full_name, p.preferred_name, p.province, p.town, p.languages, p.pronouns, p.availability,
+    SELECT p.id, p.full_name, p.preferred_name, p.province, p.town, p.country, p.origin_country, p.origin_province,
+           p.languages, p.pronouns, p.availability,
            p.how_heard, p.skills_other, p.interests_other, p.summary, p.stage, p.owner_id, p.next_action,
            p.next_action_due,
            to_char(p.arrived_on, 'YYYY-MM-DD') AS arrived_on, c.label AS arrived_through, p.profile_completed_at,

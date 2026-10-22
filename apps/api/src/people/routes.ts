@@ -7,6 +7,7 @@ import type { Transaction } from 'kysely';
 import { withActor } from '@backoffice/db/actor';
 import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
 import { MESSAGE_PURPOSES } from '@backoffice/domain/message-templates';
+import { COUNTRY_CODES, countryName } from '@backoffice/domain/places';
 import {
   ATTENTION_REASONS,
   type AttentionReason,
@@ -117,6 +118,7 @@ const ID_PARAMS = { type: 'object', properties: { id: UUID }, required: ['id'] }
 const DATE = { type: 'string', format: 'date' } as const;
 const TEXT = (max: number) => ({ type: 'string', maxLength: max }) as const;
 const NULLABLE_TEXT = (max: number) => ({ type: ['string', 'null'], maxLength: max }) as const;
+const NULLABLE_COUNTRY = { type: ['string', 'null'], enum: [...COUNTRY_CODES, null] } as const;
 
 const ONBOARDING = sql<{ ok: boolean }>`SELECT private.staff_can('admin', 'onboarding') AS ok`;
 const ADMIN = sql<{ ok: boolean }>`SELECT private.staff_can('admin') AS ok`;
@@ -172,6 +174,10 @@ const filterOf = (query: Record<string, unknown>): PeopleFilter => {
         ? (query.reason as AttentionReason)
         : undefined,
     province: typeof query.province === 'string' ? query.province.slice(0, 100) : undefined,
+    country:
+      typeof query.country === 'string' && /^(?:[A-Z]{2}|none)$/u.test(query.country)
+        ? query.country
+        : undefined,
   };
 };
 
@@ -194,6 +200,8 @@ const FILTER_QUERY = {
     arrivedOn: { type: 'string', enum: ['known', 'unknown'] },
     reason: { type: 'string', enum: [...ATTENTION_REASONS] },
     province: TEXT(100),
+    // Where they live (PLAN R74): a country's code, or `none`.
+    country: { type: 'string', enum: [...COUNTRY_CODES, 'none'] },
     limit: { type: 'integer', minimum: 1, maximum: 200 },
     cursor: TEXT(200),
   },
@@ -392,6 +400,10 @@ export const peopleRoutes =
               preferredName: NULLABLE_TEXT(100),
               province: NULLABLE_TEXT(100),
               town: NULLABLE_TEXT(100),
+              // Where they live and where they're from (PLAN R74): a country's code, or null.
+              country: NULLABLE_COUNTRY,
+              originCountry: NULLABLE_COUNTRY,
+              originProvince: NULLABLE_TEXT(100),
               languages: { type: 'array', maxItems: 20, items: TEXT(50) },
               pronouns: NULLABLE_TEXT(50),
               availability: {
@@ -661,6 +673,7 @@ export const peopleRoutes =
         discord?: string;
         province?: string;
         town?: string;
+        country?: string;
         chat?: string;
         note?: string;
         stage?: 'new' | 'welcomed' | 'active';
@@ -683,6 +696,7 @@ export const peopleRoutes =
               discord: TEXT(40),
               province: TEXT(100),
               town: TEXT(100),
+              country: { type: 'string', enum: [...COUNTRY_CODES] },
               chat: TEXT(100),
               note: TEXT(4000),
               stage: { type: 'string', enum: ['new', 'welcomed', 'active'] },
@@ -704,6 +718,7 @@ export const peopleRoutes =
             discord,
             province,
             town,
+            country,
             chat,
             note,
             stage,
@@ -746,6 +761,7 @@ export const peopleRoutes =
                   : {}),
                 ...(clean(province) ? { province: clean(province) } : {}),
                 ...(clean(town) ? { town: clean(town) } : {}),
+                ...(country ? { country } : {}),
                 ...(clean(chat) ? { chat: clean(chat) } : {}),
                 ...(clean(note) ? { note: clean(note) } : {}),
                 ...(stage ? { stage } : {}),
@@ -1279,6 +1295,7 @@ export const peopleRoutes =
                   'estado',
                   'responsable',
                   'provincia',
+                  'pais',
                   'emails',
                   'telefonos',
                   'discord',
@@ -1298,6 +1315,7 @@ export const peopleRoutes =
                     person.stage,
                     person.owner?.displayName ?? '',
                     person.province,
+                    person.country === null ? '' : countryName(person.country),
                     identities
                       .filter((i) => i.person_id === person.id && i.kind === 'email')
                       .map((i) => i.value),

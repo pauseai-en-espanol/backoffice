@@ -7,6 +7,7 @@ const known: KnownDetails = {
   hasPhone: true,
   hasEmail: true,
   province: 'Provincia de ejemplo',
+  country: null,
   hasInterests: true,
 };
 
@@ -33,6 +34,11 @@ describe('missingDetails', () => {
 
   it('counts a blank province as missing', () => {
     expect(missingDetails({ ...known, province: '  ' })).toEqual(['province']);
+    expect(missingDetails({ ...known, province: null, country: 'ES' })).toEqual(['province']);
+  });
+
+  it('asks no region of someone living abroad (PLAN R74)', () => {
+    expect(missingDetails({ ...known, province: null, country: 'DE' })).toEqual([]);
   });
 
   it('asks nothing of someone who left or was discarded, but still of someone dormant or unresponsive', () => {

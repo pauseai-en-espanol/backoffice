@@ -1,3 +1,4 @@
+import { SPAIN } from './places.js';
 import { CLOSED_STAGES, type Stage } from './stages.js';
 
 /**
@@ -16,13 +17,16 @@ export interface KnownDetails {
   hasPhone: boolean;
   hasEmail: boolean;
   province: string | null;
+  /** Where they live (PLAN R74). */
+  country: string | null;
   /** An area they'd like to help in, from the census's list or in their own words. */
   hasInterests: boolean;
 }
 
 /**
  * What is missing. Nothing for someone who left or was discarded: nobody is going to ask them. Someone dormant or
- * unresponsive may still come back, so theirs is still said.
+ * unresponsive may still come back, so theirs is still said. Where they are (`province`, said "dónde vive") is known by
+ * the province, or by a country that isn't Spain: abroad, the region isn't asked for (PLAN R74).
  */
 export const missingDetails = (person: KnownDetails): MissingDetail[] => {
   if (CLOSED_STAGES.includes(person.stage)) {
@@ -31,7 +35,9 @@ export const missingDetails = (person: KnownDetails): MissingDetail[] => {
   const known: Readonly<Record<MissingDetail, boolean>> = {
     phone: person.hasPhone,
     email: person.hasEmail,
-    province: (person.province ?? '').trim() !== '',
+    province:
+      (person.province ?? '').trim() !== '' ||
+      (person.country !== null && person.country !== SPAIN),
     interests: person.hasInterests,
   };
   return MISSING_DETAILS.filter((detail) => !known[detail]);

@@ -246,9 +246,11 @@ There is no list of the community's members to import, so they come in four ways
 
 ### 7.2 The form (M2)
 
-- Fields: name, preferred name, email, phone, province and town, languages, skills, availability (occasional,
-  under 2 h a week, 2–5 h, over 5 h), what they would like to help with, how they heard of PauseAI, pronouns
-  (optional, free text). Consent: contact by email, contact by WhatsApp, and the privacy notice.
+- Fields: name, preferred name, email, phone, where they live (a country from a list, Spain first and then Latin
+  America; a province or region, Spain's suggested; a town), where they're from (optional: a country and a province
+  or region, PLAN R74), languages, skills, availability (occasional, under 2 h a week, 2–5 h, over 5 h), what they
+  would like to help with, how they heard of PauseAI, pronouns (optional, free text). Consent: contact by email,
+  contact by WhatsApp, and the privacy notice.
 - **Two lists are edited by an admin in settings**, not in code: skills (diseño, redes sociales, programación…)
   and areas to help in (comunicación, eventos, política, divulgación…), each plus "otra". They start as
   placeholders and are filled in before the census goes out.

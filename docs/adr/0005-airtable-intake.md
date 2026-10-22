@@ -83,9 +83,9 @@ interface if Global ever grants a read-only token.
    so the sync is built (`apps/api/src/imports/airtable.ts`). The share allows `downloadCsv`, so the CSV import is
    a real fallback. The view had 118 rows, all with Country = Spain, and far more columns than we map (Bio, photo,
    Discord, stipends, payments…). The sync keeps only these: `Full name`, `Email`, `Email 2`, `Phone`, `City`,
-   `Languages`, `Discovery method of PAI`; it reads `duplicate` (Global's own flag, 8 rows) and
-   `GDPR chapter share permission` (ticked on 43 rows), which can leave rows out (R14). Required: `Full name` and
-   `Email`; if either disappears, the run fails and imports nothing.
+   `Country` (since PLAN R74, kept as its ISO code), `Languages`, `Discovery method of PAI`; it reads `duplicate`
+   (Global's own flag, 8 rows) and `GDPR chapter share permission` (ticked on 43 rows), which can leave rows out
+   (R14). Required: `Full name` and `Email`; if either disappears, the run fails and imports nothing.
 
 4. **The sync** runs as `pauseai_backoffice_ingest`, which may only execute the sync's three functions:
    `private.airtable_link()` (the sealed link, while the sync is on), `private.ingest_airtable(records)` (it inserts

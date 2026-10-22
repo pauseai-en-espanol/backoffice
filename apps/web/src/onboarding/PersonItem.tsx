@@ -2,6 +2,7 @@ import type { Stage } from '@backoffice/domain/stages';
 import type { StageTone } from '@backoffice/ui/brand';
 import type { LucideIcon } from 'lucide-react';
 
+import { placeLine } from '@backoffice/domain/places';
 import { cx } from '@styled-system/css';
 import Link from 'next/link';
 import { Fragment, type ReactNode } from 'react';
@@ -307,7 +308,10 @@ const PlaceFacts = ({
   </>
 );
 
-/** The name, linked to the person's page, with the province; "Sin nombre" never looks like a name. */
+/**
+ * The name, linked to the person's page, with where they live: the province, and the country when it isn't Spain
+ * ("Maite (Baviera, Alemania)", PLAN R74); "Sin nombre" never looks like a name.
+ */
 const PersonTitle = ({ person, labels }: { person: PersonSummary; labels: PersonLabels }) => (
   <span className={styles.personTitle}>
     <NameWithProvince
@@ -319,7 +323,7 @@ const PersonTitle = ({ person, labels }: { person: PersonSummary; labels: Person
           {personName(person.name, labels.noName)}
         </Link>
       }
-      province={person.province}
+      province={placeLine({ province: person.province, country: person.country }) ?? null}
       labels={labels}
     />
   </span>

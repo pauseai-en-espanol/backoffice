@@ -23,6 +23,8 @@ export interface PersonSummary {
   stage: Stage;
   owner: StaffRef | null;
   province: string | null;
+  /** Where they live, its ISO 3166-1 code (PLAN R74). */
+  country: string | null;
   nextAction: string | null;
   nextActionDue: string | null;
   reasons: string[];
@@ -110,6 +112,9 @@ export type ConsentKind = (typeof CONSENT_KINDS)[number];
 export interface PersonDetail extends Omit<PersonSummary, 'sources'> {
   preferredName: string | null;
   town: string | null;
+  /** "De dónde es" (PLAN R74): a country's code, and a province or region. */
+  originCountry: string | null;
+  originProvince: string | null;
   languages: string[];
   pronouns: string | null;
   availability: string | null;
@@ -203,6 +208,8 @@ export interface BandejaItem {
   name: string | null;
   province: string | null;
   town: string | null;
+  /** Where the record says they live, a country's code (PLAN R74). */
+  country: string | null;
   brought: Brought;
   reportedBy: string | null;
   createdAt: string;
@@ -303,6 +310,8 @@ const summaryFields = (value: Record<string, unknown>) => {
   const name = value.name === undefined ? fullName : nullable(value.name);
   const owner = nullableRef(value.owner);
   const province = nullable(value.province);
+  // Where they live (PLAN R74); an older API sent nothing.
+  const country = value.country === undefined ? null : nullable(value.country);
   const nextAction = nullable(value.nextAction);
   const nextActionDue = nullable(value.nextActionDue);
   const reasons = strings(value.reasons);
@@ -322,6 +331,7 @@ const summaryFields = (value: Record<string, unknown>) => {
     !isStage(value.stage) ||
     owner === undefined ||
     province === undefined ||
+    country === undefined ||
     nextAction === undefined ||
     nextActionDue === undefined ||
     reasons === undefined ||
@@ -338,6 +348,7 @@ const summaryFields = (value: Record<string, unknown>) => {
     stage: value.stage,
     owner,
     province,
+    country,
     nextAction,
     nextActionDue,
     reasons,
@@ -442,6 +453,8 @@ export const parseDetail = (value: unknown): PersonDetail | undefined => {
   const fields = summaryFields(value);
   const preferredName = nullable(value.preferredName);
   const town = nullable(value.town);
+  const originCountry = value.originCountry === undefined ? null : nullable(value.originCountry);
+  const originProvince = value.originProvince === undefined ? null : nullable(value.originProvince);
   const languages = strings(value.languages);
   const pronouns = nullable(value.pronouns);
   const availability = nullable(value.availability);
@@ -470,6 +483,8 @@ export const parseDetail = (value: unknown): PersonDetail | undefined => {
     !fields ||
     preferredName === undefined ||
     town === undefined ||
+    originCountry === undefined ||
+    originProvince === undefined ||
     languages === undefined ||
     pronouns === undefined ||
     availability === undefined ||
@@ -487,6 +502,8 @@ export const parseDetail = (value: unknown): PersonDetail | undefined => {
     ...fields,
     preferredName,
     town,
+    originCountry,
+    originProvince,
     languages,
     pronouns,
     availability,
@@ -719,6 +736,7 @@ const parseBandejaItem = (value: unknown): BandejaItem | undefined => {
   const name = nullable(value.name);
   const province = nullable(value.province);
   const town = nullable(value.town);
+  const country = value.country === undefined ? null : nullable(value.country);
   const candidates =
     value.candidates === undefined
       ? []
@@ -733,6 +751,7 @@ const parseBandejaItem = (value: unknown): BandejaItem | undefined => {
     name === undefined ||
     province === undefined ||
     town === undefined ||
+    country === undefined ||
     candidates === undefined ||
     person === undefined
   ) {
@@ -745,6 +764,7 @@ const parseBandejaItem = (value: unknown): BandejaItem | undefined => {
     name,
     province,
     town,
+    country,
     brought: parseBrought(value.brought),
     reportedBy: ownerName(value.reportedBy),
     createdAt: str(value.createdAt) ? value.createdAt : '',

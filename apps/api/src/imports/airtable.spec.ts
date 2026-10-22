@@ -16,6 +16,12 @@ const view: SharedView = {
     { id: 'fldPhone', name: 'Phone', type: 'phone' },
     { id: 'fldCity', name: 'City', type: 'text' },
     {
+      id: 'fldCountry',
+      name: 'Country',
+      type: 'select',
+      typeOptions: { choices: { selSpain: { id: 'selSpain', name: 'Spain' } } },
+    },
+    {
       id: 'fldLang',
       name: 'Languages',
       type: 'multiSelect',
@@ -48,6 +54,7 @@ const view: SharedView = {
         fldEmail: 'Ana@Ejemplo.test',
         fldPhone: '612 345 678',
         fldCity: 'Ciudad de ejemplo',
+        fldCountry: 'selSpain',
         fldLang: ['selEs', 'selEs2', 'selCa', 'selOt'],
         fldHow: 'selPod',
         fldOk: true,
@@ -85,6 +92,7 @@ describe('mapping Global’s view', () => {
           emails: ['ana@ejemplo.test'],
           phones: ['+34612345678'],
           town: 'Ciudad de ejemplo',
+          country: 'ES',
           languages: ['Español', 'Catalán'],
           how_heard: 'Podcast / video',
         },

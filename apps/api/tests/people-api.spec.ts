@@ -221,6 +221,59 @@ describe('onboarding through the staff API (M1)', () => {
     expect(found.body).not.toContain(phone.slice(-6));
   });
 
+  it('keeps where someone lives and where they are from, and lists them by country (PLAN R74)', async () => {
+    const added = await onboarder.who.send('POST', '/api/intake', {
+      name: `Lugar Prueba ${suffix()}`,
+      province: 'Baviera',
+      town: 'Múnich',
+      country: 'DE',
+    });
+    expect(added.statusCode).toBe(201);
+    const { personId } = added.json<{ personId: string }>();
+    people.push(personId);
+    const page = async () =>
+      (await onboarder.who.send('GET', `/api/people/${personId}`)).json<{
+        person: {
+          country: string | null;
+          originCountry: string | null;
+          originProvince: string | null;
+          missing: string[];
+        };
+      }>().person;
+    // Abroad, the region isn't asked for: "dónde vive" is known by the country.
+    expect(await page()).toMatchObject({
+      country: 'DE',
+      originCountry: null,
+      originProvince: null,
+    });
+    expect((await page()).missing).not.toContain('province');
+    expect(
+      (
+        await onboarder.who.send('PATCH', `/api/people/${personId}`, {
+          originCountry: 'ES',
+          originProvince: 'Madrid',
+        })
+      ).statusCode,
+    ).toBe(204);
+    expect(await page()).toMatchObject({ originCountry: 'ES', originProvince: 'Madrid' });
+    for (const country of ['Alemania', 'de', 'XX']) {
+      expect(
+        (await onboarder.who.send('PATCH', `/api/people/${personId}`, { country })).statusCode,
+      ).toBe(400);
+    }
+    const ids = async (query: string) =>
+      (await onboarder.who.send('GET', `/api/people?${query}&limit=200`))
+        .json<{ people: { id: string; country: string | null }[] }>()
+        .people.map((person) => person.id);
+    expect(await ids('country=DE')).toContain(personId);
+    expect(await ids('country=none')).not.toContain(personId);
+    expect(await ids('country=ES')).not.toContain(personId);
+    expect(
+      (await onboarder.who.send('POST', '/api/intake', { name: 'Otro Lugar', country: 'Alemania' }))
+        .statusCode,
+    ).toBe(400);
+  });
+
   it('finds a phone however it is written: a foreign one without its country code, or by its end (PLAN R72)', async () => {
     // From the range kept for fiction.
     const end = suffix().slice(-2);

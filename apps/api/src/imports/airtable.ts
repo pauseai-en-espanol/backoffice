@@ -1,4 +1,5 @@
 import { normalizeAirtableId, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { normalizeCountry } from '@backoffice/domain/places';
 
 import type { IntakePayload } from '../people/intake.js';
 
@@ -143,6 +144,7 @@ export const COLUMNS = {
   email2: 'Email 2',
   phone: 'Phone',
   city: 'City',
+  country: 'Country',
   languages: 'Languages',
   discovery: 'Discovery method of PAI',
   chapterPermission: 'GDPR chapter share permission',
@@ -196,7 +198,7 @@ const madridDay = (value: unknown): string | undefined => {
 
 /**
  * Turns the view into intake records, copying only the mapped fields (ADR-0005): the name, emails, phone, town,
- * languages and how they heard of PauseAI; where they came from is always Global's form, and they arrived the day
+ * country, languages and how they heard of PauseAI; where they came from is always Global's form, and they arrived the day
  * they signed up, when the row says (PLAN M5). A row Global marks as a duplicate is left out; so is one without the
  * chapter-share permission, if `requirePermission` is set (by default it isn't: PLAN R14).
  */
@@ -257,6 +259,10 @@ export const mapSharedView = (
       ),
     ];
     const town = text(cell(row, 'city'));
+    // Global's country, a choice or text, by its name ("Spain"): kept as its code (PLAN R74).
+    const countryCell = cell(row, 'country');
+    const countryWord = choiceName('country', countryCell) ?? text(countryCell);
+    const country = countryWord === undefined ? undefined : normalizeCountry(countryWord);
     const discovery = choiceName('discovery', cell(row, 'discovery'));
     const signedUp = madridDay(row.createdTime);
     records.push({
@@ -269,6 +275,7 @@ export const mapSharedView = (
         ...(emails.length > 0 ? { emails: [...new Set(emails)] } : {}),
         ...(phones.length > 0 ? { phones } : {}),
         ...(town ? { town: town.slice(0, 100) } : {}),
+        ...(country ? { country } : {}),
         ...(languages.length > 0 ? { languages } : {}),
         ...(discovery ? { how_heard: discovery.slice(0, 500) } : {}),
       },

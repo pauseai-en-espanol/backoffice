@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { fillMessage } from '@backoffice/domain/message-templates';
+import { placeLine } from '@backoffice/domain/places';
 import { getTranslator } from '@backoffice/i18n/messages';
 import Link from 'next/link';
 import { Fragment } from 'react';
@@ -177,19 +178,26 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
       : (messages.find((template) => template.id === templateId)?.title ?? null);
   const open = person.presence.some((period) => period.leftOn === null);
 
-  // What is known of them; their names are the page's heading already.
+  // What is known of them; their names are the page's heading already. Where they live and are from, as a line each
+  // ("Berlín, Alemania"; PLAN R74).
+  const livesIn = placeLine({
+    town: person.town,
+    province: person.province,
+    country: person.country,
+  });
+  const comesFrom = placeLine({ province: person.originProvince, country: person.originCountry });
   const profileFacts = (
     <dl className={styles.facts}>
-      {person.province ? (
+      {livesIn ? (
         <>
-          <dt>{t('person.province')}</dt>
-          <dd>{person.province}</dd>
+          <dt>{t('person.profileWhere')}</dt>
+          <dd>{livesIn}</dd>
         </>
       ) : null}
-      {person.town ? (
+      {comesFrom ? (
         <>
-          <dt>{t('person.town')}</dt>
-          <dd>{person.town}</dd>
+          <dt>{t('person.profileFrom')}</dt>
+          <dd>{comesFrom}</dd>
         </>
       ) : null}
       {person.pronouns ? (

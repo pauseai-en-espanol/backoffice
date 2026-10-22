@@ -45,6 +45,31 @@ describe('buildAnswer', () => {
     });
   });
 
+  it('keeps a country picked from the list, and where they are from (PLAN R74)', () => {
+    const { answer } = buildAnswer(
+      formOf({
+        ...COMPLETE,
+        country: 'DE',
+        town: ' Berlín ',
+        originCountry: 'ES',
+        originProvince: ' Madrid ',
+      }),
+      OFFERED,
+    );
+    expect(answer).toMatchObject({
+      country: 'DE',
+      town: 'Berlín',
+      originCountry: 'ES',
+      originProvince: 'Madrid',
+    });
+    const other = buildAnswer(
+      formOf({ ...COMPLETE, country: 'Alemania', originCountry: '' }),
+      OFFERED,
+    );
+    expect(other.answer).not.toHaveProperty('country');
+    expect(other.answer).not.toHaveProperty('originCountry');
+  });
+
   it('keeps only the options the API offered, each once, and a known availability', () => {
     const { answer } = buildAnswer(
       formOf({

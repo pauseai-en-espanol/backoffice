@@ -508,7 +508,8 @@ CREATE FUNCTION private.anonymise_person(person uuid) RETURNS boolean
        SET candidates = ARRAY(SELECT c FROM unnest(r.candidates) AS c WHERE c <> ALL (chain))
      WHERE r.candidates && chain AND (r.person_id IS NULL OR NOT (r.person_id = ANY (chain)));
     UPDATE app.people p
-       SET full_name = 'Persona anonimizada', preferred_name = NULL, province = NULL, town = NULL, languages = '{}',
+       SET full_name = 'Persona anonimizada', preferred_name = NULL, province = NULL, town = NULL,
+           country = NULL, origin_country = NULL, origin_province = NULL, languages = '{}',
            pronouns = NULL, availability = NULL, how_heard = NULL, next_action = NULL, next_action_due = NULL,
            skills_other = NULL, interests_other = NULL, summary = NULL, owner_id = NULL, anonymised_at = now()
      WHERE p.id = ANY (chain) AND p.anonymised_at IS NULL;
@@ -796,6 +797,9 @@ CREATE FUNCTION private.census_apply(person uuid, answer jsonb, link text) RETUR
            preferred_name = nullif(left(btrim(answer ->> 'preferred_name'), 100), ''),
            province = nullif(left(btrim(answer ->> 'province'), 100), ''),
            town = nullif(left(btrim(answer ->> 'town'), 100), ''),
+           country = nullif(answer ->> 'country', ''),
+           origin_country = nullif(answer ->> 'origin_country', ''),
+           origin_province = nullif(left(btrim(answer ->> 'origin_province'), 100), ''),
            languages = coalesce(ARRAY(SELECT left(btrim(l), 50)
                                         FROM jsonb_array_elements_text(coalesce(answer -> 'languages', '[]')) l
                                        WHERE btrim(l) <> '' LIMIT 20), '{}'),
@@ -932,7 +936,7 @@ ALTER FUNCTION private.census_link_template() OWNER TO pauseai_backoffice_owner;
 CREATE FUNCTION private.check_census(answer jsonb) RETURNS void
     LANGUAGE plpgsql IMMUTABLE
     SET search_path TO ''
-    AS $$
+    AS $_$
   DECLARE
     extra text;
   BEGIN
@@ -940,11 +944,15 @@ CREATE FUNCTION private.check_census(answer jsonb) RETURNS void
       RAISE EXCEPTION 'a census answer is an object' USING ERRCODE = 'invalid_parameter_value';
     END IF;
     SELECT string_agg(k, ', ') INTO extra FROM jsonb_object_keys(answer) k
-     WHERE k NOT IN ('name', 'preferred_name', 'email', 'phone', 'province', 'town', 'languages', 'options',
+     WHERE k NOT IN ('name', 'preferred_name', 'email', 'phone', 'province', 'town', 'country', 'origin_country',
+                     'origin_province', 'languages', 'options',
                      'skills_other', 'interests_other', 'availability', 'how_heard', 'pronouns', 'consent_email',
                      'consent_whatsapp', 'consent_privacy', 'age_ok', 'wording_version');
     IF extra IS NOT NULL THEN
       RAISE EXCEPTION 'a census answer takes no %', extra USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF nullif(answer ->> 'country', '') !~ '^[A-Z]{2}$' OR nullif(answer ->> 'origin_country', '') !~ '^[A-Z]{2}$' THEN
+      RAISE EXCEPTION 'a country is its ISO 3166-1 code' USING ERRCODE = 'invalid_parameter_value';
     END IF;
     -- Under 14, consent must come from a parent or guardian (LOPDGDD art. 7): the form refuses them before this.
     IF (answer ->> 'age_ok') IS DISTINCT FROM 'true' OR (answer ->> 'consent_privacy') IS DISTINCT FROM 'true' THEN
@@ -955,7 +963,7 @@ CREATE FUNCTION private.check_census(answer jsonb) RETURNS void
       RAISE EXCEPTION 'the census needs a name and the wording version' USING ERRCODE = 'check_violation';
     END IF;
   END
-  $$;
+  $_$;
 
 
 ALTER FUNCTION private.check_census(answer jsonb) OWNER TO pauseai_backoffice_owner;
@@ -976,8 +984,8 @@ CREATE FUNCTION private.check_payload(payload jsonb) RETURNS void
     END IF;
     SELECT string_agg(k, ', ') INTO extra FROM jsonb_object_keys(payload) k
      WHERE k NOT IN ('name', 'preferred_name', 'emails', 'phones', 'discords', 'airtable_id', 'province', 'town',
-                     'languages', 'how_heard', 'chat', 'note', 'stage', 'joined_on', 'left_on', 'arrived_on',
-                     'arrival');
+                     'country', 'origin_country', 'origin_province', 'languages', 'how_heard', 'chat', 'note',
+                     'stage', 'joined_on', 'left_on', 'arrived_on', 'arrival');
     IF extra IS NOT NULL THEN
       RAISE EXCEPTION 'an intake payload takes no %', extra USING ERRCODE = 'invalid_parameter_value';
     END IF;
@@ -986,6 +994,9 @@ CREATE FUNCTION private.check_payload(payload jsonb) RETURNS void
        OR jsonb_typeof(coalesce(payload -> 'discords', '[]')) <> 'array'
        OR jsonb_typeof(coalesce(payload -> 'languages', '[]')) <> 'array' THEN
       RAISE EXCEPTION 'emails, phones, discords and languages are arrays' USING ERRCODE = 'invalid_parameter_value';
+    END IF;
+    IF (payload ->> 'country') !~ '^[A-Z]{2}$' OR (payload ->> 'origin_country') !~ '^[A-Z]{2}$' THEN
+      RAISE EXCEPTION 'a country is its ISO 3166-1 code' USING ERRCODE = 'invalid_parameter_value';
     END IF;
     IF payload ? 'arrived_on' AND jsonb_typeof(payload -> 'arrived_on') <> 'null'
        AND (jsonb_typeof(payload -> 'arrived_on') <> 'string' OR (payload ->> 'arrived_on') !~ '^\d{4}-\d{2}-\d{2}$') THEN
@@ -1568,7 +1579,8 @@ CREATE FUNCTION private.intake_attach(intake app.intake_records, person uuid) RE
       conflicts := conflicts || jsonb_build_object('full_name',
         jsonb_build_object('current', subject.full_name, 'proposed', btrim(payload ->> 'name')));
     END IF;
-    FOREACH field IN ARRAY ARRAY['preferred_name', 'province', 'town', 'how_heard'] LOOP
+    FOREACH field IN ARRAY ARRAY['preferred_name', 'province', 'town', 'country', 'origin_country', 'origin_province',
+                                 'how_heard'] LOOP
       proposed := nullif(btrim(payload ->> field), '');
       held := to_jsonb(subject) ->> field;
       IF proposed IS NULL THEN
@@ -1932,6 +1944,9 @@ CREATE FUNCTION private.merge_people(survivor uuid, merged uuid) RETURNS void
            preferred_name = coalesce(p.preferred_name, gone.preferred_name),
            province = coalesce(p.province, gone.province),
            town = coalesce(p.town, gone.town),
+           country = coalesce(p.country, gone.country),
+           origin_country = coalesce(p.origin_country, gone.origin_country),
+           origin_province = coalesce(p.origin_province, gone.origin_province),
            pronouns = coalesce(p.pronouns, gone.pronouns),
            availability = coalesce(p.availability, gone.availability),
            how_heard = coalesce(p.how_heard, gone.how_heard),
@@ -2635,6 +2650,9 @@ CREATE FUNCTION private.submit_census(token_hash text, answer jsonb) RETURNS tex
               'phones', CASE WHEN coalesce(answer ->> 'phone', '') <> '' THEN jsonb_build_array(answer ->> 'phone') END,
               'province', nullif(btrim(answer ->> 'province'), ''),
               'town', nullif(btrim(answer ->> 'town'), ''),
+              'country', nullif(answer ->> 'country', ''),
+              'origin_country', nullif(answer ->> 'origin_country', ''),
+              'origin_province', nullif(btrim(answer ->> 'origin_province'), ''),
               'stage', 'to_triage')),
             NULL)
     RETURNING id INTO intake;
@@ -3649,13 +3667,19 @@ CREATE TABLE app.people (
     arrived_on date DEFAULT ((now() AT TIME ZONE 'Europe/Madrid'::text))::date,
     arrival_channel_id uuid,
     summary text,
+    country text,
+    origin_country text,
+    origin_province text,
     CONSTRAINT people_check CHECK ((merged_into IS DISTINCT FROM id)),
     CONSTRAINT people_check1 CHECK (((next_action_due IS NULL) OR (next_action IS NOT NULL))),
+    CONSTRAINT people_country_check CHECK ((country ~ '^[A-Z]{2}$'::text)),
     CONSTRAINT people_full_name_check CHECK (((full_name IS NULL) OR ((btrim(full_name) <> ''::text) AND (length(full_name) <= 200)))),
     CONSTRAINT people_how_heard_check CHECK ((length(how_heard) <= 500)),
     CONSTRAINT people_interests_other_check CHECK ((length(interests_other) <= 300)),
     CONSTRAINT people_languages_check CHECK ((cardinality(languages) <= 20)),
     CONSTRAINT people_next_action_check CHECK (((btrim(next_action) <> ''::text) AND (length(next_action) <= 300))),
+    CONSTRAINT people_origin_country_check CHECK ((origin_country ~ '^[A-Z]{2}$'::text)),
+    CONSTRAINT people_origin_province_check CHECK (((btrim(origin_province) <> ''::text) AND (length(origin_province) <= 100))),
     CONSTRAINT people_preferred_name_check CHECK ((length(preferred_name) <= 100)),
     CONSTRAINT people_pronouns_check CHECK ((length(pronouns) <= 50)),
     CONSTRAINT people_province_check CHECK ((length(province) <= 100)),
@@ -3756,6 +3780,27 @@ COMMENT ON COLUMN app.people.interests_other IS 'personal data';
 --
 
 COMMENT ON COLUMN app.people.summary IS 'personal data';
+
+
+--
+-- Name: COLUMN people.country; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.country IS 'personal data';
+
+
+--
+-- Name: COLUMN people.origin_country; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.origin_country IS 'personal data';
+
+
+--
+-- Name: COLUMN people.origin_province; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.people.origin_province IS 'personal data';
 
 
 --
@@ -8509,6 +8554,27 @@ GRANT UPDATE(arrival_channel_id) ON TABLE app.people TO pauseai_backoffice_app;
 --
 
 GRANT UPDATE(summary) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.country; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(country) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.origin_country; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(origin_country) ON TABLE app.people TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN people.origin_province; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(origin_province) ON TABLE app.people TO pauseai_backoffice_app;
 
 
 --

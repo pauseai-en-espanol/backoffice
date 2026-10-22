@@ -2,6 +2,7 @@
 
 import type { Messages } from '@backoffice/i18n/catalog';
 
+import { COUNTRY_GROUPS, countryName, SPAIN, SPANISH_PROVINCES } from '@backoffice/domain/places';
 import Link from 'next/link';
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
@@ -58,6 +59,7 @@ const TEXT_FIELDS: ReadonlySet<string> = new Set([
   'pronouns',
   'province',
   'town',
+  'originProvince',
   'languages',
   'skillsOther',
   'interestsOther',
@@ -112,6 +114,8 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
   const [sendError, setSendError] = useState<SendError>();
   const [pending, setPending] = useState(false);
   const [hints, setHints] = useState<{ email?: string; phone?: string }>({});
+  // The countries picked, so that Spain's provinces are suggested only where they fit (PLAN R74).
+  const [countries, setCountries] = useState({ country: '', originCountry: '' });
   const result = useRef<HTMLHeadingElement & HTMLParagraphElement>(null);
 
   useEffect(() => {
@@ -263,6 +267,7 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
       live,
       onBlur,
       multiline = false,
+      list,
     }: {
       hint?: string;
       required?: boolean;
@@ -273,6 +278,8 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
       live?: string;
       onBlur?: (value: string) => void;
       multiline?: boolean;
+      /** A datalist of suggestions: Spain's provinces. */
+      list?: string | undefined;
     } = {},
   ): ReactNode => {
     const id = idOf(field);
@@ -307,6 +314,7 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
             className={styles.input}
             type={type}
             inputMode={inputMode}
+            list={list}
             onBlur={onBlur ? (event) => onBlur(event.currentTarget.value) : undefined}
             {...shared}
           />
@@ -357,6 +365,55 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
     );
   };
 
+  /**
+   * A country, picked from a list (PLAN R74): Spain first, then Latin America, then the rest of the world, by name.
+   * A native select, which a phone shows as its own picker.
+   */
+  const countrySelect = (field: 'country' | 'originCountry', label: string): ReactNode => (
+    <div className={styles.field}>
+      <label className={styles.label} htmlFor={idOf(field)}>
+        {label}
+      </label>
+      <select
+        className={styles.input}
+        id={idOf(field)}
+        name={field}
+        value={countries[field]}
+        autoComplete={field === 'country' ? 'country' : 'off'}
+        onChange={(event) => {
+          const picked = event.currentTarget.value;
+          setCountries((current) => ({ ...current, [field]: picked }));
+        }}
+      >
+        <option value="">{text.countryNone}</option>
+        {COUNTRY_GROUPS.map(({ group, codes }) =>
+          group === 'spain' ? (
+            codes.map((code) => (
+              <option key={code} value={code}>
+                {countryName(code)}
+              </option>
+            ))
+          ) : (
+            <optgroup
+              key={group}
+              label={group === 'latinAmerica' ? text.countriesLatinAmerica : text.countriesWorld}
+            >
+              {codes.map((code) => (
+                <option key={code} value={code}>
+                  {countryName(code)}
+                </option>
+              ))}
+            </optgroup>
+          ),
+        )}
+      </select>
+    </div>
+  );
+
+  /** Spain's provinces suggested while the country is Spain, or not said yet. */
+  const provinces = (picked: string) =>
+    picked === '' || picked === SPAIN ? 'census-provinces' : undefined;
+
   const optionGroup = (legend: string, options: CensusOption[]): ReactNode => (
     <fieldset className={styles.fieldset}>
       <legend>{legend}</legend>
@@ -388,8 +445,29 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
             autoComplete: 'nickname',
           })}
           {textField('pronouns', text.pronouns, { hint: text.pronounsHint })}
-          {textField('province', text.province, { autoComplete: 'address-level1' })}
+          {countrySelect('country', text.country)}
+          {textField('province', text.province, {
+            autoComplete: 'address-level1',
+            list: provinces(countries.country),
+          })}
           {textField('town', text.town, { autoComplete: 'address-level2' })}
+          <fieldset className={styles.fieldset} aria-describedby="census-origin-hint">
+            <legend>{text.origin}</legend>
+            <p className={styles.hint} id="census-origin-hint">
+              {text.originHint}
+            </p>
+            {countrySelect('originCountry', text.originCountry)}
+            {textField('originProvince', text.originProvince, {
+              list: provinces(countries.originCountry),
+            })}
+          </fieldset>
+          <datalist id="census-provinces">
+            {SPANISH_PROVINCES.map((province) => (
+              <option key={province} value={province}>
+                {province}
+              </option>
+            ))}
+          </datalist>
           {textField('languages', text.languages, { hint: text.languagesHint })}
         </fieldset>
 

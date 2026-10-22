@@ -23,7 +23,7 @@ test('quick-add someone, find them through Hoy’s unassigned queue, and claim f
   const name = uniqueName();
   await page.getByLabel('Nombre', { exact: true }).fill(name);
   await page.getByLabel('Teléfono').fill(phone());
-  await page.getByLabel('Provincia').fill('Provincia de ejemplo');
+  await page.getByRole('combobox', { name: 'Provincia o región' }).fill('Provincia de ejemplo');
   await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await expect(page).toHaveURL(/\/personas\/[0-9a-f-]{36}$/u);
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();

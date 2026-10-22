@@ -10,6 +10,8 @@ import {
   Calendar,
   CalendarX,
   ChartColumn,
+  Check,
+  ChevronDown,
   CircleArrowRight,
   CircleCheck,
   CircleDashed,
@@ -49,6 +51,7 @@ import {
   Users,
   UsersRound,
   UserX,
+  X,
 } from 'lucide-react';
 
 import type { RelationshipStage } from '@/outreach/types';
@@ -74,6 +77,10 @@ export const icons = {
   private: Lock,
   team: BadgeCheck,
   inbox: Inbox,
+  /** A picker's list (PLAN R74): open it, empty the field, the option chosen. */
+  open: ChevronDown,
+  clear: X,
+  selected: Check,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Each stage's icon: a dashed circle before anything starts, a check once someone is active. */

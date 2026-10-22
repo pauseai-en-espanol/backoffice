@@ -203,24 +203,25 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
 
 ## Decided
 
-| ID      | Decision                                                                                                                                                          | By               |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **D1**  | WhatsApp joins and leaves are reported to a Telegram bot by whoever sees them. No WhatsApp integration for now                                                    | Dani, 2026-10-15 |
-| **D2**  | Airtable is read through Global's shared view link, kept as configuration (a sealed secret) ([ADR-0005](adr/0005-airtable-intake.md))                             | Dani, 2026-10-15 |
-| **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                                            | Dani, 2026-10-15 |
-| **D4**  | The staff UI is on the public gateway with mandatory two-factor (no VPN)                                                                                          | Dani, 2026-10-15 |
-| **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                                                      | Dani, 2026-10-16 |
-| **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                                               | Dani, 2026-10-16 |
-| **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                                                       | Dani, 2026-10-15 |
-| **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                                                         | Dani, 2026-10-16 |
-| **D13** | The Telegram bot is the onboarding team's alone: only staff with the onboarding role link and use it, not an admin without it; losing the role unlinks (ADR-0004) | Dani, 2026-10-16 |
-| **D14** | The staff app and the bot say "onboarding", not "acogida"; the board by stage is the "Onboarding Pipeline", at `/pipeline`                                        | Dani, 2026-10-16 |
-| **D15** | The WhatsApp messages newcomers receive are written by the team in the staff app (Mensajes), not in code; the code keeps a neutral fallback (PLAN M5)             | Dani, 2026-10-16 |
-| **D16** | The WhatsApp group's history comes in with those who left, as Baja, to keep who was in the community and when (R56)                                               | Dani, 2026-10-18 |
-| **D17** | One sign-up day, "Fecha de alta", whatever the way in; one way in, "Canal de alta", which "Entró por" and "Llegó por" merge into (R58)                            | Dani, 2026-10-18 |
-| **D18** | Each onboarder writes their own messages in Mensajes, which only they see and are offered first; the team's are written by admins (R71)                           | Dani, 2026-10-21 |
-| —       | Backups are handled in gitops, separately from this plan                                                                                                          | Dani, 2026-10-15 |
-| —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                             | Dani, 2026-10-15 |
+| ID      | Decision                                                                                                                                                             | By               |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **D1**  | WhatsApp joins and leaves are reported to a Telegram bot by whoever sees them. No WhatsApp integration for now                                                       | Dani, 2026-10-15 |
+| **D2**  | Airtable is read through Global's shared view link, kept as configuration (a sealed secret) ([ADR-0005](adr/0005-airtable-intake.md))                                | Dani, 2026-10-15 |
+| **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                                               | Dani, 2026-10-15 |
+| **D4**  | The staff UI is on the public gateway with mandatory two-factor (no VPN)                                                                                             | Dani, 2026-10-15 |
+| **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                                                         | Dani, 2026-10-16 |
+| **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                                                  | Dani, 2026-10-16 |
+| **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                                                          | Dani, 2026-10-15 |
+| **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                                                            | Dani, 2026-10-16 |
+| **D13** | The Telegram bot is the onboarding team's alone: only staff with the onboarding role link and use it, not an admin without it; losing the role unlinks (ADR-0004)    | Dani, 2026-10-16 |
+| **D14** | The staff app and the bot say "onboarding", not "acogida"; the board by stage is the "Onboarding Pipeline", at `/pipeline`                                           | Dani, 2026-10-16 |
+| **D15** | The WhatsApp messages newcomers receive are written by the team in the staff app (Mensajes), not in code; the code keeps a neutral fallback (PLAN M5)                | Dani, 2026-10-16 |
+| **D16** | The WhatsApp group's history comes in with those who left, as Baja, to keep who was in the community and when (R56)                                                  | Dani, 2026-10-18 |
+| **D17** | One sign-up day, "Fecha de alta", whatever the way in; one way in, "Canal de alta", which "Entró por" and "Llegó por" merge into (R58)                               | Dani, 2026-10-18 |
+| **D18** | Each onboarder writes their own messages in Mensajes, which only they see and are offered first; the team's are written by admins (R71)                              | Dani, 2026-10-21 |
+| **D19** | The community is Spain's, Spaniards abroad, Latin America's and Latin Americans abroad; a person has a country where they live, and may say where they're from (R74) | Dani, 2026-10-22 |
+| —       | Backups are handled in gitops, separately from this plan                                                                                                             | Dani, 2026-10-15 |
+| —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                                | Dani, 2026-10-15 |
 
 ## Open decisions
 
@@ -623,6 +624,27 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   and a stage change on a person's page, and for a note in Contactos and Organizaciones, alike. Left on today (or
   emptied) it is still now: nothing is recorded as another day, so the history doesn't add "ocurrió el" to every entry.
   Mutation list `person-page`.
+- **R74. Where someone lives, and where they're from** (D19; Dani, 2026-10-22: "what if the person is originally from a
+  place but they live elsewhere, also what about latam and even other countries, there is people from madrid in germany
+  or USA"; then "spain, spaniards abroad and latam and latam abroad. I think having a fancy way to select countri and
+  even provincia would be very convenient too"). Province and town were free text, with no country: someone in Berlin
+  could be written down, but not found by country, and Global's `Country` was never read. Options for where they live:
+  add a country; relabel only. For where they're from: not now; an optional "De dónde es". **Chose a country, and "De
+  dónde es"** (Dani). A person has `country` (an ISO 3166-1 code), `province` (now "Provincia o región") and `town`, and
+  `origin_country` and `origin_province`, all optional and personal data, carried by every intake, census answer, merge
+  and erasure. The staff app picks a country by typing part of its name in Spanish or English, accents aside ("alem",
+  "Germ", "EEUU"), Spain first, then Latin America, then the rest of the world (Ark UI's combobox, ADR-0003); while the
+  country is Spain or not said, Spain's 52 provinces are offered the same way and by their other names ("vizc" finds
+  Bizkaia), and anything else typed is kept (a region abroad, or how it was written before). The census form,
+  phone-first, uses the phone's own picker (a select in the same order) and suggests the provinces. A card says "Maite
+  (Baviera, Alemania)", the person's page "Dónde vive" and "De dónde es" as a line each, Personas filters by country
+  ("Sin indicar" too), the Bandeja compares countries by name, the CSV import reads "País", "País de origen" and "De
+  dónde es", the Airtable sync reads Global's `Country` (ADR-0005), and the CSV export adds "pais". "Falta: dónde vive"
+  no longer asks someone abroad for a province. Everyone whose province is one of Spain's, as written, and everyone
+  Global's view brought, is set as living in Spain; nobody else is guessed at. The phone keeps Spain as its default
+  region. Not done: the bot (its team post still says "Provincia"), regions of other countries as lists, and the Panel
+  by country. Migrations `20261022100000` and `100100`; mutation list `places`. The census's privacy summary lists the
+  new data: its wording version (`CENSUS_WORDING_VERSION`, in gitops) goes up with this release.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

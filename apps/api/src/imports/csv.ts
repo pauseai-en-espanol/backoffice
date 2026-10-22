@@ -1,4 +1,5 @@
 import { normalizeDiscord, normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { normalizeCountry } from '@backoffice/domain/places';
 import { parse } from 'csv-parse/sync';
 
 import type { IntakePayload } from '../people/intake.js';
@@ -16,6 +17,9 @@ export const CSV_FIELDS = [
   'phone',
   'province',
   'town',
+  'country',
+  'originCountry',
+  'originProvince',
   'chat',
   'note',
   'stage',
@@ -90,6 +94,9 @@ const SYNONYMS: Readonly<Record<CsvField, readonly string[]>> = {
   phone: ['telefono', 'movil', 'phone', 'whatsapp', 'numero', 'telefono movil', 'mobile'],
   province: ['provincia', 'province'],
   town: ['ciudad', 'localidad', 'municipio', 'pueblo', 'city', 'town'],
+  country: ['pais', 'pais de residencia', 'country'],
+  originCountry: ['pais de origen', 'country of origin'],
+  originProvince: ['de donde es', 'provincia de origen', 'lugar de origen'],
   chat: ['chat', 'grupo', 'grupo de whatsapp'],
   note: ['nota', 'notas', 'comentario', 'comentarios', 'observaciones', 'note', 'notes'],
   stage: ['estado', 'etapa', 'stage'],
@@ -251,6 +258,19 @@ export const mapRows = (
       return;
     }
     const first = (field: CsvField) => values(row, field)[0];
+    // Countries by their name or code (PLAN R74); one that isn't makes the row invalid, as a stage does.
+    const countries: Partial<Record<'country' | 'originCountry', string>> = {};
+    for (const field of ['country', 'originCountry'] as const) {
+      const word = first(field);
+      const country = word === undefined ? undefined : normalizeCountry(word);
+      if (word !== undefined && country === undefined) {
+        invalid.push({ row: line, field });
+        return;
+      }
+      if (country !== undefined) {
+        countries[field] = country;
+      }
+    }
     const payload: IntakePayload = {
       ...(name === '' ? {} : { name: name.slice(0, 200) }),
       ...(first('preferredName') ? { preferred_name: first('preferredName') } : {}),
@@ -263,6 +283,11 @@ export const mapRows = (
       ...(first('arrival') ? { arrival: first('arrival') } : {}),
       ...(first('province') ? { province: first('province') } : {}),
       ...(first('town') ? { town: first('town') } : {}),
+      ...(countries.country ? { country: countries.country } : {}),
+      ...(countries.originCountry ? { origin_country: countries.originCountry } : {}),
+      ...(first('originProvince')
+        ? { origin_province: first('originProvince')?.slice(0, 100) }
+        : {}),
       ...(first('chat') ? { chat: first('chat') } : {}),
       ...(values(row, 'note').length > 0
         ? { note: values(row, 'note').join('. ').slice(0, 4000) }

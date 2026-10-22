@@ -10,9 +10,12 @@ import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { messageFor } from '@/write';
 
+import type { PlaceText } from './place/text';
+
 import { candidates as findCandidates, quickAdd, type QuickAdd } from './actions';
 import { QUICK_ADD_STAGES, type QuickAddProblem, quickAddProblems } from './forms';
 import { personName } from './names';
+import { PlaceFields } from './place/PlaceFields';
 import * as styles from './styles';
 import { type ArrivalChannel, type Candidate, parseCandidates } from './types';
 
@@ -34,8 +37,8 @@ export interface QuickAddText {
   arrivalNone: string;
   arrivedOn: string;
   arrivedOnHint: string;
-  province: string;
-  town: string;
+  /** The place pickers' words (PLAN R74). */
+  place: PlaceText;
   chat: string;
   chatHint: string;
   stage: string;
@@ -179,6 +182,7 @@ export const QuickAddForm = ({
       arrivedOn: field('arrivedOn') || null,
       ...(province.trim() ? { province: province.trim() } : {}),
       ...(field('town') ? { town: field('town') } : {}),
+      ...(field('country') ? { country: field('country') } : {}),
       ...(field('chat') ? { chat: field('chat') } : {}),
       ...(field('note') ? { note: field('note') } : {}),
       stage: field('stage') || 'new',
@@ -373,26 +377,14 @@ export const QuickAddForm = ({
           </span>
         </div>
       </div>
-      <div className={ui.fieldRow} data-columns="wide-narrow">
-        <div className={ui.field}>
-          <label className={ui.label} htmlFor="alta-provincia">
-            {text.province}
-          </label>
-          <input
-            id="alta-provincia"
-            className={ui.input}
-            name="province"
-            value={province}
-            onChange={(event) => setProvince(event.target.value)}
-            maxLength={100}
-          />
-        </div>
-        <div className={ui.field}>
-          <label className={ui.label} htmlFor="alta-localidad">
-            {text.town}
-          </label>
-          <input id="alta-localidad" className={ui.input} name="town" maxLength={100} />
-        </div>
+      <div className={ui.fieldRow}>
+        <PlaceFields
+          prefix="alta"
+          names={{ country: 'country', province: 'province', town: 'town' }}
+          initial={{ country: null, province: null, town: null }}
+          onProvinceChange={setProvince}
+          text={text.place}
+        />
       </div>
 
       <div role="status" aria-live="polite" className={ui.hint}>

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { foldName, spacedPhone } from '@backoffice/domain/identities';
+import { countryName } from '@backoffice/domain/places';
 import { getTranslator } from '@backoffice/i18n/messages';
 import { Check } from 'lucide-react';
 import Link from 'next/link';
@@ -44,8 +45,14 @@ const FIELDS: Readonly<Record<string, string>> = {
   preferred_name: t('bandeja.fields.preferred_name'),
   province: t('bandeja.fields.province'),
   town: t('bandeja.fields.town'),
+  country: t('bandeja.fields.country'),
+  origin_country: t('bandeja.fields.origin_country'),
+  origin_province: t('bandeja.fields.origin_province'),
   how_heard: t('bandeja.fields.how_heard'),
 };
+
+/** The conflicts' fields that hold a country's code, shown by its name (PLAN R74). */
+const COUNTRY_FIELDS: ReadonlySet<string> = new Set(['country', 'origin_country']);
 
 /** A census answer's fields, in the order the Bandeja shows them (census/format.ts answerRows). */
 const CENSUS_FIELDS = [
@@ -53,6 +60,9 @@ const CENSUS_FIELDS = [
   'preferredName',
   'province',
   'town',
+  'country',
+  'originCountry',
+  'originProvince',
   'languages',
   'availability',
   'howHeard',
@@ -157,6 +167,14 @@ const BandejaPage = async () => {
             entry.province !== null &&
             candidate.province !== null &&
             foldName(entry.province) === foldName(candidate.province),
+        }),
+      },
+      {
+        key: 'country',
+        brought: entry.country === null ? '—' : countryName(entry.country),
+        of: (candidate) => ({
+          value: candidate.country === null ? '—' : countryName(candidate.country),
+          same: entry.country !== null && entry.country === candidate.country,
         }),
       },
       {
@@ -349,11 +367,15 @@ const BandejaPage = async () => {
                   <tbody>
                     {fields.map(([field, value]) => {
                       const change = value as Record<string, unknown>;
+                      const said = (side: unknown) =>
+                        COUNTRY_FIELDS.has(field) && typeof side === 'string'
+                          ? countryName(side)
+                          : shown(side);
                       return (
                         <tr key={field}>
                           <th scope="row">{FIELDS[field] ?? field}</th>
-                          <td>{shown(change.current)}</td>
-                          <td>{shown(change.proposed)}</td>
+                          <td>{said(change.current)}</td>
+                          <td>{said(change.proposed)}</td>
                         </tr>
                       );
                     })}

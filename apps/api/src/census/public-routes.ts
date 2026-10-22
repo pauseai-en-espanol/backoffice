@@ -2,6 +2,7 @@ import type { Database } from '@backoffice/db/client';
 import type { FastifyInstance } from 'fastify';
 
 import { normalizeEmail, normalizePhone } from '@backoffice/domain/identities';
+import { COUNTRY_CODES } from '@backoffice/domain/places';
 import { captureException } from '@sentry/node';
 import { createHash, timingSafeEqual } from 'node:crypto';
 
@@ -47,6 +48,10 @@ interface Answer {
   phone?: string;
   province?: string;
   town?: string;
+  /** Where they live and where they're from (PLAN R74): countries by their ISO 3166-1 code. */
+  country?: string;
+  originCountry?: string;
+  originProvince?: string;
   languages?: string[];
   options?: string[];
   skillsOther?: string;
@@ -159,6 +164,9 @@ export const censusPublicRoutes =
                   phone: TEXT(50),
                   province: TEXT(100),
                   town: TEXT(100),
+                  country: { type: 'string', enum: [...COUNTRY_CODES] },
+                  originCountry: { type: 'string', enum: [...COUNTRY_CODES] },
+                  originProvince: TEXT(100),
                   languages: { type: 'array', maxItems: 20, items: TEXT(50) },
                   options: {
                     type: 'array',
@@ -221,6 +229,9 @@ export const censusPublicRoutes =
           phone: phone ?? undefined,
           province: text(answer.province),
           town: text(answer.town),
+          country: answer.country,
+          origin_country: answer.originCountry,
+          origin_province: text(answer.originProvince),
           languages: (answer.languages ?? [])
             .map((language) => language.trim())
             .filter((l) => l !== ''),

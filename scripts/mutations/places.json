@@ -1,0 +1,162 @@
+[
+  {
+    "name": "a country is stored however written",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "ADD COLUMN country text CHECK (country ~ '^[A-Z]{2}$'),",
+    "new": "ADD COLUMN country text,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a place of origin takes any length",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "CHECK (btrim(origin_province) <> '' AND length(origin_province) <= 100);",
+    "new": "CHECK (btrim(origin_province) <> '');",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "staff can't say where someone is from",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "GRANT UPDATE (country, origin_country, origin_province) ON app.people",
+    "new": "GRANT UPDATE (country) ON app.people",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an arrival's country goes unchecked",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "    IF (payload ->> 'country') !~ '^[A-Z]{2}$' OR (payload ->> 'origin_country') !~ '^[A-Z]{2}$' THEN",
+    "new": "    IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a census answer's country goes unchecked",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "    IF nullif(answer ->> 'country', '') !~ '^[A-Z]{2}$' OR nullif(answer ->> 'origin_country', '') !~ '^[A-Z]{2}$' THEN",
+    "new": "    IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a census answer keeps no country",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "           country = nullif(answer ->> 'country', ''),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a census answer waits in the Bandeja without its country",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "              'country', nullif(answer ->> 'country', ''),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an arrival never fills in where someone is from",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "'country', 'origin_country', 'origin_province',\n                                 'how_heard'] LOOP",
+    "new": "'country',\n                                 'how_heard'] LOOP",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a merge forgets the merged person's country",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "           country = coalesce(p.country, gone.country),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "erasure keeps where someone lives and is from",
+    "file": "db/migrations/20261022100000_people_places.sql",
+    "old": "           country = NULL, origin_country = NULL, origin_province = NULL,",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/places.spec.ts tests/catalog.spec.ts tests/rls/matrix.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "Personas lists everyone whatever the country",
+    "file": "apps/api/src/people/people.ts",
+    "old": "    where.push(sql`p.country = ${filter.country}`);",
+    "new": "    where.push(sql`true`);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the rights export leaves out where someone is from",
+    "file": "apps/api/src/census/census.ts",
+    "old": "p.country, p.origin_country, p.origin_province,",
+    "new": "p.country,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the census route drops the country",
+    "file": "apps/api/src/census/public-routes.ts",
+    "old": "          country: answer.country,\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the CSV import takes any word as a country",
+    "file": "apps/api/src/imports/csv.ts",
+    "old": "      if (word !== undefined && country === undefined) {",
+    "new": "      if (false) {",
+    "cmd": "pnpm exec vitest run src/imports",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the Airtable sync drops Global's country",
+    "file": "apps/api/src/imports/airtable.ts",
+    "old": "        ...(country ? { country } : {}),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/imports",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "someone abroad is asked for a province",
+    "file": "packages/domain/src/missing.ts",
+    "old": " ||\n      (person.country !== null && person.country !== SPAIN),",
+    "new": ",",
+    "cmd": "pnpm exec vitest run src/places.spec.ts src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "Latin America isn't offered as its own group",
+    "file": "packages/domain/src/places.ts",
+    "old": "  { group: 'latinAmerica', codes: [...LATIN_AMERICA].sort(byName) },\n  {\n    group: 'world',",
+    "new": "  { group: 'latinAmerica', codes: [] },\n  {\n    group: 'world',",
+    "cmd": "pnpm exec vitest run src/places.spec.ts src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a province is found by its official name only",
+    "file": "packages/domain/src/places.ts",
+    "old": "    query === '' || (PROVINCE_SPELLINGS.get(province) ?? []).some((name) => name.includes(query))",
+    "new": "    query === '' || fold(province).includes(query)",
+    "cmd": "pnpm exec vitest run src/places.spec.ts src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "the profile form never sends the country",
+    "file": "apps/web/src/onboarding/forms.ts",
+    "old": "    'country',\n    'originCountry',",
+    "new": "    'originCountry',",
+    "cmd": "pnpm exec vitest run src/onboarding",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the census form sends any country",
+    "file": "apps/forms/src/census/answer.ts",
+    "old": "  return typeof value === 'string' && COUNTRY_CODES.includes(value) ? value : undefined;",
+    "new": "  return typeof value === 'string' && value !== '' ? value : undefined;",
+    "cmd": "pnpm exec vitest run src/census",
+    "cwd": "apps/forms"
+  }
+]

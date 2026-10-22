@@ -1,3 +1,5 @@
+import { countryName } from '@backoffice/domain/places';
+
 import { fill } from '@/fill';
 
 import type { Consent } from '../types';
@@ -118,6 +120,9 @@ const SHOWN: readonly { key: string; aliases: readonly string[] }[] = [
   { key: 'preferredName', aliases: ['preferredName', 'preferred_name'] },
   { key: 'province', aliases: ['province'] },
   { key: 'town', aliases: ['town'] },
+  { key: 'country', aliases: ['country'] },
+  { key: 'originCountry', aliases: ['originCountry', 'origin_country'] },
+  { key: 'originProvince', aliases: ['originProvince', 'origin_province'] },
   { key: 'languages', aliases: ['languages'] },
   { key: 'availability', aliases: ['availability'] },
   { key: 'howHeard', aliases: ['howHeard', 'how_heard'] },
@@ -178,6 +183,9 @@ export const answerRows = (
       value = typeof raw === 'boolean' ? (raw ? words.yes : words.no) : undefined;
     } else if (key === 'availability') {
       value = typeof raw === 'string' ? (words.availability[raw] ?? raw) : undefined;
+    } else if (key === 'country' || key === 'originCountry') {
+      // A country by its name (PLAN R74).
+      value = typeof raw === 'string' && raw !== '' ? countryName(raw) : undefined;
     } else {
       value = text(raw);
     }

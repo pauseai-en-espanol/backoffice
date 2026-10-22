@@ -1,6 +1,7 @@
 import type { getTranslator } from '@backoffice/i18n/messages';
 
 import { madridToday } from '../format';
+import { placeText } from '../place/text';
 import {
   availabilityNames,
   channelNames,
@@ -27,6 +28,8 @@ export const personPageText = (t: Translator) => {
     channels: channelNames(t),
     outcomes: outcomeNames(t),
     availability: availabilityNames(t),
+    /** The place pickers' words (PLAN R74). */
+    place: placeText(t),
     identityKinds: {
       email: t('person.identityKinds.email'),
       phone: t('person.identityKinds.phone'),
@@ -47,11 +50,10 @@ export const personPageText = (t: Translator) => {
       saveArrival: t('person.saveArrival'),
       who: t('person.profileWho'),
       where: t('person.profileWhere'),
+      from: t('person.profileFrom'),
       help: t('person.profileHelp'),
       fullName: t('person.fullName'),
       preferredName: t('person.preferredName'),
-      province: t('person.province'),
-      town: t('person.town'),
       languages: t('person.languages'),
       languagesHint: t('person.languagesHint'),
       pronouns: t('person.pronouns'),
