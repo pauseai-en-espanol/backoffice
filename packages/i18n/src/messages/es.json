@@ -97,6 +97,24 @@
     "outreachOnly": {
       "title": "Esta sección es del equipo de relaciones externas",
       "body": "Solo las personas con permiso de relaciones externas o de administración ven y cambian los contactos, las organizaciones y las campañas. Si necesitas acceso, pídeselo a quien administra el equipo."
+    },
+    "search": {
+      "open": "Buscar en todo",
+      "keys": "Ctrl K",
+      "title": "Buscar",
+      "placeholder": "Una persona, un teléfono, un correo, una sección…",
+      "recent": "Recientes",
+      "people": "Personas",
+      "contacts": "Contactos",
+      "organisations": "Organizaciones",
+      "actions": "Hacer",
+      "pages": "Ir a",
+      "none": "Nada coincide con «{q}».",
+      "count": "{count} resultados",
+      "searching": "Buscando…",
+      "help": "Flechas para moverte, Intro para abrir, Esc para cerrar. Ábrelo desde cualquier página con Ctrl K (⌘K en Mac).",
+      "addPerson": "Añadir una persona",
+      "newContact": "Nuevo contacto"
     }
   },
   "auth": {
@@ -508,7 +526,7 @@
   "today": {
     "mine": "Mis personas",
     "mineIntro": "Todas las personas a tu cargo que siguen en onboarding: primero lo que necesita algo de ti (lo vencido, lo de hoy, quien espera un primer contacto), después el resto por la fecha de su siguiente paso.",
-    "mineNone": "Nadie a tu cargo necesita nada ahora. Mira la cola de sin asignar o el Onboarding Pipeline.",
+    "mineNone": "No llevas a nadie que siga en onboarding. Mira la cola de sin asignar o el Onboarding Pipeline.",
     "seeAllMine": "Ver todas mis personas",
     "seeMinePending": "Ver las {count} que necesitan algo",
     "unassigned": "Sin asignar",

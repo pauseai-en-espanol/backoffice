@@ -8,12 +8,14 @@ import type { Staff } from '@/session';
 import { SignOutButton } from '@/auth/SignOutButton';
 import { isUnavailable, readFromApi } from '@/data';
 import { censusUrl } from '@/onboarding/census/data';
+import { stageNames } from '@/onboarding/text';
 import { productName } from '@/product';
 import * as styles from '@/ui/styles';
 
 import { type NavGroup, navGroups } from './nav';
 import { NavLink } from './NavLink';
 import { NavMenu } from './NavMenu';
+import { Search } from './Search';
 
 const t = getTranslator();
 
@@ -58,6 +60,40 @@ export const AppShell = async ({
         <Link className={styles.productLink} href="/">
           {productName() || t('web.nav.today')}
         </Link>
+        <Search
+          pages={[
+            ...groups.flatMap((group) =>
+              group.items.map((item) => ({ label: t(`web.nav.${item.label}`), href: item.href })),
+            ),
+            { label: t('web.nav.settings'), href: '/ajustes' },
+          ]}
+          actions={[
+            ...(onboards ? [{ label: t('web.search.addPerson'), href: '/anadir' }] : []),
+            ...(me.staff.roles.some((role) => role === 'admin' || role === 'outreach')
+              ? [{ label: t('web.search.newContact'), href: '/contactos#nuevo' }]
+              : []),
+          ]}
+          text={{
+            open: t('web.search.open'),
+            keys: t('web.search.keys'),
+            title: t('web.search.title'),
+            placeholder: t('web.search.placeholder'),
+            groups: {
+              recent: t('web.search.recent'),
+              people: t('web.search.people'),
+              contacts: t('web.search.contacts'),
+              organisations: t('web.search.organisations'),
+              actions: t('web.search.actions'),
+              pages: t('web.search.pages'),
+            },
+            none: String(t.raw('web.search.none')),
+            count: String(t.raw('web.search.count')),
+            searching: t('web.search.searching'),
+            help: t('web.search.help'),
+            noName: t('people.noName'),
+            stages: stageNames(t),
+          }}
+        />
         <span className={styles.muted}>{t('web.signedInAs', { name: me.staff.displayName })}</span>
       </header>
       <div className={styles.shell}>

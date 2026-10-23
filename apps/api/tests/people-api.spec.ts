@@ -580,6 +580,64 @@ describe('onboarding through the staff API (M1)', () => {
     expect(hoy.counts.inProgress).toBeGreaterThanOrEqual(hoy.counts.mine + 1);
   });
 
+  it('searches from anywhere: the best match first, by name or contact, and who one worked with when empty (PLAN R80)', async () => {
+    const tag = suffix();
+    const add = async (data: Record<string, unknown>) => {
+      const { personId } = (await onboarder.who.send('POST', '/api/intake', data)).json<{
+        personId: string;
+      }>();
+      people.push(personId);
+      return personId;
+    };
+    const phone = `6004${suffix()}`.slice(0, 9);
+    const inName = await add({ name: `Ana Marta Busca ${tag}`, decision: 'new' });
+    const exact = await add({ name: `Marta Busca ${tag}`, phone, decision: 'new' });
+    const search = async (who: typeof onboarder, q: string) =>
+      (await who.who.send('GET', `/api/search?q=${encodeURIComponent(q)}`)).json<{
+        people: { id: string }[];
+        contacts: { id: string; name: string }[];
+        organisations: { id: string }[];
+      }>();
+    const byName = (await search(onboarder, `marta busca ${tag}`)).people.map((one) => one.id);
+    expect(byName.slice(0, 2)).toEqual([exact, inName]);
+    expect((await search(onboarder, phone)).people[0]?.id).toBe(exact);
+    // Whose Discord it is comes before a name only like it.
+    const alike = await add({ name: `Zeta ${tag}`, decision: 'new' });
+    const owner = await add({
+      name: `Persona Ejemplo ${tag}`,
+      discord: `zeta${tag}`,
+      decision: 'new',
+    });
+    const byDiscord = (await search(onboarder, `zeta${tag}`)).people.map((one) => one.id);
+    expect(byDiscord[0]).toBe(owner);
+    expect(byDiscord).toContain(alike);
+    // Nothing typed: who one did something with lately, the last first.
+    expect((await search(onboarder, '')).people[0]?.id).toBe(owner);
+    // People are onboarding's; contacts and organisations, outreach's.
+    expect((await search(outreacher, `marta busca ${tag}`)).people).toEqual([]);
+    const contact = await outreacher.who.send('POST', '/api/outreach/contacts', {
+      orgDisplay: `Asociación Busca ${tag}`,
+      personName: `Persona Busca ${tag}`,
+      email: `busca.${tag}@ejemplo.test`,
+      reason: 'Prueba de búsqueda',
+      sources: ['https://ejemplo.test/fuente'],
+    });
+    expect(contact.statusCode).toBe(201);
+    const { id: contactId } = contact.json<{ id: string }>();
+    try {
+      expect((await search(outreacher, `busca ${tag}`)).contacts.map((one) => one.id)).toContain(
+        contactId,
+      );
+      expect((await search(onboarder, `busca ${tag}`)).contacts).toEqual([]);
+    } finally {
+      // Past the append-only history's triggers, as the suite's cleanup does (local test data only).
+      await superuser.query("SET session_replication_role = 'replica'");
+      await superuser.query('DELETE FROM app.contact_events WHERE contact_id = $1', [contactId]);
+      await superuser.query('DELETE FROM app.contacts WHERE id = $1', [contactId]);
+      await superuser.query("SET session_replication_role = 'origin'");
+    }
+  });
+
   it('sends a likely duplicate to the Bandeja, where it is attached; then merges two people', async () => {
     const name = `Nerea Duplicada ${suffix()}`;
     const first = (await onboarder.who.send('POST', '/api/intake', { name })).json<{

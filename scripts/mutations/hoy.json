@@ -72,5 +72,30 @@
     "new": "             WHERE e.created_at > now() - interval '14 days'",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
     "cwd": "apps/api"
+  },
+  {
+    "name": "the search puts a name only like it before whose contact detail it is",
+    "file": "apps/api/src/people/people.ts",
+    "old": "     ORDER BY CASE WHEN ${owns} THEN 0\n                   WHEN p.name_folded = ${folded} THEN 1",
+    "new": "     ORDER BY CASE WHEN ${owns} THEN 5\n                   WHEN p.name_folded = ${folded} THEN 1",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the search ranks a name only containing the words like the name itself",
+    "file": "apps/api/src/people/people.ts",
+    "old": "                   WHEN p.name_folded = ${folded} THEN 1\n",
+    "new": "                   WHEN p.name_folded = ${folded} THEN 3\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "outreach staff search people",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "              people: can?.onboarding ? await searchPeople(trx, actor.userId, q) : [],",
+    "new": "              people: await searchPeople(trx, actor.userId, q),",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api",
+    "equivalent": "RLS shows people to onboarding staff and admins only: the search finds none for outreach staff either way"
   }
 ]

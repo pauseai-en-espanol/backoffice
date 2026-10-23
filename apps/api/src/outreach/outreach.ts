@@ -57,6 +57,30 @@ export type TargetStatus = (typeof TARGET_STATUSES)[number];
 /** `%` and `_` match themselves in a search. */
 const pattern = (q: string): string => `%${q.trim().replaceAll(/[\\%_]/gu, (c) => `\\${c}`)}%`;
 
+/**
+ * The search from anywhere (PLAN R80), for outreach staff: contacts by their person, organisation or email, and
+ * organisations by name, those starting so first; at most five of each. Private ones are their own person's (RLS).
+ */
+export const searchOutreach = async (trx: Transaction<DB>, q: string) => {
+  const like = pattern(q);
+  const starts = `${like.slice(1)}`;
+  const contacts = await sql<{ id: string; name: string; organisation: string | null }>`
+    SELECT c.id, coalesce(c.person_name, c.org_display) AS name,
+           CASE WHEN c.person_name IS NULL THEN NULL ELSE c.org_display END AS organisation
+      FROM app.contacts c
+     WHERE c.anonymised_at IS NULL
+       AND (c.person_name ILIKE ${like} OR c.org_display ILIKE ${like} OR c.email ILIKE ${like})
+     ORDER BY (c.person_name ILIKE ${starts} OR c.org_display ILIKE ${starts}) DESC,
+              coalesce(c.person_name, c.org_display)
+     LIMIT 5`.execute(trx);
+  const organisations = await sql<{ id: string; name: string }>`
+    SELECT o.id, o.name FROM app.organisations o
+     WHERE o.name ILIKE ${like}
+     ORDER BY o.name ILIKE ${starts} DESC, o.name
+     LIMIT 5`.execute(trx);
+  return { contacts: contacts.rows, organisations: organisations.rows };
+};
+
 const instant = (column: RawBuilder<unknown>) => sql`to_json(${column})#>>'{}'`;
 
 /** A timeline's order: by the day things happened (the day given, else the day written), newest first. */

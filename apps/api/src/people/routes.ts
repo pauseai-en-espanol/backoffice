@@ -44,6 +44,7 @@ import {
   parseCsv,
   suggestMapping,
 } from '../imports/csv.js';
+import { searchOutreach } from '../outreach/outreach.js';
 import { createRateLimiter } from '../rate-limit.js';
 import { schemaRefusal } from '../schema-refusal.js';
 import {
@@ -83,6 +84,7 @@ import {
   recordJoin,
   recordLeave,
   removeIdentity,
+  searchPeople,
   summariesOf,
   today,
   updatePerson,
@@ -784,6 +786,36 @@ export const peopleRoutes =
           }
           return reply.code(201).send(submitted);
         }),
+    );
+
+    // The search from anywhere (PLAN R80): people for onboarding staff, contacts and organisations for outreach staff,
+    // each as their role reads them; nothing typed, who one did something with lately.
+    scope.get<{ Querystring: { q?: string } }>(
+      '/search',
+      {
+        schema: {
+          querystring: { type: 'object', properties: { q: TEXT(200) } },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) =>
+          withActor(db, actor, async (trx) => {
+            const [can] = (
+              await sql<{ onboarding: boolean; outreach: boolean }>`
+                SELECT private.staff_can('admin', 'onboarding') AS onboarding,
+                       private.staff_can('admin', 'outreach') AS outreach`.execute(trx)
+            ).rows;
+            const q = request.query.q?.trim() ?? '';
+            const outreach =
+              can?.outreach && q !== ''
+                ? await searchOutreach(trx, q)
+                : { contacts: [], organisations: [] };
+            return {
+              people: can?.onboarding ? await searchPeople(trx, actor.userId, q) : [],
+              ...outreach,
+            };
+          }),
+        ),
     );
 
     // How many records wait in the Bandeja, for the menu on every page (PLAN R78).

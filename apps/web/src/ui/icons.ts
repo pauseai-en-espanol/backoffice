@@ -38,6 +38,7 @@ import {
   PhoneOff,
   Power,
   ScrollText,
+  Search,
   Send,
   Settings,
   SquareKanban,
@@ -81,6 +82,8 @@ export const icons = {
   open: ChevronDown,
   clear: X,
   selected: Check,
+  /** The search from anywhere (PLAN R80). */
+  search: Search,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Each stage's icon: a dashed circle before anything starts, a check once someone is active. */

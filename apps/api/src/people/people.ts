@@ -435,6 +435,54 @@ const URGENCY = sql`
        WHEN p.stage = 'new' THEN 2
        ELSE 3 END`;
 
+/** Who I did something with lately (PLAN R79), in the last two weeks, by the person it was done to, newest first. */
+const recentOf = async (trx: Transaction<DB>, me: string): Promise<PersonSummary[]> =>
+  (
+    await sql<SummaryRow>`
+      SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
+        JOIN (SELECT e.person_id, max(e.created_at) AS touched_at FROM app.person_events e
+               WHERE e.actor_id = ${me} AND e.created_at > now() - interval '14 days'
+               GROUP BY e.person_id) r ON r.person_id = p.id
+       WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL
+       ORDER BY r.touched_at DESC
+       LIMIT 8`.execute(trx)
+  ).rows.map(toSummary);
+
+/**
+ * The search from anywhere (PLAN R80): people as Personas finds them (conditions), best first: a phone, email or
+ * Discord that is theirs, then the name itself, a word of it starting so, the name containing it, and a name only
+ * like it, by how alike. Nothing typed: who I did something with lately.
+ */
+export const searchPeople = async (
+  trx: Transaction<DB>,
+  me: string,
+  q: string,
+): Promise<PersonSummary[]> => {
+  const term = q.trim();
+  if (term === '') {
+    return recentOf(trx, me);
+  }
+  const folded = sql`private.fold_name(${term})`;
+  const exact = [normalizePhone(term), normalizeEmail(term), normalizeDiscord(term)].filter(
+    (value): value is string => value !== undefined,
+  );
+  const owns =
+    exact.length === 0
+      ? sql`false`
+      : sql`EXISTS (SELECT 1 FROM app.identities i WHERE i.person_id = p.id AND i.value IN (${sql.join(exact)}))`;
+  const { rows } = await sql<SummaryRow>`
+    SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
+     WHERE ${sql.join(conditions({ q: term }, me), sql` AND `)}
+     ORDER BY CASE WHEN ${owns} THEN 0
+                   WHEN p.name_folded = ${folded} THEN 1
+                   WHEN p.name_folded LIKE ${folded} || '%' OR p.name_folded LIKE '% ' || ${folded} || '%' THEN 2
+                   WHEN p.name_folded LIKE '%' || ${folded} || '%' THEN 3
+                   ELSE 4 END,
+              extensions.similarity(p.name_folded, ${folded}) DESC NULLS LAST, p.created_at DESC
+     LIMIT 8`.execute(trx);
+  return rows.map(toSummary);
+};
+
 /** Mine in Hoy (PLAN R79): still in onboarding, or needing something. */
 const MINE_IN_HOY = (me: string) => sql`
   p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.owner_id = ${me}
@@ -451,15 +499,7 @@ export const today = async (trx: Transaction<DB>, me: string) => {
      WHERE ${MINE_IN_HOY(me)}
      ORDER BY cardinality(coalesce(a.reasons, '{}')) = 0, ${URGENCY}, p.next_action_due NULLS LAST, p.created_at
      LIMIT 100`.execute(trx);
-  // What I did lately, in the last two weeks, by the person it was done to, newest first.
-  const recent = await sql<SummaryRow>`
-    SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
-      JOIN (SELECT e.person_id, max(e.created_at) AS touched_at FROM app.person_events e
-             WHERE e.actor_id = ${me} AND e.created_at > now() - interval '14 days'
-             GROUP BY e.person_id) r ON r.person_id = p.id
-     WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL
-     ORDER BY r.touched_at DESC
-     LIMIT 8`.execute(trx);
+  const recent = await recentOf(trx, me);
   const unassigned = await sql<SummaryRow>`
     SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
      WHERE 'unassigned' = ANY (a.reasons)
@@ -478,7 +518,7 @@ export const today = async (trx: Transaction<DB>, me: string) => {
   ).rows;
   return {
     mine: mine.rows.map(toSummary),
-    recent: recent.rows.map(toSummary),
+    recent,
     unassigned: unassigned.rows.map(toSummary),
     counts: counts ?? { mine: 0, inProgress: 0, unassigned: 0, bandeja: 0 },
   };

@@ -692,6 +692,17 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   past two weeks (a note, an attempt, a stage, taking them), whoever holds them, newest first, each a link beside their
   stage. The figure still counts those needing something. The bot's `/mine` and the digest are unchanged. Mutation list
   `hoy`.
+- **R80. A search from anywhere** (Dani, 2026-10-23: "i would like a fancy combination that opens a fancy search
+  everywhere, searching for people is not usable right now"). Searching meant going to Personas, typing, pressing Buscar
+  and reading a list in the order people were added, fuzzy matches among the rest. Options for what it finds: people,
+  sections and actions (and contacts and organisations for outreach staff); people alone. **Chose people, sections and
+  actions** (Dani): Ctrl K (⌘K on a Mac), or "Buscar" in the header, opens a dialog on any page that finds as it's
+  typed: people by name, phone, email or Discord as Personas does, best first (a contact detail that is theirs, the name
+  itself, a word of it starting so, the name containing it, then names only like it, by how alike), with their stage and
+  place; for outreach staff, contacts and organisations; then what can be done ("Añadir una persona", "Nuevo contacto")
+  and the sections, by name. Nothing typed, the people one last worked with (R79). The arrows move, Enter opens, Escape
+  closes and puts focus back (Ark UI's dialog, ADR-0003; a listbox the input drives). `GET /api/search?q`. Mutation list
+  `hoy`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).
