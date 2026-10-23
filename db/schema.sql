@@ -3564,12 +3564,12 @@ CREATE TABLE app.message_templates (
     updated_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     private_to uuid,
-    CONSTRAINT message_templates_body_check CHECK (((btrim(body) <> ''::text) AND (length(body) <= 2000))),
-    CONSTRAINT message_templates_body_nameless_check CHECK (((btrim(body_nameless) <> ''::text) AND (length(body_nameless) <= 2000))),
+    CONSTRAINT message_templates_body_check CHECK (((btrim(body) <> ''::text) AND (length(body) <= 10000))),
+    CONSTRAINT message_templates_body_nameless_check CHECK (((btrim(body_nameless) <> ''::text) AND (length(body_nameless) <= 10000))),
     CONSTRAINT message_templates_link_check CHECK (((purpose <> 'census_link'::app.message_purpose) OR ((strpos(body, '{enlace}'::text) > 0) AND ((body_nameless IS NULL) OR (strpos(body_nameless, '{enlace}'::text) > 0))))),
     CONSTRAINT message_templates_nameless_check CHECK (
 CASE
-    WHEN (strpos(body, '{nombre}'::text) > 0) THEN ((body_nameless IS NOT NULL) AND (strpos(body_nameless, '{nombre}'::text) = 0))
+    WHEN (strpos(body, '{nombre}'::text) > 0) THEN ((body_nameless IS NULL) OR (strpos(body_nameless, '{nombre}'::text) = 0))
     ELSE (body_nameless IS NULL)
 END),
     CONSTRAINT message_templates_placeholders_check CHECK ((regexp_replace(((body || '

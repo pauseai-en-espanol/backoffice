@@ -1020,9 +1020,13 @@ describe('when and where from, and Discord (PLAN M5)', () => {
         ...fields,
       });
     // The database says what's wrong, by the rule's name, for the staff app to point at.
-    const unnamed = await welcome({ body: 'Hola, {nombre}: soy {yo}.' });
-    expect(unnamed.statusCode).toBe(422);
-    expect(unnamed.json()).toMatchObject({ constraint: 'message_templates_nameless_check' });
+    // A version without a name is optional (PLAN R76), but never names anyone.
+    const naming = await welcome({
+      body: 'Hola, {nombre}: soy {yo}.',
+      bodyNameless: 'Hola, {nombre}.',
+    });
+    expect(naming.statusCode).toBe(422);
+    expect(naming.json()).toMatchObject({ constraint: 'message_templates_nameless_check' });
     const typo = await welcome({
       body: 'Hola, {nombre}: soy {yoo}.',
       bodyNameless: 'Hola: soy {yo}.',

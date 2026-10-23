@@ -32,26 +32,34 @@
     "cwd": "packages/db"
   },
   {
-    "name": "a message with {nombre} goes without its version for someone without a name",
-    "file": "db/migrations/20261016160000_message_templates.sql",
-    "old": "         THEN body_nameless IS NOT NULL AND strpos(body_nameless, '{nombre}') = 0",
-    "new": "         THEN strpos(coalesce(body_nameless, ''), '{nombre}') = 0",
-    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
-    "cwd": "packages/db"
-  },
-  {
     "name": "the version without a name names someone",
-    "file": "db/migrations/20261016160000_message_templates.sql",
-    "old": "THEN body_nameless IS NOT NULL AND strpos(body_nameless, '{nombre}') = 0",
-    "new": "THEN body_nameless IS NOT NULL",
+    "file": "db/migrations/20261023100000_freer_messages.sql",
+    "old": "THEN body_nameless IS NULL OR strpos(body_nameless, '{nombre}') = 0",
+    "new": "THEN true",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
   {
     "name": "a message that names nobody keeps a version without a name",
-    "file": "db/migrations/20261016160000_message_templates.sql",
-    "old": "         ELSE body_nameless IS NULL END)",
-    "new": "         ELSE true END)",
+    "file": "db/migrations/20261023100000_freer_messages.sql",
+    "old": "         ELSE body_nameless IS NULL END);",
+    "new": "         ELSE true END);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a message takes any length",
+    "file": "db/migrations/20261023100000_freer_messages.sql",
+    "old": "CHECK (btrim(body) <> '' AND length(body) <= 10000)",
+    "new": "CHECK (btrim(body) <> '')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a version without a name takes any length",
+    "file": "db/migrations/20261023100000_freer_messages.sql",
+    "old": "CHECK (btrim(body_nameless) <> '' AND length(body_nameless) <= 10000)",
+    "new": "CHECK (btrim(body_nameless) <> '')",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/message-templates.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
     "cwd": "packages/db"
   },
@@ -280,10 +288,10 @@
     "cwd": "packages/domain"
   },
   {
-    "name": "someone without a name is greeted with an empty name",
+    "name": "someone without a name, and no version for them, is greeted with an empty name",
     "file": "packages/domain/src/message-templates.ts",
-    "old": "  const text = named || template.bodyNameless === null ? template.body : template.bodyNameless;",
-    "new": "  const text = template.body;",
+    "old": "  const text = named ? template.body : (template.bodyNameless ?? namelessDraft(template.body));",
+    "new": "  const text = named || template.bodyNameless === null ? template.body : template.bodyNameless;",
     "cmd": "pnpm exec vitest run src/message-templates.spec.ts",
     "cwd": "packages/domain"
   },
@@ -296,13 +304,29 @@
     "cwd": "apps/web"
   },
   {
-    "name": "the person page's WhatsApp logs no message",
-    "file": "apps/web/src/onboarding/person/WhatsApp.tsx",
-    "old": "                      ...(template === null\n                        ? {}\n                        : { templateId: template.id, templateVersion: template.version }),\n",
+    "name": "the person page's message logs no template",
+    "file": "apps/web/src/onboarding/person/Handover.tsx",
+    "old": "          ...(template === null\n            ? {}\n            : { templateId: template.id, templateVersion: template.version }),\n        }),\n",
     "new": "",
     "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
     "cmd": "pnpm exec playwright test tests/messages.spec.ts --project chromium",
     "cwd": "e2e",
     "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a mail link takes an address with headers in it",
+    "file": "packages/domain/src/mailto.ts",
+    "old": "  if (!/^[^\\s@<>\"(),;:?&]+@[^\\s@<>\"(),;:?&]+$/u.test(address)) {",
+    "new": "  if (!/^.+@.+$/u.test(address)) {",
+    "cmd": "pnpm exec vitest run src/mailto.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a census link sent by Discord is logged as WhatsApp",
+    "file": "apps/api/src/census/census.ts",
+    "old": "      channel,\n      outcome: 'left_message',",
+    "new": "      channel: 'whatsapp',\n      outcome: 'left_message',",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
   }
 ]

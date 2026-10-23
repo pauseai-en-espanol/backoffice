@@ -308,6 +308,7 @@ describe('the census’s staff side (M2)', () => {
         phone: `61${Math.floor(Math.random() * 1e7)
           .toString()
           .padStart(7, '0')}`,
+        email: `censo.mensaje.${crypto.randomUUID().slice(0, 6)}@ejemplo.test`,
         decision: 'new',
       })
     ).json<{ personId: string }>();
@@ -371,6 +372,26 @@ describe('the census’s staff side (M2)', () => {
         ])
       ).rows,
     ).toEqual([{ template_id: templateId }]);
+    // The message itself, to copy, and the mail app's way; sent by Discord, the attempt says so (PLAN R77).
+    const second = again.json<{ id: string; url: string; message: string; email: string }>();
+    expect(second.message).toContain(second.url);
+    expect(second.email).toMatch(/^mailto:censo\.mensaje\.\w+@ejemplo\.test\?subject=.+&body=/u);
+    expect(
+      (
+        await onboarder.who.send('POST', `/api/census-links/${second.id}/sent`, {
+          channel: 'discord',
+        })
+      ).statusCode,
+    ).toBe(204);
+    expect(
+      (
+        await superuser.query(
+          `SELECT data ->> 'channel' AS channel FROM app.person_events
+            WHERE person_id = $1 AND kind = 'contact_attempt' ORDER BY created_at, id`,
+          [added.personId],
+        )
+      ).rows.map((row: { channel: string }) => row.channel),
+    ).toEqual(['whatsapp', 'discord']);
 
     // A message retired meanwhile isn't offered any more: the page is out of date.
     await onboarder.who.send('PATCH', `/api/message-templates/${templateId}`, { active: false });

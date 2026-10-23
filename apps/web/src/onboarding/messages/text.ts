@@ -18,7 +18,7 @@ export const messagesPageText = (t: Translator) => {
     bodyMissing: t('messageTemplates.bodyMissing'),
     body: t('messageTemplates.body'),
     bodyNameless: t('messageTemplates.bodyNameless'),
-    bodyNamelessHint: t('messageTemplates.bodyNamelessHint'),
+    bodyNamelessHint: raw('messageTemplates.bodyNamelessHint'),
     /** One's own (PLAN R71): its mark, and what a new one is for someone who isn't an admin. */
     ownMark: t('messageTemplates.ownMark'),
     ownHint: t('messageTemplates.ownHint'),
@@ -60,7 +60,6 @@ export const messagesPageText = (t: Translator) => {
       unknown: raw('messageTemplates.problem.unknown'),
       brace: raw('messageTemplates.problem.brace'),
       needsLink: raw('messageTemplates.problem.needsLink'),
-      needsNameless: raw('messageTemplates.problem.needsNameless'),
       namelessNames: raw('messageTemplates.problem.namelessNames'),
       namelessUnneeded: raw('messageTemplates.problem.namelessUnneeded'),
     },

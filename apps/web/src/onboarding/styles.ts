@@ -845,3 +845,17 @@ export const foundList = css({
     borderColor: 'border.subtle',
   },
 });
+
+/** "Escribirle" on a person's page (PLAN R77): the message, the ways to send it, and the question after. */
+export const handover = css({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '3',
+  flex: '1 1 20rem',
+  padding: '4',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderColor: 'border.subtle',
+  borderRadius: 'md',
+  '& > p': { margin: '0' },
+});

@@ -1,5 +1,6 @@
 import type { Database } from '@backoffice/db/client';
 import type { DB } from '@backoffice/db/generated/db';
+import type { ContactChannel } from '@backoffice/domain/stages';
 
 import { sql, type Transaction } from 'kysely';
 import { createHash, randomBytes } from 'node:crypto';
@@ -131,10 +132,14 @@ export const createCensusLink = async (
   return { id: row.id, expiresAt: row.expires_at };
 };
 
-/** "Enviado": marks a link sent, once, and logs it as a WhatsApp message left; the person's id, or undefined. */
+/**
+ * "Enviado": marks a link sent, once, and logs it as a message left on the channel it went by (WhatsApp unless said,
+ * PLAN R77); the person's id, or undefined.
+ */
 export const markLinkSent = async (
   trx: Transaction<DB>,
   id: string,
+  channel: ContactChannel = 'whatsapp',
 ): Promise<string | undefined> => {
   const { rows } = await sql<{
     person_id: string;
@@ -147,7 +152,7 @@ export const markLinkSent = async (
   if (link) {
     // The attempt names the message the link went in, as the link does (Mensajes, PLAN M5).
     const data = {
-      channel: 'whatsapp',
+      channel,
       outcome: 'left_message',
       ...(link.template_id === null
         ? {}

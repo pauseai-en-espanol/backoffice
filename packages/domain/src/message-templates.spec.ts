@@ -32,13 +32,10 @@ describe('templateProblems', () => {
     ]);
   });
 
-  it('asks for a version without a name exactly when the message uses {nombre}', () => {
-    expect(templateProblems('welcome', 'Hola, {nombre}.', null)).toEqual([
-      { kind: 'needsNameless' },
-    ]);
-    expect(templateProblems('welcome', 'Hola, {nombre}.', '  ')).toEqual([
-      { kind: 'needsNameless' },
-    ]);
+  it('takes a version without a name when the message uses {nombre}, if the team writes one (PLAN R76)', () => {
+    expect(templateProblems('welcome', 'Hola, {nombre}.', null)).toEqual([]);
+    expect(templateProblems('welcome', 'Hola, {nombre}.', '  ')).toEqual([]);
+    expect(templateProblems('welcome', 'Hola, {nombre}.', 'Hola.')).toEqual([]);
     expect(templateProblems('welcome', 'Hola, {nombre}.', 'Hola, {nombre}.')).toEqual([
       { kind: 'namelessNames' },
     ]);
@@ -78,5 +75,9 @@ describe('fillMessage', () => {
     expect(fillMessage({ body: 'Hola: soy {yo}.', bodyNameless: null }, { yo: 'P' })).toBe(
       'Hola: soy P.',
     );
+    // None written: the message without {nombre} (PLAN R76).
+    expect(
+      fillMessage({ body: 'Hola, {nombre}: soy {yo}.', bodyNameless: null }, { yo: 'P' }),
+    ).toBe('Hola: soy P.');
   });
 });

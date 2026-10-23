@@ -26,11 +26,18 @@ test('an onboarder writes a welcome, offered on a person’s page and named in t
     welcome.getByText('{nombe} no es un hueco de este mensaje: los suyos son {nombre}, {yo}.'),
   ).toBeVisible();
   await body.fill('Hola, {nombre}: soy {yo}, de PauseAI España. ¿Hablamos?');
-  await expect(welcome.getByLabel('Para quien no tiene nombre')).toHaveValue(
+  // The version without a name is optional (PLAN R76): empty, it shows what goes out instead, {nombre} taken out.
+  const nameless = welcome.getByLabel('Para quien no tiene nombre (opcional)');
+  await expect(nameless).toHaveValue('');
+  await expect(nameless).toHaveAttribute(
+    'placeholder',
     'Hola: soy {yo}, de PauseAI España. ¿Hablamos?',
   );
   await expect(
     welcome.getByText(/^Hola, Persona: soy .+, de PauseAI España\. ¿Hablamos\?$/u),
+  ).toBeVisible();
+  await expect(
+    welcome.locator('form').getByText(/^Hola: soy .+, de PauseAI España\. ¿Hablamos\?$/u),
   ).toBeVisible();
   await expectAccessible(page);
   await welcome.getByRole('button', { name: 'Guardar' }).click();
@@ -66,7 +73,7 @@ test('an onboarder writes a welcome, offered on a person’s page and named in t
   await open.click();
   await (await tab).close();
   await page.getByRole('button', { name: 'Sí, lo he enviado' }).click();
-  await expect(page.getByText('Mensaje de WhatsApp registrado en la historia.')).toBeVisible();
+  await expect(page.getByText('Mensaje registrado en la historia.')).toBeVisible();
   await page.reload();
   await expect(
     page.getByText(
@@ -152,4 +159,58 @@ test('an onboarder’s welcome is theirs alone, offered before the team’s, whi
   await teams.getByRole('button', { name: `Retirar «${teamTitle}»` }).click();
   await teams.getByRole('button', { name: 'Retirar', exact: true }).click();
   await expect(page.getByText('Mensaje retirado.')).toBeVisible();
+});
+
+/**
+ * "Escribirle" (PLAN R77): a message goes anywhere, not only WhatsApp. Someone with only an email and a Discord username
+ * is written to by the mail app, with the message written, or by copying it; back on the page, a copied one is asked
+ * where it went, and the history names its channel. The message's text is a fold away.
+ */
+test('a message is sent by email or copied for Discord, and logged on that channel', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await signedInStaff(page, ['onboarding']);
+  const name = uniqueName();
+  const tag = crypto.randomUUID().slice(0, 8);
+  const response = await page.request.post('/api/intake', {
+    headers: { origin: new URL(page.url()).origin },
+    data: {
+      name,
+      email: `escribir.${tag}@ejemplo.test`,
+      discord: `escribir_${tag}`,
+      decision: 'new',
+    },
+  });
+  expect(response.status()).toBe(201);
+  const { personId } = (await response.json()) as { personId: string };
+  await page.goto(`/personas/${personId}`);
+  const write = page.getByRole('region', { name: 'Escribirle' });
+  await expect(write.getByRole('link', { name: 'Abrir WhatsApp' })).toHaveCount(0);
+  const mail = write.getByRole('link', { name: 'Abrir el correo' });
+  await expect(mail).toHaveAttribute(
+    'href',
+    new RegExp(`^mailto:escribir\\.${tag}@ejemplo\\.test\\?subject=.+&body=`, 'u'),
+  );
+  await write.getByRole('button', { name: 'Ver el mensaje' }).click();
+  // Other tests' messages may be in use too: the one picked is what's shown, and what's copied.
+  const shown = (
+    await write
+      .locator('#escribir-' + personId + '-texto div')
+      .first()
+      .innerText()
+  ).trim();
+  expect(shown).not.toBe('');
+  await expectAccessible(page);
+
+  await write.getByRole('button', { name: 'Copiar el mensaje' }).click();
+  await expect(page.getByText('Mensaje copiado: pégalo donde le escribas.')).toBeAttached();
+  expect((await page.evaluate<string>('navigator.clipboard.readText()')).trim()).toBe(shown);
+  // Discord first, since they have it.
+  await expect(write.getByLabel('Por dónde')).toHaveValue('discord');
+  await write.getByRole('button', { name: 'Sí, lo he enviado' }).click();
+  await expect(page.getByText('Mensaje registrado en la historia.')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText(/^Intento de contacto por Discord: Mensaje dejado/u)).toBeVisible();
 });

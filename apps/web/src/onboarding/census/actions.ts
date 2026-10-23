@@ -1,5 +1,7 @@
 'use client';
 
+import type { ContactChannel } from '@backoffice/domain/stages';
+
 import { send } from '@/write';
 
 import type { OptionKind } from './types';
@@ -19,8 +21,9 @@ export const createCensusLink = (personId: string, templateId?: string) =>
   send('POST', `${person(personId)}/census-link`, templateId === undefined ? {} : { templateId });
 
 /** "Enviado": the link went from the onboarder's WhatsApp, logged as a contact attempt. */
-export const markCensusLinkSent = (linkId: string) =>
-  send('POST', `/api/census-links/${encodeURIComponent(linkId)}/sent`);
+/** "Sí, lo he enviado": by the channel it went by (PLAN R77). */
+export const markCensusLinkSent = (linkId: string, channel: ContactChannel) =>
+  send('POST', `/api/census-links/${encodeURIComponent(linkId)}/sent`, { channel });
 
 export const addCensusOption = (option: { kind: OptionKind; label: string }) =>
   send('POST', '/api/census/options', option);

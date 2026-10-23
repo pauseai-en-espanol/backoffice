@@ -5,7 +5,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Transaction } from 'kysely';
 
 import { withActor } from '@backoffice/db/actor';
+import { mailtoLink } from '@backoffice/domain/mailto';
 import { fillMessage } from '@backoffice/domain/message-templates';
+import { CONTACT_CHANNELS, type ContactChannel } from '@backoffice/domain/stages';
 import { whatsappLink } from '@backoffice/domain/whatsapp';
 import { getTranslator } from '@backoffice/i18n/messages';
 import { captureException } from '@sentry/node';
@@ -168,10 +170,17 @@ export const censusRoutes =
           const made = await withActor(db, actor, async (trx) => {
             await require(trx, ONBOARDING);
             const person = (
-              await sql<{ name: string | null; phone: string | null; me: string }>`
+              await sql<{
+                name: string | null;
+                phone: string | null;
+                email: string | null;
+                me: string;
+              }>`
                 SELECT coalesce(p.preferred_name, split_part(p.full_name, ' ', 1)) AS name,
                        (SELECT i.value FROM app.identities i WHERE i.person_id = p.id AND i.kind = 'phone'
                          ORDER BY i.created_at LIMIT 1) AS phone,
+                       (SELECT i.value FROM app.identities i WHERE i.person_id = p.id AND i.kind = 'email'
+                         ORDER BY i.verified DESC, i.created_at LIMIT 1) AS email,
                        (SELECT s.display_name FROM app.staff s WHERE s.user_id = ${actor.userId}) AS me
                   FROM app.people p
                  WHERE p.id = ${request.params.id} AND p.merged_into IS NULL AND p.anonymised_at IS NULL`.execute(
@@ -196,23 +205,42 @@ export const censusRoutes =
             : name
               ? t('censusLink.whatsapp', { name, me, url })
               : t('censusLink.whatsappNameless', { me, url });
+          // The message itself, to copy anywhere, and the mail app's way when they have an email (PLAN R77).
           return reply.code(201).send({
             id: made.id,
             url,
             expiresAt: made.expiresAt,
+            message: text,
             whatsapp: made.person.phone ? (whatsappLink(made.person.phone, text) ?? null) : null,
+            email: made.person.email
+              ? (mailtoLink(made.person.email, { subject: t('censusLink.subject'), body: text }) ??
+                null)
+              : null,
           });
         }),
     );
 
-    scope.post<{ Params: { id: string } }>(
+    scope.post<{ Params: { id: string }; Body: { channel?: ContactChannel } }>(
       '/census-links/:id/sent',
-      { schema: { params: ID_PARAMS } },
+      {
+        schema: {
+          params: ID_PARAMS,
+          // The channel it went by, when not WhatsApp (PLAN R77): by email, or copied for Discord and the like.
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            properties: { channel: { type: 'string', enum: [...CONTACT_CHANNELS] } },
+          },
+        },
+        preValidation: async (request) => {
+          request.body ??= {};
+        },
+      },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           const person = await withActor(db, actor, async (trx) => {
             await require(trx, ONBOARDING);
-            return markLinkSent(trx, request.params.id);
+            return markLinkSent(trx, request.params.id, request.body.channel);
           });
           return person ? reply.code(204).send() : reply.code(404).send({ error: 'notFound' });
         }),

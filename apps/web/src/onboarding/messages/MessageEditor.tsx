@@ -27,12 +27,13 @@ import * as styles from './styles';
 const REFUSED: Readonly<Record<string, keyof MessagesPageText['problem']>> = {
   message_templates_placeholders_check: 'brace',
   message_templates_link_check: 'needsLink',
-  message_templates_nameless_check: 'needsNameless',
+  message_templates_nameless_check: 'namelessNames',
 };
 
 /**
  * A message written or rewritten in place (Mensajes, PLAN M5): its title, what it says with its placeholders, and,
- * when it uses {nombre}, how it reads for someone without a name, drafted from the message until it's touched. What
+ * when it uses {nombre}, how it reads for someone without a name if the team wants to say it (PLAN R76): left empty,
+ * it goes out with {nombre} taken out, which the field shows as its placeholder and the preview as it goes. What
  * the database would refuse is listed as it's typed and said on saving; below, the message as it goes out, to an
  * example person and to someone without a name. A new one is the writer's own, or for an admin the team's if picked
  * (PLAN R71), for good.
@@ -62,16 +63,14 @@ export const MessageEditor = ({
   const write = useWrite(text.errors);
   const [body, setBody] = useState(template?.body ?? '');
   const [nameless, setNameless] = useState(template?.bodyNameless ?? '');
-  const [namelessTouched, setNamelessTouched] = useState(
-    template !== null && template.bodyNameless !== null,
-  );
   const [tried, setTried] = useState(false);
   // What stopped the last save, as it was then: the alert isn't rewritten (and re-announced) at every keystroke.
   const [stopped, setStopped] = useState<string>();
   const base = template ? `mensaje-${template.id}` : `mensaje-nuevo-${purpose}`;
 
   const usesName = body.includes('{nombre}');
-  const namelessText = usesName ? (namelessTouched ? nameless : namelessDraft(body)) : null;
+  // Optional (PLAN R76): blank is none, and the message goes out without {nombre}.
+  const namelessText = usesName && nameless.trim() !== '' ? nameless : null;
   const problems = body.trim() === '' ? [] : templateProblems(purpose, body, namelessText);
   const problemsId = `${base}-problemas`;
   const errorId = `${base}-error`;
@@ -166,7 +165,7 @@ export const MessageEditor = ({
             setBody(event.target.value);
           }}
           required
-          maxLength={2000}
+          maxLength={10000}
           aria-invalid={tried && problems.length > 0}
           aria-describedby={describedBy(
             problems.length > 0 && problemsId,
@@ -182,13 +181,13 @@ export const MessageEditor = ({
           <textarea
             id={`${base}-sin-nombre`}
             className={onboarding.textarea}
-            value={namelessText ?? ''}
+            value={nameless}
+            placeholder={namelessDraft(body)}
             onChange={(event) => {
               setStopped(undefined);
-              setNamelessTouched(true);
               setNameless(event.target.value);
             }}
-            maxLength={2000}
+            maxLength={10000}
             aria-describedby={describedBy(
               `${base}-sin-nombre-pista`,
               problems.length > 0 && problemsId,

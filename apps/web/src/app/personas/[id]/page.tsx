@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { mailtoLink } from '@backoffice/domain/mailto';
 import { fillMessage } from '@backoffice/domain/message-templates';
 import { placeLine } from '@backoffice/domain/places';
 import { getTranslator } from '@backoffice/i18n/messages';
@@ -25,6 +26,7 @@ import { personName } from '@/onboarding/names';
 import { Forbidden, OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import { ArrivalForm } from '@/onboarding/person/Arrival';
 import { EraseData } from '@/onboarding/person/Erase';
+import { type MessageChoice, MessageHandover } from '@/onboarding/person/Handover';
 import { Identities } from '@/onboarding/person/Identities';
 import { MergePanel } from '@/onboarding/person/Merge';
 import { NextActionForm } from '@/onboarding/person/Notes';
@@ -34,7 +36,6 @@ import { RecordActivity } from '@/onboarding/person/Record';
 import { OwnerForm, StageForm } from '@/onboarding/person/StageOwner';
 import { TeamAccount } from '@/onboarding/person/TeamAccount';
 import { personPageText } from '@/onboarding/person/text';
-import { type WhatsAppChoice, WhatsAppHandover } from '@/onboarding/person/WhatsApp';
 import {
   MissingLine,
   NextAction,
@@ -140,37 +141,49 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   // "Sin nombre" for someone saved with only a phone (PLAN R37), who is greeted without one.
   const shown = { ...person, name: personName(person.name, t('people.noName')) };
   // The welcome: the messages in use (Mensajes, PLAN M5), one's own and then the team's (R71), in their order, or else
-  // the code's own.
+  // the code's own; each filled for them, to open in WhatsApp or the mail app, or to copy (R77).
   const greeting = greetingName(person);
   const messages = isUnavailable(templates) ? [] : templates;
   const welcomes = messages.filter((template) => template.purpose === 'welcome' && template.active);
-  const choices: WhatsAppChoice[] =
+  const emails = person.identities.filter((identity) => identity.kind === 'email');
+  const email = (emails.find((identity) => identity.verified) ?? emails[0])?.value;
+  const choiceOf = (
+    template: { id: string; version: number; title: string; mine: boolean } | null,
+    message: string,
+  ): MessageChoice => ({
+    template: template === null ? null : { id: template.id, version: template.version },
+    title: template?.title ?? null,
+    mine: template?.mine ?? false,
+    message,
+    whatsapp: handoverLink(person, message),
+    email:
+      email === undefined
+        ? undefined
+        : mailtoLink(email, { subject: t('person.handover.subject'), body: message }),
+  });
+  const choices: MessageChoice[] =
     welcomes.length === 0
       ? [
-          {
-            template: null,
-            title: null,
-            mine: false,
-            link: handoverLink(
-              person,
-              greeting === undefined
-                ? whatsappMessage(text.whatsapp.messageNameless, { me: me.staff.displayName })
-                : whatsappMessage(text.whatsapp.message, {
-                    name: greeting,
-                    me: me.staff.displayName,
-                  }),
-            ),
-          },
-        ]
-      : welcomes.map((template) => ({
-          template: { id: template.id, version: template.version },
-          title: template.title,
-          mine: template.mine,
-          link: handoverLink(
-            person,
-            fillMessage(template, { nombre: greeting, yo: me.staff.displayName }),
+          choiceOf(
+            null,
+            greeting === undefined
+              ? whatsappMessage(text.whatsapp.messageNameless, { me: me.staff.displayName })
+              : whatsappMessage(text.whatsapp.message, {
+                  name: greeting,
+                  me: me.staff.displayName,
+                }),
           ),
-        }));
+        ]
+      : welcomes.map((template) =>
+          choiceOf(template, fillMessage(template, { nombre: greeting, yo: me.staff.displayName })),
+        );
+  // A copied message is asked where it went: Discord first for someone who has it (R77).
+  const copyChannels = (['discord', 'telegram', 'whatsapp', 'email', 'other'] as const).map(
+    (channel) => ({ value: channel, label: text.channels[channel] }),
+  );
+  const copyChannel = person.identities.some((identity) => identity.kind === 'discord')
+    ? ('discord' as const)
+    : ('other' as const);
   // Every message the reader may see is here: one that isn't is someone else's own (PLAN R71).
   const templateTitle = (templateId: string) =>
     isUnavailable(templates)
@@ -353,9 +366,13 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                   }}
                 />
               ) : null}
-              {choices[0]?.link === undefined ? null : (
-                <WhatsAppHandover personId={person.id} choices={choices} text={text} />
-              )}
+              <MessageHandover
+                personId={person.id}
+                choices={choices}
+                copyChannels={copyChannels}
+                copyChannel={copyChannel}
+                text={text}
+              />
             </div>
           )}
         </div>

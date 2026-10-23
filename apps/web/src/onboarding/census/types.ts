@@ -49,7 +49,11 @@ export interface NewCensusLink {
   id: string;
   url: string;
   expiresAt: string;
+  /** The message with the link in it, to copy anywhere (PLAN R77). */
+  message: string | null;
   whatsapp: string | null;
+  /** The mail app's `mailto:` with the message written, when they have an email. */
+  email: string | null;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -147,7 +151,10 @@ export const parseNewLink = (body: unknown): NewCensusLink | undefined => {
     return undefined;
   }
   const whatsapp = nullable(body.whatsapp);
-  return whatsapp === undefined
+  // An older API sent neither.
+  const message = nullable(body.message);
+  const email = nullable(body.email);
+  return whatsapp === undefined || message === undefined || email === undefined
     ? undefined
-    : { id: body.id, url: body.url, expiresAt: body.expiresAt, whatsapp };
+    : { id: body.id, url: body.url, expiresAt: body.expiresAt, message, whatsapp, email };
 };

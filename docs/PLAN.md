@@ -384,7 +384,7 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 - **R40. Someone without a name** (R37). Options: take `{nombre}` out when the message goes; a second version of the
   message. **Chose a second version**, required exactly when the message uses `{nombre}` and never naming anyone: a
   sentence with the name cut out can read wrong, so the team writes (and previews) what goes out. The page drafts it
-  from the message ("Hola, {nombre}:" reads "Hola:") until it's touched.
+  from the message ("Hola, {nombre}:" reads "Hola:") until it's touched. Since R76 the version is optional.
 - **R41. Placeholders, order and retiring.** Placeholders are Spanish words in braces, the purpose's only; any other
   brace is refused (a message can't carry a literal brace), so "{nombe}" never reaches a newcomer. A purpose's
   messages are offered in the order they were written, the first already picked; there is no reordering yet (retire
@@ -652,6 +652,23 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   is a labelled group whose fields sit side by side while they fit and stack on a phone, and "Añadir de dónde es" opens
   a second group, taking focus to its country. `POST /api/intake` takes `originCountry` and `originProvince`. Mutation
   list `places`.
+- **R76. A version without a name is optional, and messages longer** (Dani, 2026-10-23: "i think the without name
+  messages should not be mandatory", "the cap on the messages is too small i might want longer texts"). R40 required a
+  second version of every message using `{nombre}`. Options: keep it required; optional, with `{nombre}` taken out when
+  there's none; drop it. **Chose optional**: without it, someone saved without a name gets the message with `{nombre}`
+  and the comma or space before it taken out ("Hola, {nombre}:" reads "Hola:"), which the editor shows as the field's
+  placeholder and in the preview; a version, when written, still never names anyone. A message and its version are up to
+  10,000 characters (2,000 until now). Migration `20261023100000`; mutation list `message-templates`.
+- **R77. "Escribirle": a message from Mensajes, by any way** (Dani, 2026-10-23: "inside a person it is not obvious how
+  to use the messages", "if i am using discord or email how can i use messages if i have them?"). A person's page
+  offered only "Abrir WhatsApp", and only with a phone, the message unseen until WhatsApp opened. Options: keep
+  WhatsApp, and copy the text elsewhere by hand; a block for every way. **Chose a block for every way**: "Escribirle"
+  names the message (a picker, one's own then the team's, when there are several), then "Abrir WhatsApp" (with a
+  number), "Abrir el correo" (with an email: the mail app opens with a subject and the message written, `mailto:`) and
+  "Copiar el mensaje" (for Discord, Telegram or anything else), one line saying the onboarder sends it, and its text
+  under "Ver el mensaje", with the way to Mensajes. Back on the page, "¿Lo has enviado?" logs a contact attempt on that
+  channel, naming the message; a copied one is asked where it went, Discord first for someone who has it. The census
+  link offers the same three ways (Censo). Some mail apps cut a very long `mailto:` link: copying always works.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

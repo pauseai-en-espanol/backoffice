@@ -1,10 +1,13 @@
 'use client';
 
+import type { ContactChannel } from '@backoffice/domain/stages';
+
 import { useEffect, useRef, useState } from 'react';
 
 import { fill } from '@/fill';
 import { MessageOptions } from '@/onboarding/messages/MessageOptions';
 import * as onboarding from '@/onboarding/styles';
+import { useAnnounce } from '@/ui/announce';
 import { FormError } from '@/ui/FormError';
 import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
@@ -29,14 +32,20 @@ export interface CensusLinkText {
   copied: string;
   copyFailed: string;
   whatsapp: string;
-  whatsappIntro: string;
+  /** The other ways (PLAN R77): the mail app, or the message copied, and the line saying how. */
+  email: string;
+  copyMessage: string;
+  messageCopied: string;
+  how: string;
+  /** "Por dónde", asked of a copied message, and where it may have gone. */
+  where: string;
+  channels: readonly { value: ContactChannel; label: string }[];
   /** "Mensaje": the picker of the census link messages, when there are several (Mensajes, PLAN M5). */
   choose: string;
   chooseHint: string;
   /** "Tuyos" and "Del equipo", the picker's groups when it has both (PLAN R71). */
   chooseMine: string;
   chooseTeam: string;
-  noPhone: string;
   sent: string;
   sentYes: string;
   sentNo: string;
@@ -70,7 +79,11 @@ export const CensusLinkPanel = ({
   const [message, setMessage] = useState(messages[0]?.id);
   const [created, setCreated] = useState<NewCensusLink>();
   const [unreadable, setUnreadable] = useState(false);
-  const [asking, setAsking] = useState(false);
+  const announce = useAnnounce();
+  // How the message left the page (PLAN R77): asked "¿Lo has enviado?" after it, by its channel.
+  const [asking, setAsking] = useState<'whatsapp' | 'email' | 'copy'>();
+  const [channel, setChannel] = useState<ContactChannel>('other');
+  const [copyFailed, setCopyFailed] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const question = useRef<HTMLDivElement>(null);
   const base = `censo-${personId}`;
@@ -94,7 +107,7 @@ export const CensusLinkPanel = ({
       const parsed = parseNewLink(answer.body);
       setCreated(parsed);
       setUnreadable(parsed === undefined);
-      setAsking(false);
+      setAsking(undefined);
     }
   };
 
@@ -124,59 +137,108 @@ export const CensusLinkPanel = ({
               copyFailed: text.copyFailed,
             }}
           />
-          {created.whatsapp === null ? (
-            <p className={ui.hint}>{text.noPhone}</p>
-          ) : (
-            <>
-              <p className={ui.hint}>{text.whatsappIntro}</p>
-              <div>
-                <a
-                  className={ui.button}
-                  href={created.whatsapp}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setAsking(true)}
-                >
-                  {text.whatsapp}
-                </a>
-              </div>
-              {asking ? (
-                <div
-                  ref={question}
-                  tabIndex={-1}
-                  role="group"
-                  aria-label={text.sent}
-                  className={ui.confirm}
-                >
-                  <p>{text.sent}</p>
-                  <div className={ui.rowActions}>
-                    <button
-                      type="button"
-                      className={ui.button}
-                      aria-disabled={write.pending}
-                      onClick={async () => {
-                        const answer = await write.run(() => markCensusLinkSent(created.id), {
-                          done: text.sentDone,
-                        });
-                        if (answer?.ok) {
-                          setAsking(false);
-                        }
-                      }}
-                    >
-                      {text.sentYes}
-                    </button>
-                    <button
-                      type="button"
-                      className={ui.textButton}
-                      onClick={() => setAsking(false)}
-                    >
-                      {text.sentNo}
-                    </button>
-                  </div>
+          <p className={ui.hint}>{text.how}</p>
+          <div className={ui.rowActions}>
+            {created.whatsapp === null ? null : (
+              <a
+                className={ui.button}
+                href={created.whatsapp}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setAsking('whatsapp')}
+              >
+                {text.whatsapp}
+              </a>
+            )}
+            {created.email === null ? null : (
+              <a
+                className={created.whatsapp === null ? ui.button : ui.secondaryButton}
+                href={created.email}
+                onClick={() => setAsking('email')}
+              >
+                {text.email}
+              </a>
+            )}
+            {created.message === null ? null : (
+              <button
+                type="button"
+                className={ui.secondaryButton}
+                onClick={() => {
+                  setCopyFailed(false);
+                  navigator.clipboard.writeText(created.message ?? '').then(
+                    () => {
+                      announce(text.messageCopied);
+                      setAsking('copy');
+                    },
+                    () => setCopyFailed(true),
+                  );
+                }}
+              >
+                {text.copyMessage}
+              </button>
+            )}
+          </div>
+          {asking ? (
+            <div
+              ref={question}
+              tabIndex={-1}
+              role="group"
+              aria-label={text.sent}
+              className={ui.confirm}
+            >
+              <p>{text.sent}</p>
+              {asking === 'copy' ? (
+                <div className={ui.field}>
+                  <label className={ui.label} htmlFor={`${base}-por-donde`}>
+                    {text.where}
+                  </label>
+                  <select
+                    id={`${base}-por-donde`}
+                    className={onboarding.select}
+                    value={channel}
+                    onChange={(event) =>
+                      setChannel(
+                        text.channels.find((option) => option.value === event.target.value)
+                          ?.value ?? channel,
+                      )
+                    }
+                  >
+                    {text.channels.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               ) : null}
-            </>
-          )}
+              <div className={ui.rowActions}>
+                <button
+                  type="button"
+                  className={ui.button}
+                  aria-disabled={write.pending}
+                  onClick={async () => {
+                    const answer = await write.run(
+                      () => markCensusLinkSent(created.id, asking === 'copy' ? channel : asking),
+                      { done: text.sentDone },
+                    );
+                    if (answer?.ok) {
+                      setAsking(undefined);
+                    }
+                  }}
+                >
+                  {text.sentYes}
+                </button>
+                <button
+                  type="button"
+                  className={ui.textButton}
+                  onClick={() => setAsking(undefined)}
+                >
+                  {text.sentNo}
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <FormError message={copyFailed ? text.copyFailed : undefined} />
         </div>
       ) : (
         <div className={ui.form}>

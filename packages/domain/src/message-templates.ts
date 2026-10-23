@@ -21,8 +21,6 @@ export type TemplateProblem =
   | { kind: 'brace' }
   /** A census link's message (either version) without {enlace}. */
   | { kind: 'needsLink' }
-  /** The message uses {nombre} but doesn't say how it reads without a name. */
-  | { kind: 'needsNameless' }
   /** The version without a name names someone. */
   | { kind: 'namelessNames' }
   /** A version without a name for a message that names nobody. */
@@ -58,10 +56,9 @@ export const templateProblems = (
   if (purpose === 'census_link' && texts.some((text) => !text.includes('{enlace}'))) {
     problems.push({ kind: 'needsLink' });
   }
+  // A version without a name is the team's choice (PLAN R76): without one, {nombre} is taken out (namelessDraft).
   if (body.includes('{nombre}')) {
-    if (blank(bodyNameless)) {
-      problems.push({ kind: 'needsNameless' });
-    } else if (bodyNameless?.includes('{nombre}')) {
+    if (bodyNameless?.includes('{nombre}')) {
       problems.push({ kind: 'namelessNames' });
     }
   } else if (!blank(bodyNameless)) {
@@ -71,8 +68,8 @@ export const templateProblems = (
 };
 
 /**
- * A first draft of the version without a name, for the team to adjust: {nombre} taken out with the comma or space
- * before it ("Hola, {nombre}:" reads "Hola:").
+ * How a message reads for someone without a name when the team wrote no version for them (PLAN R76): {nombre} taken
+ * out with the comma or space before it ("Hola, {nombre}:" reads "Hola:").
  */
 export const namelessDraft = (body: string): string =>
   body
@@ -89,13 +86,16 @@ export interface MessageValues {
   enlace?: string | undefined;
 }
 
-/** The message as it goes out: the version for someone without a name when they have none, its placeholders filled. */
+/**
+ * The message as it goes out, its placeholders filled: for someone without a name, the version the team wrote for them,
+ * or else the message with {nombre} taken out (PLAN R76).
+ */
 export const fillMessage = (
   template: { body: string; bodyNameless: string | null },
   values: MessageValues,
 ): string => {
   const named = !blank(values.nombre);
-  const text = named || template.bodyNameless === null ? template.body : template.bodyNameless;
+  const text = named ? template.body : (template.bodyNameless ?? namelessDraft(template.body));
   const filled: Readonly<Record<string, string | undefined>> = {
     nombre: values.nombre?.trim(),
     yo: values.yo,

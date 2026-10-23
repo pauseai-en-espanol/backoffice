@@ -197,8 +197,9 @@ updatedAt, updatedBy: { userId, displayName } | null }] }`, the team's and the r
   team's to someone who isn't an admin; `404` for no such message, or someone else's own). Text is trimmed, and a
   blank `bodyNameless` is none. The database refuses, `422 incomplete` with the rule's name in `constraint`: a
   placeholder the purpose doesn't have or a stray brace (`message_templates_placeholders_check`), a census link's
-  message without `{enlace}` in either version (`message_templates_link_check`), and a message with `{nombre}` without
-  a version for someone without a name, or one without `{nombre}` with one (`message_templates_nameless_check`). A
+  message without `{enlace}` in either version (`message_templates_link_check`), and a version for someone without a
+  name that names them, or one for a message without `{nombre}` (`message_templates_nameless_check`); the version is
+  optional (PLAN R76), and either text is up to 10,000 characters. A
   title in use for the purpose, among the team's or among one's own: `409 taken`. Every change to `body` or
   `bodyNameless` adds a version; the purpose and version can't be written. Never deleted: `active: false` retires
   one.

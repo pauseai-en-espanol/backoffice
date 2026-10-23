@@ -252,7 +252,23 @@ describe('the census answers', () => {
       id: 'l',
       url: 'https://x.test/c#token=t',
       expiresAt: '2026-11-14T00:00:00Z',
+      message: null,
       whatsapp: null,
+      email: null,
+    });
+    // With the message and its ways (PLAN R77).
+    expect(
+      parseNewLink({
+        id: 'l',
+        url: 'https://x.test/c#token=t',
+        expiresAt: '2026-11-14T00:00:00Z',
+        message: 'Hola: https://x.test/c#token=t',
+        whatsapp: null,
+        email: 'mailto:ana@ejemplo.test?body=Hola',
+      }),
+    ).toMatchObject({
+      message: 'Hola: https://x.test/c#token=t',
+      email: 'mailto:ana@ejemplo.test?body=Hola',
     });
     expect(parseOptions({ options: [{ id: 'o', kind: 'skill', label: 'Diseño' }] })).toEqual([
       { id: 'o', kind: 'skill', label: 'Diseño', active: true, position: 0 },

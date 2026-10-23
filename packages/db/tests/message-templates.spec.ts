@@ -93,14 +93,24 @@ describe('the messages the team writes (PLAN M5, Mensajes)', () => {
     });
   });
 
-  it('say how they read without a name exactly when they use {nombre} (PLAN R37)', async () => {
+  it('may say how they read without a name when they use {nombre}, never naming anyone (PLAN R37, R76)', async () => {
     await inRolledBackTransaction(async (client) => {
-      // {nombre} without its nameless version, and a nameless version with no {nombre} to stand for.
-      expect(await write(client, { purpose: 'welcome', body: 'Hola, {nombre}.' })).toBe('23514');
+      // {nombre} without its nameless version: the apps take it out (PLAN R76).
+      expect(
+        await write(client, { purpose: 'welcome', body: 'Hola, {nombre}.', title: 'Sin versión' }),
+      ).toBeNull();
+      expect(
+        await write(client, {
+          purpose: 'welcome',
+          body: 'Hola, {nombre}.',
+          bodyNameless: 'Hola.',
+          title: 'Con versión',
+        }),
+      ).toBeNull();
+      // A nameless version with no {nombre} to stand for, one that still names, and a blank one.
       expect(
         await write(client, { purpose: 'welcome', body: 'Hola.', bodyNameless: 'Hola.' }),
       ).toBe('23514');
-      // A nameless version that still names.
       expect(
         await write(client, {
           purpose: 'welcome',
@@ -109,11 +119,33 @@ describe('the messages the team writes (PLAN M5, Mensajes)', () => {
         }),
       ).toBe('23514');
       expect(
-        await write(client, { purpose: 'welcome', body: 'Hola, {nombre}.', bodyNameless: 'Hola.' }),
-      ).toBeNull();
-      // Blank is no version.
-      expect(
         await write(client, { purpose: 'welcome', body: 'Hola, {nombre}.', bodyNameless: '  ' }),
+      ).toBe('23514');
+    });
+  });
+
+  it('take up to 10,000 characters, a message and its version without a name alike (PLAN R76)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const long = (length: number) => `Hola, {nombre}: ${'a'.repeat(length - 16)}`;
+      expect(long(10000)).toHaveLength(10000);
+      expect(
+        await write(client, {
+          purpose: 'welcome',
+          body: long(10000),
+          bodyNameless: `Hola: ${'a'.repeat(9994)}`,
+          title: 'Larga',
+        }),
+      ).toBeNull();
+      expect(
+        await write(client, { purpose: 'welcome', body: long(10001), title: 'Demasiado larga' }),
+      ).toBe('23514');
+      expect(
+        await write(client, {
+          purpose: 'welcome',
+          body: long(100),
+          bodyNameless: `Hola: ${'a'.repeat(9995)}`,
+          title: 'Sin nombre demasiado larga',
+        }),
       ).toBe('23514');
     });
   });

@@ -1088,7 +1088,8 @@ export const peopleRoutes =
     );
 
     const TITLE = { type: 'string', minLength: 1, maxLength: 80, pattern: '\\S' } as const;
-    const BODY = { type: 'string', minLength: 1, maxLength: 2000, pattern: '\\S' } as const;
+    // Up to 10,000 characters (PLAN R76).
+    const BODY = { type: 'string', minLength: 1, maxLength: 10000, pattern: '\\S' } as const;
 
     scope.post<{
       Body: {
@@ -1110,7 +1111,7 @@ export const peopleRoutes =
               purpose: { type: 'string', enum: [...MESSAGE_PURPOSES] },
               title: TITLE,
               body: BODY,
-              bodyNameless: NULLABLE_TEXT(2000),
+              bodyNameless: NULLABLE_TEXT(10000),
               // "Solo yo" (true), the writer's own; the team's (false) only for admins, which RLS says.
               private: { type: 'boolean' },
             },
@@ -1139,7 +1140,7 @@ export const peopleRoutes =
             properties: {
               title: TITLE,
               body: BODY,
-              bodyNameless: NULLABLE_TEXT(2000),
+              bodyNameless: NULLABLE_TEXT(10000),
               active: { type: 'boolean' },
             },
           },

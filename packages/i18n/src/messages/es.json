@@ -678,18 +678,8 @@
     "noteMissing": "Escribe la nota.",
     "happenedOn": "Cuándo fue",
     "happenedOnHint": "Si fue otro día, cámbialo. Nunca una fecha futura.",
-    "whatsappTitle": "Escribir por WhatsApp",
-    "whatsappIntro": "Se abre WhatsApp con un mensaje preparado. Lo envías tú, desde tu número.",
-    "whatsappChoose": "Mensaje",
-    "whatsappChooseHint": "Los tuyos y los del equipo, de Mensajes. En WhatsApp aún puedes cambiarlo antes de enviarlo.",
-    "whatsappOpen": "Abrir WhatsApp",
-    "whatsappNoPhone": "Esta ficha no tiene teléfono: añade uno para escribir por WhatsApp.",
     "whatsappMessage": "Hola, {name}: soy {me}, de PauseAI España. Te escribo para darte la bienvenida y contarte cómo puedes participar. ¿Te viene bien que hablemos?",
     "whatsappMessageNameless": "Hola: soy {me}, de PauseAI España. Te escribo para darte la bienvenida y contarte cómo puedes participar. ¿Te viene bien que hablemos?",
-    "whatsappSent": "¿Lo has enviado?",
-    "whatsappYes": "Sí, lo he enviado",
-    "whatsappNo": "Todavía no",
-    "whatsappLogged": "Mensaje de WhatsApp registrado en la historia.",
     "mergeTitle": "Fusionar con otra ficha",
     "mergeIntro": "Si esta persona está dos veces, busca la otra ficha. Esta ficha se queda; la otra pasa a apuntar aquí, con todos sus datos.",
     "mergeSearch": "Buscar la otra ficha",
@@ -741,7 +731,28 @@
     "stayBack": "Volvió al grupo el {date}",
     "stayBackUnknown": "Volvió al grupo (sin fecha)",
     "stayIn": "Sigue en el grupo",
-    "stayNever": "No consta que haya estado en el grupo."
+    "stayNever": "No consta que haya estado en el grupo.",
+    "handover": {
+      "title": "Escribirle",
+      "choose": "Mensaje",
+      "only": "Mensaje: «{title}»",
+      "fallback": "Mensaje: el de por defecto, porque aún no hay ninguno en Mensajes.",
+      "yours": "Son los tuyos y los del equipo:",
+      "mensajes": "escribe o cambia los tuyos en Mensajes",
+      "whatsapp": "Abrir WhatsApp",
+      "email": "Abrir el correo",
+      "copy": "Copiar el mensaje",
+      "copied": "Mensaje copiado: pégalo donde le escribas.",
+      "copyFailed": "No se ha podido copiar: ábrelo en «Ver el mensaje» y cópialo a mano.",
+      "how": "Se abre con el mensaje escrito y lo envías tú. Para Discord, Telegram u otra vía, cópialo y pégalo allí.",
+      "show": "Ver el mensaje",
+      "sent": "¿Lo has enviado?",
+      "where": "Por dónde",
+      "yes": "Sí, lo he enviado",
+      "no": "Todavía no",
+      "logged": "Mensaje registrado en la historia.",
+      "subject": "Bienvenida a PauseAI España"
+    }
   },
   "timeline": {
     "created": "Ficha creada en «{stage}»",
@@ -1135,7 +1146,8 @@
   },
   "censusLink": {
     "whatsapp": "Hola, {name}: soy {me}, de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}",
-    "whatsappNameless": "Hola: soy {me}, de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}"
+    "whatsappNameless": "Hola: soy {me}, de PauseAI España. ¿Nos ayudas a conocerte mejor? Son unos minutos, y el enlace es solo para ti (vale 30 días): {url}",
+    "subject": "Cuéntanos un poco de ti"
   },
   "messageTemplates": {
     "title": "Mensajes",
@@ -1158,8 +1170,8 @@
     "titleMissing": "Escribe un título: es como se elige el mensaje.",
     "bodyMissing": "Escribe el mensaje.",
     "body": "Mensaje",
-    "bodyNameless": "Para quien no tiene nombre",
-    "bodyNamelessHint": "Quien se guardó solo con su teléfono no tiene nombre, y le llega este. Sale del de arriba mientras no lo cambies.",
+    "bodyNameless": "Para quien no tiene nombre (opcional)",
+    "bodyNamelessHint": "Quien se guardó solo con su teléfono no tiene nombre. Si lo dejas vacío, le llega el de arriba sin {nombre}, como se ve debajo.",
     "ownMark": "Solo tú lo ves",
     "ownHint": "Será tuyo: solo tú lo ves, tampoco quien administra, y se te ofrece antes que los del equipo.",
     "teamReadOnly": "Es del equipo: lo cambia quien administra.",
@@ -1197,7 +1209,6 @@
       "unknown": "{placeholder} no es un hueco de este mensaje: los suyos son {allowed}.",
       "brace": "Hay una llave suelta, «{» o «}». Los huecos se escriben así: {yo}.",
       "needsLink": "Tiene que llevar {enlace}, en las dos versiones: es lo que la persona abre.",
-      "needsNameless": "Usa {nombre}: escribe también cómo queda para quien no tiene nombre.",
       "namelessNames": "La versión para quien no tiene nombre no puede usar {nombre}.",
       "namelessUnneeded": "Sin {nombre} en el mensaje, no hace falta otra versión."
     },
@@ -1245,16 +1256,15 @@
     "url": "Enlace personal",
     "urlHint": "Lleva un código que solo sirve a esta persona durante 30 días. No lo publiques.",
     "whatsapp": "Abrir WhatsApp",
-    "whatsappIntro": "Se abre WhatsApp con el mensaje preparado. Lo envías tú, desde tu número.",
     "choose": "Mensaje",
     "chooseHint": "Los tuyos y los del equipo, de Mensajes; el enlace va dentro del que elijas.",
-    "noPhone": "Esta persona no tiene teléfono: copia el enlace y envíaselo por otra vía (correo, en persona…).",
     "sent": "¿Lo has enviado?",
     "sentYes": "Sí, lo he enviado",
     "sentNo": "Todavía no",
     "sentDone": "Enlace marcado como enviado.",
     "createAgainFor": "Crear un enlace nuevo para {name}",
-    "noPhoneSent": "Si se lo envías por otra vía, no hace falta marcarlo: el censo cuenta como enviados los que salen por WhatsApp."
+    "noPhoneSent": "Si se lo envías por otra vía, no hace falta marcarlo: el censo cuenta como enviados los que salen por WhatsApp.",
+    "how": "Envíaselo con el mensaje, que lleva el enlace dentro: se abre WhatsApp o tu correo con él escrito y lo envías tú. Para Discord, Telegram u otra vía, cópialo y pégalo allí."
   },
   "census": {
     "title": "Censo de PauseAI España",
