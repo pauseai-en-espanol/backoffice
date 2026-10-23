@@ -1,5 +1,17 @@
 # @backoffice/migrations
 
+## 0.9.5
+
+### Patch Changes
+
+- 279ee41: The Bandeja says what's going on (PLAN R78): the menu counts it on every page; each item says why it waits and what
+  each answer does; a conflict sits beside its record row by row ("igual", "distinto"), contact details, place and
+  dates included, with what using it would change; and a phone, email or Discord already someone else's names whose.
+  A record Global's view sends again attaches only what Global changed, so a value corrected by hand isn't proposed back,
+  and what differs is kept; the conflicts already waiting with nothing to show are said again or settled.
+- 8df7a29: In Mensajes, the version for someone without a name is optional: left empty, the message goes out with {nombre}
+  taken out ("Hola, {nombre}:" reads "Hola:"), as the editor shows. Messages may be up to 10,000 characters (PLAN R76).
+
 ## 0.9.4
 
 ### Patch Changes

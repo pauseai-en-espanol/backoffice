@@ -1,5 +1,38 @@
 # @backoffice/web
 
+## 0.15.4
+
+### Patch Changes
+
+- 279ee41: The Bandeja says what's going on (PLAN R78): the menu counts it on every page; each item says why it waits and what
+  each answer does; a conflict sits beside its record row by row ("igual", "distinto"), contact details, place and
+  dates included, with what using it would change; and a phone, email or Discord already someone else's names whose.
+  A record Global's view sends again attaches only what Global changed, so a value corrected by hand isn't proposed back,
+  and what differs is kept; the conflicts already waiting with nothing to show are said again or settled.
+- 8df7a29: A person's page has "Escribirle": the message from Mensajes to write to them with (one's own, then the team's),
+  sent by "Abrir WhatsApp", "Abrir el correo" (the mail app opens with it written) or "Copiar el mensaje" for Discord,
+  Telegram or anything else, its text under "Ver el mensaje". "¿Lo has enviado?" logs the attempt on that channel,
+  asking where a copied one went. A census link in Censo offers the same three ways (PLAN R77).
+- 8df7a29: In Mensajes, the version for someone without a name is optional: left empty, the message goes out with {nombre}
+  taken out ("Hola, {nombre}:" reads "Hola:"), as the editor shows. Messages may be up to 10,000 characters (PLAN R76).
+- c60e632: Hoy keeps what one just did at hand (PLAN R79): "Mis personas" lists everyone one holds still in onboarding, what
+  needs something first and then by their step's day, and "Recientes" the last people one did anything with in the past
+  two weeks, newest first.
+- 3298b5e: Añadir rápido says whose place it is: "Dónde vive" is a labelled group whose country, province and town sit side by
+  side while they fit, no longer squeezed into each other, and "Añadir de dónde es" opens a second group for where
+  they're from (PLAN R75).
+- d463294: A search from anywhere (PLAN R80): Ctrl K (⌘K on a Mac), or "Buscar" in the header, opens a dialog that finds as it's
+  typed: people by name, phone, email or Discord, best first, with their stage and place; contacts and organisations for
+  outreach staff; what can be done and the sections. Empty, it offers the people one last worked with.
+- Updated dependencies [279ee41]
+- Updated dependencies [8df7a29]
+- Updated dependencies [8df7a29]
+- Updated dependencies [c60e632]
+- Updated dependencies [3298b5e]
+- Updated dependencies [d463294]
+  - @backoffice/i18n@0.15.3
+  - @backoffice/domain@0.5.3
+
 ## 0.15.3
 
 ### Patch Changes

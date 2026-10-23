@@ -1,6 +1,6 @@
 {
   "name": "@backoffice/migrations",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "private": true,
   "description": "SQL migrations (dbmate), shipped as the image the chart's migration Job runs",
   "scripts": {
