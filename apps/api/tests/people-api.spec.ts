@@ -227,6 +227,9 @@ describe('onboarding through the staff API (M1)', () => {
       province: 'Baviera',
       town: 'Múnich',
       country: 'DE',
+      // Añadir rápido's "De dónde es" (PLAN R75).
+      originCountry: 'AR',
+      originProvince: 'Córdoba',
     });
     expect(added.statusCode).toBe(201);
     const { personId } = added.json<{ personId: string }>();
@@ -243,8 +246,8 @@ describe('onboarding through the staff API (M1)', () => {
     // Abroad, the region isn't asked for: "dónde vive" is known by the country.
     expect(await page()).toMatchObject({
       country: 'DE',
-      originCountry: null,
-      originProvince: null,
+      originCountry: 'AR',
+      originProvince: 'Córdoba',
     });
     expect((await page()).missing).not.toContain('province');
     expect(

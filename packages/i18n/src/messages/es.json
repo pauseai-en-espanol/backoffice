@@ -869,7 +869,8 @@
     "review": "Ha ido a la Bandeja: hay una ficha muy parecida y alguien tiene que decidir.",
     "conflict": "Añadido a una ficha que ya existía, pero hay datos que no coinciden: revísalos en la Bandeja.",
     "toPerson": "Ver la ficha",
-    "toBandeja": "Ir a la Bandeja"
+    "toBandeja": "Ir a la Bandeja",
+    "addFrom": "Añadir de dónde es"
   },
   "bandeja": {
     "title": "Bandeja",

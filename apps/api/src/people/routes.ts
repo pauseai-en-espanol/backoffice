@@ -674,6 +674,8 @@ export const peopleRoutes =
         province?: string;
         town?: string;
         country?: string;
+        originCountry?: string;
+        originProvince?: string;
         chat?: string;
         note?: string;
         stage?: 'new' | 'welcomed' | 'active';
@@ -697,6 +699,8 @@ export const peopleRoutes =
               province: TEXT(100),
               town: TEXT(100),
               country: { type: 'string', enum: [...COUNTRY_CODES] },
+              originCountry: { type: 'string', enum: [...COUNTRY_CODES] },
+              originProvince: TEXT(100),
               chat: TEXT(100),
               note: TEXT(4000),
               stage: { type: 'string', enum: ['new', 'welcomed', 'active'] },
@@ -719,6 +723,8 @@ export const peopleRoutes =
             province,
             town,
             country,
+            originCountry,
+            originProvince,
             chat,
             note,
             stage,
@@ -762,6 +768,8 @@ export const peopleRoutes =
                 ...(clean(province) ? { province: clean(province) } : {}),
                 ...(clean(town) ? { town: clean(town) } : {}),
                 ...(country ? { country } : {}),
+                ...(originCountry ? { origin_country: originCountry } : {}),
+                ...(clean(originProvince) ? { origin_province: clean(originProvince) } : {}),
                 ...(clean(chat) ? { chat: clean(chat) } : {}),
                 ...(clean(note) ? { note: clean(note) } : {}),
                 ...(stage ? { stage } : {}),

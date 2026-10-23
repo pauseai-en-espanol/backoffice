@@ -16,6 +16,7 @@ import { candidates as findCandidates, quickAdd, type QuickAdd } from './actions
 import { QUICK_ADD_STAGES, type QuickAddProblem, quickAddProblems } from './forms';
 import { personName } from './names';
 import { PlaceFields } from './place/PlaceFields';
+import * as place from './place/styles';
 import * as styles from './styles';
 import { type ArrivalChannel, type Candidate, parseCandidates } from './types';
 
@@ -37,8 +38,11 @@ export interface QuickAddText {
   arrivalNone: string;
   arrivedOn: string;
   arrivedOnHint: string;
-  /** The place pickers' words (PLAN R74). */
+  /** The place pickers' words (PLAN R74), and their groups' (R75). */
   place: PlaceText;
+  livesIn: string;
+  from: string;
+  addFrom: string;
   chat: string;
   chatHint: string;
   stage: string;
@@ -96,6 +100,13 @@ export const QuickAddForm = ({
   const [email, setEmail] = useState('');
   const [discord, setDiscord] = useState('');
   const [province, setProvince] = useState('');
+  // "De dónde es" is folded until asked for (PLAN R75); opening it takes focus there.
+  const [fromOpen, setFromOpen] = useState(false);
+  useEffect(() => {
+    if (fromOpen) {
+      document.getElementById('alta-origen-pais')?.focus();
+    }
+  }, [fromOpen]);
   const [found, setFound] = useState<Candidate[]>([]);
   const [checking, setChecking] = useState(false);
   const [choice, setChoice] = useState('');
@@ -183,6 +194,8 @@ export const QuickAddForm = ({
       ...(province.trim() ? { province: province.trim() } : {}),
       ...(field('town') ? { town: field('town') } : {}),
       ...(field('country') ? { country: field('country') } : {}),
+      ...(field('originCountry') ? { originCountry: field('originCountry') } : {}),
+      ...(field('originProvince') ? { originProvince: field('originProvince') } : {}),
       ...(field('chat') ? { chat: field('chat') } : {}),
       ...(field('note') ? { note: field('note') } : {}),
       stage: field('stage') || 'new',
@@ -377,15 +390,37 @@ export const QuickAddForm = ({
           </span>
         </div>
       </div>
-      <div className={ui.fieldRow}>
-        <PlaceFields
-          prefix="alta"
-          names={{ country: 'country', province: 'province', town: 'town' }}
-          initial={{ country: null, province: null, town: null }}
-          onProvinceChange={setProvince}
-          text={text.place}
-        />
-      </div>
+      <fieldset className={ui.fieldset}>
+        <legend>{text.livesIn}</legend>
+        <div className={place.row}>
+          <PlaceFields
+            prefix="alta"
+            names={{ country: 'country', province: 'province', town: 'town' }}
+            initial={{ country: null, province: null, town: null }}
+            onProvinceChange={setProvince}
+            text={text.place}
+          />
+        </div>
+      </fieldset>
+      {fromOpen ? (
+        <fieldset className={ui.fieldset}>
+          <legend>{text.from}</legend>
+          <div className={place.row}>
+            <PlaceFields
+              prefix="alta-origen"
+              names={{ country: 'originCountry', province: 'originProvince' }}
+              initial={{ country: null, province: null }}
+              text={text.place}
+            />
+          </div>
+        </fieldset>
+      ) : (
+        <div>
+          <button type="button" className={ui.textButton} onClick={() => setFromOpen(true)}>
+            {text.addFrom}
+          </button>
+        </div>
+      )}
 
       <div role="status" aria-live="polite" className={ui.hint}>
         {checking ? text.checking : ''}

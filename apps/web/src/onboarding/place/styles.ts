@@ -87,3 +87,11 @@ export const item = css({
 });
 
 export const empty = css({ paddingInline: '3', paddingBlock: '2', color: 'fg.muted' });
+
+/** A place's fields side by side while they fit, each its own height (PLAN R75): never squeezed into one line. */
+export const row = css({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 11rem), 1fr))',
+  gap: '4',
+  alignItems: 'start',
+});

@@ -149,13 +149,13 @@ from, Discord usernames; the team's WhatsApp messages. Everything else above sta
   `unknown`) and `reason` (one attention reason, such as `unassigned`). `q` also matches a Discord username exactly,
   and a phone by its digits (PLAN R72): `q` written only as a phone, with 6 digits or more once a prefix's leading
   zeros go, matches every stored number with them in it.
-- **Where someone lives, and where they're from** (PLAN R74). A person's summary adds `country` (an ISO 3166-1 code,
-  or null), their page `originCountry` and `originProvince`. `PATCH /api/people/:id` takes `country` and
-  `originCountry` (a code, or null; anything else `400`) and `originProvince`; `POST /api/intake` takes `country`;
-  `GET /api/people` and `/api/board` take `country` (a code, or `none` for not said). A Bandeja item adds `country`,
-  and a conflict may name `country`, `origin_country` or `origin_province`. The census answer takes `country`,
-  `originCountry` and `originProvince`; the CSV import maps `country`, `originCountry` and `originProvince` (a country
-  by its code or its name in Spanish or English, else the row is invalid); the people CSV export adds `pais`.
+- **Where someone lives, and where they're from** (PLAN R74). A person's summary adds `country` (an ISO 3166-1 code, or
+  null), their page `originCountry` and `originProvince`. `PATCH /api/people/:id` takes `country` and `originCountry` (a
+  code, or null; anything else `400`) and `originProvince`; `POST /api/intake` takes `country`, and `originCountry` and
+  `originProvince` (R75); `GET /api/people` and `/api/board` take `country` (a code, or `none` for not said). A Bandeja
+  item adds `country`, and a conflict may name `country`, `origin_country` or `origin_province`. The census answer takes
+  `country`, `originCountry` and `originProvince`; the CSV import maps `country`, `originCountry` and `originProvince`
+  (a country by its code or its name in Spanish or English, else the row is invalid); the people CSV export adds `pais`.
 - **`PATCH /api/people/:id`** also takes `arrivedOn` (a date, or null for unknown; never a day to come: `422`),
   `arrivalId` (an entry's id, or null) and `stageOn` (with `stage` only, else `400 invalid { field: 'stageOn' }`):
   the day a stage change happened, which its timeline event carries.

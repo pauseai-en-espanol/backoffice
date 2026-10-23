@@ -110,8 +110,10 @@ export interface QuickAdd {
   arrivedOn?: string | null;
   province?: string;
   town?: string;
-  /** Where they live, a country's code (PLAN R74). */
+  /** Where they live, a country's code (PLAN R74), and where they're from (R75). */
   country?: string;
+  originCountry?: string;
+  originProvince?: string;
   chat?: string;
   note?: string;
   stage?: string;

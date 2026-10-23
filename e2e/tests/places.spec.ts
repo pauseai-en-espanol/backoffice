@@ -21,6 +21,11 @@ test('a country and a province are picked by typing, and said where someone live
   await province.fill('vizc');
   await page.getByRole('option', { name: 'Bizkaia' }).click();
   await expect(province).toHaveValue('Bizkaia');
+  // Where they're from, folded until asked for (PLAN R75).
+  await page.getByRole('button', { name: 'Añadir de dónde es' }).click();
+  const quickFrom = page.getByRole('group', { name: 'De dónde es' });
+  await expect(quickFrom.getByRole('combobox', { name: 'País' })).toBeFocused();
+  await quickFrom.getByRole('combobox', { name: 'Provincia o región' }).fill('Cádiz');
   await expectAccessible(page);
   await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await expect(page).toHaveURL(/\/personas\/[0-9a-f-]{36}$/u);

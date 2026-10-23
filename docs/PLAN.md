@@ -645,6 +645,13 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   region. Not done: the bot (its team post still says "Provincia"), regions of other countries as lists, and the Panel
   by country. Migrations `20261022100000` and `100100`; mutation list `places`. The census's privacy summary lists the
   new data: its wording version (`CENSUS_WORDING_VERSION`, in gitops) goes up with this release.
+- **R75. Añadir rápido says whose place it is** (Dani, 2026-10-23: "there is still only one place it does not say if
+  where from or where lives … and looks terrible"). The country, province and town sat in a row built for fields of one
+  shape (label, input, hint on a shared grid), which squeezed the pickers into each other, under no heading. Options for
+  where they're from: ask it there too, folded; always shown; only in the profile. **Chose folded** (Dani): "Dónde vive"
+  is a labelled group whose fields sit side by side while they fit and stack on a phone, and "Añadir de dónde es" opens
+  a second group, taking focus to its country. `POST /api/intake` takes `originCountry` and `originProvince`. Mutation
+  list `places`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

@@ -158,5 +158,13 @@
     "new": "  return typeof value === 'string' && value !== '' ? value : undefined;",
     "cmd": "pnpm exec vitest run src/census",
     "cwd": "apps/forms"
+  },
+  {
+    "name": "Añadir rápido drops where they're from",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "                ...(originCountry ? { origin_country: originCountry } : {}),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
+    "cwd": "apps/api"
   }
 ]
