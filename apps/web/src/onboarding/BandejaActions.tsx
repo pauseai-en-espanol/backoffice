@@ -14,7 +14,8 @@ export interface BandejaActionsText {
   isNew?: string;
   discard: string;
   discardConfirm: string;
-  apply: string;
+  /** Taking what came in; none when there's nothing to take, only someone else's phone or email (PLAN R78). */
+  apply?: string | undefined;
   keep: string;
   confirm: string;
   cancel: string;
@@ -80,17 +81,19 @@ export const BandejaActions = ({
           </>
         ) : (
           <>
+            {text.apply === undefined ? null : (
+              <button
+                type="button"
+                className={ui.button}
+                aria-disabled={write.pending}
+                onClick={() => run({ decision: 'apply' })}
+              >
+                {text.apply}
+              </button>
+            )}
             <button
               type="button"
-              className={ui.button}
-              aria-disabled={write.pending}
-              onClick={() => run({ decision: 'apply' })}
-            >
-              {text.apply}
-            </button>
-            <button
-              type="button"
-              className={ui.secondaryButton}
+              className={text.apply === undefined ? ui.button : ui.secondaryButton}
               aria-disabled={write.pending}
               onClick={() => run({ decision: 'keep' })}
             >

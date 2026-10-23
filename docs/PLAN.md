@@ -669,6 +669,20 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   under "Ver el mensaje", with the way to Mensajes. Back on the page, "¿Lo has enviado?" logs a contact attempt on that
   channel, naming the message; a copied one is asked where it went, Discord first for someone who has it. The census
   link offers the same three ways (Censo). Some mail apps cut a very long `mailto:` link: copying always works.
+- **R78. The Bandeja says what's going on** (Dani, 2026-10-23: "depending on where i am bandeja sounds counter or it
+  does not, also bandeja is very weird … i do not understand what to do or what the issue is … there is no comparison
+  and no anchor to understand or make the call (for example contact details or geography or dates)"). Three things were
+  wrong. The menu counted it only on Hoy and the Bandeja, the only pages that asked; now the frame asks (`GET
+/api/bandeja/count`) wherever the page doesn't. A record a source sent again, changed, waited as "Datos que no
+  coinciden" without its differences ever being kept, so nothing was shown and "Usar lo que ha llegado" had nothing to
+  use; now only what the source changed is attached again (a value corrected by hand isn't proposed back at every sync,
+  which R74's country would have done to every Airtable record), what differs is kept, and those already waiting were
+  said again or, with nothing differing, settled (migration `20261023110000`). And a conflict showed the person's card
+  and two buttons: now every item says in a sentence why it waits and what each answer does, a conflict sits beside its
+  record row by row ("igual", "distinto": name, phones, emails, Discord, place, sign-up, stay, stage), contact details
+  included but beside a census answer (R24), with what using it would change; a phone, email or Discord already someone
+  else's names whose, with a link, and how to merge them. Rows empty on every side are left out. Mutation lists
+  `onboarding` and `message-templates`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

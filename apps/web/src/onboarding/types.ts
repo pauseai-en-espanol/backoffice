@@ -214,9 +214,40 @@ export interface BandejaItem {
   reportedBy: string | null;
   createdAt: string;
   candidates: BandejaCandidate[];
-  person: PersonSummary | null;
+  /** A conflict's person, with their contact details but beside a census answer (PLAN R78). */
+  person: BandejaCandidate | null;
   conflicts: Record<string, unknown>;
+  /** What it brought that someone else already holds, and who (PLAN R78). */
+  taken: TakenIdentity[];
 }
+
+export interface TakenIdentity {
+  kind: 'phone' | 'email' | 'discord' | null;
+  value: string;
+  holder: { id: string; name: string | null } | null;
+}
+
+const parseTaken = (value: unknown): TakenIdentity | undefined => {
+  if (!isRecord(value) || !str(value.value)) {
+    return undefined;
+  }
+  const kind =
+    value.kind === 'phone' || value.kind === 'email' || value.kind === 'discord'
+      ? value.kind
+      : null;
+  const holder =
+    isRecord(value.holder) && str(value.holder.id)
+      ? {
+          id: value.holder.id,
+          name: str(value.holder.name)
+            ? value.holder.name
+            : str(value.holder.fullName)
+              ? value.holder.fullName
+              : null,
+        }
+      : null;
+  return { kind, value: value.value, holder };
+};
 
 export interface ImportRun {
   id: string;
@@ -746,7 +777,20 @@ const parseBandejaItem = (value: unknown): BandejaItem | undefined => {
           return summary && contacts ? { ...summary, contacts } : summary;
         });
   const person =
-    value.person === undefined || value.person === null ? null : parseSummary(value.person);
+    value.person === undefined || value.person === null
+      ? null
+      : (() => {
+          const summary = parseSummary(value.person);
+          const contacts = isRecord(value.person)
+            ? parseContacts(value.person.contacts)
+            : undefined;
+          return summary && contacts ? { ...summary, contacts } : summary;
+        })();
+  const conflicts = isRecord(value.conflicts) ? value.conflicts : {};
+  // An older API counted what someone else holds instead of listing it.
+  const taken = Array.isArray(conflicts.identities)
+    ? (every(conflicts.identities, parseTaken) ?? [])
+    : [];
   if (
     name === undefined ||
     province === undefined ||
@@ -770,7 +814,8 @@ const parseBandejaItem = (value: unknown): BandejaItem | undefined => {
     createdAt: str(value.createdAt) ? value.createdAt : '',
     candidates,
     person,
-    conflicts: isRecord(value.conflicts) ? value.conflicts : {},
+    conflicts,
+    taken,
   };
 };
 

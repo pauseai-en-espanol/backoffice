@@ -219,10 +219,7 @@ export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> 
              ORDER BY c.position LIMIT 1) AS arrival,
            i.payload ->> 'arrived_on' AS arrived_on, i.payload ->> 'joined_on' AS joined_on,
            i.payload ->> 'left_on' AS left_on, i.payload ->> 'stage' AS stage,
-           to_json(i.created_at)#>>'{}' AS created_at, i.candidates, i.person_id, i.conflicts - 'identities'
-             || CASE WHEN i.conflicts ? 'identities'
-                     THEN jsonb_build_object('identities', jsonb_array_length(i.conflicts -> 'identities'))
-                     ELSE '{}' END AS conflicts
+           to_json(i.created_at)#>>'{}' AS created_at, i.candidates, i.person_id, i.conflicts
       FROM app.intake_records i
       LEFT JOIN app.staff s ON s.user_id = i.reported_by
      WHERE i.status IN ('review', 'conflict')
@@ -257,6 +254,23 @@ export const listBandeja = async (trx: Transaction<DB>): Promise<BandejaItem[]> 
       : row.conflicts,
   }));
 };
+
+/**
+ * Who holds each of these phones, emails or Discord usernames: what a record brought that is already someone else's,
+ * for the Bandeja to say whose (PLAN R78). Values nobody holds any more are left out.
+ */
+export const holdersOf = async (
+  trx: Transaction<DB>,
+  values: readonly string[],
+): Promise<{ kind: string; value: string; personId: string }[]> =>
+  values.length === 0
+    ? []
+    : (
+        await sql<{ kind: string; value: string; personId: string }>`
+          SELECT kind::text AS kind, value, person_id AS "personId" FROM app.identities
+           WHERE value = ANY (${[...values]}::text[]) AND kind IN ('phone', 'email', 'discord')
+           ORDER BY kind, value`.execute(trx)
+      ).rows;
 
 /** The phones, emails and Discord usernames of these people, for the Bandeja's comparison (PLAN R60). */
 export const contactsOf = async (

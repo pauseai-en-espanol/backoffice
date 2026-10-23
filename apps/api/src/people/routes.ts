@@ -55,6 +55,7 @@ import {
 import {
   contactsOf,
   findCandidates,
+  holdersOf,
   importCsv,
   listBandeja,
   listImports,
@@ -785,41 +786,83 @@ export const peopleRoutes =
         }),
     );
 
+    // How many records wait in the Bandeja, for the menu on every page (PLAN R78).
+    scope.get('/bandeja/count', async (request, reply) =>
+      signedIn(request, reply, async (db, actor) =>
+        onboarding(db, actor, async (trx) => {
+          const { rows } = await sql<{ count: number }>`
+            SELECT count(*)::int AS count FROM app.intake_records
+             WHERE status IN ('review', 'conflict')`.execute(trx);
+          return { count: rows[0]?.count ?? 0 };
+        }),
+      ),
+    );
+
     scope.get('/bandeja', async (request, reply) =>
       signedIn(request, reply, async (db, actor) =>
         onboarding(db, actor, async (trx) => {
           const items = await listBandeja(trx);
+          // What a record brought that someone else already holds, and who (PLAN R78); a census answer brings none.
+          const taken = (item: (typeof items)[number]): string[] =>
+            item.source !== 'census' && Array.isArray(item.conflicts['identities'])
+              ? item.conflicts['identities'].filter(
+                  (value): value is string => typeof value === 'string',
+                )
+              : [];
+          const holders = await holdersOf(trx, [...new Set(items.flatMap(taken))]);
           const ids = [
-            ...new Set(
-              items.flatMap((item) =>
+            ...new Set([
+              ...items.flatMap((item) =>
                 item.personId ? [...item.candidates, item.personId] : item.candidates,
               ),
-            ),
+              ...holders.map((holder) => holder.personId),
+            ]),
           ];
           const summaries = new Map(
             (await summariesOf(trx, ids)).map((person) => [person.id, person]),
           );
-          // The candidates' ways to be reached, beside what came in, but for a census answer's (PLAN R60, R24).
-          const compared = (item: (typeof items)[number]) =>
-            item.status === 'review' && item.source !== 'census';
+          // The ways to be reached of whoever a record is compared with: a duplicate's candidates, and a conflict's
+          // person (PLAN R60, R78), but never beside a census answer (R24).
+          const compared = (item: (typeof items)[number]) => item.source !== 'census';
           const contacts = await contactsOf(trx, [
-            ...new Set(items.filter(compared).flatMap((item) => item.candidates)),
+            ...new Set(
+              items
+                .filter(compared)
+                .flatMap((item) =>
+                  item.personId ? [...item.candidates, item.personId] : item.candidates,
+                ),
+            ),
           ]);
+          const withContacts = (id: string, item: (typeof items)[number]) => {
+            const summary = summaries.get(id);
+            const theirs = compared(item) ? contacts.get(id) : undefined;
+            return summary && theirs ? { ...summary, contacts: theirs } : summary;
+          };
           return {
-            items: items.map(({ personId, candidates, ...item }) => ({
-              ...item,
-              candidates: candidates.flatMap((id) => {
-                const summary = summaries.get(id);
-                if (!summary) {
-                  return [];
-                }
-                const theirs = compared({ ...item, personId, candidates })
-                  ? contacts.get(id)
-                  : undefined;
-                return [theirs ? { ...summary, contacts: theirs } : summary];
-              }),
-              person: personId ? (summaries.get(personId) ?? null) : null,
-            })),
+            items: items.map((item) => {
+              const { personId, candidates, ...rest } = item;
+              const identities = taken(item).map((value) => {
+                const holder = holders.find((one) => one.value === value);
+                const summary = holder ? summaries.get(holder.personId) : undefined;
+                return {
+                  kind: holder?.kind ?? null,
+                  value,
+                  holder: summary
+                    ? { id: summary.id, name: summary.name, fullName: summary.fullName }
+                    : null,
+                };
+              });
+              return {
+                ...rest,
+                conflicts:
+                  identities.length > 0 ? { ...rest.conflicts, identities } : rest.conflicts,
+                candidates: candidates.flatMap((id) => {
+                  const candidate = withContacts(id, item);
+                  return candidate ? [candidate] : [];
+                }),
+                person: personId ? (withContacts(personId, item) ?? null) : null,
+              };
+            }),
           };
         }),
       ),

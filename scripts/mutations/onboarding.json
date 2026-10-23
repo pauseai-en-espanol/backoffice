@@ -242,5 +242,29 @@
     "new": "  const digits",
     "cmd": "pnpm exec vitest run src/identities.spec.ts",
     "cwd": "packages/domain"
+  },
+  {
+    "name": "a re-sync proposes back every field, changed or not",
+    "file": "db/migrations/20261023110000_resync_conflicts.sql",
+    "old": "          changed.payload := (SELECT coalesce(jsonb_object_agg(e.key, e.value), '{}')\n                                FROM jsonb_each(item -> 'payload') AS e(key, value)\n                               WHERE existing.payload -> e.key IS DISTINCT FROM e.value);\n",
+    "new": "          changed.payload := item -> 'payload';\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/resync.spec.ts tests/onboarding.spec.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a re-sync waits in the Bandeja without saying what differs",
+    "file": "db/migrations/20261023110000_resync_conflicts.sql",
+    "old": "               SET status = 'conflict', conflicts = i.conflicts || found_conflicts, decided_at = NULL,",
+    "new": "               SET status = 'conflict', decided_at = NULL,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/resync.spec.ts tests/onboarding.spec.ts tests/airtable-sync.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a Bandeja conflict's person comes without their contact details",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "                person: personId ? (withContacts(personId, item) ?? null) : null,",
+    "new": "                person: personId ? (summaries.get(personId) ?? null) : null,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
   }
 ]

@@ -28,6 +28,7 @@ import {
   personLabels,
   sourceName,
 } from '@/onboarding/text';
+import * as outreach from '@/outreach/styles';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import { Announcer } from '@/ui/Announcer';
@@ -118,7 +119,11 @@ const BandejaPage = async () => {
 
   // A possible duplicate beside each record it looks like, row by row, "igual" where they agree (PLAN R60). A census
   // answer's phone and email aren't shown (R24), nor compared.
-  const comparison = (entry: BandejaItem) => {
+  const comparison = (
+    entry: BandejaItem,
+    against: readonly BandejaCandidate[],
+    words: { heading: string; intro: string },
+  ) => {
     const brought = entry.brought;
     const census = entry.source === 'census';
     const list = (values: readonly string[]) => (values.length === 0 ? '—' : values.join(', '));
@@ -236,21 +241,21 @@ const BandejaPage = async () => {
     return (
       <>
         <h3 id={caption} className={styles.h3}>
-          {t('bandeja.compare')}
+          {words.heading}
         </h3>
         <p className={styles.hint}>
-          {t('bandeja.compareIntro')}
+          {words.intro}
           {census ? ` ${t('bandeja.censusContacts')}` : ''}
         </p>
         {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be focusable */}
         <div className={styles.tableWrap} tabIndex={0} role="region" aria-labelledby={caption}>
           <table className={styles.table}>
-            <caption className={styles.srOnly}>{t('bandeja.compare')}</caption>
+            <caption className={styles.srOnly}>{words.heading}</caption>
             <thead>
               <tr>
                 <th scope="col">{t('bandeja.field')}</th>
                 <th scope="col">{t('bandeja.record')}</th>
-                {entry.candidates.map((candidate) => (
+                {against.map((candidate) => (
                   <th key={candidate.id} scope="col">
                     <Link
                       className={styles.link}
@@ -263,40 +268,47 @@ const BandejaPage = async () => {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.key}>
-                  <th scope="row">
-                    {t(`bandeja.compareFields.${row.key}` as 'bandeja.compareFields.name')}
-                  </th>
-                  <td className={styles.breakAnywhere}>{row.brought}</td>
-                  {entry.candidates.map((candidate) => {
-                    const cell = row.of(candidate);
-                    const match = cellMatch(
-                      row.compared !== false,
-                      cell.same,
-                      row.brought,
-                      cell.value,
-                    );
-                    return (
-                      <td key={candidate.id} className={styles.breakAnywhere}>
-                        {cell.value}
-                        {match === 'none' ? null : (
-                          <>
-                            {' '}
-                            <span
-                              className={onboarding.reason}
-                              data-tone={match === 'same' ? 'positive' : undefined}
-                            >
-                              <Icon icon={match === 'same' ? Check : icons.attention} size={14} />
-                              {match === 'same' ? t('bandeja.same') : t('bandeja.different')}
-                            </span>
-                          </>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
+              {rows
+                // A row nobody says anything in says nothing (PLAN R78).
+                .filter(
+                  (row) =>
+                    row.brought !== '—' ||
+                    against.some((candidate) => row.of(candidate).value !== '—'),
+                )
+                .map((row) => (
+                  <tr key={row.key}>
+                    <th scope="row">
+                      {t(`bandeja.compareFields.${row.key}` as 'bandeja.compareFields.name')}
+                    </th>
+                    <td className={styles.breakAnywhere}>{row.brought}</td>
+                    {against.map((candidate) => {
+                      const cell = row.of(candidate);
+                      const match = cellMatch(
+                        row.compared !== false,
+                        cell.same,
+                        row.brought,
+                        cell.value,
+                      );
+                      return (
+                        <td key={candidate.id} className={styles.breakAnywhere}>
+                          {cell.value}
+                          {match === 'none' ? null : (
+                            <>
+                              {' '}
+                              <span
+                                className={onboarding.reason}
+                                data-tone={match === 'same' ? 'positive' : undefined}
+                              >
+                                <Icon icon={match === 'same' ? Check : icons.attention} size={14} />
+                                {match === 'same' ? t('bandeja.same') : t('bandeja.different')}
+                              </span>
+                            </>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
@@ -309,9 +321,15 @@ const BandejaPage = async () => {
       ([field, value]) => field !== 'identities' && field !== 'census' && isRecord(value),
     );
     const census = isRecord(entry.conflicts.census) ? entry.conflicts.census : undefined;
-    const takenIdentities = Array.isArray(entry.conflicts.identities)
-      ? entry.conflicts.identities.length
-      : 0;
+    // Why it waits and what each answer does, in words (PLAN R78).
+    const explain =
+      entry.status === 'review'
+        ? t('bandeja.explainReview')
+        : fields.length > 0
+          ? t('bandeja.explainConflict')
+          : entry.taken.length > 0
+            ? t('bandeja.explainTaken')
+            : t('bandeja.explainConflict');
     return (
       <li key={entry.id} className={onboarding.section}>
         <h2 className={styles.h3}>
@@ -328,6 +346,7 @@ const BandejaPage = async () => {
           })}
           {entry.reportedBy ? ` · ${t('bandeja.reportedBy', { name: entry.reportedBy })}` : ''}
         </p>
+        {census ? null : <p className={styles.text}>{explain}</p>}
         {census ? (
           <>
             <h3 className={styles.h3}>{t('bandeja.census')}</h3>
@@ -346,7 +365,10 @@ const BandejaPage = async () => {
           </>
         ) : null}
         {entry.status === 'review' ? (
-          comparison(entry)
+          comparison(entry, entry.candidates, {
+            heading: t('bandeja.compare'),
+            intro: t('bandeja.compareIntro'),
+          })
         ) : (
           <>
             {entry.person ? (
@@ -354,39 +376,71 @@ const BandejaPage = async () => {
                 <PersonItem person={entry.person} labels={labels} />
               </ul>
             ) : null}
-            {fields.length > 0 ? (
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th scope="col">{t('bandeja.field')}</th>
-                      <th scope="col">{t('bandeja.current')}</th>
-                      <th scope="col">{t('bandeja.proposed')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {fields.map(([field, value]) => {
-                      const change = value as Record<string, unknown>;
-                      const said = (side: unknown) =>
-                        COUNTRY_FIELDS.has(field) && typeof side === 'string'
-                          ? countryName(side)
-                          : shown(side);
-                      return (
-                        <tr key={field}>
-                          <th scope="row">{FIELDS[field] ?? field}</th>
-                          <td>{said(change.current)}</td>
-                          <td>{said(change.proposed)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            {entry.person && !census
+              ? comparison(entry, [entry.person], {
+                  heading: t('bandeja.compareConflict'),
+                  intro: t('bandeja.compareConflictIntro'),
+                })
+              : null}
+            {entry.taken.length > 0 ? (
+              <>
+                <h3 className={styles.h3}>{t('bandeja.taken')}</h3>
+                <ul className={outreach.bullets}>
+                  {entry.taken.map((identity) => (
+                    <li key={identity.value}>
+                      {identity.kind ? `${t(`person.identityKinds.${identity.kind}`)} ` : ''}
+                      {identity.kind === 'phone'
+                        ? spacedPhone(identity.value)
+                        : identity.value}:{' '}
+                      {identity.holder ? (
+                        <>
+                          {t('bandeja.takenBy')}{' '}
+                          <Link
+                            className={styles.link}
+                            href={`/personas/${encodeURIComponent(identity.holder.id)}`}
+                          >
+                            {personName(identity.holder.name, t('people.noName'))}
+                          </Link>
+                        </>
+                      ) : (
+                        t('bandeja.takenByNobody')
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
             ) : null}
-            {takenIdentities > 0 ? (
-              <p className={styles.hint}>
-                {t('bandeja.identities')}: {takenIdentities}
-              </p>
+            {fields.length > 0 ? (
+              <>
+                <h3 className={styles.h3}>{t('bandeja.changes')}</h3>
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th scope="col">{t('bandeja.field')}</th>
+                        <th scope="col">{t('bandeja.current')}</th>
+                        <th scope="col">{t('bandeja.proposed')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {fields.map(([field, value]) => {
+                        const change = value as Record<string, unknown>;
+                        const said = (side: unknown) =>
+                          COUNTRY_FIELDS.has(field) && typeof side === 'string'
+                            ? countryName(side)
+                            : shown(side);
+                        return (
+                          <tr key={field}>
+                            <th scope="row">{FIELDS[field] ?? field}</th>
+                            <td>{said(change.current)}</td>
+                            <td>{said(change.proposed)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : null}
           </>
         )}
@@ -404,13 +458,20 @@ const BandejaPage = async () => {
             ...(census ? {} : { isNew: t('bandeja.isNew') }),
             discard: t('bandeja.discard'),
             discardConfirm: t('bandeja.discardConfirm'),
+            // With only someone else's phone or email, there's nothing to take: it's settled as it is (PLAN R78).
             apply:
               census && entry.person
                 ? t('bandeja.censusApply', {
                     name: personName(entry.person.name, t('people.noName')),
                   })
-                : t('bandeja.apply'),
-            keep: census ? t('bandeja.censusKeep') : t('bandeja.keep'),
+                : !census && fields.length === 0
+                  ? undefined
+                  : t('bandeja.apply'),
+            keep: census
+              ? t('bandeja.censusKeep')
+              : fields.length === 0
+                ? t('bandeja.keepTaken')
+                : t('bandeja.keep'),
             confirm: t('team.confirm'),
             cancel: t('person.cancel'),
             done: t('bandeja.done'),

@@ -930,7 +930,6 @@
     "proposed": "Ha llegado",
     "apply": "Usar lo que ha llegado",
     "keep": "Mantener la ficha",
-    "identities": "Teléfonos o correos que ya tiene otra ficha",
     "done": "Decisión guardada.",
     "fields": {
       "full_name": "Nombre",
@@ -970,7 +969,17 @@
     "yes": "Sí",
     "no": "No",
     "unknownOption": "Opción que ya no existe",
-    "optionsUnavailable": "No se han podido leer las listas del censo: las opciones marcadas no se muestran por su nombre."
+    "optionsUnavailable": "No se han podido leer las listas del censo: las opciones marcadas no se muestran por su nombre.",
+    "explainReview": "Puede ser alguien que ya tiene ficha. Compara lo que ha llegado con las fichas que se le parecen: si es una de ellas, únelo a esa; si no, crea una ficha nueva; y si no sirve, descártalo.",
+    "explainConflict": "Ya tiene ficha, pero lo que ha llegado no coincide con ella en lo marcado «distinto». «Usar lo que ha llegado» cambia la ficha como dice «Qué cambiaría»; «Mantener la ficha» la deja como está y descarta lo nuevo.",
+    "explainTaken": "Ha llegado con un teléfono, un correo o un Discord que ya está en otra ficha. Puede que sean la misma persona: ábrelas y, si lo son, fusiónalas desde una de ellas («Más acciones», «Fusionar»). Luego márcalo como resuelto.",
+    "compareConflict": "Lo que ha llegado y la ficha",
+    "compareConflictIntro": "Fila a fila: «igual» donde coinciden, «distinto» donde no.",
+    "taken": "Ya está en otra ficha",
+    "takenBy": "lo tiene",
+    "takenByNobody": "ya no lo tiene nadie",
+    "changes": "Qué cambiaría",
+    "keepTaken": "Resuelto: dejar la ficha como está"
   },
   "imports": {
     "title": "Importar",

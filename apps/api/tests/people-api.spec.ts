@@ -221,6 +221,59 @@ describe('onboarding through the staff API (M1)', () => {
     expect(found.body).not.toContain(phone.slice(-6));
   });
 
+  it('says whose a phone already is, beside the record it would join, and counts what waits (PLAN R78)', async () => {
+    const add = async (data: Record<string, unknown>) =>
+      (await onboarder.who.send('POST', '/api/intake', data)).json<{
+        personId: string;
+        intakeId?: string;
+        status: string;
+      }>();
+    const phoneA = `6002${suffix()}`.slice(0, 9);
+    const phoneB = `6003${suffix()}`.slice(0, 9);
+    const a = await add({ name: `Bandeja Ana ${suffix()}`, phone: phoneA });
+    const b = await add({ name: `Bandeja Bea ${suffix()}`, phone: phoneB });
+    people.push(a.personId, b.personId);
+    // A record of Ana's that brought Bea's phone, waiting as a sync leaves it.
+    const reported = (
+      await superuser.query<{ id: string }>(
+        `INSERT INTO app.intake_records (source, external_id, payload, status, person_id, conflicts)
+         VALUES ('airtable', $1, $2::jsonb, 'conflict', $3, $4::jsonb) RETURNING id`,
+        [
+          `recBandeja${suffix()}`.padEnd(17, '0').slice(0, 17),
+          JSON.stringify({ name: 'Ana', phones: [`+34${phoneB}`] }),
+          a.personId,
+          JSON.stringify({ identities: [`+34${phoneB}`] }),
+        ],
+      )
+    ).rows[0]?.id;
+    expect(reported).toBeDefined();
+    const { items } = (await onboarder.who.send('GET', '/api/bandeja')).json<{
+      items: {
+        id: string;
+        person: { id: string; contacts?: { phones: string[] } } | null;
+        conflicts: {
+          identities?: { kind: string; value: string; holder: { id: string } | null }[];
+        };
+      }[];
+    }>();
+    const item = items.find((one) => one.person?.id === a.personId);
+    expect(item?.conflicts.identities).toEqual([
+      {
+        kind: 'phone',
+        value: `+34${phoneB}`,
+        holder: expect.objectContaining({ id: b.personId }),
+      },
+    ]);
+    expect(item?.person?.contacts?.phones).toEqual([`+34${phoneA}`]);
+    const count = (await onboarder.who.send('GET', '/api/bandeja/count')).json<{ count: number }>();
+    expect(count.count).toBeGreaterThanOrEqual(1);
+    expect((await outreacher.who.send('GET', '/api/bandeja/count')).statusCode).toBe(403);
+    expect(
+      (await onboarder.who.send('POST', `/api/bandeja/${item?.id}`, { decision: 'keep' }))
+        .statusCode,
+    ).toBe(200);
+  });
+
   it('keeps where someone lives and where they are from, and lists them by country (PLAN R74)', async () => {
     const added = await onboarder.who.send('POST', '/api/intake', {
       name: `Lugar Prueba ${suffix()}`,

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { Staff } from '@/session';
 
 import { SignOutButton } from '@/auth/SignOutButton';
+import { isUnavailable, readFromApi } from '@/data';
 import { censusUrl } from '@/onboarding/census/data';
 import { productName } from '@/product';
 import * as styles from '@/ui/styles';
@@ -25,15 +26,29 @@ const GROUP_LABELS = {
 /**
  * Every signed-in page's frame: the product's name, who is signed in, and the sections in groups by role (nav.ts, PLAN
  * M5), each list named by its group's label (aria-labelledby): a sidebar on a computer, a menu on a phone. The API
- * refuses what a role doesn't open anyway. `bandeja`, when the page knows it, is how many records wait in the Bandeja.
- * A skip link leads past it all to the page's content.
+ * refuses what a role doesn't open anyway. `bandeja` is how many records wait in the Bandeja: the page's, when it knows
+ * it, else asked here for onboarding staff, so the menu says it on every page (PLAN R78). A skip link leads past it all
+ * to the page's content.
  */
-export const AppShell = ({
+export const AppShell = async ({
   me,
-  bandeja,
+  bandeja: known,
   children,
 }: PropsWithChildren<{ me: Staff; bandeja?: number }>) => {
   const groups = navGroups(me.staff.roles, { census: censusUrl() !== '' });
+  const onboards = me.staff.roles.some((role) => role === 'admin' || role === 'onboarding');
+  const counted =
+    known === undefined && onboards
+      ? await readFromApi('/api/bandeja/count', (body) =>
+          typeof body === 'object' &&
+          body !== null &&
+          'count' in body &&
+          typeof body.count === 'number'
+            ? body.count
+            : undefined,
+        )
+      : known;
+  const bandeja = counted === undefined || isUnavailable(counted) ? undefined : counted;
   return (
     <>
       <a className={styles.skipLink} href="#contenido">

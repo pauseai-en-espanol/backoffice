@@ -1345,6 +1345,8 @@ CREATE FUNCTION private.import_batch(kind text, source app.source_kind, file_sha
     item jsonb;
     made uuid;
     existing app.intake_records;
+    changed app.intake_records;
+    found_conflicts jsonb;
     outcome app.intake_status;
     tally jsonb := jsonb_build_object('received', 0, 'unchanged', 0, 'created', 0, 'attached', 0, 'review', 0,
                                        'conflict', 0, 'updated', 0, 'erased', 0);
@@ -1379,9 +1381,18 @@ CREATE FUNCTION private.import_batch(kind text, source app.source_kind, file_sha
         UPDATE app.intake_records i SET payload = item -> 'payload', import_id = run WHERE i.id = existing.id;
         tally := jsonb_set(tally, '{updated}', to_jsonb((tally ->> 'updated')::int + 1));
         IF existing.person_id IS NOT NULL THEN
-          SELECT i.* INTO existing FROM app.intake_records i WHERE i.id = existing.id;
-          IF private.intake_attach(existing, existing.person_id) <> '{}' THEN
-            UPDATE app.intake_records i SET status = 'conflict' WHERE i.id = existing.id;
+          -- Only what the source changed is attached again, so a value someone corrected by hand isn't proposed back at
+          -- every sync; and what differs is kept, for the Bandeja to show and apply.
+          SELECT i.* INTO changed FROM app.intake_records i WHERE i.id = existing.id;
+          changed.payload := (SELECT coalesce(jsonb_object_agg(e.key, e.value), '{}')
+                                FROM jsonb_each(item -> 'payload') AS e(key, value)
+                               WHERE existing.payload -> e.key IS DISTINCT FROM e.value);
+          found_conflicts := private.intake_attach(changed, private.survivor(existing.person_id));
+          IF found_conflicts <> '{}' THEN
+            UPDATE app.intake_records i
+               SET status = 'conflict', conflicts = i.conflicts || found_conflicts, decided_at = NULL,
+                   decided_by = NULL
+             WHERE i.id = existing.id;
           END IF;
         END IF;
         CONTINUE;
