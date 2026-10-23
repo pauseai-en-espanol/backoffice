@@ -683,6 +683,15 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   included but beside a census answer (R24), with what using it would change; a phone, email or Discord already someone
   else's names whose, with a link, and how to merge them. Rows empty on every side are left out. Mutation lists
   `onboarding` and `message-templates`.
+- **R79. Hoy keeps what one just did at hand** (Dani, 2026-10-23: "in hoy i still do not see people i just did something
+  that section is a bit weird"). "Mis personas" listed only those needing something now: someone given a step for next
+  week, or just contacted, left it. Options: everyone mine in progress, and a "Recientes" row; needs-something and
+  "Recientes"; everyone mine alone. **Chose everyone mine and "Recientes"** (Dani): "Mis personas" lists everyone one
+  holds still in onboarding (Nuevo, En contacto, Bienvenida hecha) or needing something, what needs something first in
+  R70's order, then the rest by their step's day; "Recientes", above it, the last people one did anything with in the
+  past two weeks (a note, an attempt, a stage, taking them), whoever holds them, newest first, each a link beside their
+  stage. The figure still counts those needing something. The bot's `/mine` and the digest are unchanged. Mutation list
+  `hoy`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

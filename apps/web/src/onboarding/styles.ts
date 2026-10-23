@@ -859,3 +859,25 @@ export const handover = css({
   borderRadius: 'md',
   '& > p': { margin: '0' },
 });
+
+/** Hoy's "Recientes" (PLAN R79): who I last did something with, each a link beside their stage, side by side. */
+export const recentList = css({
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '2',
+  listStyle: 'none',
+  padding: '0',
+  margin: '0',
+  '& > li': {
+    display: 'inline-flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '2',
+    paddingInline: '3',
+    paddingBlock: '2',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: 'border.subtle',
+    borderRadius: 'md',
+  },
+});

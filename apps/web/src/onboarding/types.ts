@@ -154,9 +154,13 @@ export interface PersonPage {
 }
 
 export interface Today {
+  /** Everyone mine still in onboarding or needing something, what needs something first (PLAN R79). */
   mine: PersonSummary[];
+  /** Who I last did something with, newest first. */
+  recent: PersonSummary[];
   unassigned: PersonSummary[];
-  counts: { mine: number; unassigned: number; bandeja: number };
+  /** `mine`: of mine, those needing something; `inProgress`: all of them Hoy lists. */
+  counts: { mine: number; inProgress: number; unassigned: number; bandeja: number };
 }
 
 export interface PeoplePage {
@@ -654,14 +658,18 @@ export const parseToday = (body: unknown): Today | undefined => {
     return undefined;
   }
   const mine = every(body.mine, parseSummary);
+  // An older API sent no recent people.
+  const recent = body.recent === undefined ? [] : every(body.recent, parseSummary);
   const unassigned = every(body.unassigned, parseSummary);
   const counts = isRecord(body.counts) ? body.counts : {};
-  return mine && unassigned
+  return mine && recent && unassigned
     ? {
         mine,
+        recent,
         unassigned,
         counts: {
           mine: isRecord(body.counts) ? count(counts.mine) : mine.length,
+          inProgress: counts.inProgress === undefined ? mine.length : count(counts.inProgress),
           unassigned: isRecord(body.counts) ? count(counts.unassigned) : unassigned.length,
           bandeja: count(counts.bandeja),
         },

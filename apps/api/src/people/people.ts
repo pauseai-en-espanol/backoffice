@@ -8,6 +8,7 @@ import {
   phoneSearchDigits,
 } from '@backoffice/domain/identities';
 import { type MissingDetail, missingDetails } from '@backoffice/domain/missing';
+import { OPEN_STAGES } from '@backoffice/domain/stages';
 import { type RawBuilder, sql, type Transaction } from 'kysely';
 
 /**
@@ -434,23 +435,42 @@ const URGENCY = sql`
        WHEN p.stage = 'new' THEN 2
        ELSE 3 END`;
 
-/** Hoy: my people needing attention, the unassigned queue (oldest first), and the Bandeja's size. */
+/** Mine in Hoy (PLAN R79): still in onboarding, or needing something. */
+const MINE_IN_HOY = (me: string) => sql`
+  p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.owner_id = ${me}
+  AND (p.stage::text = ANY (${[...OPEN_STAGES]}::text[]) OR cardinality(coalesce(a.reasons, '{}')) > 0)`;
+
+/**
+ * Hoy: my people (PLAN R79), everyone I hold still in onboarding or needing something, what needs something first (in
+ * R70's order of urgency), then the rest by their step's day; those I last did something with, whoever holds them;
+ * the unassigned queue (oldest first); and the Bandeja's size.
+ */
 export const today = async (trx: Transaction<DB>, me: string) => {
   const mine = await sql<SummaryRow>`
     SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
-     WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL AND p.owner_id = ${me}
-       AND cardinality(a.reasons) > 0
-     ORDER BY ${URGENCY}, p.next_action_due NULLS LAST, p.created_at
+     WHERE ${MINE_IN_HOY(me)}
+     ORDER BY cardinality(coalesce(a.reasons, '{}')) = 0, ${URGENCY}, p.next_action_due NULLS LAST, p.created_at
      LIMIT 100`.execute(trx);
+  // What I did lately, in the last two weeks, by the person it was done to, newest first.
+  const recent = await sql<SummaryRow>`
+    SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
+      JOIN (SELECT e.person_id, max(e.created_at) AS touched_at FROM app.person_events e
+             WHERE e.actor_id = ${me} AND e.created_at > now() - interval '14 days'
+             GROUP BY e.person_id) r ON r.person_id = p.id
+     WHERE p.merged_into IS NULL AND p.anonymised_at IS NULL
+     ORDER BY r.touched_at DESC
+     LIMIT 8`.execute(trx);
   const unassigned = await sql<SummaryRow>`
     SELECT ${SUMMARY_COLUMNS} FROM ${SUMMARY_FROM}
      WHERE 'unassigned' = ANY (a.reasons)
      ORDER BY p.arrived_on, p.created_at
      LIMIT 100`.execute(trx);
   const [counts] = (
-    await sql<{ mine: number; unassigned: number; bandeja: number }>`
+    await sql<{ mine: number; inProgress: number; unassigned: number; bandeja: number }>`
       SELECT (SELECT count(*)::int FROM app.people p JOIN app.people_attention a ON a.person_id = p.id
                WHERE p.owner_id = ${me} AND cardinality(a.reasons) > 0) AS mine,
+             (SELECT count(*)::int FROM app.people p LEFT JOIN app.people_attention a ON a.person_id = p.id
+               WHERE ${MINE_IN_HOY(me)}) AS "inProgress",
              (SELECT count(*)::int FROM app.people_attention a WHERE 'unassigned' = ANY (a.reasons)) AS unassigned,
              (SELECT count(*)::int FROM app.intake_records i WHERE i.status IN ('review', 'conflict')) AS bandeja`.execute(
       trx,
@@ -458,8 +478,9 @@ export const today = async (trx: Transaction<DB>, me: string) => {
   ).rows;
   return {
     mine: mine.rows.map(toSummary),
+    recent: recent.rows.map(toSummary),
     unassigned: unassigned.rows.map(toSummary),
-    counts: counts ?? { mine: 0, unassigned: 0, bandeja: 0 },
+    counts: counts ?? { mine: 0, inProgress: 0, unassigned: 0, bandeja: 0 },
   };
 };
 

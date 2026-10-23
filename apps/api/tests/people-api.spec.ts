@@ -534,6 +534,52 @@ describe('onboarding through the staff API (M1)', () => {
     expect(mine.find((p) => p.id === justTaken)?.reasons).toEqual(['no_next_step']);
   });
 
+  it('keeps on Hoy everyone of mine still in onboarding, needing something first, and who I just worked with (PLAN R79)', async () => {
+    const { personId } = (
+      await onboarder.who.send('POST', '/api/intake', {
+        name: `Quieta Ejemplo ${suffix()}`,
+        decision: 'new',
+      })
+    ).json<{ personId: string }>();
+    people.push(personId);
+    expect((await onboarder.who.send('POST', `/api/people/${personId}/claim`)).statusCode).toBe(
+      204,
+    );
+    const { rows } = await superuser.query(
+      `SELECT to_char((now() AT TIME ZONE 'Europe/Madrid')::date + 30, 'YYYY-MM-DD') AS later`,
+    );
+    // A step a month away: nothing needed now, and still hers to welcome.
+    expect(
+      (
+        await onboarder.who.send('PATCH', `/api/people/${personId}`, {
+          nextAction: 'Llamar',
+          nextActionDue: (rows[0] as { later: string }).later,
+        })
+      ).statusCode,
+    ).toBe(204);
+    // Someone else's doings, a moment later, are theirs, not mine.
+    const theirs = (
+      await admin.who.send('POST', '/api/intake', {
+        name: `Ajena Ejemplo ${suffix()}`,
+        decision: 'new',
+      })
+    ).json<{ personId: string }>().personId;
+    people.push(theirs);
+    const hoy = (await onboarder.who.send('GET', '/api/today')).json<{
+      mine: { id: string; reasons: string[] }[];
+      recent: { id: string }[];
+      counts: { mine: number; inProgress: number };
+    }>();
+    expect(hoy.recent.map((one) => one.id)).not.toContain(theirs);
+    const at = hoy.mine.findIndex((one) => one.id === personId);
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(hoy.mine[at]?.reasons).toEqual([]);
+    // Whatever needs something comes before.
+    expect(hoy.mine.slice(at).every((one) => one.reasons.length === 0)).toBe(true);
+    expect(hoy.recent[0]?.id).toBe(personId);
+    expect(hoy.counts.inProgress).toBeGreaterThanOrEqual(hoy.counts.mine + 1);
+  });
+
   it('sends a likely duplicate to the Bandeja, where it is attached; then merges two people', async () => {
     const name = `Nerea Duplicada ${suffix()}`;
     const first = (await onboarder.who.send('POST', '/api/intake', { name })).json<{

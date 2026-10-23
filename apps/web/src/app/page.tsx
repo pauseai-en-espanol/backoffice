@@ -10,7 +10,7 @@ import { isUnavailable } from '@/data';
 import { ClaimButton } from '@/onboarding/ClaimButton';
 import { getToday } from '@/onboarding/data';
 import { personName } from '@/onboarding/names';
-import { PersonItem } from '@/onboarding/PersonItem';
+import { PersonItem, StageTag } from '@/onboarding/PersonItem';
 import * as onboarding from '@/onboarding/styles';
 import { canOnboard, onboardingErrors, personLabels } from '@/onboarding/text';
 import { mineLinks, unassignedQueue } from '@/onboarding/today';
@@ -83,7 +83,10 @@ const Today = async () => {
   const queue = isUnavailable(today)
     ? undefined
     : unassignedQueue(today.unassigned, today.counts.unassigned);
-  const mine = isUnavailable(today) ? undefined : mineLinks(today.mine.length, today.counts.mine);
+  // "Ver las N que necesitan algo" only when Hoy got fewer of them than it counted (PLAN R70, R79).
+  const mine = isUnavailable(today)
+    ? undefined
+    : mineLinks(today.mine.filter((person) => person.reasons.length > 0).length, today.counts.mine);
 
   return (
     <AppShell me={me} bandeja={isUnavailable(today) ? undefined : today.counts.bandeja}>
@@ -112,6 +115,27 @@ const Today = async () => {
               </Link>
             </p>
           ) : null}
+          {today.recent.length === 0 ? null : (
+            <section aria-labelledby="recientes">
+              <h2 id="recientes" className={styles.h2}>
+                {t('today.recent')}
+              </h2>
+              <p className={styles.text}>{t('today.recentIntro')}</p>
+              <ul className={onboarding.recentList}>
+                {today.recent.map((person) => (
+                  <li key={person.id}>
+                    <Link
+                      className={styles.link}
+                      href={`/personas/${encodeURIComponent(person.id)}`}
+                    >
+                      {personName(person.name, labels.noName)}
+                    </Link>
+                    <StageTag label={labels.stages[person.stage]} stage={person.stage} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section aria-labelledby="mias">
             <h2 id="mias" className={styles.h2}>
               {t('today.mine')}

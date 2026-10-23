@@ -56,5 +56,21 @@
     "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"claim from it\"",
     "cwd": "e2e",
     "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Hoy lists only those of mine needing something",
+    "file": "apps/api/src/people/people.ts",
+    "old": "  AND (p.stage::text = ANY (${[...OPEN_STAGES]}::text[]) OR cardinality(coalesce(a.reasons, '{}')) > 0)`;",
+    "new": "  AND cardinality(coalesce(a.reasons, '{}')) > 0`;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Hoy's \"Recientes\" are anyone's doings, not mine",
+    "file": "apps/api/src/people/people.ts",
+    "old": "             WHERE e.actor_id = ${me} AND e.created_at > now() - interval '14 days'",
+    "new": "             WHERE e.created_at > now() - interval '14 days'",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
   }
 ]
