@@ -22,7 +22,7 @@ export const button = css({
   _focusVisible: focusRing,
 });
 
-/** "Ctrl K": said to everyone, shown only where there's a keyboard to press it on. */
+/** "Ctrl K" or "⌘K": said to everyone, shown only where there's a keyboard to press it on. */
 export const keys = css({
   display: { base: 'none', md: 'inline' },
   marginInlineStart: 'auto',

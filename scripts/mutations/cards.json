@@ -26,8 +26,8 @@
   {
     "name": "a blank province counts as known",
     "file": "packages/domain/src/missing.ts",
-    "old": "    province: (person.province ?? '').trim() !== '',",
-    "new": "    province: person.province !== null,",
+    "old": "      (person.province ?? '').trim() !== '' ||",
+    "new": "      person.province !== null ||",
     "cmd": "pnpm exec vitest run src/missing.spec.ts",
     "cwd": "packages/domain"
   },

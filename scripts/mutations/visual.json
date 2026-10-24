@@ -66,16 +66,16 @@
   {
     "name": "two open stages share a colour",
     "file": "apps/web/src/ui/icons.ts",
-    "old": "  dormant: 'stageDormant',",
-    "new": "  dormant: 'stageNew',",
+    "old": "  active: 'stageActive',\n  dormant: 'stageDormant',\n  unresponsive:",
+    "new": "  active: 'stageActive',\n  dormant: 'stageNew',\n  unresponsive:",
     "cmd": "pnpm exec vitest run src/onboarding/card.spec.ts",
     "cwd": "apps/web"
   },
   {
     "name": "a stage's pill without its icon",
     "file": "apps/web/src/onboarding/PersonItem.tsx",
-    "old": "      <Icon icon={STAGE_ICONS[stage]} size={15} />\n",
-    "new": "",
+    "old": "    <Icon icon={icon} size={15} />\n    {label}\n",
+    "new": "    {label}\n",
     "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
     "cmd": "pnpm exec playwright test tests/lists.spec.ts --project chromium",
     "cwd": "e2e",

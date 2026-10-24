@@ -18,6 +18,7 @@ import { icons } from '@/ui/icons';
 import { srOnly } from '@/ui/styles';
 
 import * as styles from './search-styles';
+import { isSearchShortcut, searchShortcutAria, useApple } from './shortcut';
 
 type Group = 'recent' | 'people' | 'contacts' | 'organisations' | 'actions' | 'pages';
 
@@ -78,7 +79,8 @@ const parseFound = (body: Record<string, unknown>): Found => ({
 
 export interface SearchText {
   open: string;
-  keys: string;
+  /** The shortcut as each system writes it: "⌘K" on Apple's, "Ctrl K" on the rest. */
+  keys: { apple: string; other: string };
   title: string;
   placeholder: string;
   groups: Record<Group, string>;
@@ -87,16 +89,17 @@ export interface SearchText {
   /** "{count} resultados" */
   count: string;
   searching: string;
+  /** "… Ábrelo desde cualquier página con {keys}." */
   help: string;
   noName: string;
   stages: Record<Stage, string>;
 }
 
 /**
- * The search from anywhere (PLAN R80): Ctrl K (⌘K on a Mac), or its button in the header, opens a dialog that finds as
- * it's typed: people by name, phone, email or Discord, best first (onboarding staff), contacts and organisations
- * (outreach staff), the sections and what can be done. Nothing typed, the people one last worked with. The arrows move,
- * Enter opens, Escape closes and puts focus back.
+ * The search from anywhere (PLAN R80): Ctrl K, ⌘K on a Mac (R85), or its button in the header, opens a dialog that
+ * finds as it's typed: people by name, phone, email or Discord, best first (onboarding staff), contacts and
+ * organisations (outreach staff), the sections and what can be done. Nothing typed, the people one last worked with.
+ * The arrows move, Enter opens, Escape closes and puts focus back.
  */
 export const Search = ({
   pages,
@@ -114,10 +117,12 @@ export const Search = ({
   const [searching, setSearching] = useState(false);
   const [active, setActive] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const apple = useApple();
+  const keys = apple ? text.keys.apple : text.keys.other;
 
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      if (isSearchShortcut(event, apple)) {
         event.preventDefault();
         setOpen(true);
         setSearching(true);
@@ -125,7 +130,7 @@ export const Search = ({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [apple]);
 
   // As it's typed, a moment after the last key.
   useEffect(() => {
@@ -233,11 +238,11 @@ export const Search = ({
       lazyMount
       unmountOnExit
     >
-      <Dialog.Trigger className={styles.button}>
+      <Dialog.Trigger className={styles.button} aria-keyshortcuts={searchShortcutAria(apple)}>
         <Icon icon={icons.search} size={18} />
         {text.open}
         <span className={styles.keys} aria-hidden="true">
-          {text.keys}
+          {keys}
         </span>
       </Dialog.Trigger>
       <Portal>
@@ -306,7 +311,7 @@ export const Search = ({
               ))}
             </div>
             <p id="buscar-ayuda" className={styles.footer}>
-              {text.help}
+              {fill(text.help, { keys })}
             </p>
           </Dialog.Content>
         </Dialog.Positioner>

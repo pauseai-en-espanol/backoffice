@@ -101,6 +101,7 @@
     "search": {
       "open": "Buscar en todo",
       "keys": "Ctrl K",
+      "keysApple": "⌘K",
       "title": "Buscar",
       "placeholder": "Una persona, un teléfono, un correo, una sección…",
       "recent": "Recientes",
@@ -112,7 +113,7 @@
       "none": "Nada coincide con «{q}».",
       "count": "{count} resultados",
       "searching": "Buscando…",
-      "help": "Flechas para moverte, Intro para abrir, Esc para cerrar. Ábrelo desde cualquier página con Ctrl K (⌘K en Mac).",
+      "help": "Flechas para moverte, Intro para abrir, Esc para cerrar. Ábrelo desde cualquier página con {keys}.",
       "addPerson": "Añadir una persona",
       "newContact": "Nuevo contacto"
     }

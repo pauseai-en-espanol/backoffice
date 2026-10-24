@@ -2,8 +2,8 @@
   {
     "name": "Hoy lists my people by their step's day and age alone, so someone just taken comes last",
     "file": "apps/api/src/people/people.ts",
-    "old": "ORDER BY ${URGENCY}, p.next_action_due NULLS LAST",
-    "new": "ORDER BY p.next_action_due NULLS LAST",
+    "old": "ORDER BY cardinality(coalesce(a.reasons, '{}')) = 0, ${URGENCY}, p.next_action_due NULLS LAST",
+    "new": "ORDER BY cardinality(coalesce(a.reasons, '{}')) = 0, p.next_action_due NULLS LAST",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
     "cwd": "apps/api"
   },
@@ -97,5 +97,37 @@
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
     "cwd": "apps/api",
     "equivalent": "RLS shows people to onboarding staff and admins only: the search finds none for outreach staff either way"
+  },
+  {
+    "name": "a Mac's Ctrl K is taken from its text fields",
+    "file": "apps/web/src/shell/shortcut.ts",
+    "old": "(apple ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) &&",
+    "new": "(event.metaKey || event.ctrlKey) &&",
+    "cmd": "pnpm exec vitest run src/shell/shortcut.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "a Mac is told Ctrl K",
+    "file": "apps/web/src/shell/shortcut.ts",
+    "old": "/Mac|iPhone|iPad|iPod/u.test(userAgent)",
+    "new": "/iPhone|iPad|iPod/u.test(userAgent)",
+    "cmd": "pnpm exec vitest run src/shell/shortcut.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "Ctrl Shift K is taken from the browser",
+    "file": "apps/web/src/shell/shortcut.ts",
+    "old": "  !event.altKey &&\n  !event.shiftKey;",
+    "new": "  !event.altKey;",
+    "cmd": "pnpm exec vitest run src/shell/shortcut.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "assistive technology is told Ctrl K on a Mac",
+    "file": "apps/web/src/shell/shortcut.ts",
+    "old": "(apple ? 'Meta+K' : 'Control+K')",
+    "new": "'Control+K'",
+    "cmd": "pnpm exec vitest run src/shell/shortcut.spec.ts",
+    "cwd": "apps/web"
   }
 ]

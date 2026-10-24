@@ -731,6 +731,13 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   and total, the most people first, and "Sin indicar" last; each country links to Personas filtered by it, which finds
   the same people (merged and erased ones left out). A table with bars to scale, as "Por etapa" (R66).
   `GET /api/panel` adds `countries`. Mutation list `places`.
+- **R85. The search's shortcut is each system's own** (Dani, 2026-10-24: "search ctrl + k (but in mac it is not
+  ctrl, right?)"). Both Ctrl K and ⌘K opened it everywhere, and the header said "Ctrl K" on a Mac too, where the page
+  then took Ctrl K from every text field (macOS deletes to the end of the line with it). **Chose each system's own**:
+  ⌘K on a Mac, an iPhone or an iPad (by the browser's user agent), Ctrl K elsewhere, neither with Shift or Alt (Ctrl
+  Shift K is a browser's console); the header and the dialog's help say that one, and the button tells assistive
+  technology (`aria-keyshortcuts`). The server renders Ctrl K, and an Apple browser switches it once hydrated.
+  Mutation list `hoy`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

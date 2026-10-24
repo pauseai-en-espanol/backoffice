@@ -75,7 +75,7 @@ export const AppShell = async ({
           ]}
           text={{
             open: t('web.search.open'),
-            keys: t('web.search.keys'),
+            keys: { apple: t('web.search.keysApple'), other: t('web.search.keys') },
             title: t('web.search.title'),
             placeholder: t('web.search.placeholder'),
             groups: {
@@ -89,7 +89,7 @@ export const AppShell = async ({
             none: String(t.raw('web.search.none')),
             count: String(t.raw('web.search.count')),
             searching: t('web.search.searching'),
-            help: t('web.search.help'),
+            help: String(t.raw('web.search.help')),
             noName: t('people.noName'),
             stages: stageNames(t),
           }}
