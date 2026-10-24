@@ -2,7 +2,7 @@
 
 import type { Messages } from '@backoffice/i18n/catalog';
 
-import { COUNTRY_GROUPS, countryName, SPAIN, SPANISH_PROVINCES } from '@backoffice/domain/places';
+import { COUNTRY_GROUPS, countryName, regionsOf, SPAIN } from '@backoffice/domain/places';
 import Link from 'next/link';
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 
@@ -410,9 +410,13 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
     </div>
   );
 
-  /** Spain's provinces suggested while the country is Spain, or not said yet. */
-  const provinces = (picked: string) =>
-    picked === '' || picked === SPAIN ? 'census-provinces' : undefined;
+  /**
+   * The country's regions suggested (PLAN R83): Spain's provinces while it's Spain or not said yet, and Latin America's
+   * and the United States' regions. A list for each country picked, its code in its id.
+   */
+  const regionList = (picked: string): string | undefined =>
+    regionsOf(picked).length > 0 ? `census-regions-${picked || SPAIN}` : undefined;
+  const listed = [...new Set([countries.country, countries.originCountry].map((c) => c || SPAIN))];
 
   const optionGroup = (legend: string, options: CensusOption[]): ReactNode => (
     <fieldset className={styles.fieldset}>
@@ -448,7 +452,7 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
           {countrySelect('country', text.country)}
           {textField('province', text.province, {
             autoComplete: 'address-level1',
-            list: provinces(countries.country),
+            list: regionList(countries.country),
           })}
           {textField('town', text.town, { autoComplete: 'address-level2' })}
           <fieldset className={styles.fieldset} aria-describedby="census-origin-hint">
@@ -458,16 +462,20 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
             </p>
             {countrySelect('originCountry', text.originCountry)}
             {textField('originProvince', text.originProvince, {
-              list: provinces(countries.originCountry),
+              list: regionList(countries.originCountry),
             })}
           </fieldset>
-          <datalist id="census-provinces">
-            {SPANISH_PROVINCES.map((province) => (
-              <option key={province} value={province}>
-                {province}
-              </option>
-            ))}
-          </datalist>
+          {listed.map((code) =>
+            regionsOf(code).length > 0 ? (
+              <datalist key={code} id={`census-regions-${code}`}>
+                {regionsOf(code).map((region) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </datalist>
+            ) : null,
+          )}
           {textField('languages', text.languages, { hint: text.languagesHint })}
         </fieldset>
 

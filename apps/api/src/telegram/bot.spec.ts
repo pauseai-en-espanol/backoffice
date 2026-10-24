@@ -98,7 +98,11 @@ const fakeStore = (candidates: Candidate[] = []) => {
           : [{ ...ana, personId: NEW_PERSON, name: 'Nueva Persona' }];
       }
       if (scope === 'search') {
-        return query.phones?.includes(PHONE) || /ana/iu.test(query.text ?? '') ? [ana] : [];
+        return query.phones?.includes(PHONE) ||
+          (query.digits !== undefined && PHONE.includes(query.digits)) ||
+          /ana/iu.test(query.text ?? '')
+          ? [ana]
+          : [];
       }
       return [ana];
     },
@@ -402,7 +406,7 @@ describe('lists', () => {
     expect(help).toContain('/cancel (/cancelar) — Dejar lo que estábamos haciendo');
     await bot.say('/search');
     expect(bot.sent.at(-1)?.text).toBe(
-      'Escribe /search (/buscar) seguido de un nombre o un teléfono.',
+      'Escribe /search (/buscar) seguido de un nombre o un teléfono; basta con 6 de sus cifras.',
     );
     await bot.say('hola');
     expect(bot.sent.at(-1)?.text).toBe(
@@ -487,6 +491,31 @@ describe('/sync (/sincronizar)', () => {
     await bot.say('/sync');
     expect(runs).toBe(2);
     expect(bot.sent.at(-1)?.text).toMatch(/muchas veces/u);
+  });
+});
+
+describe('/search (/buscar) by part of a phone (PLAN R82)', () => {
+  it('finds someone by 6 of its digits, however written, and deletes the message', async () => {
+    const bot = setup();
+    const id = await bot.say('/buscar 111-222');
+    expect(bot.sent.at(-1)?.text).toContain('• Ana Ejemplo: Nuevo, sin asignar');
+    expect(bot.deleted).toEqual([{ chatId: TG, messageId: id }]);
+  });
+
+  it('reads fewer digits as a name, which finds nobody', async () => {
+    const bot = setup();
+    await bot.say('/buscar 1222');
+    expect(bot.sent.at(-1)?.text).toBe('No encuentro a nadie así.');
+    expect(bot.deleted).toEqual([]);
+  });
+
+  it('finds someone leaving by part of their phone too', async () => {
+    const bot = setup();
+    await bot.say('/baja 111 222');
+    expect(buttons(bot.sent.at(-1)).map((b) => b.text)).toEqual([
+      'Ana Ejemplo · Nuevo',
+      'Cancelar',
+    ]);
   });
 });
 

@@ -229,10 +229,11 @@ describe('Telegram links and their codes (ADR-0004)', () => {
 describe("the team group's posts", () => {
   it('show only recent arrivals or people already posted, without an actor', async () => {
     await inRolledBackTransaction(async (client) => {
-      // An arrival of three days ago, written past the stamp trigger (superuser only).
+      // An arrival of three days ago, living abroad (PLAN R81), written past the stamp trigger (superuser only).
       await client.query("SET LOCAL session_replication_role = 'replica'");
       await client.query(
-        `UPDATE app.people SET created_at = now() - interval '3 days' WHERE id = $1`,
+        `UPDATE app.people SET created_at = now() - interval '3 days', province = 'Baviera', country = 'DE'
+          WHERE id = $1`,
         [PEOPLE.ana],
       );
       await client.query("SET LOCAL session_replication_role = 'origin'");
@@ -254,7 +255,8 @@ describe("the team group's posts", () => {
         {
           person_id: PEOPLE.ana,
           name: 'Ana Ejemplo Uno',
-          province: null,
+          province: 'Baviera',
+          country: 'DE',
           sources: ['manual'],
           stage: 'new',
           owner_name: 'Persona onboarder',

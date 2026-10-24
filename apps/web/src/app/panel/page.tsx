@@ -1,18 +1,21 @@
 import type { Metadata } from 'next';
 import type { CSSProperties } from 'react';
 
+import { countryName } from '@backoffice/domain/places';
 import { STAGES } from '@backoffice/domain/stages';
 import { getTranslator } from '@backoffice/i18n/messages';
 import Link from 'next/link';
 
 import { isUnavailable } from '@/data';
 import { getPanel } from '@/onboarding/data';
+import { NO_FILTERS, pageQuery } from '@/onboarding/filters';
 import { formatDay, formatInstantDay } from '@/onboarding/format';
 import { personName } from '@/onboarding/names';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
 import {
   barShare,
   channelsIn,
+  countryGroups,
   PANEL_WEEKS,
   waitIn,
   weeksFrom,
@@ -67,6 +70,9 @@ const PanelPage = async ({
   const channels = channelsIn(panel.arrivalsByChannel);
   const totalPeople = STAGES.reduce((sum, stage) => sum + (panel.stages[stage] ?? 0), 0);
   const mostInAStage = Math.max(0, ...STAGES.map((stage) => panel.stages[stage] ?? 0));
+  const byCountry = countryGroups(panel.countries);
+  const mostInACountry = Math.max(0, ...Object.values(panel.countries));
+  const totalPlaced = byCountry.reduce((sum, group) => sum + group.total, 0);
   const { arrived, contacted, medianHours, p90Hours } = panel.firstContact;
 
   return (
@@ -139,6 +145,69 @@ const PanelPage = async ({
             </tfoot>
           </table>
         </div>
+      </section>
+
+      <section className={onboarding.section} aria-labelledby="por-pais">
+        <h2 id="por-pais" className={styles.h2}>
+          {t('panel.byCountry')}
+        </h2>
+        <p className={styles.hint}>{t('panel.byCountryIntro')}</p>
+        {byCountry.length === 0 ? (
+          <p className={styles.text}>{t('panel.byCountryNone')}</p>
+        ) : (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <caption className={styles.srOnly}>{t('panel.byCountry')}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t('panel.country')}</th>
+                  <th scope="col">{t('panel.people')}</th>
+                </tr>
+              </thead>
+              {/* Spain, then Latin America and the rest of the world under their names and totals (D19), then
+                  nobody knows; each country leads to its people in Personas. */}
+              {byCountry.map(({ group, total, rows }) => (
+                <tbody key={group}>
+                  {group === 'latinAmerica' || group === 'world' ? (
+                    <tr>
+                      <th scope="rowgroup" colSpan={2} className={onboarding.rowGroup}>
+                        {t(`panel.countryGroups.${group}`, { count: total })}
+                      </th>
+                    </tr>
+                  ) : null}
+                  {rows.map(({ code, count }) => (
+                    <tr key={code}>
+                      <th scope="row">
+                        <Link
+                          className={styles.link}
+                          href={`/personas${pageQuery({ ...NO_FILTERS, country: code })}`}
+                        >
+                          {code === 'none' ? t('panel.countryNone') : countryName(code)}
+                        </Link>
+                      </th>
+                      <td className={onboarding.countWithBar}>
+                        <span
+                          className={onboarding.bar}
+                          aria-hidden="true"
+                          style={
+                            { '--share': barShare(count, mostInACountry) / 100 } as CSSProperties
+                          }
+                        />
+                        {count}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              ))}
+              <tfoot>
+                <tr>
+                  <th scope="row">{t('panel.total')}</th>
+                  <td>{totalPlaced}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className={onboarding.section} aria-labelledby="por-donde">

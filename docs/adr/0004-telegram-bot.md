@@ -103,10 +103,11 @@ Catalan, Galician or Basque Telegram sees them too, and the English ones for peo
 
 ### 5. Notifications
 
-- **Team group (optional, D11):** the bot posts each new arrival, from any source, to the onboarding team's
-  Telegram group: name, source, province if known, and the buttons "Me lo quedo" and "Abrir". When someone claims
-  it, the message is edited to show who (`private.telegram_posts`). **No contact details** are posted in the group.
-  Only linked staff can press the buttons; anyone else gets "No autorizado".
+- **Team group (optional, D11):** the bot posts each new arrival, from any source, to the onboarding team's Telegram
+  group: name, source, where they live if known (province or region, and country; PLAN R81), and the buttons "Me lo
+  quedo" and "Abrir". When someone claims it, the message is edited to show who (`private.telegram_posts`).
+  **No contact details** are posted in the group. Only linked staff can press the buttons; anyone else gets "No
+  autorizado".
 - **Daily digest** at 09:00 Europe/Madrid, by Telegram to each linked onboarder with something pending (by email to
   those without Telegram). Its content is in the [onboarding spec §8](../spec/onboarding.md#8-notifications).
 
@@ -139,11 +140,11 @@ Agree the reporting rule with the community's admins: whoever approves or sees a
   linked staff member through the bot channel, and reaches people only through `private.bot_people`,
   `bot_candidates`, `bot_summary`, `submit_intake`, `claim_person` and `report_leave`.
 - **Contact details:** a `/joined` is saved only after the reporter confirms; its external id is
-  `tg:<chat>:<first message>`, so a repeated confirmation saves once. Then every message of the conversation that
-  held a phone or email is deleted, and the bot says whether it could. A `/left` or `/search` by phone deletes its
-  message too. So does a conversation that ends without saving (`/cancel`, "Cancelar", "No", or another command),
-  and one that expires: the API forgets expired conversations every ten minutes and deletes their messages, within
-  Telegram's 48 hours (security review, 2026-10-16).
+  `tg:<chat>:<first message>`, so a repeated confirmation saves once. Then every message of the conversation that held
+  a phone or email is deleted, and the bot says whether it could. A `/left` or `/search` by phone, or by 6 or more of
+  its digits (PLAN R82), deletes its message too. So does a conversation that ends without saving (`/cancel`,
+  "Cancelar", "No", or another command), and one that expires: the API forgets expired conversations every ten minutes
+  and deletes their messages, within Telegram's 48 hours (security review, 2026-10-16).
 - **`/sync`** runs at most ten times an hour per person, as the staff app's button, and one sync at a time: a request
   while one runs gets its result instead of reading Global's view again.
 - **Text from outside links nowhere:** names and provinces come from forms, Airtable and CSVs, and Telegram makes

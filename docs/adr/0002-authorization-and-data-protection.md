@@ -122,7 +122,8 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   - `private.resolve_intake`, `private.import_csv`, `private.merge_people`: the staff app only.
   - `private.claim_person`, `private.report_leave`: the staff app or the bot.
   - `private.bot_people`, `private.bot_candidates`: the bot's reads (and the staff app's duplicate check): names,
-    stages, owners and attention reasons, never contact details.
+    stages, owners and attention reasons, never contact details. `bot_people`'s search matches a phone exactly, or
+    by a run of 6 or more of its digits (2026-10-24, PLAN R82), and still returns only those.
   - `private.ingest_airtable`, with `private.airtable_link` and `private.airtable_ran` (2026-10-17): the ingest
     role's only grants ([ADR-0005](0005-airtable-intake.md)): the link admins set, encrypted, only while the sync is
     on; the records; how a run went, by its kind. The app role executes none of them, and can't select the link's
@@ -137,11 +138,11 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 - **pg_trgm** lives in an `extensions` schema of its own: only the app role may look in it (for names' similarity).
   A trusted extension's functions belong to the bootstrap superuser, executable by PUBLIC, so the schema is what's
   closed; a catalog test keeps it so.
-- **Two exceptions without an actor**, for the team group's posts (ADR-0004 §8): `private.team_card(person)`
-  returns only what a post in the group shows (name, province, sources, stage, owner), and only for someone added
-  in the last 48 hours who arrived within the settings' window (ADR-0004), or who already has a sent post;
-  `private.team_unposted(chat)` returns ids. The bot posts
-  arrivals from every source, the hourly Airtable sync's included, which has no person behind it.
+- **Two exceptions without an actor**, for the team group's posts (ADR-0004 §8): `private.team_card(person)` returns
+  only what a post in the group shows (name, province, country since 2026-10-24, sources, stage, owner), and only for
+  someone added in the last 48 hours who arrived within the settings' window (ADR-0004), or who already has a sent
+  post; `private.team_unposted(chat)` returns ids. The bot posts arrivals from every source, the hourly Airtable
+  sync's included, which has no person behind it.
 - **Erasure** (M2 and M3, [personal data](../spec/personal-data.md)): `private.anonymise_person` and
   `private.anonymise_contact`, each `SECURITY DEFINER` to blank append-only timeline text (the owner's `app.redact`),
   each for admins through the staff app alone, checked first.

@@ -8,7 +8,8 @@ import {
   LATIN_AMERICA,
   normalizeCountry,
   placeLine,
-  provinceMatches,
+  regionMatches,
+  regionsOf,
   SPANISH_PROVINCES,
   spanishProvince,
 } from './places.js';
@@ -75,11 +76,61 @@ describe('Spain’s provinces (PLAN R74)', () => {
   });
 
   it('are found as they are typed, by part of any of their names', () => {
-    expect(provinceMatches('Bizkaia', 'vizc')).toBe(true);
-    expect(provinceMatches('Bizkaia', 'bizk')).toBe(true);
-    expect(provinceMatches('Lleida', 'lérid')).toBe(true);
-    expect(provinceMatches('Alicante/Alacant', 'alacant')).toBe(true);
-    expect(provinceMatches('Sevilla', 'vizc')).toBe(false);
+    expect(regionMatches('ES', 'Bizkaia', 'vizc')).toBe(true);
+    expect(regionMatches('ES', 'Bizkaia', 'bizk')).toBe(true);
+    expect(regionMatches('ES', 'Lleida', 'lérid')).toBe(true);
+    expect(regionMatches('ES', 'Alicante/Alacant', 'alacant')).toBe(true);
+    expect(regionMatches('ES', 'Sevilla', 'vizc')).toBe(false);
+    // While the country isn't said, they're Spain's.
+    expect(regionMatches(null, 'Bizkaia', 'vizc')).toBe(true);
+    expect(regionMatches('', 'Bizkaia', 'vizc')).toBe(true);
+  });
+
+  it('are what’s offered while the country is Spain or not said', () => {
+    expect(regionsOf('ES')).toBe(SPANISH_PROVINCES);
+    expect(regionsOf(null)).toBe(SPANISH_PROVINCES);
+    expect(regionsOf('')).toBe(SPANISH_PROVINCES);
+  });
+});
+
+describe('other countries’ regions (PLAN R83)', () => {
+  it('are each of Latin America’s, and the United States’, once and by name', () => {
+    expect(regionsOf('MX')).toHaveLength(32);
+    expect(regionsOf('AR')).toHaveLength(24);
+    expect(regionsOf('CO')).toHaveLength(33);
+    expect(regionsOf('BR')).toHaveLength(27);
+    expect(regionsOf('CL')).toHaveLength(16);
+    expect(regionsOf('US')).toHaveLength(51);
+    for (const country of [...LATIN_AMERICA.filter((code) => code !== 'PR'), 'US']) {
+      const regions = regionsOf(country);
+      expect(regions.length, country).toBeGreaterThan(5);
+      expect(new Set(regions).size, country).toBe(regions.length);
+      expect(
+        [...regions].sort((a, b) => a.localeCompare(b, 'es')),
+        country,
+      ).toEqual(regions);
+    }
+  });
+
+  it('are none where nobody is listed: there a region is written as it’s said', () => {
+    expect(regionsOf('DE')).toEqual([]);
+    expect(regionsOf('PR')).toEqual([]);
+  });
+
+  it('are found as they are typed, by any part of any of their names, in their own country only', () => {
+    expect(regionMatches('MX', 'Ciudad de México', 'cdmx')).toBe(true);
+    expect(regionMatches('MX', 'Ciudad de México', 'ciudad de mex')).toBe(true);
+    expect(regionMatches('MX', 'Jalisco', 'cdmx')).toBe(false);
+    expect(regionMatches('AR', 'Ciudad Autónoma de Buenos Aires', 'CABA')).toBe(true);
+    expect(regionMatches('AR', 'Córdoba', 'cordob')).toBe(true);
+    expect(regionMatches('BR', 'São Paulo', 'sao pau')).toBe(true);
+    expect(regionMatches('BR', 'São Paulo', 'san pablo')).toBe(true);
+    expect(regionMatches('US', 'New York', 'Nueva York')).toBe(true);
+    expect(regionMatches('US', 'North Carolina', 'carolina del n')).toBe(true);
+    expect(regionMatches('CL', "O'Higgins", 'ohig')).toBe(true);
+    expect(regionMatches('PE', 'Cusco', 'Cuzco')).toBe(true);
+    expect(regionMatches('ES', 'Ciudad de México', 'cdmx')).toBe(false);
+    expect(regionMatches('DE', 'Baviera', 'bav')).toBe(false);
   });
 });
 

@@ -5,6 +5,7 @@ import {
   parseCommand,
   type ParsedCommand,
 } from '@backoffice/domain/bot-message';
+import { phoneSearchDigits } from '@backoffice/domain/identities';
 
 import type { Keyboard, TelegramClient } from './client.js';
 import type { AltaDialog, BajaDialog, Dialog } from './dialogs.js';
@@ -75,16 +76,23 @@ const sayIn =
     }
   };
 
-/** What a search is told: a name, or a phone or email (normalised), never both read as a name. */
+/**
+ * What a search is told: a name, or a phone or email (normalised), never both read as a name; and a phone's digits, as
+ * Personas finds them (PLAN R82), so a foreign number without its country code, or 6 of its digits, finds it too. A
+ * message with any of them holds contact details, and is deleted.
+ */
 const searchQuery = (
   text: string,
-): { text: string; phones: string[]; emails: string[]; contact: boolean } => {
+): { text: string; phones: string[]; emails: string[]; digits?: string; contact: boolean } => {
   const parsed = parseArrival(text);
+  const digits = phoneSearchDigits(text);
+  const contact = parsed.hadContactDetails || digits !== undefined;
   return {
-    text: parsed.hadContactDetails ? (parsed.name ?? '') : text.replaceAll(/\s+/gu, ' ').trim(),
+    text: contact ? (parsed.name ?? '') : text.replaceAll(/\s+/gu, ' ').trim(),
     phones: parsed.phones,
     emails: parsed.emails,
-    contact: parsed.hadContactDetails,
+    ...(digits === undefined ? {} : { digits }),
+    contact,
   };
 };
 

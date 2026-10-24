@@ -138,8 +138,8 @@
   {
     "name": "a province is found by its official name only",
     "file": "packages/domain/src/places.ts",
-    "old": "    query === '' || (PROVINCE_SPELLINGS.get(province) ?? []).some((name) => name.includes(query))",
-    "new": "    query === '' || fold(province).includes(query)",
+    "old": "    (REGION_SPELLINGS.get(country || SPAIN)?.get(region) ?? []).some((name) => name.includes(query))",
+    "new": "    fold(region).includes(query)",
     "cmd": "pnpm exec vitest run src/places.spec.ts src/missing.spec.ts",
     "cwd": "packages/domain"
   },
@@ -166,5 +166,61 @@
     "new": "",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts tests/census-api.spec.ts",
     "cwd": "apps/api"
+  },
+  {
+    "name": "other countries' regions aren't offered",
+    "file": "packages/domain/src/places.ts",
+    "old": "!country || country === SPAIN ? SPANISH_PROVINCES : (REGIONS_ABROAD[country] ?? []);",
+    "new": "!country || country === SPAIN ? SPANISH_PROVINCES : [];",
+    "cmd": "pnpm exec vitest run src/places.spec.ts src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a region is looked up among Spain's provinces whatever the country",
+    "file": "packages/domain/src/places.ts",
+    "old": "REGION_SPELLINGS.get(country || SPAIN)",
+    "new": "REGION_SPELLINGS.get(SPAIN)",
+    "cmd": "pnpm exec vitest run src/places.spec.ts src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a region abroad is found by its own name only",
+    "file": "packages/domain/src/places.ts",
+    "old": "          ...Object.entries(REGION_ALIASES_ABROAD[country] ?? {}),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/places.spec.ts src/missing.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "the Panel counts those nobody knows under no name",
+    "file": "apps/api/src/people/people.ts",
+    "old": "SELECT coalesce(country, 'none') AS country, count(*)::int AS n FROM app.people",
+    "new": "SELECT country::text AS country, count(*)::int AS n FROM app.people",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/people-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Dónde viven puts the rest of the world before Latin America",
+    "file": "apps/web/src/onboarding/panel/types.ts",
+    "old": "const order: readonly CountryGroup[] = ['spain', 'latinAmerica', 'world', 'none'];",
+    "new": "const order: readonly CountryGroup[] = ['spain', 'world', 'latinAmerica', 'none'];",
+    "cmd": "pnpm exec vitest run src/onboarding/panel",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "Dónde viven lists a country nobody lives in",
+    "file": "apps/web/src/onboarding/panel/types.ts",
+    "old": "groupOf(code) === group && count > 0",
+    "new": "groupOf(code) === group",
+    "cmd": "pnpm exec vitest run src/onboarding/panel",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the Panel takes anything as a country",
+    "file": "apps/web/src/onboarding/panel/types.ts",
+    "old": "    !Object.keys(byCountry).every((key) => key === 'none' || COUNTRY_CODES.includes(key)) ||\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/onboarding/panel",
+    "cwd": "apps/web"
   }
 ]

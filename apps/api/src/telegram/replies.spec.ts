@@ -24,15 +24,39 @@ describe('text someone outside typed, as the bot posts it (security review)', ()
     expect(nameOf(null)).toBe('Sin nombre');
   });
 
-  it('applies to the names and provinces the team group sees', () => {
+  it('applies to the names and places the team group sees', () => {
     const { text } = teamPost('https://backoffice.ejemplo.test', {
       personId: '0190f8c4-0000-7000-8000-0000000003a1',
       name: 'Premio en ejemplo.test',
       province: 'Visita @cuenta_de_ejemplo',
+      country: 'MX',
       sources: ['airtable'],
       stage: 'new',
       ownerName: null,
     });
     expect(text).not.toMatch(LINKABLE);
+  });
+});
+
+describe('the team group post says where someone lives (PLAN R81)', () => {
+  const post = (place: { province: string | null; country: string | null }) =>
+    teamPost('https://backoffice.ejemplo.test', {
+      personId: '0190f8c4-0000-7000-8000-0000000003a1',
+      name: 'Ana Ejemplo',
+      ...place,
+      sources: ['manual'],
+      stage: 'new',
+      ownerName: null,
+    }).text.split('\n');
+
+  it('as a province and a country, Spain going without saying', () => {
+    expect(post({ province: 'Baviera', country: 'DE' })).toContain('Dónde vive: Baviera, Alemania');
+    expect(post({ province: 'Sevilla', country: 'ES' })).toContain('Dónde vive: Sevilla');
+    expect(post({ province: null, country: 'AR' })).toContain('Dónde vive: Argentina');
+    expect(post({ province: 'Sevilla', country: null })).toContain('Dónde vive: Sevilla');
+  });
+
+  it('and nothing when nobody knows', () => {
+    expect(post({ province: null, country: null }).join('\n')).not.toContain('Dónde vive');
   });
 });

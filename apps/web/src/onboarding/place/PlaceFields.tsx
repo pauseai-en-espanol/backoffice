@@ -5,11 +5,11 @@ import {
   COUNTRY_GROUPS,
   countryMatches,
   countryName,
-  provinceMatches,
+  regionMatches,
+  regionsOf,
   SPAIN,
-  SPANISH_PROVINCES,
 } from '@backoffice/domain/places';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Icon } from '@/ui/Icon';
 import { icons } from '@/ui/icons';
@@ -22,18 +22,23 @@ import * as styles from './styles';
 interface Choice {
   value: string;
   label: string;
-  group: 'spain' | 'latinAmerica' | 'world' | 'provinces';
+  group: 'spain' | 'latinAmerica' | 'world' | 'regions';
+  /** A region's country, which its other names are looked up in. */
+  country?: string;
 }
 
 const COUNTRIES: readonly Choice[] = COUNTRY_GROUPS.flatMap(({ group, codes }) =>
   codes.map((code) => ({ value: code, label: countryName(code), group })),
 );
 
-const PROVINCES: readonly Choice[] = SPANISH_PROVINCES.map((province) => ({
-  value: province,
-  label: province,
-  group: 'provinces',
-}));
+/** A country's regions as choices (PLAN R83): Spain's provinces while it's Spain or not said. */
+const regionChoices = (country: string): Choice[] =>
+  regionsOf(country).map((region) => ({
+    value: region,
+    label: region,
+    group: 'regions',
+    country: country || SPAIN,
+  }));
 
 /** What a picker needs of its field: the input's id, and its hint's when it has one. */
 interface FieldIds {
@@ -144,8 +149,9 @@ export const CountryField = ({
 };
 
 /**
- * A province or region, as typed (PLAN R74): while the country is Spain, or not said, Spain's provinces are offered as
- * it's typed, and anything else is kept too (a region abroad, or how someone wrote it before).
+ * A province or region, as typed (PLAN R74): the country's are offered as it's typed, Spain's while it's Spain or not
+ * said, and those of Latin America and the United States (PLAN R83); anything else is kept too (a region elsewhere, or
+ * how someone wrote it before).
  */
 export const ProvinceField = ({
   id,
@@ -153,27 +159,29 @@ export const ProvinceField = ({
   label,
   hint,
   defaultValue,
-  suggest,
+  country,
   onChange,
   text,
 }: FieldIds & {
   name: string;
   defaultValue: string;
-  /** Whether to offer Spain's provinces. */
-  suggest: boolean;
+  /** The country picked, its code, or '' for none: whose regions to offer. */
+  country: string;
   /** What it says now, typed or picked. */
   onChange?: ((value: string) => void) | undefined;
   text: PlaceText;
 }) => {
+  const regions = useMemo(() => regionChoices(country), [country]);
+  const suggest = regions.length > 0;
   const { collection, filter, set } = useListCollection<Choice>({
-    initialItems: suggest ? PROVINCES : [],
-    // By any of its names ("vizc" finds Bizkaia, "lérid" Lleida).
-    filter: (_text, query, item) => provinceMatches(item.value, query),
+    initialItems: regions,
+    // By any of its names ("vizc" finds Bizkaia, "lérid" Lleida, "cdmx" Ciudad de México).
+    filter: (_text, query, item) => regionMatches(item.country, item.value, query),
   });
   // The country changed: what was typed stays, and only the suggestions follow.
   useEffect(() => {
-    set(suggest ? [...PROVINCES] : []);
-  }, [suggest, set]);
+    set(regions);
+  }, [regions, set]);
   return (
     <Combobox.Root
       className={ui.field}
@@ -190,7 +198,9 @@ export const ProvinceField = ({
       inputBehavior="none"
       positioning={{ sameWidth: true }}
       ids={{ input: id, label: `${id}-etiqueta` }}
-      translations={{ triggerLabel: text.openProvinces }}
+      translations={{
+        triggerLabel: !country || country === SPAIN ? text.openProvinces : text.openRegions,
+      }}
     >
       <Combobox.Label className={ui.label}>{label}</Combobox.Label>
       <Combobox.Control className={styles.control}>
@@ -222,8 +232,8 @@ export const ProvinceField = ({
 };
 
 /**
- * Where someone lives, or where they're from (PLAN R74): the country, then the province or region, Spain's offered
- * while the country is Spain or not said, and, where it's asked, the town. The form reads them by their names.
+ * Where someone lives, or where they're from (PLAN R74): the country, then the province or region, the country's
+ * offered (Spain's while it's not said), and, where it's asked, the town. The form reads them by their names.
  */
 export const PlaceFields = ({
   prefix,
@@ -241,7 +251,12 @@ export const PlaceFields = ({
   text: PlaceText;
 }) => {
   const [country, setCountry] = useState(initial.country ?? '');
-  const suggest = country === '' || country === SPAIN;
+  const hint =
+    country === '' || country === SPAIN
+      ? text.provinceHint
+      : regionsOf(country).length > 0
+        ? text.regionListHint
+        : text.regionHint;
   return (
     <>
       <CountryField
@@ -256,9 +271,9 @@ export const PlaceFields = ({
         id={`${prefix}-provincia`}
         name={names.province}
         label={text.province}
-        hint={suggest ? text.provinceHint : text.regionHint}
+        hint={hint}
         defaultValue={initial.province ?? ''}
-        suggest={suggest}
+        country={country}
         onChange={onProvinceChange}
         text={text}
       />

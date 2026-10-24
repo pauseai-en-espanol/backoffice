@@ -8,7 +8,7 @@ export const EXECUTE_ALLOWLIST: readonly string[] = [
   'pauseai_backoffice_app private.anonymise_person(person uuid)',
   'pauseai_backoffice_app private.bot_can(VARIADIC roles app.staff_role[])',
   'pauseai_backoffice_app private.bot_candidates(arrival_name text, province text, phones text[], emails text[])',
-  'pauseai_backoffice_app private.bot_people(scope text, query text, phones text[], emails text[])',
+  'pauseai_backoffice_app private.bot_people(scope text, query text, phones text[], emails text[], digits text)',
   'pauseai_backoffice_app private.bot_summary()',
   'pauseai_backoffice_app private.claim_person(person uuid)',
   'pauseai_backoffice_app private.current_aal()',

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { barShare, parsePanel, waitIn, weeksFrom, weekTotal } from './types';
+import { barShare, countryGroups, parsePanel, waitIn, weeksFrom, weekTotal } from './types';
 
 const PANEL = {
   weeks: 2,
   stages: { new: 3, active: 1 },
+  countries: { ES: 2, MX: 1, none: 1 },
   arrivals: [
     { week: '2026-10-05', counts: {} as Record<string, number> },
     { week: '2026-10-12', counts: { telegram: 2, airtable: 1 } },
@@ -41,6 +42,10 @@ describe('the Panel', () => {
       })?.firstContact.medianHours,
     ).toBeNull();
     expect(parsePanel({ ...PANEL, stages: { nope: 1 } })).toBeUndefined();
+    expect(parsePanel(PANEL)?.countries).toEqual({ ES: 2, MX: 1, none: 1 });
+    expect(parsePanel({ ...PANEL, countries: { XX: 1 } })).toBeUndefined();
+    expect(parsePanel({ ...PANEL, countries: { ES: -1 } })).toBeUndefined();
+    expect(parsePanel({ ...PANEL, countries: undefined })?.countries).toEqual({});
     expect(
       parsePanel({ ...PANEL, arrivals: [{ week: '2026-10-05', counts: { x: -1 } }] }),
     ).toBeUndefined();
@@ -53,6 +58,32 @@ describe('the Panel', () => {
     expect(weeksFrom(['4', '52'])).toBe(4);
     expect(weeksFrom('7')).toBe(12);
     expect(weeksFrom(undefined)).toBe(12);
+  });
+
+  it('says where people live as the community is: Spain, Latin America, the world, then nobody knows (PLAN R84)', () => {
+    expect(countryGroups({ none: 4, DE: 1, AR: 2, US: 3, MX: 2, ES: 9, FR: 0 })).toEqual([
+      { group: 'spain', total: 9, rows: [{ code: 'ES', count: 9 }] },
+      {
+        group: 'latinAmerica',
+        total: 4,
+        // As many in each: by name.
+        rows: [
+          { code: 'AR', count: 2 },
+          { code: 'MX', count: 2 },
+        ],
+      },
+      {
+        group: 'world',
+        total: 4,
+        rows: [
+          { code: 'US', count: 3 },
+          { code: 'DE', count: 1 },
+        ],
+      },
+      { group: 'none', total: 4, rows: [{ code: 'none', count: 4 }] },
+    ]);
+    expect(countryGroups({ DE: 1 }).map(({ group }) => group)).toEqual(['world']);
+    expect(countryGroups({})).toEqual([]);
   });
 
   it('totals each week', () => {

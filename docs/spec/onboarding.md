@@ -147,9 +147,10 @@ deactivated account keeps it without the badge.
   again ("Configurado el … por …"), replace or remove it, turn the sync on or off, and see how its last run went
   ([§5.1](#51-airtable-m1)).
 - **Panel:** counts by stage, each stage in its pill with a bar in its colour drawn to scale before its number
-  (PLAN R66), sign-ups per week (by "Fecha de alta") by "Canal de alta", time to first contact,
-  unassigned for more than 48 hours; people with no sign-up day are left out of the weeks and the waits, and counted
-  in a line of their own.
+  (PLAN R66), where people live by country (Spain, then Latin America and the rest of the world with their totals,
+  then "Sin indicar", each a link to Personas filtered by it; PLAN R84), sign-ups per week (by "Fecha de alta") by
+  "Canal de alta", time to first contact, unassigned for more than 48 hours; people with no sign-up day are left out
+  of the weeks and the waits, and counted in a line of their own.
 
 ## 5. Intake sources
 
@@ -186,7 +187,7 @@ to everyone else. Replies are in Spanish, and name a command by both names, Engl
 | `/left` (`/baja`)              | Reports someone who left. Search by phone or name, pick from buttons, confirm                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `/mine` (`/mios`)              | My people needing attention: name, reason, link to the web app                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `/unassigned` (`/libres`)      | The unassigned queue, with a "Me lo quedo" button on each                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `/search` (`/buscar`) `<text>` | Name, stage and owner of the matches, with links. No contact details                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `/search` (`/buscar`) `<text>` | Name, stage and owner of the matches, with links; a phone matches by 6 of its digits (PLAN R82). No contact details                                                                                                                                                                                                                                                                                                                                                                                       |
 | `/sync` (`/sincronizar`)       | Runs the Airtable sync now and reports how many people came in                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `/help` (`/ayuda`)             | The commands, by both names                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
@@ -247,10 +248,10 @@ There is no list of the community's members to import, so they come in four ways
 ### 7.2 The form (M2)
 
 - Fields: name, preferred name, email, phone, where they live (a country from a list, Spain first and then Latin
-  America; a province or region, Spain's suggested; a town), where they're from (optional: a country and a province
-  or region, PLAN R74), languages, skills, availability (occasional, under 2 h a week, 2–5 h, over 5 h), what they
-  would like to help with, how they heard of PauseAI, pronouns (optional, free text). Consent: contact by email,
-  contact by WhatsApp, and the privacy notice.
+  America; a province or region, Spain's suggested, and Latin America's and the United States' (PLAN R83); a town),
+  where they're from (optional: a country and a province or region, PLAN R74), languages, skills, availability
+  (occasional, under 2 h a week, 2–5 h, over 5 h), what they would like to help with, how they heard of PauseAI,
+  pronouns (optional, free text). Consent: contact by email, contact by WhatsApp, and the privacy notice.
 - **Two lists are edited by an admin in settings**, not in code: skills (diseño, redes sociales, programación…)
   and areas to help in (comunicación, eventos, política, divulgación…), each plus "otra". They start as
   placeholders and are filled in before the census goes out.
@@ -289,10 +290,11 @@ the code's own neutral message goes out.
 
 ## 8. Notifications
 
-- **Team group (optional, D11):** the bot posts each new arrival, from any source, to the onboarding team's
-  Telegram group: name, source, province if known, and the buttons "Me lo quedo" and "Abrir". When someone claims
-  it, the message is edited to show who. **No contact details** are posted in the group. Only linked staff can
-  press the buttons; anyone else gets "No autorizado".
+- **Team group (optional, D11):** the bot posts each new arrival, from any source, to the onboarding team's Telegram
+  group: name, source, where they live if known ("Dónde vive: Baviera, Alemania": province or region and country,
+  PLAN R81), and the buttons "Me lo quedo" and "Abrir". When someone claims it, the message is edited to show who.
+  **No contact details** are posted in the group. Only linked staff can press the buttons; anyone else gets "No
+  autorizado".
 - **Daily digest** at 09:00 Europe/Madrid, by Telegram to each linked onboarder with something pending (by email
   to those without Telegram): their people needing attention, the size of the unassigned queue, and yesterday's
   arrivals. Nothing is sent when nothing is pending.

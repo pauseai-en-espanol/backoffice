@@ -870,6 +870,10 @@ describe('onboarding through the staff API (M1)', () => {
     expect(
       (await onboarder.who.send('PATCH', `/api/people/${undated}`, { arrivedOn: null })).statusCode,
     ).toBe(204);
+    // Someone living in Uruguay (PLAN R84).
+    expect(
+      (await onboarder.who.send('PATCH', `/api/people/${waiting}`, { country: 'UY' })).statusCode,
+    ).toBe(204);
     expect(
       (
         await onboarder.who.send('POST', `/api/people/${contacted}/attempts`, {
@@ -884,6 +888,7 @@ describe('onboarding through the staff API (M1)', () => {
     const shown = response.json<{
       weeks: number;
       stages: Record<string, number>;
+      countries: Record<string, number>;
       arrivals: { week: string; counts: Record<string, number> }[];
       arrivalsByChannel: {
         channels: { id: string; label: string }[];
@@ -895,6 +900,14 @@ describe('onboarding through the staff API (M1)', () => {
     }>();
     expect(shown.weeks).toBe(4);
     expect(shown.stages.new).toBeGreaterThanOrEqual(1);
+    // Where people live, counted as Personas finds them, those nobody knows under `none`.
+    const inUruguay = await onboarder.who.send('GET', '/api/people?country=UY');
+    expect(shown.countries.UY).toBeGreaterThanOrEqual(1);
+    expect(shown.countries.UY).toBe(inUruguay.json<{ counts: { total: number } }>().counts.total);
+    const nobodyKnows = await onboarder.who.send('GET', '/api/people?country=none');
+    expect(shown.countries.none ?? 0).toBe(
+      nobodyKnows.json<{ counts: { total: number } }>().counts.total,
+    );
     expect(shown.arrivals).toHaveLength(4);
     expect(shown.arrivals.map((week) => week.week)).toEqual(
       shown.arrivals.map((week) => week.week).sort(),

@@ -38,5 +38,53 @@
     "new": "  `/${command}`;",
     "cmd": "pnpm exec vitest run src/telegram",
     "cwd": "apps/api"
+  },
+  {
+    "name": "the bot's search reads a phone's digits as a name",
+    "file": "apps/api/src/telegram/bot.ts",
+    "old": "  const digits = phoneSearchDigits(text);",
+    "new": "  const digits = undefined as string | undefined;",
+    "cmd": "pnpm exec vitest run src/telegram",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a search by a phone's digits stays in the chat",
+    "file": "apps/api/src/telegram/bot.ts",
+    "old": "  const contact = parsed.hadContactDetails || digits !== undefined;",
+    "new": "  const contact = parsed.hadContactDetails;",
+    "cmd": "pnpm exec vitest run src/telegram",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the team post leaves the country out",
+    "file": "apps/api/src/telegram/replies.ts",
+    "old": "placeLine({ province: card.province, country: card.country })",
+    "new": "placeLine({ province: card.province })",
+    "cmd": "pnpm exec vitest run src/telegram",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the bot's search ignores a phone's digits",
+    "file": "db/migrations/20261024100100_bot_search_digits.sql",
+    "old": "OR (i.kind = 'phone' AND digits ~ '^[0-9]{6,}$' AND strpos(i.value, digits) > 0)",
+    "new": "OR false",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot's search finds a phone by any few digits",
+    "file": "db/migrations/20261024100100_bot_search_digits.sql",
+    "old": "digits ~ '^[0-9]{6,}$'",
+    "new": "digits <> ''",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the team card leaves the country out",
+    "file": "db/migrations/20261024100000_team_card_country.sql",
+    "old": "p.province, p.country,",
+    "new": "p.province, NULL::text,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/telegram.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
   }
 ]

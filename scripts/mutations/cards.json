@@ -121,9 +121,9 @@
   },
   {
     "name": "the team group's card shows the summary in place of the province",
-    "file": "db/migrations/20261016170000_person_summary.sql",
+    "file": "db/migrations/20261024100000_team_card_country.sql",
     "old": "\n-- migrate:down",
-    "new": "\nCREATE OR REPLACE FUNCTION private.team_card(person uuid) RETURNS TABLE (person_id uuid, name text, province text, sources text[], stage app.stage, owner_name text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$ SELECT p.id, p.full_name, coalesce(p.summary, p.province), '{}'::text[], p.stage, NULL::text FROM app.people p WHERE p.id = team_card.person $$;\n\n-- migrate:down",
+    "new": "\nCREATE OR REPLACE FUNCTION private.team_card(person uuid) RETURNS TABLE (person_id uuid, name text, province text, country text, sources text[], stage app.stage, owner_name text) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$ SELECT p.id, p.full_name, coalesce(p.summary, p.province), p.country, '{}'::text[], p.stage, NULL::text FROM app.people p WHERE p.id = team_card.person $$;\n\n-- migrate:down",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/cards.spec.ts",
     "cwd": "packages/db"
   },

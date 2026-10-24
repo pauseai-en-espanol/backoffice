@@ -1,3 +1,4 @@
+import { COUNTRY_CODES, countryName, LATIN_AMERICA, SPAIN } from '@backoffice/domain/places';
 import { isStage, type Stage } from '@backoffice/domain/stages';
 
 import { parseSummary, type PersonSummary } from '../types';
@@ -6,6 +7,8 @@ import { parseSummary, type PersonSummary } from '../types';
 export interface Panel {
   weeks: number;
   stages: Partial<Record<Stage, number>>;
+  /** Where people live (PLAN R84): how many in each country, by its code, `none` for those nobody knows. */
+  countries: Record<string, number>;
   arrivals: { week: string; counts: Record<string, number> }[];
   /** The same arrivals by "Llegó por" (PLAN M5): each week's counts by an entry's id, `none` for not said. */
   arrivalsByChannel: {
@@ -51,6 +54,8 @@ export const parsePanel = (value: unknown): Panel | undefined => {
     return undefined;
   }
   const byStage = counts(value.stages);
+  // An older API sends none: nobody is counted by country.
+  const byCountry = value.countries === undefined ? {} : counts(value.countries);
   const first = isRecord(value.firstContact) ? value.firstContact : {};
   const median = hours(first.medianHours);
   const p90 = hours(first.p90Hours);
@@ -58,6 +63,8 @@ export const parsePanel = (value: unknown): Panel | undefined => {
   if (
     !byStage ||
     !Object.keys(byStage).every(isStage) ||
+    !byCountry ||
+    !Object.keys(byCountry).every((key) => key === 'none' || COUNTRY_CODES.includes(key)) ||
     !count(first.arrived) ||
     !count(first.contacted) ||
     median === undefined ||
@@ -107,6 +114,7 @@ export const parsePanel = (value: unknown): Panel | undefined => {
   return {
     weeks: value.weeks,
     stages: byStage,
+    countries: byCountry,
     arrivals,
     arrivalsByChannel: { channels, weeks: channelWeeks },
     unknownArrival,
@@ -142,6 +150,39 @@ export const channelsIn = (
     ...byChannel.channels.filter((channel) => seen.has(channel.id)),
     ...(seen.has('none') ? [{ id: 'none', label: null }] : []),
   ];
+};
+
+export type CountryGroup = 'spain' | 'latinAmerica' | 'world' | 'none';
+
+/**
+ * "Dónde viven" (PLAN R84), as the community is (D19): Spain, then Latin America, then the rest of the world, each
+ * with its countries, the most people first (then by name), and last those nobody knows (`none`). A group nobody
+ * lives in is left out.
+ */
+export const countryGroups = (
+  countries: Panel['countries'],
+): { group: CountryGroup; total: number; rows: { code: string; count: number }[] }[] => {
+  const groupOf = (code: string): CountryGroup =>
+    code === 'none'
+      ? 'none'
+      : code === SPAIN
+        ? 'spain'
+        : LATIN_AMERICA.includes(code)
+          ? 'latinAmerica'
+          : 'world';
+  const order: readonly CountryGroup[] = ['spain', 'latinAmerica', 'world', 'none'];
+  return order
+    .map((group) => {
+      const rows = Object.entries(countries)
+        .filter(([code, count]) => groupOf(code) === group && count > 0)
+        .map(([code, count]) => ({ code, count }))
+        .sort(
+          (a, b) =>
+            b.count - a.count || countryName(a.code).localeCompare(countryName(b.code), 'es'),
+        );
+      return { group, total: rows.reduce((sum, row) => sum + row.count, 0), rows };
+    })
+    .filter(({ rows }) => rows.length > 0);
 };
 
 /** A week's arrivals from every source. */

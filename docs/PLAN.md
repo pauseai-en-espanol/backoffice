@@ -624,27 +624,28 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   and a stage change on a person's page, and for a note in Contactos and Organizaciones, alike. Left on today (or
   emptied) it is still now: nothing is recorded as another day, so the history doesn't add "ocurrió el" to every entry.
   Mutation list `person-page`.
-- **R74. Where someone lives, and where they're from** (D19; Dani, 2026-10-22: "what if the person is originally from a
-  place but they live elsewhere, also what about latam and even other countries, there is people from madrid in germany
-  or USA"; then "spain, spaniards abroad and latam and latam abroad. I think having a fancy way to select countri and
-  even provincia would be very convenient too"). Province and town were free text, with no country: someone in Berlin
-  could be written down, but not found by country, and Global's `Country` was never read. Options for where they live:
-  add a country; relabel only. For where they're from: not now; an optional "De dónde es". **Chose a country, and "De
-  dónde es"** (Dani). A person has `country` (an ISO 3166-1 code), `province` (now "Provincia o región") and `town`, and
-  `origin_country` and `origin_province`, all optional and personal data, carried by every intake, census answer, merge
-  and erasure. The staff app picks a country by typing part of its name in Spanish or English, accents aside ("alem",
-  "Germ", "EEUU"), Spain first, then Latin America, then the rest of the world (Ark UI's combobox, ADR-0003); while the
-  country is Spain or not said, Spain's 52 provinces are offered the same way and by their other names ("vizc" finds
-  Bizkaia), and anything else typed is kept (a region abroad, or how it was written before). The census form,
-  phone-first, uses the phone's own picker (a select in the same order) and suggests the provinces. A card says "Maite
-  (Baviera, Alemania)", the person's page "Dónde vive" and "De dónde es" as a line each, Personas filters by country
-  ("Sin indicar" too), the Bandeja compares countries by name, the CSV import reads "País", "País de origen" and "De
-  dónde es", the Airtable sync reads Global's `Country` (ADR-0005), and the CSV export adds "pais". "Falta: dónde vive"
-  no longer asks someone abroad for a province. Everyone whose province is one of Spain's, as written, and everyone
-  Global's view brought, is set as living in Spain; nobody else is guessed at. The phone keeps Spain as its default
-  region. Not done: the bot (its team post still says "Provincia"), regions of other countries as lists, and the Panel
-  by country. Migrations `20261022100000` and `100100`; mutation list `places`. The census's privacy summary lists the
-  new data: its wording version (`CENSUS_WORDING_VERSION`, in gitops) goes up with this release.
+- **R74. Where someone lives, and where they're from** (D19; Dani, 2026-10-22: "what if the person is originally from
+  a place but they live elsewhere, also what about latam and even other countries, there is people from madrid in
+  germany or USA"; then "spain, spaniards abroad and latam and latam abroad. I think having a fancy way to select
+  countri and even provincia would be very convenient too"). Province and town were free text, with no country:
+  someone in Berlin could be written down, but not found by country, and Global's `Country` was never read. Options
+  for where they live: add a country; relabel only. For where they're from: not now; an optional "De dónde es".
+  **Chose a country, and "De dónde es"** (Dani). A person has `country` (an ISO 3166-1 code), `province` (now
+  "Provincia o región") and `town`, and `origin_country` and `origin_province`, all optional and personal data,
+  carried by every intake, census answer, merge and erasure. The staff app picks a country by typing part of its name
+  in Spanish or English, accents aside ("alem", "Germ", "EEUU"), Spain first, then Latin America, then the rest of the
+  world (Ark UI's combobox, ADR-0003); while the country is Spain or not said, Spain's 52 provinces are offered the
+  same way and by their other names ("vizc" finds Bizkaia), and anything else typed is kept (a region abroad, or how
+  it was written before). The census form, phone-first, uses the phone's own picker (a select in the same order) and
+  suggests the provinces. A card says "Maite (Baviera, Alemania)", the person's page "Dónde vive" and "De dónde es" as
+  a line each, Personas filters by country ("Sin indicar" too), the Bandeja compares countries by name, the CSV import
+  reads "País", "País de origen" and "De dónde es", the Airtable sync reads Global's `Country` (ADR-0005), and the CSV
+  export adds "pais". "Falta: dónde vive" no longer asks someone abroad for a province. Everyone whose province is one
+  of Spain's, as written, and everyone Global's view brought, is set as living in Spain; nobody else is guessed at.
+  The phone keeps Spain as its default region. Not done then: the bot (its team post still said "Provincia"), regions
+  of other countries as lists, and the Panel by country, done since (R81 to R84). Migrations `20261022100000` and
+  `100100`; mutation list `places`. The census's privacy summary lists the new data: its wording version
+  (`CENSUS_WORDING_VERSION`, in gitops) goes up with this release.
 - **R75. Añadir rápido says whose place it is** (Dani, 2026-10-23: "there is still only one place it does not say if
   where from or where lives … and looks terrible"). The country, province and town sat in a row built for fields of one
   shape (label, input, hint on a shared grid), which squeezed the pickers into each other, under no heading. Options for
@@ -703,6 +704,33 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   and the sections, by name. Nothing typed, the people one last worked with (R79). The arrows move, Enter opens, Escape
   closes and puts focus back (Ark UI's dialog, ADR-0003; a listbox the input drives). `GET /api/search?q`. Mutation list
   `hoy`.
+- **R81. The team group's post says where someone lives** (Dani, 2026-10-24: "do these", R74's "Not done"). It said
+  "Provincia: …", and nothing of the country R74 added: someone in Bavaria read as a Spanish province. Options: the
+  place as a line, as a card says it; the country on a line of its own. **Chose the line**: "Dónde vive: Baviera,
+  Alemania", Spain going without saying ("Dónde vive: Sevilla"), the country alone when that's all that's known, no
+  line when nothing is. `private.team_card` returns the country's code too, and nothing more (no town, no place of
+  origin; ADR-0002 §4, ADR-0004). Migration `20261024100000`; mutation list `bot-commands`.
+- **R82. The bot's search finds a phone by part of its digits** (Dani, 2026-10-24, as R81). `/search` (`/buscar`) and
+  `/left` (`/baja`) matched a phone only whole and only as Spain's or with its country code: "857 756 3987", or the end
+  of a number, read as a name and found nobody. Options: Personas' rule (R72); the whole number only. **Chose
+  Personas' rule**: six digits or more, however written, match a stored phone with them in it; fewer are read as a
+  name. A message with them is deleted, as one with a whole number is. `private.bot_people` takes the digits (checked
+  there too: six or more, digits only) and still returns only names, stages, owners and reasons (ADR-0002 §4).
+  Migration `20261024100100`; mutation list `bot-commands`.
+- **R83. Other countries' regions are offered as lists** (Dani, 2026-10-24, as R81). Only Spain's provinces were;
+  anywhere else the region was free text, so the same state was written several ways and couldn't be filtered by.
+  Options for which countries: Latin America's and the United States' (where the community lives, and where much of
+  it lives abroad, D19); every country's (a dataset of thousands of names to keep). **Chose Latin America's and the
+  United States'**: the first level of ISO 3166-2 for each (Puerto Rico has none), as each is called there ("São
+  Paulo", "New York"), found by any part of any name and by other ways of writing some ("cdmx", "CABA", "Nueva York",
+  "Cuzco"). The staff app's picker offers the country's while it is picked, the census form suggests them, and
+  anything else typed is still kept, as before. Nothing is stored differently: a region is text. Mutation list
+  `places`.
+- **R84. The Panel says where people live** (Dani, 2026-10-24, as R81). "Dónde viven" counts people by the country
+  they live in, as the community is (D19): Spain, then Latin America and the rest of the world, each under its name
+  and total, the most people first, and "Sin indicar" last; each country links to Personas filtered by it, which finds
+  the same people (merged and erased ones left out). A table with bars to scale, as "Por etapa" (R66).
+  `GET /api/panel` adds `countries`. Mutation list `places`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

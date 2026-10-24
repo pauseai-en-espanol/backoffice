@@ -326,8 +326,9 @@ const ARRIVAL_AT = sql`CASE WHEN p.arrived_on IS NULL THEN NULL
  * the day they arrived ("Llegó el"), by the source they first came in through and by where they came from ("Llegó
  * por"); how long the arrivals of those weeks waited for a first contact attempt (by the day it happened, if it says);
  * and who has waited more than 48 hours with nobody on them. Whoever's arrival nobody knows is left out of the weeks
- * and the waits, and counted apart. Counts only, but for the unassigned, who are named so someone can take them.
- * Anonymised people count where they were; merged duplicates don't.
+ * and the waits, and counted apart. And where people live, by country (PLAN R84), `none` for those nobody knows: as
+ * Personas counts them, so without the anonymised, whose place was erased. Counts only, but for the unassigned, who are
+ * named so someone can take them. Anonymised people count where they were in the stages; merged duplicates don't.
  */
 export const panel = async (trx: Transaction<DB>, weeks: number) => {
   const stages = Object.fromEntries(
@@ -336,6 +337,13 @@ export const panel = async (trx: Transaction<DB>, weeks: number) => {
         SELECT stage::text AS stage, count(*)::int AS n FROM app.people
          WHERE merged_into IS NULL GROUP BY 1`.execute(trx)
     ).rows.map((row) => [row.stage, row.n]),
+  );
+  const countries = Object.fromEntries(
+    (
+      await sql<{ country: string; n: number }>`
+        SELECT coalesce(country, 'none') AS country, count(*)::int AS n FROM app.people
+         WHERE merged_into IS NULL AND anonymised_at IS NULL GROUP BY 1`.execute(trx)
+    ).rows.map((row) => [row.country, row.n]),
   );
   const since = sql`(date_trunc('week', now() AT TIME ZONE 'Europe/Madrid') - make_interval(weeks => ${weeks - 1}))::date`;
   const weekly = (
@@ -405,6 +413,7 @@ export const panel = async (trx: Transaction<DB>, weeks: number) => {
   return {
     weeks,
     stages,
+    countries,
     arrivals: weekly.map(({ week, counts }) => ({ week, counts })),
     arrivalsByChannel: {
       channels,

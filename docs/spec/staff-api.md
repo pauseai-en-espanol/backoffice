@@ -176,6 +176,8 @@ from, Discord usernames; the team's WhatsApp messages. Everything else above sta
   yyyy-mm-dd; an empty cell in a mapped column means unknown). The export adds `discord`, `llego_por` and `llego_el`.
 - **Hoy and the bot's `/unassigned`** list the "Sin asignar" rule's people: new, nobody's, arrived in the last 30
   days.
+- **`GET /api/panel`** (PLAN R84) adds `countries: { [code]: n }`: where people live, by ISO 3166-1 code, `none` for
+  those nobody knows; as Personas counts them (merged and anonymised people left out), so each matches `?country=`.
 - **`GET /api/search?q`** (PLAN R80), any staff member: `{ people: [summary], contacts: [{ id, name, organisation }],
 organisations: [{ id, name }] }`, each for whom it is (people for onboarding staff and admins, the others for
   outreach staff and admins), at most 8 people and 5 of the others, best first; `q` empty, `people` is `recent` (R79).

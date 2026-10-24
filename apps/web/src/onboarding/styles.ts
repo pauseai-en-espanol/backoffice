@@ -736,6 +736,13 @@ export const timelineBody = css({
   overflowWrap: 'anywhere',
 });
 
+/** A group's name and total over its rows (the Panel's "Dónde viven", PLAN R84): shaded, and said in words. */
+export const rowGroup = css({
+  bg: 'bg.subtle',
+  color: 'fg.muted',
+  fontSize: 'sm',
+});
+
 /** A count with its bar before it (the Panel's "Por etapa", PLAN R66): every bar starts at the same edge. */
 export const countWithBar = css({
   whiteSpace: 'nowrap',

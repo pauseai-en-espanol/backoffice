@@ -11,11 +11,13 @@ export const placeText = (t: Translator) => ({
   world: t('place.world'),
   province: t('place.province'),
   provinceHint: t('place.provinceHint'),
+  regionListHint: t('place.regionListHint'),
   regionHint: t('place.regionHint'),
   town: t('place.town'),
   openCountries: t('place.openCountries'),
   clearCountry: t('place.clearCountry'),
   openProvinces: t('place.openProvinces'),
+  openRegions: t('place.openRegions'),
 });
 
 export type PlaceText = ReturnType<typeof placeText>;

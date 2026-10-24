@@ -715,13 +715,13 @@ CREATE FUNCTION private.bot_candidates(arrival_name text, province text, phones 
 ALTER FUNCTION private.bot_candidates(arrival_name text, province text, phones text[], emails text[]) OWNER TO pauseai_backoffice_owner;
 
 --
--- Name: bot_people(text, text, text[], text[]); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+-- Name: bot_people(text, text, text[], text[], text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
-CREATE FUNCTION private.bot_people(scope text, query text DEFAULT NULL::text, phones text[] DEFAULT '{}'::text[], emails text[] DEFAULT '{}'::text[]) RETURNS TABLE(person_id uuid, name text, stage app.stage, owner_name text, reasons text[], in_community boolean, created_at timestamp with time zone)
+CREATE FUNCTION private.bot_people(scope text, query text DEFAULT NULL::text, phones text[] DEFAULT '{}'::text[], emails text[] DEFAULT '{}'::text[], digits text DEFAULT NULL::text) RETURNS TABLE(person_id uuid, name text, stage app.stage, owner_name text, reasons text[], in_community boolean, created_at timestamp with time zone)
     LANGUAGE plpgsql STABLE SECURITY DEFINER
     SET search_path TO ''
-    AS $$
+    AS $_$
   BEGIN
     IF NOT private.may_intake(true) THEN
       RAISE EXCEPTION 'not allowed' USING ERRCODE = 'insufficient_privilege';
@@ -741,7 +741,9 @@ CREATE FUNCTION private.bot_people(scope text, query text DEFAULT NULL::text, ph
                EXISTS (SELECT 1 FROM app.identities i
                         WHERE i.person_id = p.id
                           AND ((i.kind = 'phone' AND i.value = ANY (phones))
-                               OR (i.kind = 'email' AND i.value = ANY (emails))))
+                               OR (i.kind = 'email' AND i.value = ANY (emails))
+                               -- A stored phone is E.164, a `+` and its digits: one with these digits in it.
+                               OR (i.kind = 'phone' AND digits ~ '^[0-9]{6,}$' AND strpos(i.value, digits) > 0)))
                OR (coalesce(btrim(query), '') <> ''
                    AND (p.name_folded LIKE '%' || private.fold_name(query) || '%'
                         OR extensions.similarity(p.name_folded, private.fold_name(query)) >= 0.35))
@@ -752,10 +754,10 @@ CREATE FUNCTION private.bot_people(scope text, query text DEFAULT NULL::text, ph
               p.arrived_on, p.created_at
      LIMIT 20;
   END
-  $$;
+  $_$;
 
 
-ALTER FUNCTION private.bot_people(scope text, query text, phones text[], emails text[]) OWNER TO pauseai_backoffice_owner;
+ALTER FUNCTION private.bot_people(scope text, query text, phones text[], emails text[], digits text) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: bot_summary(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -2845,11 +2847,11 @@ ALTER FUNCTION private.target_timeline() OWNER TO pauseai_backoffice_owner;
 -- Name: team_card(uuid); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
-CREATE FUNCTION private.team_card(person uuid) RETURNS TABLE(person_id uuid, name text, province text, sources text[], stage app.stage, owner_name text)
+CREATE FUNCTION private.team_card(person uuid) RETURNS TABLE(person_id uuid, name text, province text, country text, sources text[], stage app.stage, owner_name text)
     LANGUAGE sql STABLE SECURITY DEFINER
     SET search_path TO ''
     AS $$
-    SELECT p.id, coalesce(p.preferred_name, p.full_name), p.province,
+    SELECT p.id, coalesce(p.preferred_name, p.full_name), p.province, p.country,
            ARRAY(SELECT s.source::text FROM app.person_sources s WHERE s.person_id = p.id ORDER BY s.first_seen_at),
            p.stage, st.display_name
       FROM app.people p
@@ -6898,11 +6900,11 @@ GRANT ALL ON FUNCTION private.bot_candidates(arrival_name text, province text, p
 
 
 --
--- Name: FUNCTION bot_people(scope text, query text, phones text[], emails text[]); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+-- Name: FUNCTION bot_people(scope text, query text, phones text[], emails text[], digits text); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
-REVOKE ALL ON FUNCTION private.bot_people(scope text, query text, phones text[], emails text[]) FROM PUBLIC;
-GRANT ALL ON FUNCTION private.bot_people(scope text, query text, phones text[], emails text[]) TO pauseai_backoffice_app;
+REVOKE ALL ON FUNCTION private.bot_people(scope text, query text, phones text[], emails text[], digits text) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.bot_people(scope text, query text, phones text[], emails text[], digits text) TO pauseai_backoffice_app;
 
 
 --

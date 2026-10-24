@@ -65,7 +65,7 @@
   },
   {
     "name": "the bot's search lists everyone",
-    "file": "db/migrations/20261016150300_fewer_stages.sql",
+    "file": "db/migrations/20261024100100_bot_search_digits.sql",
     "old": "             WHEN 'search' THEN\n               EXISTS",
     "new": "             WHEN 'search' THEN true OR\n               EXISTS",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/onboarding.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",

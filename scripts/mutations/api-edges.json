@@ -128,10 +128,10 @@
     "cwd": "apps/api"
   },
   {
-    "name": "provinces are posted as typed",
+    "name": "places are posted as typed",
     "file": "apps/api/src/telegram/replies.ts",
-    "old": "{ province: unlinked(card.province) }",
-    "new": "{ province: card.province }",
+    "old": "{ place: unlinked(place) }",
+    "new": "{ place }",
     "cmd": "pnpm exec vitest run src/telegram/replies.spec.ts",
     "cwd": "apps/api"
   }

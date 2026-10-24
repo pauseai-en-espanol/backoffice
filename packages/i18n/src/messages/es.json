@@ -492,7 +492,7 @@
       "taken": "Ya se encarga otra persona."
     },
     "search": {
-      "usage": "Escribe /search (/buscar) seguido de un nombre o un teléfono.",
+      "usage": "Escribe /search (/buscar) seguido de un nombre o un teléfono; basta con 6 de sus cifras.",
       "none": "No encuentro a nadie así.",
       "title": "He encontrado ({count}):",
       "line": "• {name}: {stage}, {owner}\n  {link}"
@@ -507,7 +507,7 @@
     },
     "team": {
       "arrival": "Nueva llegada: {name}\nFuente: {sources}",
-      "province": "Provincia: {province}",
+      "place": "Dónde vive: {place}",
       "claimedBy": "Se encarga: {owner}",
       "claim": "Me lo quedo",
       "open": "Abrir",
@@ -1433,7 +1433,7 @@
   },
   "panel": {
     "title": "Panel",
-    "intro": "Cómo va el onboarding: cuántas personas hay en cada etapa, cuántas llegan cada semana y por dónde, cuánto esperan a que alguien les escriba, y quién lleva más de dos días sin nadie.",
+    "intro": "Cómo va el onboarding: cuántas personas hay en cada etapa y dónde viven, cuántas llegan cada semana y por dónde, cuánto esperan a que alguien les escriba, y quién lleva más de dos días sin nadie.",
     "weeks": "Periodo",
     "weeksOption": "{count, plural, one {La última semana} other {Las últimas # semanas}}",
     "show": "Ver",
@@ -1441,6 +1441,15 @@
     "stage": "Etapa",
     "people": "Personas",
     "total": "Total",
+    "byCountry": "Dónde viven",
+    "byCountryIntro": "Por el país donde vive cada persona, hoy; quien no lo ha dicho, en «Sin indicar». Cada país lleva a sus personas.",
+    "byCountryNone": "Todavía no hay nadie.",
+    "country": "País",
+    "countryGroups": {
+      "latinAmerica": "Latinoamérica: {count}",
+      "world": "Resto del mundo: {count}"
+    },
+    "countryNone": "Sin indicar",
     "unknownArrival": "{count, plural, one {# persona sin fecha de alta no cuenta en las altas ni en el primer contacto.} other {# personas sin fecha de alta no cuentan en las altas ni en el primer contacto.}}",
     "arrivalsByChannel": "Altas por semana",
     "arrivalsByChannelIntro": "Cada persona cuenta una vez, en la semana de su fecha de alta, por su canal de alta. Semanas de lunes a domingo.",
@@ -2032,10 +2041,12 @@
     "world": "Resto del mundo",
     "province": "Provincia o región",
     "provinceHint": "Escribe para ver las provincias; si no es una de ellas, escríbelo igual.",
+    "regionListHint": "Escribe para ver las regiones del país; si no es una de ellas, escríbelo igual.",
     "regionHint": "Estado, región o provincia, como se diga allí.",
     "town": "Localidad",
     "openCountries": "Ver los países",
     "clearCountry": "Vaciar el país",
-    "openProvinces": "Ver las provincias"
+    "openProvinces": "Ver las provincias",
+    "openRegions": "Ver las regiones"
   }
 }

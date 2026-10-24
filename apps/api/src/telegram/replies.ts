@@ -1,6 +1,7 @@
 import type { AttentionReason, Stage } from '@backoffice/domain/stages';
 
 import { type Command, COMMANDS, SPANISH_NAMES } from '@backoffice/domain/bot-message';
+import { placeLine } from '@backoffice/domain/places';
 import { getTranslator } from '@backoffice/i18n/messages';
 
 import type { Keyboard } from './client.js';
@@ -57,7 +58,7 @@ export const reasonsLabel = (reasons: readonly AttentionReason[]): string =>
 const ownerLabel = (ownerName: string | null): string => ownerName ?? t('bot.unassigned');
 
 /**
- * Text that came from outside (a name or a province from a form, Airtable or a CSV) as the bot posts it. Telegram
+ * Text that came from outside (a name or a place from a form, Airtable or a CSV) as the bot posts it. Telegram
  * makes links of web addresses, domains, emails, @handles and /commands even in plain text, so a sign-up could post a
  * link to the team group: a dot between letters, an @, a `://` and a leading slash become look-alikes that link
  * nowhere (security review, 2026-10-16).
@@ -204,28 +205,34 @@ export const confirmLeave = (person: PersonLine): { text: string; keyboard: Keyb
 /** What a team post about someone erased becomes when it can no longer be deleted: no name, no buttons. */
 export const teamPostErased = (): string => t('bot.team.erased');
 
-/** A post in the team group: who arrived and from where, and who took them once someone did. */
+/**
+ * A post in the team group: who arrived and from where, where they live ("Dónde vive: Baviera, Alemania", PLAN R81),
+ * and who took them once someone did.
+ */
 export const teamPost = (
   staffOrigin: string,
   card: TeamCard,
-): { text: string; keyboard: Keyboard } => ({
-  text: [
-    t('bot.team.arrival', {
-      name: nameOf(card.name),
-      sources: card.sources.map((source) => t(`sources.${source as 'manual'}`)).join(', '),
-    }),
-    ...(card.province ? [t('bot.team.province', { province: unlinked(card.province) })] : []),
-    ...(card.ownerName ? [t('bot.team.claimedBy', { owner: card.ownerName })] : []),
-  ].join('\n'),
-  keyboard: [
-    [
-      ...(card.ownerName
-        ? []
-        : [{ text: t('bot.team.claim'), data: BUTTON_DATA.claim(card.personId) }]),
-      { text: t('bot.team.open'), url: personLink(staffOrigin, card.personId) },
+): { text: string; keyboard: Keyboard } => {
+  const place = placeLine({ province: card.province, country: card.country });
+  return {
+    text: [
+      t('bot.team.arrival', {
+        name: nameOf(card.name),
+        sources: card.sources.map((source) => t(`sources.${source as 'manual'}`)).join(', '),
+      }),
+      ...(place ? [t('bot.team.place', { place: unlinked(place) })] : []),
+      ...(card.ownerName ? [t('bot.team.claimedBy', { owner: card.ownerName })] : []),
+    ].join('\n'),
+    keyboard: [
+      [
+        ...(card.ownerName
+          ? []
+          : [{ text: t('bot.team.claim'), data: BUTTON_DATA.claim(card.personId) }]),
+        { text: t('bot.team.open'), url: personLink(staffOrigin, card.personId) },
+      ],
     ],
-  ],
-});
+  };
+};
 
 export const syncDone = (counts: Record<string, unknown>): string => {
   const count = (key: string) => (typeof counts[key] === 'number' ? counts[key] : 0);

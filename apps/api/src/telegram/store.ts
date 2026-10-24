@@ -50,6 +50,8 @@ export interface TeamCard {
   personId: string;
   name: string | null;
   province: string | null;
+  /** Where they live, its ISO 3166-1 code (PLAN R81). */
+  country: string | null;
   sources: string[];
   stage: Stage;
   ownerName: string | null;
@@ -85,7 +87,7 @@ export interface BotStore {
   people(
     userId: string,
     scope: PeopleScope,
-    query?: { text?: string; phones?: string[]; emails?: string[] },
+    query?: { text?: string; phones?: string[]; emails?: string[]; digits?: string | undefined },
   ): Promise<PersonLine[]>;
   claim(userId: string, personId: string): Promise<boolean>;
   leave(userId: string, personId: string): Promise<boolean>;
@@ -228,7 +230,9 @@ export const createBotStore = ({ app, auth }: { app: Database; auth: AuthPool })
       const { rows } = await sql<PersonRow>`
         SELECT person_id, name, stage, owner_name, reasons
           FROM private.bot_people(${scope}, ${query.text ?? null}, ${query.phones ?? []}::text[],
-                                  ${query.emails ?? []}::text[])`.execute(trx);
+                                  ${query.emails ?? []}::text[], ${query.digits ?? null})`.execute(
+        trx,
+      );
       return rows.map(line);
     }),
   claim: async (userId, personId) =>
@@ -296,6 +300,7 @@ export const createBotStore = ({ app, auth }: { app: Database; auth: AuthPool })
       person_id: string;
       name: string | null;
       province: string | null;
+      country: string | null;
       sources: string[];
       stage: Stage;
       owner_name: string | null;
@@ -306,6 +311,7 @@ export const createBotStore = ({ app, auth }: { app: Database; auth: AuthPool })
           personId: row.person_id,
           name: row.name,
           province: row.province,
+          country: row.country,
           sources: row.sources,
           stage: row.stage,
           ownerName: row.owner_name,

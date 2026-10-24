@@ -362,6 +362,26 @@ describe('the bot', () => {
     });
   });
 
+  it('finds a phone by part of its digits, six at least (PLAN R82)', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const search = async (digits: string | null) =>
+        (
+          await as<{ person_id: string }>(
+            client,
+            bot(USERS.onboarder),
+            "SELECT person_id FROM private.bot_people('search', NULL, '{}', '{}', $1)",
+            [digits],
+          )
+        ).map((row) => row.person_id);
+      // Without its country code, or the end of it.
+      expect(await search(ANA_PHONE.slice(3))).toEqual([PEOPLE.ana]);
+      expect(await search(ANA_PHONE.slice(-6))).toEqual([PEOPLE.ana]);
+      expect(await search(ANA_PHONE.slice(-5))).toEqual([]);
+      expect(await search(`${ANA_PHONE.slice(3, 6)} ${ANA_PHONE.slice(6)}`)).toEqual([]);
+      expect(await search(null)).toEqual([]);
+    });
+  });
+
   it('sees names, stages, owners and reasons, never contact details', async () => {
     await inRolledBackTransaction(async (client) => {
       // Someone else, whom a search for Ana's phone must not find.

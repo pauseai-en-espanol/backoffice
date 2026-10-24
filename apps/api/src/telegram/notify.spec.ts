@@ -15,6 +15,7 @@ const card: TeamCard = {
   personId: PERSON,
   name: 'Ana Ejemplo',
   province: 'Provincia de ejemplo',
+  country: 'DE',
   sources: ['airtable', 'telegram'],
   stage: 'new',
   ownerName: null,
@@ -93,13 +94,13 @@ const setup = ({ failSend = false, tooOld = false, nameless = false } = {}) => {
 };
 
 describe('the team group', () => {
-  it('posts an arrival once, with its name, sources and province, a claim button and a link', async () => {
+  it('posts an arrival once, with its name, sources and where they live, a claim button and a link', async () => {
     const team = setup();
     await team.notifier.arrival(PERSON);
     await team.notifier.arrival(PERSON);
     expect(team.sent).toEqual([
       {
-        text: 'Nueva llegada: Ana Ejemplo\nFuente: Formulario de PauseAI Global, Bot de Telegram\nProvincia: Provincia de ejemplo',
+        text: 'Nueva llegada: Ana Ejemplo\nFuente: Formulario de PauseAI Global, Bot de Telegram\nDónde vive: Provincia de ejemplo, Alemania',
         keyboard: [
           [
             { text: 'Me lo quedo', data: `claim:${PERSON}` },
