@@ -117,6 +117,24 @@ export const QuickAddForm = ({
   const result = useRef<HTMLDivElement>(null);
   const asked = useRef(0);
 
+  // Typed before the page came alive, on a slow phone (PLAN R86): React leaves the text in a field but not in the
+  // form's state, which would add the person without it, so the state starts from what the fields hold.
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (!form.current) {
+      return;
+    }
+    const held = new FormData(form.current);
+    const typed = (key: string) => {
+      const value = held.get(key);
+      return typeof value === 'string' ? value : '';
+    };
+    setName((now) => now || typed('name'));
+    setPhone((now) => now || typed('phone'));
+    setEmail((now) => now || typed('email'));
+    setDiscord((now) => now || typed('discord'));
+  }, []);
+
   const phoneValue = normalizePhone(phone);
   const emailValue = normalizeEmail(email);
   const discordValue = normalizeDiscord(discord);
@@ -254,7 +272,7 @@ export const QuickAddForm = ({
   };
 
   return (
-    <form className={ui.form} onSubmit={submit} noValidate>
+    <form ref={form} className={ui.form} onSubmit={submit} noValidate>
       <div className={ui.field}>
         <label className={ui.label} htmlFor="alta-nombre">
           {text.name}

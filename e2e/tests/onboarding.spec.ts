@@ -75,6 +75,30 @@ test('quick-add someone with only a phone, shown as «Sin nombre» until named (
   await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
 });
 
+test('what is typed before the page comes alive is added too (PLAN R86)', async ({ page }) => {
+  await signedInStaff(page, ['onboarding']);
+  // The page's scripts held back, as on a slow phone: the fields are there, React isn't yet.
+  let release = () => {};
+  const held = new Promise<void>((done) => {
+    release = done;
+  });
+  await page.route('**/_next/static/chunks/**', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('/anadir', { waitUntil: 'commit' });
+  const name = uniqueName();
+  await page.getByLabel('Nombre', { exact: true }).fill(name);
+  await page.getByLabel('Teléfono').fill(phone());
+  // Once alive, the form looks for duplicates of what it holds: the sign it has it.
+  const asked = page.waitForRequest((request) => request.url().includes('/api/candidates?'));
+  release();
+  await asked;
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await expect(page).toHaveURL(/\/personas\/[0-9a-f-]{36}$/u);
+  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+});
+
 test('a person’s page: next action, a contact attempt, a note, a phone, and leaving', async ({
   page,
 }) => {

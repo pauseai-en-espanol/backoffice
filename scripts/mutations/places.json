@@ -130,8 +130,8 @@
   {
     "name": "Latin America isn't offered as its own group",
     "file": "packages/domain/src/places.ts",
-    "old": "  { group: 'latinAmerica', codes: [...LATIN_AMERICA].sort(byName) },\n  {\n    group: 'world',",
-    "new": "  { group: 'latinAmerica', codes: [] },\n  {\n    group: 'world',",
+    "old": "  { group: 'latinAmerica', codes: IN_ORDER.filter((code) => LATIN_AMERICA.includes(code)) },",
+    "new": "  { group: 'latinAmerica', codes: [] },",
     "cmd": "pnpm exec vitest run src/places.spec.ts src/missing.spec.ts",
     "cwd": "packages/domain"
   },
@@ -222,5 +222,37 @@
     "new": "",
     "cmd": "pnpm exec vitest run src/onboarding/panel",
     "cwd": "apps/web"
+  },
+  {
+    "name": "countries' names are the platform's",
+    "file": "packages/domain/src/places.ts",
+    "old": "export const countryName = (code: string): string => NAME_OF.get(code) ?? code;",
+    "new": "export const countryName = (code: string): string =>\n  new Intl.DisplayNames(['es'], { type: 'region' }).of(code) ?? code;",
+    "cmd": "pnpm exec vitest run src/places.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "the world's countries are offered by their codes",
+    "file": "packages/domain/src/places.ts",
+    "old": "    codes: IN_ORDER.filter((code) => code !== SPAIN && !LATIN_AMERICA.includes(code)),",
+    "new": "    codes: COUNTRY_CODES.filter((code) => code !== SPAIN && !LATIN_AMERICA.includes(code)),",
+    "cmd": "pnpm exec vitest run src/places.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a country out of Spanish order",
+    "file": "packages/domain/src/places.ts",
+    "old": "  ['AF', 'Afganistán'],\n  ['AL', 'Albania'],",
+    "new": "  ['AL', 'Albania'],\n  ['AF', 'Afganistán'],",
+    "cmd": "pnpm exec vitest run src/places.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "Hong Kong as Node says it",
+    "file": "packages/domain/src/places.ts",
+    "old": "  ['HK', 'Hong Kong'],",
+    "new": "  ['HK', 'RAE de Hong Kong (China)'],",
+    "cmd": "pnpm exec vitest run src/places.spec.ts",
+    "cwd": "packages/domain"
   }
 ]

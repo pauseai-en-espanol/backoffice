@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   COUNTRY_CODES,
@@ -33,6 +33,13 @@ describe('countries (PLAN R74)', () => {
     );
   });
 
+  it('are each group in Spanish order, as written, not as sorted at runtime (PLAN R87)', () => {
+    for (const { codes } of COUNTRY_GROUPS) {
+      const names = codes.map(countryName);
+      expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, 'es')));
+    }
+  });
+
   it('are read from a code, or a name in Spanish or English, however written', () => {
     expect(normalizeCountry('es')).toBe('ES');
     expect(normalizeCountry('España')).toBe('ES');
@@ -54,6 +61,29 @@ describe('countries (PLAN R74)', () => {
     expect(countryMatches('MX', 'méx')).toBe(true);
     expect(countryMatches('MX', 'alem')).toBe(false);
     expect(countryMatches('MX', '')).toBe(true);
+  });
+});
+
+describe('countries’ names are the app’s own (PLAN R87)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it('whatever the platform calls them, so the server and every browser say and sort them alike', async () => {
+    // A platform with other names for every country, as Node's and a browser's differ for some.
+    class OtherNames {
+      of(code: string) {
+        return `Otro ${code}`;
+      }
+    }
+    vi.stubGlobal('Intl', { ...Intl, DisplayNames: OtherNames });
+    vi.resetModules();
+    const places = await import('./places.js');
+    expect(places.countryName('DE')).toBe('Alemania');
+    expect(places.countryName('HK')).toBe('Hong Kong');
+    expect(places.countryName('PS')).toBe('Palestina');
+    expect(places.COUNTRY_GROUPS).toEqual(COUNTRY_GROUPS);
   });
 });
 

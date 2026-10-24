@@ -738,6 +738,20 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   Shift K is a browser's console); the header and the dialog's help say that one, and the button tells assistive
   technology (`aria-keyshortcuts`). The server renders Ctrl K, and an Apple browser switches it once hydrated.
   Mutation list `hoy`.
+- **R86. Añadir keeps what is typed before the page comes alive** (found 2026-10-24, CI red after R84). A name typed
+  in Añadir before React had hydrated the page (a slow phone; CI typing right away) stayed in its field and was left
+  out of the person added, who came out "Sin nombre": React keeps a field's text when it hydrates, not its state.
+  **Chose to take it up**: once alive, the form starts its name, phone, email and Discord from what the fields hold.
+  The place fields (Ark UI's) aren't taken up: they are seldom first, and a choice from their lists needs the page
+  alive. E2E holds the page's scripts back, types, then lets them load. Mutation list `onboarding`.
+- **R87. Countries' names are the app's own** (found with R86). They came from the platform (`Intl`), whose names
+  differ between Node and each browser ("RAE de Hong Kong (China)" on the server, "Hong Kong" in Chromium), so a page
+  listing them as it loads (Añadir, the census form) was drawn otherwise in the browser than on the server: React
+  threw the server's away and drew it again, emptying what had been typed (since R74).
+  **Chose a table**: the 249 names in Spanish, CLDR 48's with the shorter ones browsers say for Hong Kong, Macao,
+  Palestine and the Falklands, written in Spanish order, not sorted at runtime (as R83's regions). English names, only
+  for finding a country as typed, still come from `Intl`. E2E now fails any test whose pages fail to hydrate, as it
+  does for a Content Security Policy violation. Mutation list `places`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).
