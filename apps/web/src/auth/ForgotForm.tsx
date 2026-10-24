@@ -78,7 +78,7 @@ export const ForgotForm = ({ text }: { text: ForgotText }) => {
   }
 
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form method="post" className={styles.form} onSubmit={submit}>
       <Field.Root className={styles.field} required invalid={error === 'invalidEmail'}>
         <Field.Label className={styles.label}>{text.email}</Field.Label>
         <Field.Input

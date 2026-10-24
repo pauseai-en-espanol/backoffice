@@ -60,7 +60,7 @@ export const BandejaSearch = ({ itemId, text }: { itemId: string; text: BandejaS
 
   return (
     <div className={ui.form}>
-      <form className={ui.field} onSubmit={search} role="search">
+      <form method="post" className={ui.field} onSubmit={search} role="search">
         <label className={ui.label} htmlFor={field}>
           {text.label}
         </label>

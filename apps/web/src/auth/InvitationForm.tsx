@@ -242,7 +242,7 @@ export const InvitationForm = ({ text }: { text: InvitationText }) => {
     );
   }
   return (
-    <form className={styles.form} onSubmit={create}>
+    <form method="post" className={styles.form} onSubmit={create}>
       {offered}
       <p className={styles.text}>{text.newAccount}</p>
       <Field.Root className={styles.field} required>

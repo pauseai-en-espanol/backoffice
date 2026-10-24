@@ -1,4 +1,5 @@
 import { createAccount, makeStaff, PASSWORD } from '../accounts.js';
+import { alive } from '../alive.js';
 import { expectAccessible } from '../axe.js';
 import { asVisitor, signInAndEnrol } from '../staff.js';
 import { expect, test } from '../test.js';
@@ -19,10 +20,12 @@ test('a new staff member enrols the second factor, and signs in with a code from
 
   await page.getByRole('button', { name: 'Salir' }).first().click();
   await expect(page).toHaveURL(/\/entrar$/u);
+  await alive(page);
   await page.getByLabel('Correo electrónico').fill(account.email);
   await page.getByLabel('Contraseña', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL(/\/verificacion$/u);
+  await alive(page);
   await expectAccessible(page);
   // A code from the next 30-second window, so it can't be the one enrolment just used.
   await page.getByLabel('Código', { exact: true }).fill(totpCode(key, Date.now() + 30_000));
@@ -49,4 +52,35 @@ test('an account that is not staff is told so after signing in', async ({ page }
   await signInAndEnrol(page, account.email);
   await expect(page).toHaveURL(/\/sin-acceso$/u);
   await expect(page.getByRole('heading', { name: 'Tu cuenta no tiene acceso' })).toBeVisible();
+});
+
+test('signing in before the page comes alive never puts the password in the address (PLAN R88)', async ({
+  page,
+}) => {
+  await asVisitor(page);
+  // The page's scripts held back, as on a slow phone: the form is there, React isn't yet.
+  let release = () => {};
+  const held = new Promise<void>((done) => {
+    release = done;
+  });
+  await page.route('**/_next/static/chunks/**', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await page.goto('/entrar', { waitUntil: 'commit' });
+  await page.getByLabel('Correo electrónico').fill('persona@ejemplo.test');
+  const password = page.getByLabel('Contraseña', { exact: true });
+  await password.fill(PASSWORD);
+  const sent = page.waitForRequest(
+    (request) => request.isNavigationRequest() && request.url().includes('/entrar'),
+  );
+  await password.press('Enter');
+  const request = await sent;
+  release();
+  expect(request.method()).toBe('POST');
+  expect(request.url()).not.toContain('contrase');
+  expect(new URL(request.url()).search).toBe('');
+  // The sign-in page again, to sign in once it's alive: what was typed went nowhere it could be read.
+  expect((await request.response())?.status()).toBe(200);
+  await expect(page).toHaveURL(/\/entrar$/u);
 });

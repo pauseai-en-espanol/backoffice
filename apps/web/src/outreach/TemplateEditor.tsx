@@ -140,7 +140,7 @@ export const TemplateEditor = ({
         <p className={ui.notice}>{text.none}</p>
       )}
       {open ? (
-        <form className={ui.form} onSubmit={submit} noValidate>
+        <form method="post" className={ui.form} onSubmit={submit} noValidate>
           <h4 ref={heading} tabIndex={-1} className={ui.h3}>
             {edit}
           </h4>

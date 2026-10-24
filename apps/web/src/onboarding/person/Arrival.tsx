@@ -46,7 +46,7 @@ export const ArrivalForm = ({
   };
 
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       <div className={styles.narrowField}>
         <div className={ui.field}>
           <label className={ui.label} htmlFor="llegada-dia">

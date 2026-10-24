@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 import { createAccount, makeStaff, PASSWORD, type StaffRole, visitorAddress } from './accounts.js';
+import { alive } from './alive.js';
 import { totpCode } from './totp.js';
 
 /** Plays a visitor of its own at the gateway, so tests don't share the sign-in rate limit. */
@@ -11,10 +12,12 @@ export const asVisitor = async (page: Page) => {
 /** Signs in with the password, and enrols TOTP through the page (the account has none yet); returns the setup key. */
 export const signInAndEnrol = async (page: Page, email: string): Promise<string> => {
   await page.goto('/entrar');
+  await alive(page);
   await page.getByLabel('Correo electrónico').fill(email);
   await page.getByLabel('Contraseña', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL(/\/verificacion\/alta$/u);
+  await alive(page);
   await page.getByLabel('Contraseña', { exact: true }).fill(PASSWORD);
   await page.getByRole('button', { name: 'Continuar' }).click();
   const key = (await page.getByTestId('setup-key').textContent()) ?? '';

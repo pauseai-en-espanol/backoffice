@@ -68,7 +68,7 @@ export const ChallengeForm = ({ text }: { text: ChallengeText }) => {
   };
 
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form method="post" className={styles.form} onSubmit={submit}>
       <p id={INTRO_ID} className={styles.text}>
         {backup ? text.backupIntro : text.intro}
       </p>

@@ -54,7 +54,7 @@ export const StageForm = ({
   };
 
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       <div className={ui.field}>
         {/* Seguimiento's row already says "Etapa": said here only to a reader (PLAN R65). */}
         <label className={ui.srOnly} htmlFor="etapa-persona">
@@ -137,7 +137,7 @@ export const OwnerForm = ({
       : team;
 
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       <div className={ui.field}>
         {/* Seguimiento's row already says "Responsable": said here only to a reader (PLAN R65). */}
         <label className={ui.srOnly} htmlFor="responsable-persona">

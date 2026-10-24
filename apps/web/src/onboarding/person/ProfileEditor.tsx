@@ -78,7 +78,7 @@ export const ProfileEditor = ({ person, text }: { person: Profile; text: PersonP
   );
 
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       {group(
         t.who,
         <>

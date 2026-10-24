@@ -84,7 +84,7 @@ export const TeamAccount = ({
   // The account that shares this person's email first, and chosen already.
   const ordered = [...accounts].sort((a, b) => Number(b.suggested) - Number(a.suggested));
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       <div className={ui.field}>
         <label className={ui.label} htmlFor="cuenta-equipo">
           {text.account}

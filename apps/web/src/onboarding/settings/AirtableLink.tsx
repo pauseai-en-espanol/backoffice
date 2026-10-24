@@ -51,6 +51,7 @@ export const AirtableLink = ({
   return (
     <div className={ui.form}>
       <form
+        method="post"
         className={ui.form}
         onSubmit={async (event) => {
           event.preventDefault();

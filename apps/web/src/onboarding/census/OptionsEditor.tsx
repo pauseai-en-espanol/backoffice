@@ -94,7 +94,7 @@ const RenameForm = ({
   };
 
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       <div className={ui.field}>
         <label className={ui.label} htmlFor={id}>
           {fill(text.renameLabel, { label: option.label })}
@@ -270,7 +270,7 @@ export const OptionsEditor = ({
       )}
       <FormError message={write.error} />
       {/* The field with its button beside it, as Contacto's (PLAN R66). */}
-      <form className={ui.field} onSubmit={submit}>
+      <form method="post" className={ui.field} onSubmit={submit}>
         <label className={ui.label} htmlFor={add}>
           {text.newOption}
         </label>

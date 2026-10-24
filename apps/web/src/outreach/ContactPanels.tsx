@@ -75,7 +75,7 @@ export const ReviewPanel = ({
 
   const error = missing ? text.errors.reason : write.error;
   return (
-    <form className={ui.form} onSubmit={submit} noValidate>
+    <form method="post" className={ui.form} onSubmit={submit} noValidate>
       <p className={ui.hint}>{text.intro}</p>
       <p className={ui.hint}>{text.hint}</p>
       <Field
@@ -168,7 +168,7 @@ export const HoldPanel = ({
   };
 
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       <p className={ui.hint}>{text.intro}</p>
       <p>{text.off}</p>
       <Field id="pausa-motivo" name="holdReason" label={text.reason} maxLength={500} />
@@ -234,7 +234,7 @@ export const NoteForm = ({
 
   const error = missing ? text.missing : write.error;
   return (
-    <form className={ui.form} onSubmit={submit} noValidate>
+    <form method="post" className={ui.form} onSubmit={submit} noValidate>
       <Field
         id="nota-texto"
         name="body"

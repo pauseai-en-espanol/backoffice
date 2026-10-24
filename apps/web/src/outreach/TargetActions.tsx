@@ -94,7 +94,7 @@ export const TargetActions = ({
   return (
     <div className={ui.form}>
       {open ? (
-        <form className={ui.form} onSubmit={submit} noValidate>
+        <form method="post" className={ui.form} onSubmit={submit} noValidate>
           <h4 ref={heading} tabIndex={-1} className={ui.h3}>
             {text.edit}
           </h4>

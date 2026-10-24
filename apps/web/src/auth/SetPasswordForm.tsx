@@ -116,7 +116,7 @@ export const SetPasswordForm = ({ text }: { text: SetPasswordText }) => {
 
   const tooShort = error === 'passwordTooShort' || error === 'passwordTooLong';
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form method="post" className={styles.form} onSubmit={submit}>
       <p className={styles.text}>{text.intro}</p>
       <Field.Root
         className={styles.field}

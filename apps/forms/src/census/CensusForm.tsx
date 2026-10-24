@@ -440,7 +440,7 @@ export const CensusForm = ({ personal, text, availability, privacyUrl }: CensusF
             : text.personalIntroNoName}
         </p>
       ) : null}
-      <form className={styles.form} noValidate onSubmit={submit}>
+      <form method="post" className={styles.form} noValidate onSubmit={submit}>
         <fieldset className={styles.section}>
           <legend>{text.about}</legend>
           {textField('name', text.name, { required: true, autoComplete: 'name' })}

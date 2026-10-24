@@ -100,7 +100,7 @@ const AnchorForm = ({
   const error = problem ?? write.error;
   const errorId = error ? `${idPrefix}-error` : undefined;
   return (
-    <form className={ui.form} onSubmit={submit} noValidate>
+    <form method="post" className={ui.form} onSubmit={submit} noValidate>
       <h4 ref={heading} tabIndex={-1} className={ui.h3}>
         {title}
       </h4>

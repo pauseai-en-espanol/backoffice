@@ -1,0 +1,36 @@
+[
+  {
+    "name": "signing in too early sends the password as a GET",
+    "file": "apps/web/src/auth/SignInForm.tsx",
+    "old": "<form method=\"post\" className={styles.form} onSubmit={submit}>",
+    "new": "<form className={styles.form} onSubmit={submit}>",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/sign-in.spec.ts --project chromium -g \"before the page comes alive\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a password set too early goes as a GET",
+    "file": "apps/web/src/auth/SetPasswordForm.tsx",
+    "old": "<form method=\"post\" className={styles.form} onSubmit={submit}>",
+    "new": "<form className={styles.form} onSubmit={submit}>",
+    "cmd": "pnpm exec vitest run src/form-method.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "the Airtable link pasted too early goes as a GET",
+    "file": "apps/web/src/onboarding/settings/AirtableLink.tsx",
+    "old": "      <form\n        method=\"post\"\n",
+    "new": "      <form\n",
+    "cmd": "pnpm exec vitest run src/form-method.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "a census answer sent too early goes as a GET",
+    "file": "apps/forms/src/census/CensusForm.tsx",
+    "old": "<form method=\"post\" className={styles.form} noValidate onSubmit={submit}>",
+    "new": "<form className={styles.form} noValidate onSubmit={submit}>",
+    "cmd": "pnpm exec vitest run src/form-method.spec.ts",
+    "cwd": "apps/web"
+  }
+]

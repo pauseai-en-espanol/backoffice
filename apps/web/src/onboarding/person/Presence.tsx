@@ -83,7 +83,7 @@ export const PresenceActions = ({
   }
 
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       <div className={ui.field}>
         <label className={ui.label} htmlFor="presencia-dia">
           {leaving ? t.leftDate : t.joinedDate}

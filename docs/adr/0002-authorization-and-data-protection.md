@@ -228,6 +228,10 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   logged. As built: requests log their method and path only; errors their kind, code and constraint, with message and
   stack redacted and a database error's `detail` and `where` (which quote rows) dropped; every log line's own words
   are redacted too (`apps/api/src/app.ts`). An error no route caught answers `{"error":"internal"}`, never its words.
+- Nothing typed in a form the page sends goes in an address (PLAN R88): every form says its method, POST for those,
+  so one sent before React has hydrated the page goes as a body, not as a query string in the browser's history and
+  every access log on the way (a password, a person's phone, the Airtable link). GET only for searches and filters,
+  whose addresses are meant to be kept and shared. A test fails any form without one.
 - OpenTelemetry instrumentation from day one, export off until the cluster has a backend.
 
 ### 9. Changing this model

@@ -49,7 +49,7 @@ export const SettingsForm = ({ settings, text }: { settings: Settings; text: Set
   };
 
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       {SETTINGS_NUMBERS.map(([key, min, max, step]) => (
         <div key={key} className={ui.field}>
           <label className={ui.label} htmlFor={`ajuste-${key}`}>

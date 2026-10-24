@@ -752,6 +752,13 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   Palestine and the Falklands, written in Spanish order, not sorted at runtime (as R83's regions). English names, only
   for finding a country as typed, still come from `Intl`. E2E now fails any test whose pages fail to hydrate, as it
   does for a Content Security Policy violation. Mutation list `places`.
+- **R88. A form sent before the page comes alive never puts what was typed in its address** (found 2026-10-24, with
+  R86: E2E signed in before `/entrar` had hydrated, and landed on `/entrar?email=…&password=…`). The forms the page
+  sends had no method, so the browser sent one itself as a GET: a password, a person's details or the Airtable link in
+  the address, the history and the access logs. **Chose POST for every one of them** (43 forms, the census form's
+  too), which Next answers with the page again, to send once it's alive; searches and filters stay GET. A test fails
+  any form without a method; E2E signs in too early and checks, and waits for a page to be alive before typing after
+  a full load (`e2e/alive.ts`), as the sign-in test now does. ADR-0002 §8. Mutation list `form-method`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

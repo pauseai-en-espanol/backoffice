@@ -47,7 +47,7 @@ export const HandOver = ({
 
   const id = `heredero-${userId}`;
   return (
-    <form className={ui.form} onSubmit={submit}>
+    <form method="post" className={ui.form} onSubmit={submit}>
       <div className={ui.field}>
         <label className={ui.label} htmlFor={id}>
           {text.heir}

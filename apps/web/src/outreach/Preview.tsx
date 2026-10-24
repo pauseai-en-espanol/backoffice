@@ -107,7 +107,7 @@ export const Preview = ({
 
   return (
     <div className={ui.form}>
-      <form className={ui.field} onSubmit={search} role="search">
+      <form method="post" className={ui.field} onSubmit={search} role="search">
         <label className={ui.label} htmlFor="vista-buscar">
           {text.search}
         </label>

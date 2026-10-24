@@ -50,7 +50,7 @@ export const SignInForm = ({ text }: { text: SignInText }) => {
   };
 
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form method="post" className={styles.form} onSubmit={submit}>
       <Field.Root className={styles.field} required invalid={wrong}>
         <Field.Label className={styles.label}>{text.email}</Field.Label>
         <Field.Input

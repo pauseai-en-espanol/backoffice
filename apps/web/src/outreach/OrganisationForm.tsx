@@ -115,7 +115,7 @@ export const NewOrganisationForm = ({ text }: { text: OrganisationFormText }) =>
       : undefined;
   const error = missing ? text.errors.name : write.error;
   return (
-    <form className={ui.form} onSubmit={submit} noValidate>
+    <form method="post" className={ui.form} onSubmit={submit} noValidate>
       <OrganisationFields
         prefix="organizacion"
         text={text}
@@ -191,7 +191,7 @@ export const OrganisationEditor = ({
       : undefined;
   const error = missing ? text.errors.name : write.error;
   return (
-    <form className={ui.form} onSubmit={submit} noValidate>
+    <form method="post" className={ui.form} onSubmit={submit} noValidate>
       <h3 ref={heading} tabIndex={-1} className={ui.h3}>
         {text.edit}
       </h3>

@@ -66,7 +66,7 @@ export const InviteForm = ({ text }: { text: InviteText }) => {
 
   const field = refusal?.error === 'invalid' ? refusal.field : undefined;
   return (
-    <form className={styles.form} onSubmit={submit} noValidate={false}>
+    <form method="post" className={styles.form} onSubmit={submit} noValidate={false}>
       <Field.Root className={styles.field} required invalid={field === 'email'}>
         <Field.Label className={styles.label}>{text.email}</Field.Label>
         <Field.Input

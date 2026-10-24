@@ -130,7 +130,7 @@ export const MessageEditor = ({
     : [{ label: text.preview, message: fillMessage({ body, bodyNameless: null }, example) }];
 
   return (
-    <form className={ui.form} onSubmit={submit} noValidate>
+    <form method="post" className={ui.form} onSubmit={submit} noValidate>
       <h3 ref={heading} tabIndex={-1} className={ui.h3}>
         {title}
       </h3>

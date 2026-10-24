@@ -83,7 +83,7 @@ export const MergePanel = ({
   return (
     <div className={ui.form}>
       <p className={ui.hint}>{t.intro}</p>
-      <form className={ui.form} onSubmit={search} role="search">
+      <form method="post" className={ui.form} onSubmit={search} role="search">
         <div className={ui.field}>
           <label className={ui.label} htmlFor="fusion-buscar">
             {t.search}

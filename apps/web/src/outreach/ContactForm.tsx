@@ -356,7 +356,7 @@ export const NewContactForm = ({
   const refused = problem ?? (write.refusal?.error === 'invalid' ? write.refusal.field : undefined);
   const error = problem === undefined ? write.error : text.errors[problem];
   return (
-    <form className={ui.form} onSubmit={submit} noValidate>
+    <form method="post" className={ui.form} onSubmit={submit} noValidate>
       <ContactFields
         prefix="nuevo"
         defaults={defaults}
@@ -471,7 +471,7 @@ export const ContactEditor = ({
   const refused = problem ?? (write.refusal?.error === 'invalid' ? write.refusal.field : undefined);
   const error = problem === undefined ? write.error : text.errors[problem];
   return (
-    <form className={ui.form} onSubmit={submit} noValidate>
+    <form method="post" className={ui.form} onSubmit={submit} noValidate>
       <h3 ref={heading} tabIndex={-1} className={ui.h3}>
         {text.edit}
       </h3>

@@ -99,7 +99,7 @@ export const EnrolForm = ({ text }: { text: EnrolText }) => {
 
   if (step.kind === 'password') {
     return (
-      <form className={styles.form} onSubmit={begin}>
+      <form method="post" className={styles.form} onSubmit={begin}>
         <p className={styles.text}>{text.passwordStep}</p>
         <Field.Root className={styles.field} required invalid={error === 'invalidPassword'}>
           <Field.Label className={styles.label}>{text.password}</Field.Label>
@@ -121,7 +121,7 @@ export const EnrolForm = ({ text }: { text: EnrolText }) => {
 
   if (step.kind === 'scan') {
     return (
-      <form className={styles.form} onSubmit={verify}>
+      <form method="post" className={styles.form} onSubmit={verify}>
         <h2 ref={heading} tabIndex={-1} className={styles.subheading}>
           {text.scanTitle}
         </h2>

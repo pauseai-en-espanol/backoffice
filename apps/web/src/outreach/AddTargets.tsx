@@ -152,7 +152,7 @@ export const AddTargets = ({
   return (
     <div className={ui.form}>
       <p className={ui.hint}>{text.intro}</p>
-      <form className={onboarding.filters} onSubmit={search} role="search">
+      <form method="post" className={onboarding.filters} onSubmit={search} role="search">
         <div className={ui.field} data-wide="">
           <label className={ui.label} htmlFor="anadir-buscar">
             {text.search}

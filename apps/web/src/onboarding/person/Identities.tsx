@@ -132,7 +132,7 @@ export const Identities = ({
           })}
         </ul>
       )}
-      <form className={styles.identityForm} onSubmit={submit} noValidate>
+      <form method="post" className={styles.identityForm} onSubmit={submit} noValidate>
         <label className={ui.label} htmlFor="contacto-valor">
           {t.add}
         </label>

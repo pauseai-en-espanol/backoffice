@@ -115,7 +115,7 @@ export const MemberEditor = ({
 
   const field = refusal?.error === 'invalid' ? refusal.field : undefined;
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form method="post" className={styles.form} onSubmit={submit}>
       <h3 ref={heading} tabIndex={-1} className={styles.h3}>
         {text.title}
       </h3>
