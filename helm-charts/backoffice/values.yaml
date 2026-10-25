@@ -11,7 +11,7 @@ backoffice-migrations:
 backoffice-api:
   nameOverride: api
   image:
-    tag: '0.11.7.36c1697'
+    tag: '0.11.8.0c48f93'
 backoffice-web:
   nameOverride: web
   image:
