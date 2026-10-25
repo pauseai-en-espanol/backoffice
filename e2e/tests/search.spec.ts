@@ -26,10 +26,14 @@ test('Ctrl K finds a person as it is typed, opens them, and goes to a section', 
     'aria-keyshortcuts',
     'Control+K',
   );
-  await page.keyboard.press('Control+k');
   const dialog = page.getByRole('dialog', { name: 'Buscar' });
   const box = dialog.getByRole('combobox', { name: 'Buscar' });
-  await expect(box).toBeFocused();
+  // The page listens for the shortcut once it has hydrated, after the server's HTML already says Control+K: a press
+  // before then does nothing, so it's pressed until the dialog opens (pressed again, it only opens it).
+  await expect(async () => {
+    await page.keyboard.press('Control+k');
+    await expect(box).toBeFocused({ timeout: 1000 });
+  }).toPass({ timeout: 10_000 });
   await expect(dialog).toContainText('desde cualquier página con Ctrl K.');
   // Nothing typed: who one last worked with.
   await expect(dialog.getByRole('group', { name: 'Recientes' })).toContainText(name);
