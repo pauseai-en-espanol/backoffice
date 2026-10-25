@@ -1,5 +1,32 @@
 # @backoffice/web
 
+## 0.15.5
+
+### Patch Changes
+
+- 9dd814f: A form sent before the page comes alive never puts what was typed in its address (PLAN R88): every form the page
+  sends is a POST, so pressing Entrar or Intro before React has hydrated it sends a body, which Next answers with the
+  page again, not `/entrar?email=…&password=…` in the browser's history and the access logs; the same for a person's
+  details, the Airtable link and a census answer.
+- 3ec8eec: Pages that list countries hydrate again, and Añadir keeps what is typed before the page comes alive (PLAN R86, R87):
+  countries' names are the app's own, in Spanish order, not the platform's, which differ between Node and each browser
+  ("RAE de Hong Kong (China)" and "Hong Kong"), so React no longer throws away and redraws Añadir or the census form,
+  emptying what had been typed; and a name, phone, email or Discord typed in Añadir before React has hydrated it is sent
+  with the person, not left out.
+- 28347af: Where people live, everywhere it's shown (PLAN R81 to R84): the team group's post says "Dónde vive: Baviera, Alemania"
+  instead of "Provincia"; the bot's `/search` and `/left` find a phone by 6 or more of its digits, however written, as
+  Personas does; Latin America's and the United States' regions are offered as lists in the place pickers and suggested
+  in the census form ("cdmx", "Nueva York" find theirs); and the Panel's "Dónde viven" counts people by country, Spain,
+  Latin America and the rest of the world, each country leading to its people in Personas.
+- a3222cc: The search's shortcut is each system's own (PLAN R85): ⌘K on a Mac, an iPhone or an iPad, Ctrl K elsewhere, and the
+  header and the dialog's help say that one. On a Mac, Ctrl K is left to text fields again (it deletes to the end of the
+  line), and Ctrl Shift K to the browser; the button tells assistive technology its shortcut (`aria-keyshortcuts`).
+- Updated dependencies [3ec8eec]
+- Updated dependencies [28347af]
+- Updated dependencies [a3222cc]
+  - @backoffice/domain@0.5.4
+  - @backoffice/i18n@0.15.4
+
 ## 0.15.4
 
 ### Patch Changes

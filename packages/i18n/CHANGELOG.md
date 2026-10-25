@@ -1,5 +1,18 @@
 # @backoffice/i18n
 
+## 0.15.4
+
+### Patch Changes
+
+- 28347af: Where people live, everywhere it's shown (PLAN R81 to R84): the team group's post says "Dónde vive: Baviera, Alemania"
+  instead of "Provincia"; the bot's `/search` and `/left` find a phone by 6 or more of its digits, however written, as
+  Personas does; Latin America's and the United States' regions are offered as lists in the place pickers and suggested
+  in the census form ("cdmx", "Nueva York" find theirs); and the Panel's "Dónde viven" counts people by country, Spain,
+  Latin America and the rest of the world, each country leading to its people in Personas.
+- a3222cc: The search's shortcut is each system's own (PLAN R85): ⌘K on a Mac, an iPhone or an iPad, Ctrl K elsewhere, and the
+  header and the dialog's help say that one. On a Mac, Ctrl K is left to text fields again (it deletes to the end of the
+  line), and Ctrl Shift K to the browser; the button tells assistive technology its shortcut (`aria-keyshortcuts`).
+
 ## 0.15.3
 
 ### Patch Changes

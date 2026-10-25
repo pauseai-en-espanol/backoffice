@@ -1,5 +1,20 @@
 # @backoffice/domain
 
+## 0.5.4
+
+### Patch Changes
+
+- 3ec8eec: Pages that list countries hydrate again, and Añadir keeps what is typed before the page comes alive (PLAN R86, R87):
+  countries' names are the app's own, in Spanish order, not the platform's, which differ between Node and each browser
+  ("RAE de Hong Kong (China)" and "Hong Kong"), so React no longer throws away and redraws Añadir or the census form,
+  emptying what had been typed; and a name, phone, email or Discord typed in Añadir before React has hydrated it is sent
+  with the person, not left out.
+- 28347af: Where people live, everywhere it's shown (PLAN R81 to R84): the team group's post says "Dónde vive: Baviera, Alemania"
+  instead of "Provincia"; the bot's `/search` and `/left` find a phone by 6 or more of its digits, however written, as
+  Personas does; Latin America's and the United States' regions are offered as lists in the place pickers and suggested
+  in the census form ("cdmx", "Nueva York" find theirs); and the Panel's "Dónde viven" counts people by country, Spain,
+  Latin America and the rest of the world, each country leading to its people in Personas.
+
 ## 0.5.3
 
 ### Patch Changes
