@@ -15,7 +15,7 @@ backoffice-api:
 backoffice-web:
   nameOverride: web
   image:
-    tag: '0.15.5.36c1697'
+    tag: '0.15.6.acd0463'
 backoffice-forms:
   nameOverride: forms
   image:
