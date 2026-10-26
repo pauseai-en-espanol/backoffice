@@ -759,6 +759,15 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   too), which Next answers with the page again, to send once it's alive; searches and filters stay GET. A test fails
   any form without a method; E2E signs in too early and checks, and waits for a page to be alive before typing after
   a full load (`e2e/alive.ts`), as the sign-in test now does. ADR-0002 §8. Mutation list `form-method`.
+- **R89. The stage is changed under the name** (Dani, 2026-10-26; found with E2E red on every pull request). On a
+  phone, "Cambiar la etapa" sat in Seguimiento, below "Escribirle": in a Pixel 7's font (Roboto) only its top 3px were
+  on the first screen, which `toBeInViewport()` took for in view, and GitHub's runner, whose system font is the wider
+  DejaVu Sans, put it 109px below. No app loads the brand fonts, so every browser draws the system font. Options: load
+  the brand fonts in E2E (a page no one sees); give the runner Roboto (CI as on a Pixel 7, still by 3px); move the
+  stage. **Chose to move it**: the stage's pill under the name has its button, and its form opens there with "Etapa"
+  shown, as no row says it any more (R65's rule now holds for Responsable only); Seguimiento keeps the owner and the
+  next step. Claiming, WhatsApp and the stage must now be wholly on a phone's first screen, as they are in DejaVu Sans
+  with 175px to spare. Mutation list `visual-pages`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

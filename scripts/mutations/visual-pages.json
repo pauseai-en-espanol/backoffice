@@ -58,12 +58,22 @@
     "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
   },
   {
-    "name": "\"Etapa\" shown twice once its editor opens",
+    "name": "the stage's editor, opened under the name, hides its \"Etapa\"",
     "file": "apps/web/src/onboarding/person/StageOwner.tsx",
-    "old": "        <label className={ui.srOnly} htmlFor=\"etapa-persona\">",
-    "new": "        <label className={ui.label} htmlFor=\"etapa-persona\">",
+    "old": "        <label className={ui.label} htmlFor=\"etapa-persona\">",
+    "new": "        <label className={ui.srOnly} htmlFor=\"etapa-persona\">",
     "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
     "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a phone's first screen shows the stage without its button",
+    "file": "apps/web/src/app/personas/[id]/page.tsx",
+    "old": "              {readOnly ? (\n                stageTag\n              ) : (\n                <EditInPlace label={t('person.changeStage')} view={stageTag}>\n                  <StageForm person={person} text={text} />\n                </EditInPlace>\n              )}\n",
+    "new": "              {stageTag}\n",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/person.phone.spec.ts --project phone",
     "cwd": "e2e",
     "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
   },

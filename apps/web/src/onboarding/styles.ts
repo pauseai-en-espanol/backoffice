@@ -622,7 +622,7 @@ export const personHeading = css({
   '& h1': { marginBlockEnd: '0' },
 });
 
-/** Under a person's name (PLAN R65): their stage and the next step's strip side by side, wrapping on a phone. */
+/** Under a person's name (PLAN R65, R89): their stage, its button, and the next step's strip, wrapping on a phone. */
 export const personStatus = css({
   display: 'flex',
   flexWrap: 'wrap',
@@ -643,7 +643,7 @@ export const personActions = css({
   '& > *': { flex: '0 1 auto', minWidth: '0' },
 });
 
-/** Where someone is (stage, owner, next step): each label above its value on a phone, beside it from a tablet. */
+/** Seguimiento (owner, next step): each label above its value on a phone, beside it from a tablet. */
 export const followUp = css({
   display: 'grid',
   gridTemplateColumns: { base: '1fr', md: 'auto minmax(0, 1fr)' },

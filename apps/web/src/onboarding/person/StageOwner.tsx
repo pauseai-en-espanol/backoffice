@@ -56,8 +56,8 @@ export const StageForm = ({
   return (
     <form method="post" className={ui.form} onSubmit={submit}>
       <div className={ui.field}>
-        {/* Seguimiento's row already says "Etapa": said here only to a reader (PLAN R65). */}
-        <label className={ui.srOnly} htmlFor="etapa-persona">
+        {/* Opened under the name, where no row says "Etapa": its label is shown (PLAN R89). */}
+        <label className={ui.label} htmlFor="etapa-persona">
           {t.stage}
         </label>
         <select

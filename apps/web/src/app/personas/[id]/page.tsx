@@ -66,9 +66,9 @@ const RECENT_EVENTS = 10;
 
 /**
  * A person (onboarding spec, views: Persona; PLAN R57), opened from the bot's "Abrir" too. Who they are heads it, with
- * what is done first: "Me lo quedo" and WhatsApp. Then, in the wider column, where they are (stage, owner and next
- * step, each changed where it is shown), what happened since (an attempt or a note, written above the history it
- * joins), and the history, its latest in view. Beside it, what is known, each edited in its own card: contact, the
+ * what is done first: the stage, changed under the name (PLAN R89), "Me lo quedo" and WhatsApp. Then, in the wider
+ * column, who holds them and the next step (each changed where it is shown), what happened since (an attempt or a
+ * note, written above the history it joins), and the history, its latest in view. Beside it, what is known, each edited in its own card: contact, the
  * profile, the community, the census; and what is done rarely, folded under "Más acciones": merging, the team account,
  * their data. A phone shows the same, one column, in that order. A tombstone (merged into another record) is shown as
  * such, read only, with a link to the record that stays.
@@ -332,10 +332,17 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
               <p className={styles.muted}>{person.fullName}</p>
             )}
             {person.summary ? <p className={onboarding.summary}>{person.summary}</p> : null}
-            {/* Where they are, under the name (PLAN R65): the stage, and the next step in its strip, red once late,
-                amber when today or missing. Whether they are in the community is told under "Alta y comunidad". */}
+            {/* Where they are, under the name (PLAN R65): the stage, changed right there so a phone's first screen
+                has it (PLAN R89), and the next step in its strip, red once late, amber when today or missing.
+                Whether they are in the community is told under "Alta y comunidad". */}
             <div className={onboarding.personStatus}>
-              {stageTag}
+              {readOnly ? (
+                stageTag
+              ) : (
+                <EditInPlace label={t('person.changeStage')} view={stageTag}>
+                  <StageForm person={person} text={text} />
+                </EditInPlace>
+              )}
               <NextStep person={person} labels={text.labels} />
             </div>
             <ReasonChips reasons={headerChipReasons(person.reasons)} labels={text.labels} />
@@ -395,16 +402,6 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                 {t('person.followUp')}
               </h2>
               <dl className={onboarding.followUp}>
-                <dt>{t('person.stageLabel')}</dt>
-                <dd>
-                  {readOnly ? (
-                    stageTag
-                  ) : (
-                    <EditInPlace label={t('person.changeStage')} view={stageTag}>
-                      <StageForm person={person} text={text} />
-                    </EditInPlace>
-                  )}
-                </dd>
                 <dt>{t('person.owner')}</dt>
                 <dd>
                   {readOnly ? (

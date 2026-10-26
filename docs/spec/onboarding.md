@@ -122,9 +122,10 @@ deactivated account keeps it without the badge.
   outcome presets), set the next action, change stage, assign, add a note, open a WhatsApp chat with a prepared message
   ([§7.3](#73-whatsapp-handover-links)), copy the email address. Laid out to read first and edit in place (PLAN R57):
   who they are, with "Me lo quedo" and WhatsApp, and under the name their stage's pill and the next step's strip, red
-  once late and amber when today or missing, with a chip only for reasons the strip doesn't show (PLAN R65); then where
-  they are (stage, owner, next step, each changed where it is shown by a small button with its icon, its form's first
-  label said only to a reader as the row already says it), one place to write an attempt or a note, and the history, its
+  once late and amber when today or missing, with a chip only for reasons the strip doesn't show (PLAN R65); the pill
+  has "Cambiar la etapa" beside it, so a phone's first screen has claiming, WhatsApp and the stage (PLAN R89); then
+  the owner and the next step, each changed where it is shown by a small button with its icon, its form's first label
+  said only to a reader as the row already says it; one place to write an attempt or a note, and the history, its
   latest ten in view; beside it, a card each for contact, profile, sign-up and community, and census, edited in the
   card; merging, the team account and their data under "Más acciones". The sign-up's day is written once: the card "Alta
   y comunidad" tells only what changed in the group since ("Salió del grupo el …", "Volvió al grupo el …"; PLAN R58).

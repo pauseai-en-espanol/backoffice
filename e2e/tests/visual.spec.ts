@@ -42,10 +42,11 @@ test('a person’s page: the stage and next step under the name, edits as button
   const change = page.getByRole('button', { name: 'Cambiar la etapa' });
   await expect(change.locator('svg')).toHaveCount(1);
   await change.click();
-  // "Etapa" shows once, the row's: the form's own label is said only to a reader.
+  // "Etapa" shows once, the form's own: it opens under the name, where no row says it (PLAN R89).
   await expect(page.getByLabel('Etapa', { exact: true })).toBeVisible();
   const label = await page.locator('label[for="etapa-persona"]').boundingBox();
-  expect(label?.width ?? 0).toBeLessThanOrEqual(1);
+  expect(label?.width ?? 0).toBeGreaterThan(1);
+  await expect(page.getByText('Etapa', { exact: true })).toHaveCount(1);
   await expectAccessible(page);
 });
 
