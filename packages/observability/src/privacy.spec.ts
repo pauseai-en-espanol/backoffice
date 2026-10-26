@@ -195,6 +195,7 @@ describe('SDK options', () => {
       httpBodies: [],
       urlQueryParams: false,
       stackFrameVariables: false,
+      mcp: { inputs: false, outputs: false },
     });
     expect(privacyOptions.beforeSend).toBe(scrubEvent);
     expect(privacyOptions.beforeBreadcrumb).toBe(scrubBreadcrumb);
