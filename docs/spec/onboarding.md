@@ -132,7 +132,8 @@ deactivated account keeps it without the badge.
   y comunidad" tells only what changed in the group since ("Salió del grupo el …", "Volvió al grupo el …"; PLAN R58).
   The contact card lists each phone, email and Discord username on one line, its kind's icon, the value and "Quitar";
   below them one field, "Añadir teléfono, correo o Discord", takes any of the three and tells which it is from what is
-  typed (PLAN R63). Fields side by side keep their boxes in line whatever their labels (PLAN R64).
+  typed (PLAN R63). Fields side by side keep their boxes in line whatever their labels (PLAN R64), and sit side by
+  side only where their form has room for them, wherever it is on the page (PLAN R91).
 - **Añadir rápido:** a phone, an email or a Discord username, the name if known, "Canal de alta", "Fecha de alta"
   (today, emptied when nobody knows), optional note. Duplicates are checked as you type.
 - **Bandeja:** records awaiting a decision: possible duplicates and conflicting values. A possible duplicate is

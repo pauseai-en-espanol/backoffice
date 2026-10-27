@@ -774,6 +774,16 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   widths and gap). **Chose one grid for the page**: the name heads the wider column and Seguimiento follows it;
   "Me lo quedo" and Escribirle head the narrower one, as wide as the cards they head. A phone keeps its order (R89).
   E2E checks Seguimiento starts beside Escribirle and Escribirle lines up with Contacto. Mutation list `visual-pages`.
+- **R91. Fields sit side by side where their form has room** (Dani, 2026-10-27, from R90's screenshots). R64's row
+  put fields side by side from a tablet's screen, but a person's page puts its forms in a column narrower than a
+  tablet: below about 1400px Registrar's "Cómo fue" (192px for "Número equivocado") ran into "Cuándo fue", and the
+  next step's date spilled out of Seguimiento at any width. Options: stack the person page's columns until a wider
+  screen (the page would lose its columns on most laptops); let the boxes shrink to their columns (cut words); measure
+  the form, not the screen. **Chose to measure the form** (a container query, `fieldRowForm` on the form): side by
+  side once it is 38rem wide, three fields of 12rem or a date of 12rem beside a text, one column otherwise; and a box
+  is never wider than its field, so another font cuts a long option rather than covering the next field. On a laptop
+  Registrar and the next step stack; Añadir and a tablet keep their rows. R64's test runs on a wide screen; a new one
+  checks the fields stack on a laptop and a long option stays in its field. Mutation list `forms`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

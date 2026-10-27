@@ -272,7 +272,13 @@ export const QuickAddForm = ({
   };
 
   return (
-    <form method="post" ref={form} className={ui.form} onSubmit={submit} noValidate>
+    <form
+      method="post"
+      ref={form}
+      className={`${ui.form} ${ui.fieldRowForm}`}
+      onSubmit={submit}
+      noValidate
+    >
       <div className={ui.field}>
         <label className={ui.label} htmlFor="alta-nombre">
           {text.name}

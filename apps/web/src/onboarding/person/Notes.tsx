@@ -62,7 +62,7 @@ export const NextActionForm = ({
   };
 
   return (
-    <form method="post" className={ui.form} onSubmit={submit}>
+    <form method="post" className={`${ui.form} ${ui.fieldRowForm}`} onSubmit={submit}>
       <div className={ui.fieldRow} data-columns="wide-narrow">
         <div className={ui.field}>
           <label className={ui.label} htmlFor="siguiente-texto">
@@ -164,7 +164,7 @@ export const AttemptForm = ({ personId, text }: { personId: string; text: Person
   };
 
   return (
-    <form method="post" className={ui.form} onSubmit={submit}>
+    <form method="post" className={`${ui.form} ${ui.fieldRowForm}`} onSubmit={submit}>
       <div className={ui.fieldRow}>
         <div className={ui.field}>
           <label className={ui.label} htmlFor="intento-canal">

@@ -428,16 +428,19 @@ export const disclosure = css({ display: 'flex', flexDirection: 'column', gap: '
 export const field = css({ display: 'flex', flexDirection: 'column', gap: '1.5' });
 
 /**
- * Fields side by side (PLAN R64), each a `field` (a div: its label, its box, maybe a hint). From a tablet up they share
- * their rows (CSS subgrid): the labels one row, the boxes the next, the hints the last, so a label that wraps lowers its
- * neighbours' too and every box stays in line. Even columns, or `data-columns="wide-narrow"` for a text beside a date.
- * One column on a phone, where nothing sits beside anything.
+ * Fields side by side (PLAN R64, R91), each a `field` (a div: its label, its box, maybe a hint), once the form they
+ * are in is 38rem wide: three fields of 12rem ("Número equivocado" in Registrar's), or a date of 12rem beside a text.
+ * The form is what it measures (a container query; give it `fieldRowForm` too), not the screen: a person's page puts
+ * its forms in a column narrower than a tablet. Side by side they share their rows (CSS subgrid): the labels one row,
+ * the boxes the next, the hints the last, so a label that wraps lowers its neighbours' too and every box stays in line;
+ * a box is never wider than its field, whatever the font. Even columns, or `data-columns="wide-narrow"` for a text
+ * beside a date. One column otherwise, as on a phone, where nothing sits beside anything.
  */
 export const fieldRow = css({
   display: 'grid',
   gridTemplateColumns: 'minmax(0, 1fr)',
   gap: '4',
-  md: {
+  '@container (min-width: 38rem)': {
     gridTemplateColumns: 'none',
     gridAutoFlow: 'column',
     gridAutoColumns: 'minmax(0, 1fr)',
@@ -447,11 +450,15 @@ export const fieldRow = css({
       gridRow: 'span 3',
       display: 'grid',
       gridTemplateRows: 'subgrid',
+      gridTemplateColumns: 'minmax(0, 1fr)',
       alignContent: 'start',
     },
     '&[data-columns="wide-narrow"]': { gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)' },
   },
 });
+
+/** A form holding a `fieldRow`: the width its fields measure. As wide as where it is put, never as its fields. */
+export const fieldRowForm = css({ containerType: 'inline-size' });
 
 export const label = css({ fontWeight: 'bold' });
 

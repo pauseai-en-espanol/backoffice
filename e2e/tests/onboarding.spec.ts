@@ -219,6 +219,8 @@ test('fields side by side stay in line when a label wraps (PLAN R64)', async ({ 
     data: { name: uniqueName(), decision: 'new' },
   });
   const { personId } = (await created.json()) as { personId: string };
+  // Wide enough for Registrar's three fields side by side (PLAN R91).
+  await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto(`/personas/${personId}`);
   const boxes = ['#intento-canal', '#intento-resultado', '#intento-fecha'].map((id) =>
     page.locator(id),
@@ -234,6 +236,44 @@ test('fields side by side stay in line when a label wraps (PLAN R64)', async ({ 
   );
   const tops = await Promise.all(boxes.map(async (box) => (await box.boundingBox())?.y ?? -1));
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(1);
+});
+
+test('fields sit side by side only where their form has room, each box inside its field (PLAN R91)', async ({
+  page,
+}) => {
+  await signedInStaff(page, ['onboarding']);
+  const origin = new URL(page.url()).origin;
+  const created = await page.request.post('/api/intake', {
+    headers: { origin },
+    data: { name: uniqueName(), decision: 'new' },
+  });
+  const { personId } = (await created.json()) as { personId: string };
+  await page.goto(`/personas/${personId}`);
+  const boxes = ['#intento-canal', '#intento-resultado', '#intento-fecha'].map((id) =>
+    page.locator(id),
+  );
+  const lefts = async () =>
+    Promise.all(boxes.map(async (box) => (await box.boundingBox())?.x ?? Number.NaN));
+
+  // A laptop: a person's page gives Registrar a column narrower than a tablet, so its fields stack, each whole.
+  const stacked = await lefts();
+  expect(Math.max(...stacked) - Math.min(...stacked), 'one above the other').toBeLessThanOrEqual(1);
+
+  // A wide screen: side by side; an option much longer than its column, as another font could make it, keeps its box
+  // out of "Cuándo fue".
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page
+    .locator('#intento-resultado option')
+    .first()
+    .evaluate((option) => {
+      option.textContent = 'Un resultado mucho más largo que su columna';
+    });
+  expect(new Set(await lefts()).size, 'side by side').toBe(3);
+  const [outcome, date] = await Promise.all([boxes[1]?.boundingBox(), boxes[2]?.boundingBox()]);
+  expect(
+    (outcome?.x ?? 0) + (outcome?.width ?? Number.POSITIVE_INFINITY),
+    '"Cómo fue" stays out of "Cuándo fue"',
+  ).toBeLessThanOrEqual(date?.x ?? 0);
 });
 
 test('a likely duplicate is caught as you type, and a decided one goes through', async ({

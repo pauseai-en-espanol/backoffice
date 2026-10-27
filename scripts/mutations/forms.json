@@ -130,6 +130,36 @@
     "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
   },
   {
+    "name": "fields side by side from a tablet's screen, however narrow their form",
+    "file": "apps/web/src/ui/styles.ts",
+    "old": "  '@container (min-width: 38rem)': {",
+    "new": "  md: {",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"only where their form has room\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a box as wide as its longest option, into the next field",
+    "file": "apps/web/src/ui/styles.ts",
+    "old": "      gridTemplateColumns: 'minmax(0, 1fr)',\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"only where their form has room\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a form with a field row is no container, so its fields never sit side by side",
+    "file": "apps/web/src/ui/styles.ts",
+    "old": "export const fieldRowForm = css({ containerType: 'inline-size' });",
+    "new": "export const fieldRowForm = css({});",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/onboarding.spec.ts --project chromium -g \"stay in line\"",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
     "name": "Contacto never says how to write a Discord username made of digits",
     "file": "apps/web/src/onboarding/person/Identities.tsx",
     "old": "        {discordWithAt ? (",
