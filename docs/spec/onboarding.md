@@ -126,7 +126,8 @@ deactivated account keeps it without the badge.
   has "Cambiar la etapa" beside it, so a phone's first screen has claiming, WhatsApp and the stage (PLAN R89); then
   the owner and the next step, each changed where it is shown by a small button with its icon, its form's first label
   said only to a reader as the row already says it; one place to write an attempt or a note, and the history, its
-  latest ten in view; beside it, a card each for contact, profile, sign-up and community, and census, edited in the
+  latest ten in view; beside it, under "Me lo quedo" and Escribirle, which head that column from a laptop up so the
+  owner follows the name (PLAN R90), a card each for contact, profile, sign-up and community, and census, edited in the
   card; merging, the team account and their data under "Más acciones". The sign-up's day is written once: the card "Alta
   y comunidad" tells only what changed in the group since ("Salió del grupo el …", "Volvió al grupo el …"; PLAN R58).
   The contact card lists each phone, email and Discord username on one line, its kind's icon, the value and "Quitar";

@@ -38,6 +38,25 @@ test('a person’s page: the stage and next step under the name, edits as button
     (await followUp.boundingBox())?.y ?? 0,
   );
 
+  // From a wide screen up, Seguimiento follows the name, not Escribirle, which heads the cards beside it, lined up with
+  // them (PLAN R90).
+  const [handover, contact, following] = await Promise.all(
+    ['Escribirle', 'Contacto', 'Seguimiento'].map((name) =>
+      page.getByRole('region', { name }).boundingBox(),
+    ),
+  );
+  expect(following?.y ?? Number.POSITIVE_INFINITY, 'Seguimiento beside Escribirle').toBeLessThan(
+    (handover?.y ?? 0) + (handover?.height ?? 0),
+  );
+  expect(
+    Math.abs((handover?.x ?? 0) - (contact?.x ?? Number.NaN)),
+    'Escribirle starts where Contacto does',
+  ).toBeLessThan(1);
+  expect(
+    Math.abs((handover?.width ?? 0) - (contact?.width ?? Number.NaN)),
+    'Escribirle as wide as Contacto',
+  ).toBeLessThan(1);
+
   // Each edit is a button with its icon beside its words.
   const change = page.getByRole('button', { name: 'Cambiar la etapa' });
   await expect(change.locator('svg')).toHaveCount(1);

@@ -78,6 +78,26 @@
     "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
   },
   {
+    "name": "a person's page leaves a gap under the name, as tall as Escribirle",
+    "file": "apps/web/src/onboarding/styles.ts",
+    "old": "    lg: '\"heading actions\" \"main actions\" \"main aside\"',",
+    "new": "    lg: '\"heading actions\" \"main aside\" \"main aside\"',",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Escribirle out of the cards' column, at the page's end",
+    "file": "apps/web/src/onboarding/styles.ts",
+    "old": "  gridArea: 'actions',\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/visual.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
     "name": "a person's page says the next step only under Seguimiento",
     "file": "apps/web/src/app/personas/[id]/page.tsx",
     "old": "              <NextStep person={person} labels={text.labels} />\n",

@@ -768,6 +768,12 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   shown, as no row says it any more (R65's rule now holds for Responsable only); Seguimiento keeps the owner and the
   next step. Claiming, WhatsApp and the stage must now be wholly on a phone's first screen, as they are in DejaVu Sans
   with 175px to spare. Mutation list `visual-pages`.
+- **R90. A person's page is two columns from the top** (Dani, 2026-10-27: "cards placement is weird"). From a laptop
+  up, the name and "Me lo quedo" with Escribirle were a row of their own above the columns: Seguimiento waited under
+  Escribirle, a gap as tall as it under the name, and Escribirle didn't line up with the cards under it (its own
+  widths and gap). **Chose one grid for the page**: the name heads the wider column and Seguimiento follows it;
+  "Me lo quedo" and Escribirle head the narrower one, as wide as the cards they head. A phone keeps its order (R89).
+  E2E checks Seguimiento starts beside Escribirle and Escribirle lines up with Contacto. Mutation list `visual-pages`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

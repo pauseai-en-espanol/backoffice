@@ -65,13 +65,14 @@ export const metadata: Metadata = { title: t('people.title') };
 const RECENT_EVENTS = 10;
 
 /**
- * A person (onboarding spec, views: Persona; PLAN R57), opened from the bot's "Abrir" too. Who they are heads it, with
- * what is done first: the stage, changed under the name (PLAN R89), "Me lo quedo" and WhatsApp. Then, in the wider
- * column, who holds them and the next step (each changed where it is shown), what happened since (an attempt or a
- * note, written above the history it joins), and the history, its latest in view. Beside it, what is known, each edited in its own card: contact, the
- * profile, the community, the census; and what is done rarely, folded under "Más acciones": merging, the team account,
- * their data. A phone shows the same, one column, in that order. A tombstone (merged into another record) is shown as
- * such, read only, with a link to the record that stays.
+ * A person (onboarding spec, views: Persona; PLAN R57), opened from the bot's "Abrir" too. Who they are heads the wider
+ * column, with their stage, changed under the name (PLAN R89); then who holds them and the next step (each changed
+ * where it is shown), what happened since (an attempt or a note, written above the history it joins), and the history,
+ * its latest in view. The narrower column starts with what is done first, "Me lo quedo" and Escribirle, and goes on
+ * with what is known, each edited in its own card: contact, the profile, the community, the census; and what is done
+ * rarely, folded under "Más acciones": merging, the team account, their data (PLAN R90). A phone shows the same, one
+ * column: the name, "Me lo quedo" and Escribirle, then the rest in that order. A tombstone (merged into another record)
+ * is shown as such, read only, with a link to the record that stays.
  */
 const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
   const me = await requireStaff();
@@ -325,7 +326,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
         </p>
         {person.id === id ? null : <p className={styles.notice}>{t('person.tombstoneNotice')}</p>}
         {anonymised ? <p className={styles.notice}>{t('person.anonymised')}</p> : null}
-        <div className={onboarding.personHeader}>
+        <div className={onboarding.personLayout}>
           <div className={onboarding.personHeading}>
             <h1 className={styles.h1}>{shown.name}</h1>
             {person.fullName === null || person.name === person.fullName ? null : (
@@ -356,6 +357,17 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
               </ul>
             ) : null}
             <MissingLine missing={person.missing} labels={text.labels} />
+            {merged ? (
+              <p className={styles.notice}>
+                {t('person.merged')}{' '}
+                <Link
+                  className={styles.link}
+                  href={`/personas/${encodeURIComponent(person.mergedInto ?? '')}`}
+                >
+                  {t('person.mergedInto')}
+                </Link>
+              </p>
+            ) : null}
           </div>
           {readOnly ? null : (
             <div className={onboarding.personActions}>
@@ -382,21 +394,8 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
               />
             </div>
           )}
-        </div>
-        {merged ? (
-          <p className={styles.notice}>
-            {t('person.merged')}{' '}
-            <Link
-              className={styles.link}
-              href={`/personas/${encodeURIComponent(person.mergedInto ?? '')}`}
-            >
-              {t('person.mergedInto')}
-            </Link>
-          </p>
-        ) : null}
 
-        <div className={onboarding.personPage}>
-          <div>
+          <div className={onboarding.personMain}>
             <section className={onboarding.section} aria-labelledby="seguimiento">
               <h2 id="seguimiento" className={styles.h3}>
                 {t('person.followUp')}
@@ -462,7 +461,7 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
             </section>
           </div>
 
-          <div>
+          <div className={onboarding.personAside}>
             <section className={onboarding.section} aria-labelledby="contacto">
               <h2 id="contacto" className={styles.h3}>
                 {t('person.identities')}

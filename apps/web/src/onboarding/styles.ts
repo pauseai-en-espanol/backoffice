@@ -602,25 +602,38 @@ export const boardCard = css({
   bg: 'bg.canvas',
 });
 
-/** A person's page: the main column, and the quick actions beside it from a wide screen up. */
-/** A person's page heading: who they are, and beside it (under it on a phone) what is done first. */
-export const personHeader = css({
-  display: 'flex',
-  flexWrap: 'wrap',
-  justifyContent: 'space-between',
-  alignItems: 'flex-start',
-  gap: '6',
-  marginBlockEnd: '6',
+/**
+ * A person's page (PLAN R90): from a wide screen up, who they are heads the wider column and Seguimiento follows it,
+ * whatever the height of what is done first ("Me lo quedo", Escribirle), which heads the narrower column, its cards
+ * under it. Its last row takes what the wider column has left, so the cards follow Escribirle, not the history. A phone
+ * stacks them in the page's order. No gap between rows: each part's margin is its own, so a page with nothing to do
+ * first (read only) starts both columns at the same height.
+ */
+export const personLayout = css({
+  display: 'grid',
+  gridTemplateColumns: { base: 'minmax(0, 1fr)', lg: 'minmax(0, 3fr) minmax(0, 2fr)' },
+  gridTemplateAreas: {
+    base: '"heading" "actions" "main" "aside"',
+    lg: '"heading actions" "main actions" "main aside"',
+  },
+  gridTemplateRows: { lg: 'auto auto 1fr' },
+  columnGap: '8',
+  alignItems: 'start',
 });
 
 export const personHeading = css({
+  gridArea: 'heading',
   display: 'flex',
   flexDirection: 'column',
   gap: '2',
-  flex: '1 1 24rem',
   minWidth: '0',
+  marginBlockEnd: '6',
   '& h1': { marginBlockEnd: '0' },
 });
+
+export const personMain = css({ gridArea: 'main', minWidth: '0' });
+
+export const personAside = css({ gridArea: 'aside', minWidth: '0' });
 
 /** Under a person's name (PLAN R65, R89): their stage, its button, and the next step's strip, wrapping on a phone. */
 export const personStatus = css({
@@ -632,15 +645,16 @@ export const personStatus = css({
   '& > p': { flex: '1 1 16rem' },
 });
 
-/** "Me lo quedo" and WhatsApp, side by side. */
+/** "Me lo quedo" and Escribirle, side by side when there's room; Escribirle as wide as the cards under it. */
 export const personActions = css({
+  gridArea: 'actions',
   display: 'flex',
   flexWrap: 'wrap',
   alignItems: 'flex-start',
   gap: '3',
-  flex: '0 1 28rem',
   minWidth: '0',
-  '& > *': { flex: '0 1 auto', minWidth: '0' },
+  marginBlockEnd: '6',
+  '& > *': { minWidth: '0' },
 });
 
 /** Seguimiento (owner, next step): each label above its value on a phone, beside it from a tablet. */
