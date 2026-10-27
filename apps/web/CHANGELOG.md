@@ -1,5 +1,16 @@
 # @backoffice/web
 
+## 0.15.7
+
+### Patch Changes
+
+- aef254d: Fields sit side by side only where their form has room (PLAN R91): on a person's page, Registrar's "Por dónde",
+  "Cómo fue" and "Cuándo fue", and the next step's text and date, no longer run into each other or out of their card
+  on a laptop; they stack until the form is 38rem wide. A box never grows past its field.
+- 5382ae5: A person's page is two columns from the top (PLAN R90): the name heads the wider one and Seguimiento follows it, with
+  no gap under the name; "Me lo quedo" and Escribirle head the narrower one, lined up with the cards under them. A
+  phone's order is the same.
+
 ## 0.15.6
 
 ### Patch Changes
