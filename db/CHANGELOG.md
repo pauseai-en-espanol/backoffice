@@ -1,5 +1,11 @@
 # @backoffice/migrations
 
+## 0.9.7
+
+### Patch Changes
+
+- 9ef388b: Dependencies bump
+
 ## 0.9.6
 
 ### Patch Changes

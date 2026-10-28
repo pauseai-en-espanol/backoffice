@@ -1,5 +1,15 @@
 # @backoffice/web
 
+## 0.15.8
+
+### Patch Changes
+
+- 9ef388b: Dependencies bump
+- Updated dependencies [9ef388b]
+  - @backoffice/domain@0.5.5
+  - @backoffice/i18n@0.15.5
+  - @backoffice/observability@0.1.1
+
 ## 0.15.7
 
 ### Patch Changes

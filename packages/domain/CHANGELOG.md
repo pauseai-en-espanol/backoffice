@@ -1,5 +1,11 @@
 # @backoffice/domain
 
+## 0.5.5
+
+### Patch Changes
+
+- 9ef388b: Dependencies bump
+
 ## 0.5.4
 
 ### Patch Changes
