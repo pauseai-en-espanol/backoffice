@@ -1,6 +1,6 @@
 {
   "name": "@backoffice/ui",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "private": true,
   "description": "Panda preset (tokens by role) for the staff web app and, from M2, the census form",
   "type": "module",

@@ -1,5 +1,11 @@
 # @backoffice/ui
 
+## 0.2.2
+
+### Patch Changes
+
+- 6deb10b: Dependencies bump
+
 ## 0.2.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @backoffice/db
 
+## 0.7.1
+
+### Patch Changes
+
+- 6deb10b: Dependencies bump
+
 ## 0.7.0
 
 ### Minor Changes

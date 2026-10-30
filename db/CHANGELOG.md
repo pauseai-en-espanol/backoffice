@@ -1,5 +1,11 @@
 # @backoffice/migrations
 
+## 0.12.1
+
+### Patch Changes
+
+- 6deb10b: Dependencies bump
+
 ## 0.12.0
 
 ### Minor Changes

@@ -1,5 +1,15 @@
 # @backoffice/forms
 
+## 0.1.30
+
+### Patch Changes
+
+- 6deb10b: Dependencies bump
+- Updated dependencies [6deb10b]
+  - @backoffice/domain@0.7.1
+  - @backoffice/i18n@0.19.1
+  - @backoffice/observability@0.1.2
+
 ## 0.1.29
 
 ### Patch Changes

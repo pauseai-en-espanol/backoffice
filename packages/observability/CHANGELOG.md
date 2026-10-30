@@ -1,5 +1,11 @@
 # @backoffice/observability
 
+## 0.1.2
+
+### Patch Changes
+
+- 6deb10b: Dependencies bump
+
 ## 0.1.1
 
 ### Patch Changes
