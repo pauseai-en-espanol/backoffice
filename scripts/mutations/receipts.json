@@ -1,0 +1,163 @@
+[
+  {
+    "name": "a receipt is written as it came",
+    "file": "apps/api/src/accounting/receipt-store.ts",
+    "old": "  return Buffer.concat([MAGIC, nonce, cipher.getAuthTag(), body]);",
+    "new": "  return Buffer.concat([MAGIC, nonce, cipher.getAuthTag(), Buffer.from(bytes)]);",
+    "cmd": "pnpm exec vitest run src/accounting/receipt-store.spec.ts src/config.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a file opens as another receipt's",
+    "file": "apps/api/src/accounting/receipt-store.ts",
+    "old": "Buffer.from(`backoffice:receipt:v1:${id}`, 'utf8')",
+    "new": "Buffer.from('backoffice:receipt:v1', 'utf8')",
+    "cmd": "pnpm exec vitest run src/accounting/receipt-store.spec.ts src/config.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a receipt is written over another",
+    "file": "apps/api/src/accounting/receipt-store.ts",
+    "old": "        await link(written, target);",
+    "new": "        await (await import('node:fs/promises')).rename(written, target);",
+    "cmd": "pnpm exec vitest run src/accounting/receipt-store.spec.ts src/config.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an upload since the start is set aside",
+    "file": "apps/api/src/accounting/receipt-store.ts",
+    "old": "        if (mtimeMs < startedAt.getTime()) {",
+    "new": "        if (true) {",
+    "cmd": "pnpm exec vitest run src/accounting/receipt-store.spec.ts src/config.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a file set aside never comes back",
+    "file": "apps/api/src/accounting/receipt-store.ts",
+    "old": "      for (const id of aside.filter((each) => !stillWithout.has(each))) {",
+    "new": "      for (const id of aside.filter(() => false)) {",
+    "cmd": "pnpm exec vitest run src/accounting/receipt-store.spec.ts src/config.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a write in progress is deleted at start",
+    "file": "apps/api/src/accounting/receipt-store.ts",
+    "old": "        if (Date.now() - mtimeMs > 60 * 60_000) {",
+    "new": "        if (true) {",
+    "cmd": "pnpm exec vitest run src/accounting/receipt-store.spec.ts src/config.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a receipt is named by what it says it is",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "          const contentType = receiptTypeOf(request.body);",
+    "new": "          const contentType = 'application/pdf' as const;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a receipt's row is written before its file",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "            await store.put(id, bytes);\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a receipt is served to whoever asks",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "              const row = await withActor(db, actor, async (trx) => {\n                await require(trx, BOOKS);",
+    "new": "              const row = await withActor(db, actor, async (trx) => {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a receipt opens in the browser",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "                .header('content-disposition', disposition(row.fileName))",
+    "new": "                .header('content-disposition', 'inline')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a receipt is served without the sandbox",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "                .header(\n                  'content-security-policy',\n                  \"sandbox; default-src 'none'; frame-ancestors 'none'\",\n                )\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "another site starts a receipt's download",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "        fromAnotherSite(request)\n          ? reply.code(403).send({ error: 'forbidden' })",
+    "new": "        false\n          ? reply.code(403).send({ error: 'forbidden' })",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "bytes that aren't the row's are served",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "              if (createHash('sha256').update(bytes).digest('hex') !== row.sha256) {",
+    "new": "              if (false) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a removed receipt's file stays",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "          await store.remove(request.params.id).catch((error: unknown) => captureException(error));",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a deleted draft's files stay",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "            await receipts?.remove(id).catch((error: unknown) => captureException(error));",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "admins attach receipts",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "            await require(trx, TESORERIA);\n            if (!allowUpload(actor.userId)) {",
+    "new": "            await require(trx, BOOKS);\n            if (!allowUpload(actor.userId)) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api",
+    "equivalent": "RLS refuses an admin's receipt row (tesoreria_insert), the API then removes the file it wrote, and the answer is the same 403"
+  },
+  {
+    "name": "a receipt is attached in a closed year, said as stale",
+    "file": "apps/api/src/accounting/receipt-routes.ts",
+    "old": "            if (rows[0].closed) {",
+    "new": "            if (false) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "receipts go half configured",
+    "file": "apps/api/src/config.ts",
+    "old": "  if (!root || !keyText) {\n    throw new Error(\n      `Receipts are half configured",
+    "new": "  if (false) {\n    throw new Error(\n      `Receipts are half configured",
+    "cmd": "pnpm exec vitest run src/accounting/receipt-store.spec.ts src/config.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a receipt is anything that starts like a RIFF",
+    "file": "packages/domain/src/receipts.ts",
+    "old": "  if (startsWith(bytes, RIFF) && startsWith(bytes, WEBP, 8)) {",
+    "new": "  if (startsWith(bytes, RIFF)) {",
+    "cmd": "pnpm exec vitest run src/receipts.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a receipt's name keeps its folders",
+    "file": "packages/domain/src/receipts.ts",
+    "old": "  for (const char of raw.split(/[/\\\\]/u).pop() ?? '') {",
+    "new": "  for (const char of raw) {",
+    "cmd": "pnpm exec vitest run src/receipts.spec.ts",
+    "cwd": "packages/domain"
+  }
+]

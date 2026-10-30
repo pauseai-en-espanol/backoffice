@@ -1,5 +1,6 @@
 import { type Dsn, readDsn } from '@backoffice/observability/dsn';
 
+import { readReceiptsKey } from './accounting/receipt-store.js';
 import { readLinkKey } from './imports/airtable-link.js';
 import { readTelegram, type TelegramConfig } from './telegram/config.js';
 
@@ -36,6 +37,18 @@ export interface ApiConfig {
   census: CensusConfig | undefined;
   /** The forms app's routes (ADR-0002 §7). Undefined: /public/census answers 503. */
   forms: FormsConfig | undefined;
+  /** Receipts' files on the API's volume (ADR-0006 decision 7). Undefined: none can be stored or read (503). */
+  receipts: ReceiptsConfig | undefined;
+}
+
+export interface ReceiptsConfig {
+  /** RECEIPTS_ROOT: the folder on the volume the API mounts, where receipts are stored encrypted. */
+  root: string;
+  /**
+   * RECEIPTS_KEY: 32 random bytes, from a sealed secret, that encrypt every receipt. Never logged, never in an error;
+   * losing it loses every receipt.
+   */
+  key: Buffer;
 }
 
 export interface CensusConfig {
@@ -249,6 +262,30 @@ const readForms = (env: NodeJS.ProcessEnv): FormsConfig | undefined => {
   return { databaseUrl, token };
 };
 
+/** Receipts need the volume's folder and the key, or neither: one without the other is a deployment mistake. */
+export const readReceipts = (env: NodeJS.ProcessEnv): ReceiptsConfig | undefined => {
+  const root = env.RECEIPTS_ROOT || undefined;
+  const keyText = env.RECEIPTS_KEY || undefined;
+  if (!root && !keyText) {
+    return undefined;
+  }
+  if (!root || !keyText) {
+    throw new Error(
+      `Receipts are half configured: ${root ? 'RECEIPTS_KEY' : 'RECEIPTS_ROOT'} not set`,
+    );
+  }
+  if (!root.startsWith('/')) {
+    throw new Error('RECEIPTS_ROOT must be an absolute path, the volume the API mounts');
+  }
+  const key = readReceiptsKey(keyText);
+  if (!key) {
+    throw new Error(
+      'RECEIPTS_KEY must be 32 random bytes in base64 (scripts/seal-receipts-key.sh)',
+    );
+  }
+  return { root, key };
+};
+
 /** Reads the API configuration from the environment, failing fast on invalid values. */
 export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
   const port = Number(env.PORT ?? 3001);
@@ -278,5 +315,6 @@ export const loadConfig = (env: NodeJS.ProcessEnv): ApiConfig => {
     telegram: readTelegram(env),
     census: readCensus(env),
     forms: readForms(env),
+    receipts: readReceipts(env),
   };
 };

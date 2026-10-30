@@ -1,8 +1,13 @@
 import { createAuthPool } from '@backoffice/db/auth-pool';
 import { createDatabase } from '@backoffice/db/client';
 import { madridToday } from '@backoffice/domain/days';
+import { randomBytes } from 'node:crypto';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { createReceiptStore } from '../src/accounting/receipt-store.js';
 import { buildApp } from '../src/app.js';
 import { createAuth } from '../src/auth/auth.js';
 import {
@@ -43,6 +48,10 @@ const superuser = createAuthPool({
 });
 const appDb = createDatabase({ connectionString: env('TEST_APP_DATABASE_URL'), maxConnections: 2 });
 
+/** The receipts' volume, a folder of its own for these tests. */
+const volume = await mkdtemp(join(tmpdir(), 'justificantes-api-'));
+const receipts = createReceiptStore(volume, randomBytes(32));
+
 const app = buildApp({
   api: {
     auth: {
@@ -55,6 +64,7 @@ const app = buildApp({
       staffOrigin: STAFF_ORIGIN,
     },
     app: appDb,
+    receipts,
   },
 });
 
@@ -147,6 +157,7 @@ afterAll(async () => {
   await appDb.destroy();
   await superuser.end();
   await authPool.end();
+  await rm(volume, { recursive: true, force: true });
 });
 
 const account = (code: string): string => ids.get(code) ?? '';
@@ -474,5 +485,113 @@ describe('closing a year (accounting spec §3)', () => {
         })
       ).json(),
     ).toEqual({ error: 'alreadyClosed' });
+  });
+});
+
+describe('receipts (ADR-0006 decision 7)', () => {
+  const PDF = Buffer.from('%PDF-1.7\n% un justificante de ejemplo\n');
+
+  /** A file as the staff app sends one: its bytes as the body, its name in X-File-Name. */
+  const upload = (
+    who: typeof treasurer.who,
+    entryId: string,
+    bytes: Buffer,
+    /** null: no name at all. */
+    name: string | null = 'factura de ejemplo.pdf',
+  ) =>
+    app.inject({
+      method: 'POST',
+      url: `/api/accounting/entries/${entryId}/receipts`,
+      headers: {
+        host: new URL(STAFF_ORIGIN).host,
+        origin: STAFF_ORIGIN,
+        'x-forwarded-for': who.address,
+        cookie: [...who.jar].map(([key, value]) => `${key}=${value}`).join('; '),
+        'content-type': 'application/octet-stream',
+        ...(name === null ? {} : { 'x-file-name': encodeURIComponent(name) }),
+      },
+      payload: bytes,
+    });
+
+  it('stores a receipt encrypted, recognised by its first bytes, and serves it only to the books’ readers', async () => {
+    const { id: entryId } = (
+      await treasurer.who.send('POST', '/api/accounting/entries', income())
+    ).json<{
+      id: string;
+    }>();
+    expect(
+      (await upload(treasurer.who, entryId, Buffer.from('<html><script>'), 'factura.pdf')).json(),
+    ).toEqual({
+      error: 'fileType',
+    });
+    expect((await upload(treasurer.who, entryId, PDF, null)).json()).toEqual({
+      error: 'invalid',
+    });
+    expect((await upload(admin.who, entryId, PDF)).json()).toEqual({ error: 'forbidden' });
+
+    const stored = await upload(treasurer.who, entryId, PDF, 'factura de ejemplo ñ.pdf');
+    expect(stored.statusCode).toBe(201);
+    const { id } = stored.json<{ id: string }>();
+    expect(stored.json()).toMatchObject({ contentType: 'application/pdf', byteSize: PDF.length });
+    expect(await readdir(join(volume, 'receipts'))).toContain(id);
+
+    const served = await admin.who.send('GET', `/api/accounting/receipts/${id}`);
+    expect(served.statusCode).toBe(200);
+    expect(served.rawPayload.equals(PDF)).toBe(true);
+    expect(served.headers).toMatchObject({
+      'content-type': 'application/pdf',
+      'content-disposition': `attachment; filename="factura de ejemplo _.pdf"; filename*=UTF-8''${encodeURIComponent('factura de ejemplo ñ.pdf')}`,
+      'content-security-policy': "sandbox; default-src 'none'; frame-ancestors 'none'",
+      'x-content-type-options': 'nosniff',
+    });
+    expect((await onboarder.who.send('GET', `/api/accounting/receipts/${id}`)).statusCode).toBe(
+      403,
+    );
+    expect(
+      (
+        await admin.who.send('GET', `/api/accounting/receipts/${id}`, undefined, {
+          'sec-fetch-site': 'cross-site',
+        })
+      ).statusCode,
+    ).toBe(403);
+    const { entry } = (await admin.who.send('GET', `/api/accounting/entries/${entryId}`)).json<{
+      entry: { receiptList: { id: string; fileName: string }[] };
+    }>();
+    expect(entry.receiptList).toEqual([
+      expect.objectContaining({ id, fileName: 'factura de ejemplo ñ.pdf' }),
+    ]);
+    // A posted entry's receipts stay with it.
+    expect((await treasurer.who.send('DELETE', `/api/accounting/receipts/${id}`)).json()).toEqual({
+      error: 'posted',
+    });
+    // Bytes that aren't the ones its row says are never served, whatever they are.
+    await superuser.query(`UPDATE app.receipts SET sha256 = repeat('0', 64) WHERE id = $1`, [id]);
+    const mismatched = await admin.who.send('GET', `/api/accounting/receipts/${id}`);
+    expect(mismatched.statusCode).toBe(500);
+    expect(mismatched.json()).toEqual({ error: 'unexpected' });
+  });
+
+  it('removes a draft’s receipts with their files, and attaches nothing in a closed year', async () => {
+    const { id: draftId } = (
+      await treasurer.who.send('POST', '/api/accounting/entries', income({ post: false }))
+    ).json<{ id: string }>();
+    const first = (await upload(treasurer.who, draftId, PDF)).json<{ id: string }>();
+    const second = (await upload(treasurer.who, draftId, PDF)).json<{ id: string }>();
+    expect(
+      (await treasurer.who.send('DELETE', `/api/accounting/receipts/${first.id}`)).statusCode,
+    ).toBe(204);
+    expect(await receipts.get(first.id)).toBeUndefined();
+    expect(
+      (await treasurer.who.send('DELETE', `/api/accounting/entries/${draftId}`)).statusCode,
+    ).toBe(204);
+    expect(await receipts.get(second.id)).toBeUndefined();
+
+    const { entries } = (
+      await treasurer.who.send('GET', `/api/accounting/entries?year=${year - 2}&status=posted`)
+    ).json<{ entries: { id: string; kind: string }[] }>();
+    const closed = entries.find((each) => each.kind === 'income');
+    expect((await upload(treasurer.who, closed?.id ?? '', PDF)).json()).toEqual({
+      error: 'yearClosed',
+    });
   });
 });

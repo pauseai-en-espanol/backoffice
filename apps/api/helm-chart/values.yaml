@@ -23,6 +23,8 @@ podSecurityContext:
   runAsUser: 1000
   runAsGroup: 1000
   fsGroup: 1000
+  # The receipts' volume's group is set once, not walked file by file at every start.
+  fsGroupChangePolicy: OnRootMismatch
   seccompProfile:
     type: RuntimeDefault
 securityContext:
@@ -180,6 +182,25 @@ census:
   # The consent wording's version recorded with each answer (CENSUS_WORDING_VERSION). Empty: v1. The forms chart's
   # wordingVersion, which its draft notice shows, should be the same.
   wordingVersion: ''
+
+# Receipts (M6, ADR-0006 decision 7): a persistent volume mounted in the API alone, where each receipt's file is kept
+# encrypted with RECEIPTS_KEY, from its sealed secret (scripts/seal-receipts-key.sh). Off by default. On, the API mounts
+# the claim at mountPath (RECEIPTS_ROOT), reads the key, and deploys with the Recreate strategy: the claim is
+# ReadWriteOnce unless the cluster offers more, so the old pod lets go of it before the new one starts (a short gap,
+# accepted), and the API runs one replica. No database dump covers the volume: the backup plan (gitops) copies it after
+# each dump, and keeps the key, without which no receipt opens (docs/runbooks/receipts.md).
+receipts:
+  enabled: false
+  # The claim's size and storage class, from gitops: this chart names no provisioner.
+  size: 2Gi
+  storageClass: ''
+  accessMode: ReadWriteOnce
+  # What the cluster's provisioner reads on the claim, from gitops.
+  annotations: {}
+  mountPath: /data/receipts
+  keySecret:
+    name: ''
+    key: RECEIPTS_KEY
 
 # Who may reach the API's pods, and what they and the jobs' pods may reach (ADR-0001, network policies). Off by
 # default; gitops turns it on with its environment's selectors. On, the API admits only the gateways' Envoy pods, the

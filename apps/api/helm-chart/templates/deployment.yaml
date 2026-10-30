@@ -2,6 +2,9 @@
 {{- if and .Values.telegram.enabled (not (and $signIn .Values.appDatabaseUrlSecret.name)) }}
 {{- fail "telegram.enabled needs sign-in (auth.*) and appDatabaseUrlSecret: the bot links staff accounts and acts as them" }}
 {{- end }}
+{{- if and .Values.receipts.enabled (gt (int .Values.replicaCount) 1) (eq .Values.receipts.accessMode "ReadWriteOnce") }}
+{{- fail "receipts.enabled with a ReadWriteOnce volume needs replicaCount 1: one pod at a time holds the claim" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -10,6 +13,11 @@ metadata:
     {{- include "backoffice-api.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  {{- if .Values.receipts.enabled }}
+  # The receipts' claim is held by one pod at a time: the old one goes before the new one starts (ADR-0006).
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "backoffice-api.selectorLabels" . | nindent 6 }}
@@ -20,7 +28,7 @@ spec:
         app.kubernetes.io/part-of: backoffice
       annotations:
         # Velero's file-system backup (gitops backup plan) copies every pod volume unless told: the scratch volume
-        # `tmp` (below) holds nothing to keep. Rename them together.
+        # `tmp` (below) holds nothing to keep; the receipts' volume, when on, is copied. Rename them together.
         backup.velero.io/backup-volumes-excludes: tmp
     spec:
       # preStop sleep + time to drain in-flight requests
@@ -124,6 +132,16 @@ spec:
             - name: CENSUS_WORDING_VERSION
               value: {{ . | quote }}
             {{- end }}
+            {{- if .Values.receipts.enabled }}
+            # Receipts' files (ADR-0006): the volume's folder, and the key that encrypts each one.
+            - name: RECEIPTS_ROOT
+              value: {{ .Values.receipts.mountPath | quote }}
+            - name: RECEIPTS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "receipts.keySecret.name is required with receipts" .Values.receipts.keySecret.name }}
+                  key: {{ .Values.receipts.keySecret.key }}
+            {{- end }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -155,7 +173,16 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if .Values.receipts.enabled }}
+            - name: receipts
+              mountPath: {{ .Values.receipts.mountPath }}
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 64Mi
+        {{- if .Values.receipts.enabled }}
+        - name: receipts
+          persistentVolumeClaim:
+            claimName: {{ include "backoffice-api.fullname" . }}-receipts
+        {{- end }}

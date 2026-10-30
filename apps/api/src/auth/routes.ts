@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { withActor } from '@backoffice/db/actor';
 import { getAuthenticatorName } from '@better-auth/passkey';
 
+import type { ReceiptStore } from '../accounting/receipt-store.js';
 import type { CensusConfig } from '../config.js';
 import type { SyncCounts } from '../imports/airtable-sync.js';
 import type { PasswordLinks } from './password-links.js';
@@ -153,6 +154,8 @@ export interface StaffApiOptions {
   census?: CensusConfig | undefined;
   /** Linking Telegram accounts (ADR-0004); without the bot, the link routes say it isn't configured. */
   telegram?: TelegramLinking | undefined;
+  /** Receipts' files on the API's volume (ADR-0006); without them, none can be stored or read. */
+  receipts?: ReceiptStore | undefined;
 }
 
 /**
@@ -174,6 +177,7 @@ export const staffApiRoutes =
     onErase,
     census,
     telegram,
+    receipts,
   }: StaffApiOptions) =>
   async (scope: FastifyInstance): Promise<void> => {
     if (!signIn) {
@@ -467,6 +471,7 @@ export const staffApiRoutes =
         app,
         staffOrigin,
         actorFor: async (request) => actorOf(await findSession(request)),
+        receipts,
       }),
     );
 

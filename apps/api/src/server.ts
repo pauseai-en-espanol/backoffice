@@ -1,7 +1,9 @@
 import { createAuthPool } from '@backoffice/db/auth-pool';
 import { createDatabase, type Database } from '@backoffice/db/client';
 import { captureException, flush } from '@sentry/node';
+import { sql } from 'kysely';
 
+import { createReceiptStore } from './accounting/receipt-store.js';
 import { buildApp, buildFormsApp } from './app.js';
 import { createAuth } from './auth/auth.js';
 import { endSessions } from './auth/cleanup.js';
@@ -21,6 +23,7 @@ import { createBot, webhookUrl } from './telegram/setup.js';
 
 const config = loadConfig(process.env);
 initErrorTracking(config.sentryDsn);
+const startedAt = new Date();
 
 // Sign-in runs as pauseai_backoffice_auth, which reaches only Better Auth's tables; what a signed-in staff member does
 // runs as pauseai_backoffice_app, through withActor (ADR-0002).
@@ -127,6 +130,11 @@ const bot =
     : undefined;
 const team = bot?.team;
 
+// Receipts' files, encrypted on the API's volume (ADR-0006 decision 7).
+const receipts = config.receipts
+  ? createReceiptStore(config.receipts.root, config.receipts.key)
+  : undefined;
+
 const server = buildApp({
   logger: { level: config.logLevel },
   api: {
@@ -169,6 +177,7 @@ const server = buildApp({
     onErase: team ? (personIds) => team.erased(personIds) : undefined,
     census: config.census,
     telegram: bot?.linking,
+    receipts,
   },
   telegram: bot?.webhook,
 });
@@ -207,6 +216,36 @@ await Promise.race([
 ]);
 await server.listen({ host: config.host, port: config.port });
 await formsServer.listen({ host: config.host, port: config.formsPort });
+
+// As it starts, the receipts' volume is checked: writable, and every file written before this start with a row, or
+// set aside (ADR-0006 decision 7). The database says which ids have no row, through the one function made for it,
+// without an actor: no staff member is behind a start. Uploads meanwhile are left alone (receipt-store.ts).
+if (receipts) {
+  const report = (message: string, error: unknown): void => {
+    console.error(message);
+    captureException(error);
+  };
+  receipts.probe().then(
+    () => server.log.info('Receipts volume writable'),
+    (error: unknown) => report("The receipts' volume isn't writable", error),
+  );
+  if (app) {
+    receipts
+      .reconcile(
+        async (ids) =>
+          (
+            await sql<{ id: string }>`
+              SELECT id FROM private.receipts_without_row(${ids}::uuid[]) AS r(id)`.execute(app)
+          ).rows.map((row) => row.id),
+        startedAt,
+      )
+      .then(
+        ({ setAside, restored, temporary }) =>
+          server.log.info({ setAside, restored, temporary }, 'Receipts volume checked'),
+        (error: unknown) => report("The receipts' volume couldn't be checked", error),
+      );
+  }
+}
 
 if (bot && config.telegram && config.auth) {
   // Telegram is told where to send updates on every start: the same address and secret, so a restart changes nothing,

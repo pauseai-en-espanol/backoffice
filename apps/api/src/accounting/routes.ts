@@ -22,6 +22,8 @@ import { getTranslator } from '@backoffice/i18n/messages';
 import { captureException } from '@sentry/node';
 import { sql } from 'kysely';
 
+import type { ReceiptStore } from './receipt-store.js';
+
 import { RECENT_SECOND_FACTOR } from '../auth/step-up.js';
 import { databaseRefusal } from '../database-errors.js';
 import { fromAnotherSite } from '../fetch-site.js';
@@ -59,6 +61,7 @@ import {
   yearStatusOf,
 } from './books.js';
 import { BOOK_REPORTS, type BookReport, reportCsv } from './exports.js';
+import { receiptRoutes } from './receipt-routes.js';
 import {
   balanceSheet,
   byProject,
@@ -83,6 +86,8 @@ export interface AccountingRoutesOptions {
   app: Database | undefined;
   staffOrigin: string;
   actorFor: (request: FastifyRequest) => Promise<Actor | undefined>;
+  /** Receipts' files, encrypted on the API's volume (ADR-0006 decision 7); without it, none can be stored or read. */
+  receipts?: ReceiptStore | undefined;
 }
 
 const UUID = { type: 'string', format: 'uuid' } as const;
@@ -284,7 +289,7 @@ const rangeOf = (query: ReportQuery): Range => {
  * the exports are among the riskiest actions (PLAN D23): they want a second factor of the last 12 hours.
  */
 export const accountingRoutes =
-  ({ app, staffOrigin, actorFor }: AccountingRoutesOptions) =>
+  ({ app, staffOrigin, actorFor, receipts }: AccountingRoutesOptions) =>
   async (scope: FastifyInstance): Promise<void> => {
     scope.setErrorHandler(async (error, _request, reply) => {
       const refusal = schemaRefusal(error);
@@ -901,6 +906,11 @@ export const accountingRoutes =
           if (typeof result === 'string') {
             throw new Refusal(result === 'notFound' ? 404 : 409, result);
           }
+          // Their rows are gone for good: their files go too, once committed. One that can't be removed now is set
+          // aside at the next start, as any file without a row.
+          for (const id of result.receipts) {
+            await receipts?.remove(id).catch((error: unknown) => captureException(error));
+          }
           return reply.code(204).send();
         }),
     );
@@ -1025,4 +1035,7 @@ export const accountingRoutes =
                 .send(csv.text);
             }),
     );
+
+    // Receipts (receipt-routes.ts): their files, on the API's volume.
+    await scope.register(receiptRoutes({ app, staffOrigin, actorFor, receipts }));
   };

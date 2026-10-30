@@ -123,6 +123,18 @@ reaches the API, and the host routes nothing to it (ADR-0002 §7).
    a personal link made from a person's page opens with their name and updates their record. The gateway's ceilings (10
    answers, 60 form loads a minute per address) sit above the API's own limit (5 answers per address every 10 minutes).
 
+## M6: the books
+
+The books need nothing new in gitops but their receipts: the tables arrive with the migrations, and an admin gives
+someone the Tesorería role in Equipo. Receipts are files on a persistent volume mounted in the API, encrypted with a
+key of their own ([receipts](receipts.md)):
+
+1. **The key:** `scripts/seal-receipts-key.sh "$GITOPS"`, sealed as `backoffice-receipts-key`; never rotated.
+2. **The values:** `backoffice-api.receipts`, enabled, with its size, the cluster's storage class and
+   `keySecret: { name: backoffice-receipts-key }`. The API then deploys with the `Recreate` strategy.
+3. **The backup plan:** the volume, copied after each database dump, and the key kept outside the cluster too.
+4. **Push gitops**, and check as [receipts](receipts.md) says.
+
 ## Rotating
 
 - **Database passwords or Better Auth's secret:** delete the sealed files and run `scripts/seal-gitops-secrets.sh`
@@ -132,6 +144,7 @@ reaches the API, and the host routes nothing to it (ADR-0002 §7).
 - **The census form's secret:** delete `backoffice-forms-token.yaml`, run `scripts/seal-forms-token.sh` again and
   push; then restart the API and the form together, since each refuses the other's calls until both have it.
 - **The bot's token, mail:** delete the sealed file and run its script again.
+- **The receipts' key:** never: a new key opens none of the stored receipts ([receipts](receipts.md), a lost key).
 - **The Airtable link:** when Global changes it, an admin pastes the new one in Ajustes; nothing in gitops changes.
   **Its key:** delete `backoffice-airtable-key.yaml`, run `scripts/seal-airtable-key.sh` again and push; the stored
   link doesn't open with the new key, so an admin pastes it again in Ajustes.

@@ -1,0 +1,22 @@
+{{- if .Values.receipts.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "backoffice-api.fullname" . }}-receipts
+  labels:
+    {{- include "backoffice-api.labels" . | nindent 4 }}
+  annotations:
+    # It holds what no database dump covers, the association's receipts (ADR-0006): never deleted with the release,
+    # nor pruned or deleted by Argo CD.
+    helm.sh/resource-policy: keep
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+    {{- with .Values.receipts.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  accessModes: [{{ .Values.receipts.accessMode }}]
+  storageClassName: {{ required "receipts.storageClass is required with receipts" .Values.receipts.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.receipts.size }}
+{{- end }}

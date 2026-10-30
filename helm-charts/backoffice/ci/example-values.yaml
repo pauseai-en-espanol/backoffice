@@ -37,6 +37,11 @@ backoffice-api:
   census:
     formsOrigin: https://unete.example-org.test
     wordingVersion: v1
+  receipts:
+    enabled: true
+    storageClass: example-storage
+    annotations: { example.test/volume-type: local }
+    keySecret: { name: backoffice-receipts-key }
   networkPolicy:
     enabled: true
     gateways:
