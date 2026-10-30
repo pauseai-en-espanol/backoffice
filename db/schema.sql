@@ -3949,7 +3949,7 @@ CREATE TABLE app.exports (
     created_by uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT exports_filter_check CHECK ((jsonb_typeof(filter) = 'object'::text)),
-    CONSTRAINT exports_kind_check CHECK ((kind = ANY (ARRAY['people_csv'::text, 'person_json'::text, 'contact_json'::text]))),
+    CONSTRAINT exports_kind_check CHECK ((kind = ANY (ARRAY['people_csv'::text, 'person_json'::text, 'contact_json'::text, 'books_csv'::text]))),
     CONSTRAINT exports_row_count_check CHECK ((row_count >= 0))
 );
 
@@ -8021,6 +8021,13 @@ CREATE POLICY tesoreria_delete ON app.receipts FOR DELETE TO pauseai_backoffice_
 --
 
 CREATE POLICY tesoreria_insert ON app.counterparties FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: exports tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.exports FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can) AND (kind = 'books_csv'::text)));
 
 
 --

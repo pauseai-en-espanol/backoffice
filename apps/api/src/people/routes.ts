@@ -26,6 +26,7 @@ import type { SyncCounts } from '../imports/airtable-sync.js';
 
 import { RECENT_SECOND_FACTOR } from '../auth/step-up.js';
 import { censusOfPerson } from '../census/census.js';
+import { csvCell } from '../csv-export.js';
 import { databaseRefusal } from '../database-errors.js';
 import { fromAnotherSite } from '../fetch-site.js';
 import { sealLink } from '../imports/airtable-link.js';
@@ -210,23 +211,6 @@ const FILTER_QUERY = {
     cursor: TEXT(200),
   },
 } as const;
-
-/**
- * A CSV cell as a spreadsheet will read it: quoted, with a leading `=`, `+`, `-`, `@`, tab or return defused, so an
- * exported name can never run as a formula on an admin's computer.
- */
-const csvCell = (
-  value: string | number | boolean | readonly string[] | null | undefined,
-): string => {
-  const text =
-    value === null || value === undefined
-      ? ''
-      : typeof value === 'object'
-        ? value.join('; ')
-        : String(value);
-  const safe = /^[=+\-@\t\r]/u.test(text) ? `'${text}` : text;
-  return `"${safe.replaceAll('"', '""')}"`;
-};
 
 export const peopleRoutes =
   ({

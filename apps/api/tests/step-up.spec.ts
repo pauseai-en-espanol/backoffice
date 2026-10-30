@@ -138,6 +138,9 @@ const RISKIEST: readonly [method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', p
   ['GET', '/api/outreach/rights?q=persona'],
   ['GET', `/api/outreach/contacts/${ID}/export`],
   ['POST', `/api/outreach/contacts/${ID}/erase`],
+  // The books (ADR-0006): closing a year, and their exports.
+  ['POST', '/api/accounting/years/2025/close'],
+  ['GET', '/api/accounting/exports/journal.csv'],
 ];
 
 beforeAll(async () => {

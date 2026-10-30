@@ -375,6 +375,12 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
         sql: "INSERT INTO app.exports (kind, row_count) VALUES ('people_csv', 3)",
         rule: ADMIN,
       },
+      {
+        // The books' exports (ADR-0006): tesorería records its own kind, and only that.
+        id: "the books' export",
+        sql: "INSERT INTO app.exports (kind, row_count) VALUES ('books_csv', 3)",
+        rule: BOOKS,
+      },
     ],
   },
   'app.people_attention': {

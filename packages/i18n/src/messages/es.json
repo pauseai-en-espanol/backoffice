@@ -2087,5 +2087,18 @@
     "clearCountry": "Vaciar el país",
     "openProvinces": "Ver las provincias",
     "openRegions": "Ver las regiones"
+  },
+  "accounting": {
+    "reversalOf": "Anula el asiento {number} de {year}: {description}",
+    "csv": {
+      "openingBalance": "Saldo anterior",
+      "income": "Ingresos",
+      "expenses": "Gastos",
+      "result": "Excedente del ejercicio",
+      "assets": "Activo",
+      "liabilities": "Pasivo",
+      "equity": "Patrimonio neto",
+      "total": "Total"
+    }
   }
 }

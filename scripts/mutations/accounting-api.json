@@ -1,0 +1,218 @@
+[
+  {
+    "name": "closing a year isn't among the riskiest actions",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "      '/accounting/years/:year/close',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/accounting/years/:year/close',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the books' exports aren't among the riskiest actions",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "      '/accounting/exports/:report',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/accounting/exports/:report',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "another site starts an export",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "        fromAnotherSite(request)\n          ? reply.code(403).send({ error: 'forbidden' })\n          : signedIn(",
+    "new": "        false\n          ? reply.code(403).send({ error: 'forbidden' })\n          : signedIn(",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an export goes unrecorded",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "                await sql`INSERT INTO app.exports (kind, filter, row_count)\n                          VALUES ('books_csv', ${JSON.stringify({\n                            report,\n                            ...range,\n                            account: request.query.account ?? null,\n                            project: request.query.project ?? null,\n                          })}::jsonb, ${made.rows})`.execute(trx);\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an entry is dated in the future",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "      if (date > madridToday()) {\n        throw new Refusal(400, 'future', { field: 'date' });",
+    "new": "      if (false) {\n        throw new Refusal(400, 'future', { field: 'date' });",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an income goes to an expense account",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "          (each.kind !== undefined && account.kind !== each.kind)",
+    "new": "          false",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "money comes from an account that holds none",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "          (each.treasury === true && !account.treasury) ||",
+    "new": "          false ||",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a report runs past its year",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "  if (!from.startsWith(`${year}-`) || !to.startsWith(`${year}-`) || from > to) {",
+    "new": "  if (from > to) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "Corregir doesn't mirror the lines",
+    "file": "apps/api/src/accounting/books.ts",
+    "old": "  await insertLines(trx, reversal, mirrorOf(original.lines));",
+    "new": "  await insertLines(trx, reversal, original.lines);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a closed year is closed again",
+    "file": "apps/api/src/accounting/books.ts",
+    "old": "  if (found.status === 'closed') {\n    return 'alreadyClosed';",
+    "new": "  if (false) {\n    return 'alreadyClosed';",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts tests/step-up.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a dot before the cents reads as thousands",
+    "file": "packages/domain/src/money.ts",
+    "old": "const AMOUNT = /^(?<units>\\d{1,3}(?:\\.\\d{3})+|\\d+)(?:,(?<decimals>\\d{1,2}))?$/u;",
+    "new": "const AMOUNT = /^(?<units>[\\d.]+)(?:,(?<decimals>\\d{1,2}))?$/u;",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a third decimal is taken",
+    "file": "packages/domain/src/money.ts",
+    "old": "(?:,(?<decimals>\\d{1,2}))?$/u;",
+    "new": "(?:,(?<decimals>\\d{1,3}))?$/u;",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an amount past the books' limit is taken",
+    "file": "packages/domain/src/money.ts",
+    "old": "  return cents <= MAX_CENTS ? cents : undefined;",
+    "new": "  return cents;",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "four-digit amounts go ungrouped",
+    "file": "packages/domain/src/money.ts",
+    "old": "const grouped = (units: bigint): string =>\n  units.toString().replace(/\\B(?=(?:\\d{3})+(?!\\d))/gu, '.');\n",
+    "new": "const grouped = (units: bigint): string => units.toLocaleString('es-ES');\n",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an income credits the treasury account",
+    "file": "packages/domain/src/accounting.ts",
+    "old": "        line(form.treasuryAccountId, 'debit', form.amountCents, form.projectId),\n        line(form.accountId, 'credit', form.amountCents, form.projectId),",
+    "new": "        line(form.treasuryAccountId, 'credit', form.amountCents, form.projectId),\n        line(form.accountId, 'debit', form.amountCents, form.projectId),",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a transfer goes the wrong way",
+    "file": "packages/domain/src/accounting.ts",
+    "old": "        line(form.toAccountId, 'debit', form.amountCents, form.projectId),\n        line(form.fromAccountId, 'credit', form.amountCents, form.projectId),",
+    "new": "        line(form.fromAccountId, 'debit', form.amountCents, form.projectId),\n        line(form.toAccountId, 'credit', form.amountCents, form.projectId),",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a line on both sides counts as balanced",
+    "file": "packages/domain/src/accounting.ts",
+    "old": "      each.debitCents > 0 === each.creditCents > 0",
+    "new": "      false",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a NIF's letter goes unchecked",
+    "file": "packages/domain/src/accounting.ts",
+    "old": "    return NIF_LETTERS[Number(`${prefix}${person.digits ?? ''}`) % 23] === person.letter;",
+    "new": "    return true;",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a NIE reads as a NIF",
+    "file": "packages/domain/src/accounting.ts",
+    "old": "    const prefix = 'XYZ'.includes(lead) ? String('XYZ'.indexOf(lead)) : lead;",
+    "new": "    const prefix = 'XYZ'.includes(lead) ? '0' : lead;",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an entity's control goes unchecked",
+    "file": "packages/domain/src/accounting.ts",
+    "old": "    return entity.control === String(control) || entity.control === 'JABCDEFGHI'[control];",
+    "new": "    return true;",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an IBAN's check digits go unchecked",
+    "file": "packages/domain/src/accounting.ts",
+    "old": "  return remainder === 1;",
+    "new": "  return true;",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a Spanish IBAN of any length is taken",
+    "file": "packages/domain/src/accounting.ts",
+    "old": " ||\n    (iban.startsWith('ES') && iban.length !== 24)",
+    "new": "",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a day that doesn't exist is taken",
+    "file": "packages/domain/src/days.ts",
+    "old": "  return date.getUTCFullYear() === year &&\n    date.getUTCMonth() === month - 1 &&\n    date.getUTCDate() === day\n",
+    "new": "  return true\n",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a date reads month first",
+    "file": "packages/domain/src/days.ts",
+    "old": "  return spanish ? dayOf(Number(spanish[3]), Number(spanish[2]), Number(spanish[1])) : undefined;",
+    "new": "  return spanish ? dayOf(Number(spanish[3]), Number(spanish[1]), Number(spanish[2])) : undefined;",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "today is the server's, not Madrid's",
+    "file": "packages/domain/src/days.ts",
+    "old": "  timeZone: 'Europe/Madrid',",
+    "new": "  timeZone: 'Pacific/Kiritimati',",
+    "cmd": "pnpm exec vitest run src/money.spec.ts src/days.spec.ts src/accounting.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "tesorería records another kind of export",
+    "file": "db/migrations/20261030150000_books_exports.sql",
+    "old": "  WITH CHECK ((SELECT private.staff_can('tesoreria')) AND kind = 'books_csv');",
+    "new": "  WITH CHECK ((SELECT private.staff_can('tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "tesorería's exports go unrecorded",
+    "file": "db/migrations/20261030150000_books_exports.sql",
+    "old": "CREATE POLICY tesoreria_insert ON app.exports FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('tesoreria')) AND kind = 'books_csv');",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  }
+]

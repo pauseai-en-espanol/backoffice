@@ -8,6 +8,7 @@ import type { CensusConfig } from '../config.js';
 import type { SyncCounts } from '../imports/airtable-sync.js';
 import type { PasswordLinks } from './password-links.js';
 
+import { accountingRoutes } from '../accounting/routes.js';
 import { censusRoutes } from '../census/routes.js';
 import { outreachRoutes } from '../outreach/routes.js';
 import { peopleRoutes } from '../people/routes.js';
@@ -454,6 +455,15 @@ export const staffApiRoutes =
     // Outreach (outreach/routes.ts): outreach staff and admins, as the database decides.
     await scope.register(
       outreachRoutes({
+        app,
+        staffOrigin,
+        actorFor: async (request) => actorOf(await findSession(request)),
+      }),
+    );
+
+    // The books (accounting/routes.ts): tesorería records, admins read, as the database decides (ADR-0006).
+    await scope.register(
+      accountingRoutes({
         app,
         staffOrigin,
         actorFor: async (request) => actorOf(await findSession(request)),
