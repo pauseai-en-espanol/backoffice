@@ -120,6 +120,16 @@ beforeAll(async () => {
 afterAll(async () => {
   await superuser.query("SET session_replication_role = 'replica'");
   const made = `(SELECT id FROM app.journal_entries WHERE created_by = ANY($1::uuid[]))`;
+  await superuser.query(
+    `UPDATE app.bank_statement_lines SET entry_id = NULL, matched_by = NULL, matched_at = NULL
+      WHERE matched_by = ANY($1::uuid[]) OR entry_id IN ${made}`,
+    [accounts],
+  );
+  await superuser.query(
+    `DELETE FROM app.bank_statement_lines
+      WHERE statement_id IN (SELECT id FROM app.bank_statements WHERE created_by = ANY($1::uuid[]))`,
+    [accounts],
+  );
   await superuser.query(`DELETE FROM app.receipts WHERE entry_id IN ${made}`, [accounts]);
   await superuser.query(`DELETE FROM app.journal_lines WHERE entry_id IN ${made}`, [accounts]);
   await superuser.query('DELETE FROM app.journal_entries WHERE created_by = ANY($1::uuid[])', [
@@ -131,6 +141,8 @@ afterAll(async () => {
     [accounts],
   );
   for (const table of [
+    'bank_statements',
+    'budget_lines',
     'projects',
     'counterparties',
     'ledger_accounts',
@@ -592,6 +604,324 @@ describe('receipts (ADR-0006 decision 7)', () => {
     const closed = entries.find((each) => each.kind === 'income');
     expect((await upload(treasurer.who, closed?.id ?? '', PDF)).json()).toEqual({
       error: 'yearClosed',
+    });
+  });
+});
+
+describe('the bank (accounting spec §6, step 2)', () => {
+  // Fictional Norma 43 files for the fixtures' bank account (bank and branch 0000, account 0000000001), built record
+  // by record as packages/domain/src/norma43.spec.ts does.
+  const pad = (text: string, length: number) => text.padEnd(length, ' ').slice(0, length);
+  const digits = (value: number, length: number) => String(value).padStart(length, '0');
+  const yymmdd = (day: string) => day.slice(2).replaceAll('-', '');
+
+  interface Movement {
+    day?: string;
+    cents: number;
+    text: string;
+  }
+
+  const norma43 = (movements: readonly Movement[], identity = '00000000' + '0000000001') => {
+    const days = movements.map((each) => each.day ?? today).sort();
+    const from = yymmdd(days[0] ?? today);
+    const to = yymmdd(days.at(-1) ?? today);
+    const debits = movements.filter((each) => each.cents < 0);
+    const credits = movements.filter((each) => each.cents > 0);
+    const out = debits.reduce((sum, each) => sum - each.cents, 0);
+    const into = credits.reduce((sum, each) => sum + each.cents, 0);
+    const records = [
+      `11${identity}${from}${to}2${digits(0, 14)}9783${pad('ASOCIACION DE EJEMPLO', 26)}${pad('', 3)}`,
+      ...movements.flatMap((each) => [
+        `22${pad('', 4)}0000${yymmdd(each.day ?? today)}${yymmdd(each.day ?? today)}04000${each.cents < 0 ? '1' : '2'}${digits(Math.abs(each.cents), 14)}${digits(0, 10)}${pad('', 12)}${pad('', 16)}`,
+        `2301${pad(each.text, 38)}${pad('', 38)}`,
+      ]),
+      `33${identity}${digits(debits.length, 5)}${digits(out, 14)}${digits(credits.length, 5)}${digits(into, 14)}${into >= out ? '2' : '1'}${digits(Math.abs(into - out), 14)}978${pad('', 4)}`,
+    ];
+    return Buffer.from(
+      [...records, `88${'9'.repeat(18)}${digits(records.length, 6)}${pad('', 54)}`].join('\r\n'),
+      'latin1',
+    );
+  };
+
+  /** A statement file as the staff app sends one: its bytes as the body; a dry run unless `apply`. */
+  const send = (who: typeof treasurer.who, bytes: Buffer, apply = false) =>
+    app.inject({
+      method: 'POST',
+      url: `/api/accounting/bank/statements${apply ? '?apply=true' : ''}`,
+      headers: {
+        host: new URL(STAFF_ORIGIN).host,
+        origin: STAFF_ORIGIN,
+        'x-forwarded-for': who.address,
+        cookie: [...who.jar].map(([key, value]) => `${key}=${value}`).join('; '),
+        'content-type': 'application/octet-stream',
+      },
+      payload: bytes,
+    });
+
+  interface Line {
+    id: string;
+    amountCents: number;
+    description: string;
+    entry: { id: string; corrected: boolean } | null;
+    suggestions: { id: string }[];
+  }
+
+  const bank = async (who = treasurer.who, state = 'all') =>
+    (
+      await who.send('GET', `/api/accounting/bank?account=${account('5720001')}&state=${state}`)
+    ).json<{
+      lines: Line[];
+      statements: { id: string; lines: number; matched: number }[];
+      reconciliation: { asOf: string | null; bankCents: number | null; booksCents: number | null };
+    }>();
+
+  const mark = randomBytes(4).toString('hex').toUpperCase();
+  const DONATION = { cents: 123_456, text: `TRANSFERENCIA DONACION ${mark}` };
+  const FEE = { cents: -250, text: `COMISION MANTENIMIENTO ${mark}` };
+  const lineOf = async (text: string) =>
+    (await bank()).lines.find((each) => each.description === text);
+
+  it('imports a statement as a dry run first, then for real, once; tesorería alone', async () => {
+    const file = norma43([DONATION, FEE, { cents: 1000, text: `CUOTA ESPAÑA ${mark}` }]);
+    const dry = await send(treasurer.who, file);
+    expect(dry.statusCode).toBe(200);
+    expect(dry.json()).toMatchObject({
+      statements: [
+        {
+          iban: 'ES3600000000050000000001',
+          account: { id: account('5720001'), code: '5720001' },
+          lines: 3,
+          new: 3,
+          already: 0,
+          closedYear: 0,
+        },
+      ],
+      canApply: true,
+    });
+    // Read the way banks write it, in ISO-8859-1.
+    expect(
+      dry.json<{ preview: { description: string }[] }>().preview.map((each) => each.description),
+    ).toEqual([DONATION.text, FEE.text, `CUOTA ESPAÑA ${mark}`]);
+    expect(await lineOf(DONATION.text)).toBeUndefined();
+
+    expect((await send(admin.who, file)).json()).toEqual({ error: 'forbidden' });
+    expect((await send(admin.who, file, true)).statusCode).toBe(403);
+    expect((await onboarder.who.send('GET', '/api/accounting/bank')).statusCode).toBe(403);
+
+    const applied = await send(treasurer.who, file, true);
+    expect(applied.statusCode).toBe(201);
+    expect(await lineOf(DONATION.text)).toMatchObject({ amountCents: 123_456, entry: null });
+    expect((await lineOf(FEE.text))?.amountCents).toBe(-250);
+    // The same file again brings nothing: refused, and its dry run says why.
+    expect((await send(treasurer.who, file, true)).json()).toEqual({ error: 'nothingNew' });
+    expect((await send(treasurer.who, file)).json()).toMatchObject({
+      statements: [{ new: 0, already: 3 }],
+      canApply: false,
+    });
+    // An admin reads them.
+    expect((await bank(admin.who)).lines.some((each) => each.description === FEE.text)).toBe(true);
+  });
+
+  it('refuses a file that isn’t Norma 43, an account not in the chart, and a closed year’s movements', async () => {
+    expect((await send(treasurer.who, Buffer.from('fecha;concepto;importe\n'))).json()).toEqual({
+      error: 'norma43',
+      problem: 'record',
+      line: 1,
+    });
+    const elsewhere = norma43([{ cents: 100, text: 'OTRA CUENTA' }], '99990000' + '0000000001');
+    expect((await send(treasurer.who, elsewhere)).json()).toMatchObject({
+      statements: [{ account: null, new: 0 }],
+      canApply: false,
+    });
+    expect((await send(treasurer.who, elsewhere, true)).json()).toEqual({
+      error: 'unknownAccount',
+    });
+    const closed = norma43([{ day: `${year - 2}-03-01`, cents: 100, text: `ANTIGUO ${mark}` }]);
+    expect((await send(treasurer.who, closed)).json()).toMatchObject({
+      statements: [{ new: 1, closedYear: 1 }],
+      canApply: false,
+    });
+    expect((await send(treasurer.who, closed, true)).json()).toEqual({ error: 'yearClosed' });
+  });
+
+  it('suggests the entry that records a line, and matches it when tesorería says so', async () => {
+    const line = await lineOf(DONATION.text);
+    const { id: entryId } = (
+      await treasurer.who.send('POST', '/api/accounting/entries', income())
+    ).json<{ id: string }>();
+    expect(line?.suggestions.map((each) => each.id)).toBeDefined();
+    expect((await lineOf(DONATION.text))?.suggestions.map((each) => each.id)).toContain(entryId);
+
+    const match = (who: typeof treasurer.who, id: string) =>
+      who.send('PUT', `/api/accounting/bank/lines/${line?.id}/match`, { entryId: id });
+    expect((await match(admin.who, entryId)).statusCode).toBe(403);
+    const other = (
+      await treasurer.who.send('POST', '/api/accounting/entries', income({ amount: '1.234,55' }))
+    ).json<{ id: string }>();
+    // Of another amount: never suggested, never matched.
+    expect((await lineOf(DONATION.text))?.suggestions.map((each) => each.id)).not.toContain(
+      other.id,
+    );
+    expect((await match(treasurer.who, other.id)).json()).toEqual({ error: 'notAMatch' });
+    expect((await match(treasurer.who, entryId)).statusCode).toBe(204);
+    expect((await lineOf(DONATION.text))?.entry).toMatchObject({ id: entryId, corrected: false });
+    expect((await match(treasurer.who, entryId)).json()).toEqual({ error: 'matchedAlready' });
+    const { entry } = (await admin.who.send('GET', `/api/accounting/entries/${entryId}`)).json<{
+      entry: { bankLines: { id: string; amountCents: number }[] };
+    }>();
+    expect(entry.bankLines).toEqual([
+      expect.objectContaining({ id: line?.id, amountCents: 123_456 }),
+    ]);
+
+    // Undone, and matched again.
+    const undo = () => treasurer.who.send('DELETE', `/api/accounting/bank/lines/${line?.id}/match`);
+    expect((await undo()).statusCode).toBe(204);
+    expect((await undo()).json()).toEqual({ error: 'notMatched' });
+    expect((await match(treasurer.who, entryId)).statusCode).toBe(204);
+    // Corrected, the entry stays matched, and the line waits for the right one.
+    await treasurer.who.send('POST', `/api/accounting/entries/${entryId}/reverse`, {});
+    expect((await lineOf(DONATION.text))?.entry).toMatchObject({ id: entryId, corrected: true });
+    expect((await bank(treasurer.who, 'pending')).lines.map((each) => each.id)).toContain(line?.id);
+  });
+
+  it('records a line no entry records yet: Anotar posts the entry and matches it at once', async () => {
+    const line = await lineOf(FEE.text);
+    const fee = (fields: Record<string, unknown>) =>
+      treasurer.who.send('POST', '/api/accounting/entries', {
+        kind: 'expense',
+        date: today,
+        description: FEE.text,
+        amount: '2,50',
+        treasuryAccountId: account('5720001'),
+        accountId: account('626'),
+        bankLineId: line?.id,
+        post: true,
+        ...fields,
+      });
+    expect((await fee({ post: false })).json()).toEqual({ error: 'invalid', field: 'bankLineId' });
+    expect((await fee({ amount: '2,51' })).json()).toEqual({ error: 'bankLine', field: 'amount' });
+    const posted = await fee({});
+    expect(posted.statusCode).toBe(201);
+    const { id } = posted.json<{ id: string }>();
+    expect((await lineOf(FEE.text))?.entry).toMatchObject({ id, corrected: false });
+    expect((await fee({})).json()).toEqual({ error: 'bankLine', field: 'amount' });
+  });
+
+  it('tells what the bank and the books say, and undoes an import with nothing matched', async () => {
+    const { reconciliation, statements } = await bank();
+    expect(reconciliation.asOf).toBe(today);
+    expect(reconciliation.bankCents).toBe(123_456 - 250 + 1000);
+    // Last year is closed by now (closing a year, above): this year's opening entry carries all before it, so the
+    // books say what this year's ledger of the account ends with.
+    const { ledger } = (
+      await treasurer.who.send(
+        'GET',
+        `/api/accounting/reports/ledger?year=${year}&account=${account('5720001')}`,
+      )
+    ).json<{ ledger: { closingCents: number } }>();
+    expect(reconciliation.booksCents).toBe(ledger.closingCents);
+    const matched = statements.find((each) => each.matched > 0 && each.lines === 3);
+    expect(
+      (await treasurer.who.send('DELETE', `/api/accounting/bank/statements/${matched?.id}`)).json(),
+    ).toEqual({ error: 'matched' });
+    const loose = await send(
+      treasurer.who,
+      norma43([{ cents: 700, text: `SUELTO ${mark}` }]),
+      true,
+    );
+    const { statements: made } = loose.json<{ statements: { statementId: string }[] }>();
+    const id = made[0]?.statementId;
+    expect(
+      (await admin.who.send('DELETE', `/api/accounting/bank/statements/${id}`)).statusCode,
+    ).toBe(403);
+    expect(
+      (await treasurer.who.send('DELETE', `/api/accounting/bank/statements/${id}`)).statusCode,
+    ).toBe(204);
+    expect(await lineOf(`SUELTO ${mark}`)).toBeUndefined();
+  });
+});
+
+describe('the budget (accounting spec §6, step 2)', () => {
+  interface Budget {
+    status: string;
+    lines: { id: string; account: { code: string }; budgetCents: number; actualCents: number }[];
+    unbudgeted: { account: { code: string } }[];
+    income: { budgetCents: number; actualCents: number };
+    expenses: { budgetCents: number; actualCents: number };
+  }
+  const budget = async (who = treasurer.who, of = year) =>
+    (await who.send('GET', `/api/accounting/budget?year=${of}`)).json<{ budget: Budget }>().budget;
+
+  it('sets a year’s budget by account, tesorería alone, and shows what came in and went out against it', async () => {
+    const add = (who: typeof treasurer.who, code: string, amount = '300,00', of = year) =>
+      who.send('POST', '/api/accounting/budget', { year: of, accountId: account(code), amount });
+    expect((await add(admin.who, '7400002')).statusCode).toBe(403);
+    expect((await onboarder.who.send('GET', '/api/accounting/budget')).statusCode).toBe(403);
+    const added = await add(treasurer.who, '7400002', '1.500,00');
+    expect(added.statusCode).toBe(201);
+    const { id } = added.json<{ id: string }>();
+    expect((await add(treasurer.who, '7400002')).json()).toEqual({
+      error: 'taken',
+      field: 'accountId',
+    });
+    expect((await add(treasurer.who, '626')).json()).toEqual({
+      error: 'nested',
+      field: 'accountId',
+    });
+    expect((await add(treasurer.who, '74')).json()).toEqual({
+      error: 'nested',
+      field: 'accountId',
+    });
+    expect((await add(treasurer.who, '5720001')).json()).toEqual({
+      error: 'account',
+      field: 'accountId',
+    });
+    expect((await add(treasurer.who, '720', '300,00', year - 2)).json()).toEqual({
+      error: 'yearClosed',
+      field: 'year',
+    });
+    expect((await add(treasurer.who, '720', '0,00')).json()).toEqual({
+      error: 'invalid',
+      field: 'amount',
+    });
+
+    await treasurer.who.send('POST', '/api/accounting/entries', income());
+    const read = await budget(admin.who);
+    const donations = read.lines.find((line) => line.account.code === '7400002');
+    expect(donations).toMatchObject({ id, budgetCents: 150_000 });
+    expect(donations?.actualCents).toBeGreaterThanOrEqual(123_456);
+    // 62 counts its accounts': the bank's fee went to 626 (the bank, above).
+    expect(read.lines.find((line) => line.account.code === '62')).toMatchObject({
+      budgetCents: 50_000,
+    });
+    expect(
+      read.lines.find((line) => line.account.code === '62')?.actualCents,
+    ).toBeGreaterThanOrEqual(250);
+    expect(read.income.budgetCents).toBe(150_000);
+    expect(read.unbudgeted.map((each) => each.account.code)).not.toContain('7400002');
+
+    expect(
+      (await treasurer.who.send('PATCH', `/api/accounting/budget/${id}`, { amount: '1.600,00' }))
+        .statusCode,
+    ).toBe(204);
+    expect((await budget()).lines.find((line) => line.id === id)?.budgetCents).toBe(160_000);
+    expect((await treasurer.who.send('DELETE', `/api/accounting/budget/${id}`)).statusCode).toBe(
+      204,
+    );
+    expect((await budget()).lines.some((line) => line.id === id)).toBe(false);
+    // A closed year's is read, and never changed.
+    const closed = await budget(treasurer.who, year - 2);
+    expect(closed.status).toBe('closed');
+    const line = closed.lines[0];
+    expect(
+      (
+        await treasurer.who.send('PATCH', `/api/accounting/budget/${line?.id}`, { amount: '1,00' })
+      ).json(),
+    ).toEqual({ error: 'yearClosed' });
+    expect(
+      (await treasurer.who.send('GET', `/api/accounting/budget?year=${year + 5}`)).json(),
+    ).toEqual({
+      error: 'yearNotOpen',
     });
   });
 });

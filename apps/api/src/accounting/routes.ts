@@ -28,6 +28,8 @@ import { RECENT_SECOND_FACTOR } from '../auth/step-up.js';
 import { databaseRefusal } from '../database-errors.js';
 import { fromAnotherSite } from '../fetch-site.js';
 import { schemaRefusal } from '../schema-refusal.js';
+import { bankRoutes } from './bank-routes.js';
+import { linesOfEntry, lineToMatch, matchLine } from './bank.js';
 import {
   accountsByIds,
   addAccount,
@@ -60,6 +62,7 @@ import {
   TESORERIA,
   yearStatusOf,
 } from './books.js';
+import { addBudgetLine, changeBudgetLine, deleteBudgetLine, getBudget } from './budget.js';
 import { BOOK_REPORTS, type BookReport, reportCsv } from './exports.js';
 import { receiptRoutes } from './receipt-routes.js';
 import {
@@ -183,6 +186,8 @@ const ENTRY_BODY = {
     projectId: NULLABLE_UUID,
     /** Post at once rather than keep a draft. */
     post: { type: 'boolean' },
+    /** The bank line it records, matched to it once posted (Banco's "Anotar"): posted at once, then. */
+    bankLineId: UUID,
   },
 } as const;
 
@@ -206,6 +211,7 @@ interface EntryBody {
   counterpartyId?: string | null;
   projectId?: string | null;
   post?: boolean;
+  bankLineId?: string;
 }
 
 const REPORT_QUERY = {
@@ -799,7 +805,10 @@ export const accountingRoutes =
       { schema: { params: ID_PARAMS } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
-          const entry = await reading(db, actor, (trx) => getEntry(trx, request.params.id));
+          const entry = await reading(db, actor, async (trx) => {
+            const found = await getEntry(trx, request.params.id);
+            return found && { ...found, bankLines: await linesOfEntry(trx, found.id) };
+          });
           if (!entry) {
             throw new Refusal(404, 'notFound');
           }
@@ -812,13 +821,31 @@ export const accountingRoutes =
       { schema: { body: ENTRY_BODY } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
+          const { bankLineId } = request.body;
+          if (bankLineId !== undefined && request.body.post !== true) {
+            throw new Refusal(400, 'invalid', { field: 'bankLineId' });
+          }
           const saved = await keeping(db, actor, async (trx) => {
             const input = await draftOf(trx, request.body);
             if (request.body.post === true && !isBalanced(input.lines)) {
               throw new Refusal(422, 'unbalanced');
             }
+            // A bank line it records: one waiting for its entry, which this one moves by its amount.
+            const line = bankLineId === undefined ? undefined : await lineToMatch(trx, bankLineId);
+            if (bankLineId !== undefined) {
+              const moved = input.lines
+                .filter((each) => each.accountId === line?.accountId)
+                .reduce((sum, each) => sum + each.debitCents - each.creditCents, 0);
+              if (!line || line.closed || line.matched || moved !== line.amountCents) {
+                throw new Refusal(409, 'bankLine', { field: 'amount' });
+              }
+            }
             const id = await addDraft(trx, input);
-            return { id, number: request.body.post === true ? await post(trx, id) : null };
+            const number = request.body.post === true ? await post(trx, id) : null;
+            if (line && (await matchLine(trx, line.id, id)) !== 'matched') {
+              throw new Refusal(409, 'bankLine', { field: 'amount' });
+            }
+            return { id, number };
           });
           return reply.code(201).send(saved);
         }),
@@ -910,6 +937,98 @@ export const accountingRoutes =
           // aside at the next start, as any file without a row.
           for (const id of result.receipts) {
             await receipts?.remove(id).catch((error: unknown) => captureException(error));
+          }
+          return reply.code(204).send();
+        }),
+    );
+
+    // The budget --------------------------------------------------------------------------------------------------------
+
+    scope.get<{ Querystring: { year?: number } }>(
+      '/accounting/budget',
+      {
+        schema: {
+          querystring: {
+            type: 'object',
+            additionalProperties: false,
+            properties: { year: YEAR },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const year = request.query.year ?? Number(madridToday().slice(0, 4));
+          const budget = await reading(db, actor, (trx) => getBudget(trx, year));
+          if (!budget) {
+            throw new Refusal(404, 'yearNotOpen');
+          }
+          return { budget };
+        }),
+    );
+
+    scope.post<{ Body: { year: number; accountId: string; amount: string } }>(
+      '/accounting/budget',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['year', 'accountId', 'amount'],
+            properties: { year: YEAR, accountId: UUID, amount: AMOUNT },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const cents = amountOf(request.body.amount, 'amount');
+          const result = await keeping(db, actor, (trx) =>
+            addBudgetLine(trx, request.body.year, request.body.accountId, cents),
+          );
+          if (typeof result === 'string') {
+            throw new Refusal(409, result, {
+              field: result === 'yearNotOpen' || result === 'yearClosed' ? 'year' : 'accountId',
+            });
+          }
+          return reply.code(201).send(result);
+        }),
+    );
+
+    scope.patch<{ Params: { id: string }; Body: { amount: string } }>(
+      '/accounting/budget/:id',
+      {
+        schema: {
+          params: ID_PARAMS,
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['amount'],
+            properties: { amount: AMOUNT },
+          },
+        },
+      },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const cents = amountOf(request.body.amount, 'amount');
+          const result = await keeping(db, actor, (trx) =>
+            changeBudgetLine(trx, request.params.id, cents),
+          );
+          if (result !== 'changed') {
+            throw new Refusal(result === 'notFound' ? 404 : 409, result);
+          }
+          return reply.code(204).send();
+        }),
+    );
+
+    scope.delete<{ Params: { id: string } }>(
+      '/accounting/budget/:id',
+      { schema: { params: ID_PARAMS } },
+      async (request, reply) =>
+        signedIn(request, reply, async (db, actor) => {
+          const result = await keeping(db, actor, (trx) =>
+            deleteBudgetLine(trx, request.params.id),
+          );
+          if (result !== 'deleted') {
+            throw new Refusal(result === 'notFound' ? 404 : 409, result);
           }
           return reply.code(204).send();
         }),
@@ -1038,4 +1157,6 @@ export const accountingRoutes =
 
     // Receipts (receipt-routes.ts): their files, on the API's volume.
     await scope.register(receiptRoutes({ app, staffOrigin, actorFor, receipts }));
+    // The bank (bank-routes.ts): statements imported, their lines matched.
+    await scope.register(bankRoutes({ app, staffOrigin, actorFor }));
   };

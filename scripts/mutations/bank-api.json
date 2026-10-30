@@ -1,0 +1,330 @@
+[
+  {
+    "name": "a dry run imports",
+    "file": "apps/api/src/accounting/bank-routes.ts",
+    "old": "              if (!apply) {\n                throw DRY_RUN;\n              }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a statement of an account not in the chart is imported",
+    "file": "apps/api/src/accounting/bank-routes.ts",
+    "old": "if (apply && unknown) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a closed year's movements are imported",
+    "file": "apps/api/src/accounting/bank-routes.ts",
+    "old": "if (apply && closedYear) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the same file twice is imported again",
+    "file": "apps/api/src/accounting/bank-routes.ts",
+    "old": "if (apply && nothingNew) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a file is read as UTF-8 whatever it is",
+    "file": "apps/api/src/accounting/bank-routes.ts",
+    "old": "return new TextDecoder('windows-1252').decode(bytes);",
+    "new": "return bytes.toString('utf8');",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a statement goes to any treasury account",
+    "file": "apps/api/src/accounting/bank-routes.ts",
+    "old": "treasury.find((each) => isAccountOf(each.iban ?? '', statement))",
+    "new": "treasury[0]",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a line already imported is imported again",
+    "file": "apps/api/src/accounting/bank.ts",
+    "old": ".filter((each) => !already.has(each.fingerprint));",
+    "new": ";",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a closed year's movements aren't counted",
+    "file": "apps/api/src/accounting/bank.ts",
+    "old": "closedYears.has(Number(each.line.bookedOn.slice(0, 4)))",
+    "new": "false",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a suggestion of another amount",
+    "file": "apps/api/src/accounting/bank.ts",
+    "old": "HAVING sum(j.debit_cents - j.credit_cents) = l.amount_cents",
+    "new": "HAVING true",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a line whose entry was corrected isn't waiting",
+    "file": "apps/api/src/accounting/bank.ts",
+    "old": "OR (${state} = 'pending' AND (l.e_id IS NULL OR l.corrected))",
+    "new": "OR (${state} = 'pending' AND l.e_id IS NULL)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the books count years already carried forward",
+    "file": "apps/api/src/accounting/bank.ts",
+    "old": "\n       AND e.fiscal_year >= (SELECT since FROM carried)",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a matched line is matched again",
+    "file": "apps/api/src/accounting/bank.ts",
+    "old": "  if (line.matched) {\n    return 'matchedAlready';\n  }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a match not made is undone",
+    "file": "apps/api/src/accounting/bank.ts",
+    "old": "  if (found.entryId === null) {\n    return 'notMatched';\n  }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an import with a match is undone, said as stale",
+    "file": "apps/api/src/accounting/bank.ts",
+    "old": "  if (found.matched) {\n    return 'matched';\n  }\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an entry's page doesn't show its bank lines",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "bankLines: await linesOfEntry(trx, found.id)",
+    "new": "bankLines: []",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a draft is saved for a bank line",
+    "file": "apps/api/src/accounting/routes.ts",
+    "old": "if (bankLineId !== undefined && request.body.post !== true) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a budget line above or below another is said as incomplete",
+    "file": "apps/api/src/accounting/budget.ts",
+    "old": "ancestry(account.code).includes(each.code) || ancestry(each.code).includes(account.code)",
+    "new": "false",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a budget line counts its account alone",
+    "file": "apps/api/src/accounting/budget.ts",
+    "old": ".filter((each) => under(each.code, account.code))",
+    "new": ".filter((each) => each.id === account.id)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a budgeted account is listed as unbudgeted",
+    "file": "apps/api/src/accounting/budget.ts",
+    "old": "!lines.some((line) => under(account.code, line.account.code))",
+    "new": "true",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the income budget counts the expenses'",
+    "file": "apps/api/src/accounting/budget.ts",
+    "old": "      .filter((line) => line.account.kind === kind)\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "an account whose balance doesn't add up",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "closingCents !== account.openingCents + creditCents - debitCents",
+    "new": "false",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an account with other debits counted",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "countOf(field(record, 21, 25), line, 'totals') !== debits.length ||",
+    "new": "false ||",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an account with other debits' total",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "centsOf(field(record, 26, 39), line) !== debitCents ||",
+    "new": "false ||",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an account with other credits counted",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "countOf(field(record, 40, 44), line, 'totals') !== credits.length ||",
+    "new": "false ||",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an account with other credits' total",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "centsOf(field(record, 45, 58), line) !== creditCents ||",
+    "new": "false ||",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an account closed as another",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "field(record, 11, 20) !== account.account",
+    "new": "false",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a debit read as a credit",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "  if (text === '1') {\n    return -1;",
+    "new": "  if (text === '1') {\n    return 1;",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a file's record count isn't checked",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "if (count !== counted && count !== counted + 1) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a file cut short is read",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "  if (!finished) {\n    throw new Norma43Error('unfinished', last);",
+    "new": "  if (false) {\n    throw new Norma43Error('unfinished', last);",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "records after the end are read",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "    if (finished) {\n      throw new Norma43Error('order', line);",
+    "new": "    if (false) {\n      throw new Norma43Error('order', line);",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a day that doesn't exist is read",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "if (date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a period that ends before it starts",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "if (endsOn < startsOn) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a record longer than 80 characters",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "if (record.length > RECORD) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "two equal movements are one",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "return `${line.records}#${before}`;",
+    "new": "return line.records;",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a reference of zeros is kept",
+    "file": "packages/domain/src/norma43.ts",
+    "old": ".filter((each) => each !== '' && !/^0+$/u.test(each))",
+    "new": ".filter((each) => each !== '')",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a movement with six concept records",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "movement.concepts.length >= 10",
+    "new": "movement.concepts.length >= 12",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "more than the books keep is read",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "if (cents > MAX_CENTS) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a movement of nothing is read",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "if (amountCents === 0) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an IBAN of another branch is the account's",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "iban.slice(8, 12) === account.branch &&",
+    "new": "true &&",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a control digit of 10 or 11",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "return control === 11 ? 0 : control === 10 ? 1 : control;",
+    "new": "return control;",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a file without line breaks isn't read",
+    "file": "packages/domain/src/norma43.ts",
+    "old": "if (only.length > RECORD && only.length % RECORD === 0) {",
+    "new": "if (false) {",
+    "cmd": "pnpm exec vitest run src/norma43.spec.ts",
+    "cwd": "packages/domain"
+  }
+]
