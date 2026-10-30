@@ -46,7 +46,7 @@ PostgreSQL 18, database `pauseai_backoffice`.
 ## 3. Tables by module
 
 Each table is listed with its purpose. The M0 tables' columns are in [§4](#4-m0-tables); the others' are
-specified in the M1 and M3 migrations.
+specified in the M1, M3 and M6 migrations (Cuentas: [accounting spec](accounting.md)).
 
 | Table                      | Holds                                                                                      | Module     |
 | -------------------------- | ------------------------------------------------------------------------------------------ | ---------- |
@@ -80,6 +80,13 @@ specified in the M1 and M3 migrations.
 | `campaign_anchors`         | Evidence paragraphs and their sources                                                      | Outreach   |
 | `campaign_targets`         | Contact × campaign: status, owner, priority, dates, next action                            | Outreach   |
 | `contact_events`           | The outreach timeline. A note's `happened_on`: its day, never to come (M5, step 6)         | Outreach   |
+| `ledger_accounts`          | The chart: code, name, kind, parent's code, treasury flag and IBAN, the year's result      | Cuentas    |
+| `counterparties`           | Who money came from or went to: name, tax ID, province, IBAN (personal data), kind         | Cuentas    |
+| `projects`                 | Money given for a purpose: name, funder (a counterparty), description, active              | Cuentas    |
+| `fiscal_years`             | Calendar years: open, or closed with the assembly's date, by whom and when                 | Cuentas    |
+| `journal_entries`          | Date, concept (personal data), form, draft or posted, number in its year, what it reverses | Cuentas    |
+| `journal_lines`            | An entry's lines: account, debit or credit in cents, project                               | Cuentas    |
+| `receipts`                 | A receipt's row: entry, file name (personal data), type, size, SHA-256; bytes on a volume  | Cuentas    |
 | `private.telegram_updates` | Each processed `update_id`, so redeliveries are harmless; kept a week                      | Bot        |
 | `private.telegram_dialogs` | A conversation in progress; deleted after an hour                                          | Bot        |
 | `private.telegram_posts`   | Team-group messages per person, so a claim can edit them                                   | Bot        |
@@ -216,3 +223,7 @@ privileges the bot uses (a catalog test lists them), and they hold the bot's wor
   reopens a closed stay, and nobody leaves before joining (PLAN R56).
 - An invitation is decided once, and accepted only by the invited, verified email.
 - An aal2 session exists only for an account with a second factor.
+- The books ([ADR-0006](../adr/0006-accounting.md) decision 4): a posted entry balances across two lines or more,
+  never changes and is never deleted (a reversal that mirrors it corrects it, once), and takes the next number in
+  its year; nothing is written dated in a closed year, and closing posts the closing and opening entries; a line
+  names an active account without sub-accounts; a posted entry's receipts stay with it.

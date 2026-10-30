@@ -496,12 +496,19 @@ const PERSONAL_DATA: readonly string[] = [
   'contacts.sources',
   'contacts.tags',
   'contacts.website',
+  // The books (ADR-0006, personal data spec §9a): who money came from or went to, an entry's concept (which may name
+  // whoever was paid), and what a receipt's uploader called it.
+  'counterparties.iban',
+  'counterparties.name',
+  'counterparties.province',
+  'counterparties.tax_id',
   'exports.filter',
   'identities.value',
   'intake_records.conflicts',
   'intake_records.external_id',
   'intake_records.payload',
   'invitations.email',
+  'journal_entries.description',
   'organisation_notes.body',
   'people.availability',
   'people.country',
@@ -521,6 +528,7 @@ const PERSONAL_DATA: readonly string[] = [
   'people.town',
   'person_events.body',
   'person_events.data',
+  'receipts.file_name',
   'staff.display_name',
 ];
 

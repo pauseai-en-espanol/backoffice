@@ -2,7 +2,8 @@
   "roles": {
     "admin": "Administración",
     "onboarding": "Onboarding",
-    "outreach": "Relaciones externas"
+    "outreach": "Relaciones externas",
+    "tesoreria": "Tesorería"
   },
   "email": {
     "invitation": {

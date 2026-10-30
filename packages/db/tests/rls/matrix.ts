@@ -1,6 +1,7 @@
 import type { Principal } from './harness.js';
 
 import {
+  ACCOUNTING,
   ANA_PHONE,
   CENSUS_LINK_ID,
   EXPORT_ID,
@@ -32,6 +33,8 @@ export interface Rule {
 }
 
 const ANY_STAFF: readonly StaffRole[] = ['admin', 'onboarding', 'outreach'];
+/** Who sees the team: every staff member, tesorería too (migration tesoreria_sees_the_team). */
+const TEAM: readonly StaffRole[] = [...ANY_STAFF, 'tesoreria'];
 const ADMIN: Rule = { web: ['admin'] };
 /** Onboarding staff and admins, through the staff app; never the bot, which has its own functions (ADR-0004). */
 const ONBOARDING: Rule = { web: ['admin', 'onboarding'] };
@@ -41,6 +44,9 @@ const OUTREACH_STAFF: Rule = { web: ['admin', 'outreach'] };
 const OUTREACHER_ALONE: Rule = { ...OUTREACH_STAFF, only: [USERS.outreacher] };
 /** The onboarder's own message (PLAN R71): they alone, not the rest of the onboarding team nor admins. */
 const ONBOARDER_ALONE: Rule = { ...ONBOARDING, only: [USERS.onboarder] };
+/** The books (ADR-0006): admins read, so they never depend on one person; tesorería records. */
+const BOOKS: Rule = { web: ['admin', 'tesoreria'] };
+const TESORERIA: Rule = { web: ['tesoreria'] };
 const NOBODY: Rule = {};
 
 export interface Row {
@@ -69,6 +75,8 @@ export interface RelationSpec {
 const user = (key: keyof typeof USERS): string => `'${USERS[key]}'`;
 const ana = `'${PEOPLE.ana}'`;
 const quote = (value: string): string => `'${value}'`;
+const thisYear = 'extract(year FROM current_date)::integer';
+const books = ACCOUNTING;
 
 export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
   'app.staff': {
@@ -76,20 +84,20 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
       {
         id: 'an onboarder',
         where: `user_id = ${user('onboarder')}`,
-        select: { web: ANY_STAFF },
+        select: { web: TEAM },
         update: { set: "display_name = 'Nombre cambiado'", rule: ADMIN },
         delete: NOBODY,
       },
       {
         id: 'deactivating an onboarder',
         where: `user_id = ${user('onboarder')}`,
-        select: { web: ANY_STAFF },
+        select: { web: TEAM },
         update: { set: 'active = false', rule: ADMIN },
       },
       {
         id: 'linking an onboarder to their person',
         where: `user_id = ${user('onboarder')}`,
-        select: { web: ANY_STAFF },
+        select: { web: TEAM },
         update: { set: `person_id = ${ana}`, rule: ADMIN },
       },
     ],
@@ -106,7 +114,7 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
       {
         id: "an onboarder's role",
         where: `user_id = ${user('onboarder')} AND role = 'onboarding'`,
-        select: { web: ANY_STAFF },
+        select: { web: TEAM },
         update: { set: "role = 'outreach'", rule: NOBODY },
         delete: ADMIN,
       },
@@ -766,13 +774,204 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
       },
     ],
   },
+  'app.fiscal_years': {
+    rows: [
+      {
+        id: 'the year before last, closed',
+        where: `year = ${thisYear} - 2`,
+        select: BOOKS,
+        delete: NOBODY,
+      },
+      {
+        // Closing posts the closing and opening entries as the caller (migration journal): tesorería alone.
+        id: 'closing last year',
+        where: `year = ${thisYear} - 1`,
+        select: BOOKS,
+        update: { set: "status = 'closed', assembly_on = current_date", rule: TESORERIA },
+      },
+    ],
+    inserts: [
+      {
+        id: 'next year',
+        sql: `INSERT INTO app.fiscal_years (year) VALUES (${thisYear} + 1)`,
+        rule: TESORERIA,
+      },
+    ],
+  },
+  'app.ledger_accounts': {
+    rows: [
+      {
+        id: 'a seeded account nothing uses',
+        where: "code = '621'",
+        select: BOOKS,
+        update: { set: "name = 'Arrendamientos'", rule: TESORERIA },
+        delete: TESORERIA,
+      },
+      {
+        id: 'the bank account',
+        where: `id = ${quote(books.bank)}`,
+        select: BOOKS,
+        update: { set: 'active = false', rule: TESORERIA },
+      },
+      {
+        // Fixed once written (no grant), and never deleted, or no year could close.
+        id: 'the account a year closes to',
+        where: 'year_result',
+        select: BOOKS,
+        update: { set: 'year_result = false', rule: NOBODY },
+        delete: NOBODY,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a sub-account',
+        sql: `INSERT INTO app.ledger_accounts (code, name, kind, parent_code)
+              VALUES ('6260001', 'Comisiones de ejemplo', 'expense', '626')`,
+        rule: TESORERIA,
+      },
+    ],
+  },
+  'app.counterparties': {
+    rows: [
+      {
+        id: 'a donor',
+        where: `id = ${quote(books.donor)}`,
+        select: BOOKS,
+        update: { set: "province = 'Huesca'", rule: TESORERIA },
+      },
+      {
+        id: 'a supplier nothing names',
+        where: `id = ${quote(books.supplier)}`,
+        select: BOOKS,
+        delete: TESORERIA,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a counterparty',
+        sql: `INSERT INTO app.counterparties (kind, name) VALUES ('organisation', 'Otra entidad de ejemplo')`,
+        rule: TESORERIA,
+      },
+    ],
+  },
+  'app.projects': {
+    rows: [
+      {
+        id: 'a project',
+        where: `id = ${quote(books.project)}`,
+        select: BOOKS,
+        update: { set: 'active = false', rule: TESORERIA },
+      },
+    ],
+    inserts: [
+      {
+        id: 'a project',
+        sql: `INSERT INTO app.projects (name) VALUES ('Otro proyecto de ejemplo')`,
+        rule: TESORERIA,
+      },
+    ],
+  },
+  'app.journal_entries': {
+    rows: [
+      {
+        id: 'a draft',
+        where: `id = ${quote(books.draft)}`,
+        select: BOOKS,
+        update: { set: "description = 'Factura cambiada'", rule: TESORERIA },
+        delete: TESORERIA,
+      },
+      {
+        id: 'posting a draft',
+        where: `id = ${quote(books.draft)}`,
+        select: BOOKS,
+        update: { set: "status = 'posted'", rule: TESORERIA },
+      },
+      {
+        // Its number is the database's (no grant); that it never changes is a data rule (accounting.spec.ts).
+        id: 'a posted entry',
+        where: `id = ${quote(books.posted)}`,
+        select: BOOKS,
+        update: { set: 'number = 7', rule: NOBODY },
+      },
+      {
+        id: 'an entry in a closed year',
+        where: `id = ${quote(books.closedEntry)}`,
+        select: BOOKS,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a draft',
+        sql: `INSERT INTO app.journal_entries (entry_date, description, kind)
+              VALUES (make_date(${thisYear}, 1, 3), 'Un asiento de ejemplo', 'manual')`,
+        rule: TESORERIA,
+      },
+      {
+        // Made only by closing a year, never by hand.
+        id: 'an opening entry, by hand',
+        sql: `INSERT INTO app.journal_entries (entry_date, description, kind)
+              VALUES (make_date(${thisYear}, 1, 1), 'Apertura inventada', 'opening')`,
+        rule: NOBODY,
+      },
+    ],
+  },
+  'app.journal_lines': {
+    rows: [
+      {
+        // A draft's lines are replaced, never edited (no grant).
+        id: "a draft's line",
+        where: `id = ${quote(books.draftLine)}`,
+        select: BOOKS,
+        update: { set: 'debit_cents = 1', rule: NOBODY },
+        delete: TESORERIA,
+      },
+      {
+        id: "a posted entry's line",
+        where: `id = ${quote(books.postedLine)}`,
+        select: BOOKS,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a line on a draft',
+        sql: `INSERT INTO app.journal_lines (entry_id, account_id, debit_cents)
+              VALUES (${quote(books.draft)}, ${quote(books.bank)}, 100)`,
+        rule: TESORERIA,
+      },
+    ],
+  },
+  'app.receipts': {
+    rows: [
+      {
+        // Never changed (no grant); kept with its posted entry (a data rule, accounting.spec.ts).
+        id: "a posted entry's receipt",
+        where: `id = ${quote(books.receipt)}`,
+        select: BOOKS,
+        update: { set: "file_name = 'otro.pdf'", rule: NOBODY },
+      },
+      {
+        id: "a draft's receipt",
+        where: `id = ${quote(books.draftReceipt)}`,
+        select: BOOKS,
+        delete: TESORERIA,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a receipt',
+        sql: `INSERT INTO app.receipts (id, entry_id, file_name, content_type, byte_size, sha256)
+              VALUES (gen_random_uuid(), ${quote(books.draft)}, 'recibo.pdf', 'application/pdf', 1234, repeat('c', 64))`,
+        rule: TESORERIA,
+      },
+    ],
+  },
 };
 
 const APP = 'pauseai_backoffice_app' as const;
 
 /**
  * Every way a request can reach the database: the app role as each kind of staff member, at each level and channel,
- * or with no actor; and the other runtime roles, which reach no `app` table in M0.
+ * or with no actor; and the other runtime roles, which reach no `app` table.
  */
 export const PRINCIPALS: readonly Principal[] = [
   { id: 'admin web', role: APP, userId: USERS.adminA, aal: 2, channel: 'web' },
@@ -783,6 +982,8 @@ export const PRINCIPALS: readonly Principal[] = [
   { id: 'onboarding bot', role: APP, userId: USERS.onboarder, aal: 2, channel: 'bot' },
   { id: 'outreach web', role: APP, userId: USERS.outreacher, aal: 2, channel: 'web' },
   { id: 'onboarding and outreach web', role: APP, userId: USERS.both, aal: 2, channel: 'web' },
+  { id: 'tesoreria web', role: APP, userId: USERS.treasurer, aal: 2, channel: 'web' },
+  { id: 'tesoreria bot', role: APP, userId: USERS.treasurer, aal: 2, channel: 'bot' },
   { id: 'deactivated web', role: APP, userId: USERS.inactive, aal: 2, channel: 'web' },
   { id: 'no role web', role: APP, userId: USERS.noRole, aal: 2, channel: 'web' },
   { id: 'not staff web', role: APP, userId: USERS.notStaff, aal: 2, channel: 'web' },
@@ -798,4 +999,5 @@ export const ROLES_OF: Readonly<Record<string, readonly StaffRole[]>> = {
   [USERS.onboarder]: ['onboarding'],
   [USERS.outreacher]: ['outreach'],
   [USERS.both]: ['onboarding', 'outreach'],
+  [USERS.treasurer]: ['tesoreria'],
 };

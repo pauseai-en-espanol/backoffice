@@ -22,9 +22,11 @@ export const USERS = {
   notStaff: id(8),
   /** An account with a verified email and a pending invitation for it. */
   newcomer: id(9),
+  /** Keeps the books (ADR-0006): tesorería alone. */
+  treasurer: id(10),
 } as const;
 
-export type StaffRole = 'admin' | 'onboarding' | 'outreach';
+export type StaffRole = 'admin' | 'onboarding' | 'outreach' | 'tesoreria';
 export type UserKey = keyof typeof USERS;
 
 /** Each staff member's roles; `inactive` is deactivated. `notStaff` and `newcomer` aren't staff at all. */
@@ -36,6 +38,7 @@ export const STAFF: Readonly<Partial<Record<UserKey, readonly StaffRole[]>>> = {
   both: ['onboarding', 'outreach'],
   inactive: ['onboarding'],
   noRole: [],
+  treasurer: ['tesoreria'],
 };
 
 export const INACTIVE: readonly UserKey[] = ['inactive'];
@@ -99,6 +102,36 @@ export const OUTREACH = {
   privateNote: '0190f8c4-0000-7000-8000-0000000005f1',
   privateOrganisationNote: '0190f8c4-0000-7000-8000-0000000005e2',
 } as const;
+
+/**
+ * The books (M6, ADR-0006), by year relative to today so no test depends on the date: the year before last, closed
+ * (an income posted in it, its closing and last year's opening entry made by the database); last year, open with
+ * nothing but that opening entry, so it can be closed; this year, open, with two drafts and a posted income.
+ */
+export const ACCOUNTING = {
+  /** Tesorería's bank account, 5720001, under the seeded 572. */
+  bank: '0190f8c4-0000-7000-8000-0000000006a1',
+  /** A donor, with a tax ID and a province (D24), who gave the posted income. */
+  donor: '0190f8c4-0000-7000-8000-0000000006b1',
+  /** An organisation nothing names yet. */
+  supplier: '0190f8c4-0000-7000-8000-0000000006b2',
+  project: '0190f8c4-0000-7000-8000-0000000006c1',
+  /** Posted in the year before last, which is closed. */
+  closedEntry: '0190f8c4-0000-7000-8000-0000000006d1',
+  /** This year's: a draft expense, balanced, without receipts. */
+  draft: '0190f8c4-0000-7000-8000-0000000006d2',
+  /** This year's: a draft with a receipt. */
+  draftWithReceipt: '0190f8c4-0000-7000-8000-0000000006d3',
+  /** This year's: a posted income, from the donor, for the project, with a receipt. */
+  posted: '0190f8c4-0000-7000-8000-0000000006d4',
+  draftLine: '0190f8c4-0000-7000-8000-0000000006e1',
+  postedLine: '0190f8c4-0000-7000-8000-0000000006e2',
+  receipt: '0190f8c4-0000-7000-8000-0000000006f1',
+  draftReceipt: '0190f8c4-0000-7000-8000-0000000006f2',
+} as const;
+
+/** A fictional IBAN (the bank and branch codes are zeros) whose check digits are right. */
+export const EXAMPLE_IBAN = 'ES5500000000000000000001';
 
 /** Loads the fixtures as superuser, through the same triggers the app runs. */
 export const loadFixtures = async (client: pg.Client): Promise<void> => {
@@ -275,6 +308,7 @@ export const loadFixtures = async (client: pg.Client): Promise<void> => {
         OUTREACH.inbox,
       ],
     );
+    await loadAccounting(client);
     // An expired one can only be made in the past, past the stamp trigger: as superuser, with triggers off.
     await client.query("SET LOCAL session_replication_role = 'replica'");
     await client.query(
@@ -288,4 +322,107 @@ export const loadFixtures = async (client: pg.Client): Promise<void> => {
     await client.query('ROLLBACK');
     throw error;
   }
+};
+
+/** The books' fixtures (ACCOUNTING), stamped as the treasurer through the staff app. */
+const loadAccounting = async (client: pg.Client): Promise<void> => {
+  await client.query(
+    `SELECT set_config('app.user_id', $1, true), set_config('app.aal', '2', true),
+            set_config('app.channel', 'web', true)`,
+    [USERS.treasurer],
+  );
+  const A = ACCOUNTING;
+  const thisYear = `extract(year FROM current_date)::integer`;
+  /** An entry with its lines, as [account code, debit, credit]; posted unless `draft`. */
+  const entry = async (
+    id: string,
+    date: string,
+    description: string,
+    kind: string,
+    lines: readonly (readonly [string, number, number, string?])[],
+    options: { draft?: boolean; counterparty?: string; project?: string } = {},
+  ): Promise<void> => {
+    await client.query(
+      `INSERT INTO app.journal_entries (id, entry_date, description, kind, counterparty_id, project_id)
+       VALUES ($1, ${date}, $2, $3, $4, $5)`,
+      [id, description, kind, options.counterparty ?? null, options.project ?? null],
+    );
+    for (const [code, debit, credit, lineId] of lines) {
+      await client.query(
+        `INSERT INTO app.journal_lines (id, entry_id, account_id, debit_cents, credit_cents)
+         SELECT coalesce($1::uuid, uuidv7()), $2, a.id, $4, $5 FROM app.ledger_accounts a WHERE a.code = $3`,
+        [lineId ?? null, id, code, debit, credit],
+      );
+    }
+    if (!options.draft) {
+      await client.query(`UPDATE app.journal_entries SET status = 'posted' WHERE id = $1`, [id]);
+    }
+  };
+
+  await client.query(
+    `INSERT INTO app.ledger_accounts (id, code, name, kind, parent_code, treasury, iban)
+     VALUES ($1, '5720001', 'Cuenta de ejemplo', 'asset', '572', true, $2)`,
+    [A.bank, EXAMPLE_IBAN],
+  );
+  await client.query(
+    `INSERT INTO app.counterparties (id, kind, name, tax_id, province)
+     VALUES ($1, 'person', 'Persona donante de ejemplo', '00000000T', 'Teruel'),
+            ($2, 'organisation', 'Proveedor de ejemplo', NULL, NULL)`,
+    [A.donor, A.supplier],
+  );
+  await client.query(
+    `INSERT INTO app.projects (id, name, funder_id, description)
+     VALUES ($1, 'Proyecto de ejemplo', $2, 'Una financiación de ejemplo')`,
+    [A.project, A.donor],
+  );
+
+  await client.query(`INSERT INTO app.fiscal_years (year) VALUES (${thisYear} - 2)`);
+  await entry(A.closedEntry, `make_date(${thisYear} - 2, 6, 15)`, 'Donación de ejemplo', 'income', [
+    ['5720001', 5000, 0],
+    ['7400002', 0, 5000],
+  ]);
+  // Closing it opens last year, with the bank's balance carried forward.
+  await client.query(
+    `UPDATE app.fiscal_years SET status = 'closed', assembly_on = current_date WHERE year = ${thisYear} - 2`,
+  );
+  await client.query(`INSERT INTO app.fiscal_years (year) VALUES (${thisYear})`);
+  await entry(
+    A.draft,
+    `make_date(${thisYear}, 1, 2)`,
+    'Factura de luz de ejemplo',
+    'expense',
+    [
+      ['628', 1250, 0, A.draftLine],
+      ['5720001', 0, 1250],
+    ],
+    { draft: true },
+  );
+  await entry(
+    A.draftWithReceipt,
+    `make_date(${thisYear}, 1, 2)`,
+    'Material de ejemplo',
+    'expense',
+    [
+      ['629', 800, 0],
+      ['5720001', 0, 800],
+    ],
+    { draft: true },
+  );
+  await entry(
+    A.posted,
+    `make_date(${thisYear}, 1, 2)`,
+    'Donación de ejemplo',
+    'income',
+    [
+      ['5720001', 2000, 0, A.postedLine],
+      ['7400002', 0, 2000],
+    ],
+    { counterparty: A.donor, project: A.project },
+  );
+  await client.query(
+    `INSERT INTO app.receipts (id, entry_id, file_name, content_type, byte_size, sha256)
+     VALUES ($1, $2, 'justificante-de-ejemplo.pdf', 'application/pdf', 1024, repeat('a', 64)),
+            ($3, $4, 'ticket-de-ejemplo.jpg', 'image/jpeg', 2048, repeat('b', 64))`,
+    [A.receipt, A.posted, A.draftReceipt, A.draftWithReceipt],
+  );
 };

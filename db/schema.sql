@@ -77,6 +77,21 @@ COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching
 
 
 --
+-- Name: account_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.account_kind AS ENUM (
+    'asset',
+    'liability',
+    'equity',
+    'income',
+    'expense'
+);
+
+
+ALTER TYPE app.account_kind OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: availability; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -143,6 +158,47 @@ CREATE TYPE app.contact_outcome AS ENUM (
 ALTER TYPE app.contact_outcome OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: counterparty_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.counterparty_kind AS ENUM (
+    'person',
+    'organisation'
+);
+
+
+ALTER TYPE app.counterparty_kind OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: entry_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.entry_kind AS ENUM (
+    'income',
+    'expense',
+    'transfer',
+    'manual',
+    'reversal',
+    'opening',
+    'closing'
+);
+
+
+ALTER TYPE app.entry_kind OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: entry_status; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.entry_status AS ENUM (
+    'draft',
+    'posted'
+);
+
+
+ALTER TYPE app.entry_status OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: event_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -164,6 +220,18 @@ CREATE TYPE app.event_kind AS ENUM (
 
 
 ALTER TYPE app.event_kind OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: fiscal_year_status; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TYPE app.fiscal_year_status AS ENUM (
+    'open',
+    'closed'
+);
+
+
+ALTER TYPE app.fiscal_year_status OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: identity_kind; Type: TYPE; Schema: app; Owner: pauseai_backoffice_owner
@@ -265,7 +333,8 @@ ALTER TYPE app.source_kind OWNER TO pauseai_backoffice_owner;
 CREATE TYPE app.staff_role AS ENUM (
     'admin',
     'onboarding',
-    'outreach'
+    'outreach',
+    'tesoreria'
 );
 
 
@@ -1045,6 +1114,26 @@ CREATE FUNCTION private.claim_person(person uuid) RETURNS boolean
 ALTER FUNCTION private.claim_person(person uuid) OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: closed_years_refuse(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.closed_years_refuse() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM app.fiscal_years y
+                WHERE y.year = extract(year FROM NEW.entry_date)::integer AND y.status = 'closed') THEN
+      RAISE EXCEPTION 'nothing is written dated in a closed year' USING ERRCODE = 'restrict_violation';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.closed_years_refuse() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: contact_attempt_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1227,6 +1316,119 @@ CREATE FUNCTION private.export_contact(contact uuid) RETURNS jsonb
 
 
 ALTER FUNCTION private.export_contact(contact uuid) OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: fiscal_year_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.fiscal_year_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    result_account uuid;
+    entry uuid;
+    account uuid;
+    balance bigint;
+    total bigint := 0;
+  BEGIN
+    IF TG_OP = 'INSERT' THEN
+      IF EXISTS (SELECT 1 FROM app.fiscal_years)
+         AND NEW.year IS DISTINCT FROM (SELECT max(y.year) + 1 FROM app.fiscal_years y) THEN
+        RAISE EXCEPTION 'a fiscal year opens right after the last one'
+          USING ERRCODE = 'check_violation', CONSTRAINT = 'fiscal_years_consecutive';
+      END IF;
+      RETURN NEW;
+    END IF;
+
+    IF OLD.status = 'closed' THEN
+      RAISE EXCEPTION 'fiscal year % is closed for good', OLD.year USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF NEW.status = 'open' THEN
+      RETURN NEW;
+    END IF;
+
+    -- Closing. The table's checks want the assembly's date, after the year; it can't be in the future either.
+    IF NEW.assembly_on > current_date THEN
+      RAISE EXCEPTION 'a year closes after the assembly that approved it has met'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'fiscal_years_assembly_on';
+    END IF;
+    IF EXISTS (SELECT 1 FROM app.fiscal_years y WHERE y.year < OLD.year AND y.status = 'open') THEN
+      RAISE EXCEPTION 'the years before % close first', OLD.year
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'fiscal_years_in_order';
+    END IF;
+    IF EXISTS (SELECT 1 FROM app.journal_entries e WHERE e.fiscal_year = OLD.year AND e.status = 'draft') THEN
+      RAISE EXCEPTION 'a year with drafts doesn''t close: post or delete them'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'fiscal_years_drafts';
+    END IF;
+    SELECT a.id INTO result_account FROM app.ledger_accounts a WHERE a.year_result;
+    IF result_account IS NULL THEN
+      RAISE EXCEPTION 'the chart has no account for the year''s result'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'fiscal_years_result_account';
+    END IF;
+
+    -- The closing entry: each income and expense account back to zero, the difference to the year's result.
+    entry := NULL;
+    FOR account, balance IN
+      SELECT l.account_id, sum(l.debit_cents - l.credit_cents)
+        FROM app.journal_lines l
+        JOIN app.journal_entries e ON e.id = l.entry_id
+        JOIN app.ledger_accounts a ON a.id = l.account_id
+       WHERE e.fiscal_year = OLD.year AND e.status = 'posted' AND a.kind IN ('income', 'expense')
+       GROUP BY l.account_id
+      HAVING sum(l.debit_cents - l.credit_cents) <> 0
+    LOOP
+      IF entry IS NULL THEN
+        INSERT INTO app.journal_entries (entry_date, description, kind)
+        VALUES (make_date(OLD.year, 12, 31), 'Regularización del ejercicio ' || OLD.year, 'closing')
+        RETURNING id INTO entry;
+      END IF;
+      INSERT INTO app.journal_lines (entry_id, account_id, debit_cents, credit_cents)
+      VALUES (entry, account, greatest(-balance, 0), greatest(balance, 0));
+      total := total + balance;
+    END LOOP;
+    IF entry IS NOT NULL THEN
+      IF total <> 0 THEN
+        INSERT INTO app.journal_lines (entry_id, account_id, debit_cents, credit_cents)
+        VALUES (entry, result_account, greatest(total, 0), greatest(-total, 0));
+      END IF;
+      UPDATE app.journal_entries SET status = 'posted' WHERE id = entry;
+    END IF;
+
+    -- The next year, with what the balance sheet's accounts hold carried forward.
+    IF NOT EXISTS (SELECT 1 FROM app.fiscal_years y WHERE y.year = OLD.year + 1) THEN
+      INSERT INTO app.fiscal_years (year) VALUES (OLD.year + 1);
+    END IF;
+    entry := NULL;
+    FOR account, balance IN
+      SELECT l.account_id, sum(l.debit_cents - l.credit_cents)
+        FROM app.journal_lines l
+        JOIN app.journal_entries e ON e.id = l.entry_id
+        JOIN app.ledger_accounts a ON a.id = l.account_id
+       WHERE e.fiscal_year = OLD.year AND e.status = 'posted' AND a.kind IN ('asset', 'liability', 'equity')
+       GROUP BY l.account_id
+      HAVING sum(l.debit_cents - l.credit_cents) <> 0
+    LOOP
+      IF entry IS NULL THEN
+        INSERT INTO app.journal_entries (entry_date, description, kind)
+        VALUES (make_date(OLD.year + 1, 1, 1), 'Apertura del ejercicio ' || (OLD.year + 1), 'opening')
+        RETURNING id INTO entry;
+      END IF;
+      INSERT INTO app.journal_lines (entry_id, account_id, debit_cents, credit_cents)
+      VALUES (entry, account, greatest(balance, 0), greatest(-balance, 0));
+    END LOOP;
+    IF entry IS NOT NULL THEN
+      UPDATE app.journal_entries SET status = 'posted' WHERE id = entry;
+    END IF;
+
+    NEW.closed_at := now();
+    NEW.closed_by := private.current_user_id();
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.fiscal_year_rules() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: fold_name(text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -1817,6 +2019,120 @@ CREATE FUNCTION private.invitation_transition() RETURNS trigger
 ALTER FUNCTION private.invitation_transition() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: journal_entry_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.journal_entry_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    entry_year integer;
+    debits bigint;
+    credits bigint;
+    line_count integer;
+    original app.journal_entries;
+  BEGIN
+    IF TG_OP = 'DELETE' THEN
+      IF OLD.status = 'posted' THEN
+        RAISE EXCEPTION 'a posted entry is never deleted: reverse it' USING ERRCODE = 'restrict_violation';
+      END IF;
+      RETURN OLD;
+    END IF;
+    IF TG_OP = 'UPDATE' AND OLD.status = 'posted' THEN
+      RAISE EXCEPTION 'a posted entry never changes: reverse it' USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF TG_OP = 'INSERT' AND NEW.status <> 'draft' THEN
+      RAISE EXCEPTION 'an entry is written as a draft, then posted' USING ERRCODE = 'restrict_violation';
+    END IF;
+    NEW.number := NULL;
+    NEW.posted_by := NULL;
+    NEW.posted_at := NULL;
+    IF NEW.status = 'draft' THEN
+      RETURN NEW;
+    END IF;
+
+    SELECT coalesce(sum(l.debit_cents), 0), coalesce(sum(l.credit_cents), 0), count(*)
+      INTO debits, credits, line_count
+      FROM app.journal_lines l WHERE l.entry_id = NEW.id;
+    -- Both sides more than zero follows: every line has one side more than zero.
+    IF line_count < 2 OR debits <> credits THEN
+      RAISE EXCEPTION 'a posted entry balances, with two lines or more'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'journal_entries_balanced';
+    END IF;
+
+    IF NEW.reverses IS NOT NULL THEN
+      SELECT * INTO original FROM app.journal_entries e WHERE e.id = NEW.reverses;
+      IF original.status IS DISTINCT FROM 'posted' OR original.kind IN ('reversal', 'opening', 'closing')
+         OR NEW.entry_date < original.entry_date THEN
+        RAISE EXCEPTION 'a reversal corrects a posted entry of a form, on its date or later'
+          USING ERRCODE = 'check_violation', CONSTRAINT = 'journal_entries_reversal';
+      END IF;
+      IF EXISTS (
+        (SELECT l.account_id, l.project_id, l.debit_cents, l.credit_cents
+           FROM app.journal_lines l WHERE l.entry_id = NEW.id
+         EXCEPT ALL
+         SELECT l.account_id, l.project_id, l.credit_cents, l.debit_cents
+           FROM app.journal_lines l WHERE l.entry_id = original.id)
+        UNION ALL
+        (SELECT l.account_id, l.project_id, l.credit_cents, l.debit_cents
+           FROM app.journal_lines l WHERE l.entry_id = original.id
+         EXCEPT ALL
+         SELECT l.account_id, l.project_id, l.debit_cents, l.credit_cents
+           FROM app.journal_lines l WHERE l.entry_id = NEW.id)) THEN
+        RAISE EXCEPTION 'a reversal mirrors the lines of the entry it reverses'
+          USING ERRCODE = 'check_violation', CONSTRAINT = 'journal_entries_reversal';
+      END IF;
+    END IF;
+
+    entry_year := extract(year FROM NEW.entry_date)::integer;
+    PERFORM 1 FROM app.fiscal_years y WHERE y.year = entry_year FOR UPDATE;
+    SELECT coalesce(max(e.number), 0) + 1 INTO NEW.number
+      FROM app.journal_entries e WHERE e.fiscal_year = entry_year;
+    NEW.posted_by := private.current_user_id();
+    NEW.posted_at := now();
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.journal_entry_rules() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: journal_line_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.journal_line_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    entries uuid[] := '{}';
+  BEGIN
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
+      entries := entries || OLD.entry_id;
+    END IF;
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+      entries := entries || NEW.entry_id;
+    END IF;
+    IF EXISTS (SELECT 1 FROM app.journal_entries e WHERE e.id = ANY (entries) AND e.status = 'posted') THEN
+      RAISE EXCEPTION 'a posted entry''s lines never change: reverse it' USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF TG_OP <> 'DELETE'
+       AND NOT EXISTS (SELECT 1 FROM app.ledger_accounts a
+                        WHERE a.id = NEW.account_id AND a.active
+                          AND NOT EXISTS (SELECT 1 FROM app.ledger_accounts c WHERE c.parent_code = a.code)) THEN
+      RAISE EXCEPTION 'a line names an active account with no sub-accounts'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'journal_lines_account';
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.journal_line_rules() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: keep_an_admin(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -1836,6 +2152,27 @@ CREATE FUNCTION private.keep_an_admin() RETURNS trigger
 
 
 ALTER FUNCTION private.keep_an_admin() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: ledger_account_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.ledger_account_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF EXISTS (SELECT 1 FROM app.journal_lines l JOIN app.ledger_accounts p ON p.id = l.account_id
+                WHERE p.code = NEW.parent_code) THEN
+      RAISE EXCEPTION 'an account with lines gets no sub-accounts'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'ledger_accounts_parent';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.ledger_account_rules() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: link_code_needs_session(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -2246,6 +2583,47 @@ CREATE FUNCTION private.private_rules() RETURNS trigger
 
 
 ALTER FUNCTION private.private_rules() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: receipt_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.receipt_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF TG_OP = 'DELETE' THEN
+      IF EXISTS (SELECT 1 FROM app.journal_entries e WHERE e.id = OLD.entry_id AND e.status = 'posted') THEN
+        RAISE EXCEPTION 'a posted entry''s receipts are kept with it' USING ERRCODE = 'restrict_violation';
+      END IF;
+      RETURN OLD;
+    END IF;
+    IF EXISTS (SELECT 1 FROM app.journal_entries e JOIN app.fiscal_years y ON y.year = e.fiscal_year
+                WHERE e.id = NEW.entry_id AND y.status = 'closed') THEN
+      RAISE EXCEPTION 'nothing is written dated in a closed year' USING ERRCODE = 'restrict_violation';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.receipt_rules() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: receipts_without_row(uuid[]); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.receipts_without_row(ids uuid[]) RETURNS SETOF uuid
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+    SELECT i.id FROM unnest(ids) AS i(id)
+     WHERE NOT EXISTS (SELECT 1 FROM app.receipts r WHERE r.id = i.id)
+  $$;
+
+
+ALTER FUNCTION private.receipts_without_row(ids uuid[]) OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: refuse_anonymised_detail(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -3508,6 +3886,58 @@ COMMENT ON COLUMN app.contacts.external_ref IS 'personal data';
 
 
 --
+-- Name: counterparties; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.counterparties (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    kind app.counterparty_kind NOT NULL,
+    name text NOT NULL,
+    tax_id text,
+    province text,
+    iban text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT counterparties_iban_check CHECK ((iban ~ '^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$'::text)),
+    CONSTRAINT counterparties_name_check CHECK (((btrim(name) <> ''::text) AND (length(name) <= 200))),
+    CONSTRAINT counterparties_province_check CHECK (((btrim(province) <> ''::text) AND (length(province) <= 100))),
+    CONSTRAINT counterparties_tax_id_check CHECK ((tax_id ~ '^[0-9A-Z]{1,20}$'::text))
+);
+
+
+ALTER TABLE app.counterparties OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN counterparties.name; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.counterparties.name IS 'personal data';
+
+
+--
+-- Name: COLUMN counterparties.tax_id; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.counterparties.tax_id IS 'personal data';
+
+
+--
+-- Name: COLUMN counterparties.province; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.counterparties.province IS 'personal data';
+
+
+--
+-- Name: COLUMN counterparties.iban; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.counterparties.iban IS 'personal data';
+
+
+--
 -- Name: exports; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -3532,6 +3962,28 @@ ALTER TABLE app.exports OWNER TO pauseai_backoffice_owner;
 
 COMMENT ON COLUMN app.exports.filter IS 'personal data';
 
+
+--
+-- Name: fiscal_years; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.fiscal_years (
+    year integer NOT NULL,
+    status app.fiscal_year_status DEFAULT 'open'::app.fiscal_year_status NOT NULL,
+    assembly_on date,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    closed_by uuid,
+    closed_at timestamp with time zone,
+    CONSTRAINT fiscal_years_check CHECK ((assembly_on > make_date(year, 12, 31))),
+    CONSTRAINT fiscal_years_check1 CHECK (((status = 'closed'::app.fiscal_year_status) = (assembly_on IS NOT NULL))),
+    CONSTRAINT fiscal_years_check2 CHECK (((status = 'closed'::app.fiscal_year_status) = (closed_at IS NOT NULL))),
+    CONSTRAINT fiscal_years_check3 CHECK (((status = 'closed'::app.fiscal_year_status) = (closed_by IS NOT NULL))),
+    CONSTRAINT fiscal_years_year_check CHECK (((year >= 2000) AND (year <= 2999)))
+);
+
+
+ALTER TABLE app.fiscal_years OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: identities; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -3618,6 +4070,97 @@ ALTER TABLE app.invitations OWNER TO pauseai_backoffice_owner;
 
 COMMENT ON COLUMN app.invitations.email IS 'personal data';
 
+
+--
+-- Name: journal_entries; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.journal_entries (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    entry_date date NOT NULL,
+    fiscal_year integer GENERATED ALWAYS AS ((EXTRACT(year FROM entry_date))::integer) STORED NOT NULL,
+    number integer,
+    description text NOT NULL,
+    kind app.entry_kind NOT NULL,
+    status app.entry_status DEFAULT 'draft'::app.entry_status NOT NULL,
+    reverses uuid,
+    counterparty_id uuid,
+    project_id uuid,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    posted_by uuid,
+    posted_at timestamp with time zone,
+    CONSTRAINT journal_entries_check CHECK (((status = 'posted'::app.entry_status) = (number IS NOT NULL))),
+    CONSTRAINT journal_entries_check1 CHECK (((status = 'posted'::app.entry_status) = (posted_at IS NOT NULL))),
+    CONSTRAINT journal_entries_check2 CHECK (((status = 'posted'::app.entry_status) = (posted_by IS NOT NULL))),
+    CONSTRAINT journal_entries_check3 CHECK (((kind = 'reversal'::app.entry_kind) = (reverses IS NOT NULL))),
+    CONSTRAINT journal_entries_check4 CHECK ((reverses <> id)),
+    CONSTRAINT journal_entries_description_check CHECK (((btrim(description) <> ''::text) AND (length(description) <= 500))),
+    CONSTRAINT journal_entries_number_check CHECK ((number > 0))
+);
+
+
+ALTER TABLE app.journal_entries OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN journal_entries.description; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.journal_entries.description IS 'personal data';
+
+
+--
+-- Name: journal_lines; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.journal_lines (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    entry_id uuid NOT NULL,
+    account_id uuid NOT NULL,
+    debit_cents bigint DEFAULT 0 NOT NULL,
+    credit_cents bigint DEFAULT 0 NOT NULL,
+    project_id uuid,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT journal_lines_check CHECK (((debit_cents > 0) <> (credit_cents > 0))),
+    CONSTRAINT journal_lines_credit_cents_check CHECK (((credit_cents >= 0) AND (credit_cents <= '99999999999'::bigint))),
+    CONSTRAINT journal_lines_debit_cents_check CHECK (((debit_cents >= 0) AND (debit_cents <= '99999999999'::bigint)))
+);
+
+
+ALTER TABLE app.journal_lines OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: ledger_accounts; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.ledger_accounts (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    code text NOT NULL,
+    name text NOT NULL,
+    kind app.account_kind NOT NULL,
+    parent_code text,
+    treasury boolean DEFAULT false NOT NULL,
+    iban text,
+    year_result boolean DEFAULT false NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT ledger_accounts_check CHECK (((parent_code IS NULL) OR ((length(code) > length(parent_code)) AND starts_with(code, parent_code)))),
+    CONSTRAINT ledger_accounts_check1 CHECK (((NOT treasury) OR (kind = 'asset'::app.account_kind))),
+    CONSTRAINT ledger_accounts_check2 CHECK (((iban IS NULL) OR treasury)),
+    CONSTRAINT ledger_accounts_check3 CHECK (((NOT year_result) OR (kind = 'equity'::app.account_kind))),
+    CONSTRAINT ledger_accounts_code_check CHECK ((code ~ '^[0-9]{2,10}$'::text)),
+    CONSTRAINT ledger_accounts_iban_check CHECK ((iban ~ '^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$'::text)),
+    CONSTRAINT ledger_accounts_name_check CHECK (((btrim(name) <> ''::text) AND (length(name) <= 120)))
+);
+
+
+ALTER TABLE app.ledger_accounts OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: message_templates; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -4024,6 +4567,56 @@ CREATE TABLE app.person_sources (
 
 
 ALTER TABLE app.person_sources OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: projects; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.projects (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    name text NOT NULL,
+    funder_id uuid,
+    description text,
+    active boolean DEFAULT true NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT projects_description_check CHECK (((btrim(description) <> ''::text) AND (length(description) <= 2000))),
+    CONSTRAINT projects_name_check CHECK (((btrim(name) <> ''::text) AND (length(name) <= 120)))
+);
+
+
+ALTER TABLE app.projects OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: receipts; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.receipts (
+    id uuid NOT NULL,
+    entry_id uuid NOT NULL,
+    file_name text NOT NULL,
+    content_type text NOT NULL,
+    byte_size integer NOT NULL,
+    sha256 text NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT receipts_byte_size_check CHECK (((byte_size >= 1) AND (byte_size <= 10485760))),
+    CONSTRAINT receipts_content_type_check CHECK ((content_type = ANY (ARRAY['application/pdf'::text, 'image/jpeg'::text, 'image/png'::text, 'image/webp'::text]))),
+    CONSTRAINT receipts_file_name_check CHECK (((btrim(file_name) <> ''::text) AND (length(file_name) <= 255))),
+    CONSTRAINT receipts_sha256_check CHECK ((sha256 ~ '^[0-9a-f]{64}$'::text))
+);
+
+
+ALTER TABLE app.receipts OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN receipts.file_name; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.receipts.file_name IS 'personal data';
+
 
 --
 -- Name: staff; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
@@ -4547,11 +5140,27 @@ ALTER TABLE ONLY app.contacts
 
 
 --
+-- Name: counterparties counterparties_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.counterparties
+    ADD CONSTRAINT counterparties_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: exports exports_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 ALTER TABLE ONLY app.exports
     ADD CONSTRAINT exports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: fiscal_years fiscal_years_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.fiscal_years
+    ADD CONSTRAINT fiscal_years_pkey PRIMARY KEY (year);
 
 
 --
@@ -4608,6 +5217,62 @@ ALTER TABLE ONLY app.invitations
 
 ALTER TABLE ONLY app.invitations
     ADD CONSTRAINT invitations_token_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: journal_entries journal_entries_fiscal_year_number_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_entries
+    ADD CONSTRAINT journal_entries_fiscal_year_number_key UNIQUE (fiscal_year, number);
+
+
+--
+-- Name: journal_entries journal_entries_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_entries
+    ADD CONSTRAINT journal_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: journal_entries journal_entries_reverses_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_entries
+    ADD CONSTRAINT journal_entries_reverses_key UNIQUE (reverses);
+
+
+--
+-- Name: journal_lines journal_lines_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_lines
+    ADD CONSTRAINT journal_lines_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: ledger_accounts ledger_accounts_code_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.ledger_accounts
+    ADD CONSTRAINT ledger_accounts_code_key UNIQUE (code);
+
+
+--
+-- Name: ledger_accounts ledger_accounts_code_kind_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.ledger_accounts
+    ADD CONSTRAINT ledger_accounts_code_kind_key UNIQUE (code, kind);
+
+
+--
+-- Name: ledger_accounts ledger_accounts_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.ledger_accounts
+    ADD CONSTRAINT ledger_accounts_pkey PRIMARY KEY (id);
 
 
 --
@@ -4680,6 +5345,30 @@ ALTER TABLE ONLY app.person_options
 
 ALTER TABLE ONLY app.person_sources
     ADD CONSTRAINT person_sources_pkey PRIMARY KEY (person_id, source);
+
+
+--
+-- Name: projects projects_name_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.projects
+    ADD CONSTRAINT projects_name_key UNIQUE (name);
+
+
+--
+-- Name: projects projects_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.projects
+    ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: receipts receipts_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.receipts
+    ADD CONSTRAINT receipts_pkey PRIMARY KEY (id);
 
 
 --
@@ -4971,6 +5660,34 @@ CREATE INDEX invitations_created_by_idx ON app.invitations USING btree (created_
 
 
 --
+-- Name: journal_entries_date_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX journal_entries_date_idx ON app.journal_entries USING btree (entry_date);
+
+
+--
+-- Name: journal_lines_account_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX journal_lines_account_idx ON app.journal_lines USING btree (account_id);
+
+
+--
+-- Name: journal_lines_entry_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX journal_lines_entry_idx ON app.journal_lines USING btree (entry_id);
+
+
+--
+-- Name: ledger_accounts_year_result_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE UNIQUE INDEX ledger_accounts_year_result_idx ON app.ledger_accounts USING btree (year_result) WHERE year_result;
+
+
+--
 -- Name: message_templates_private_to_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5024,6 +5741,13 @@ CREATE INDEX people_stage_idx ON app.people USING btree (stage) WHERE (merged_in
 --
 
 CREATE INDEX person_events_person_id_created_at_idx ON app.person_events USING btree (person_id, created_at DESC);
+
+
+--
+-- Name: receipts_entry_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX receipts_entry_idx ON app.receipts USING btree (entry_id);
 
 
 --
@@ -5195,10 +5919,24 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.contacts FOR EACH R
 
 
 --
+-- Name: counterparties audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.counterparties FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
 -- Name: exports audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.exports FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: fiscal_years audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.fiscal_years FOR EACH ROW EXECUTE FUNCTION private.audit();
 
 
 --
@@ -5227,6 +5965,27 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.intake_records FOR 
 --
 
 CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.invitations FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: journal_entries audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.journal_entries FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: journal_lines audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.journal_lines FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: ledger_accounts audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.ledger_accounts FOR EACH ROW EXECUTE FUNCTION private.audit();
 
 
 --
@@ -5279,6 +6038,20 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.person_sources FOR 
 
 
 --
+-- Name: projects audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.projects FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: receipts audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.receipts FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
 -- Name: settings audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5297,6 +6070,13 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.staff FOR EACH ROW 
 --
 
 CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.staff_roles FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: journal_entries closed_year; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER closed_year BEFORE INSERT OR UPDATE ON app.journal_entries FOR EACH ROW EXECUTE FUNCTION private.closed_years_refuse();
 
 
 --
@@ -5510,10 +6290,45 @@ CREATE TRIGGER rules BEFORE INSERT OR UPDATE ON app.campaign_targets FOR EACH RO
 
 
 --
+-- Name: fiscal_years rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules BEFORE INSERT OR UPDATE ON app.fiscal_years FOR EACH ROW EXECUTE FUNCTION private.fiscal_year_rules();
+
+
+--
+-- Name: journal_entries rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules BEFORE INSERT OR DELETE OR UPDATE ON app.journal_entries FOR EACH ROW EXECUTE FUNCTION private.journal_entry_rules();
+
+
+--
+-- Name: journal_lines rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules AFTER INSERT OR DELETE OR UPDATE ON app.journal_lines FOR EACH ROW EXECUTE FUNCTION private.journal_line_rules();
+
+
+--
+-- Name: ledger_accounts rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules BEFORE INSERT ON app.ledger_accounts FOR EACH ROW EXECUTE FUNCTION private.ledger_account_rules();
+
+
+--
 -- Name: people rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER rules BEFORE UPDATE ON app.people FOR EACH ROW EXECUTE FUNCTION private.person_rules();
+
+
+--
+-- Name: receipts rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules BEFORE INSERT OR DELETE ON app.receipts FOR EACH ROW EXECUTE FUNCTION private.receipt_rules();
 
 
 --
@@ -5636,10 +6451,24 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.contacts FOR EACH ROW EXECUT
 
 
 --
+-- Name: counterparties stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.counterparties FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
+
+
+--
 -- Name: exports stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.exports FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: fiscal_years stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.fiscal_years FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
 
 
 --
@@ -5661,6 +6490,27 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.intake_records FOR EACH ROW 
 --
 
 CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.invitations FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: journal_entries stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.journal_entries FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
+
+
+--
+-- Name: journal_lines stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT ON app.journal_lines FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: ledger_accounts stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.ledger_accounts FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
 
 
 --
@@ -5703,6 +6553,20 @@ CREATE TRIGGER stamp BEFORE INSERT ON app.person_events FOR EACH ROW EXECUTE FUN
 --
 
 CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.person_options FOR EACH ROW EXECUTE FUNCTION private.stamp('created_at');
+
+
+--
+-- Name: projects stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.projects FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
+
+
+--
+-- Name: receipts stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT ON app.receipts FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
 
 
 --
@@ -6074,6 +6938,70 @@ ALTER TABLE ONLY app.invitations
 
 
 --
+-- Name: journal_entries journal_entries_counterparty_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_entries
+    ADD CONSTRAINT journal_entries_counterparty_id_fkey FOREIGN KEY (counterparty_id) REFERENCES app.counterparties(id);
+
+
+--
+-- Name: journal_entries journal_entries_fiscal_year_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_entries
+    ADD CONSTRAINT journal_entries_fiscal_year_fkey FOREIGN KEY (fiscal_year) REFERENCES app.fiscal_years(year);
+
+
+--
+-- Name: journal_entries journal_entries_project_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_entries
+    ADD CONSTRAINT journal_entries_project_id_fkey FOREIGN KEY (project_id) REFERENCES app.projects(id);
+
+
+--
+-- Name: journal_entries journal_entries_reverses_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_entries
+    ADD CONSTRAINT journal_entries_reverses_fkey FOREIGN KEY (reverses) REFERENCES app.journal_entries(id);
+
+
+--
+-- Name: journal_lines journal_lines_account_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_lines
+    ADD CONSTRAINT journal_lines_account_id_fkey FOREIGN KEY (account_id) REFERENCES app.ledger_accounts(id);
+
+
+--
+-- Name: journal_lines journal_lines_entry_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_lines
+    ADD CONSTRAINT journal_lines_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES app.journal_entries(id) ON DELETE CASCADE;
+
+
+--
+-- Name: journal_lines journal_lines_project_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.journal_lines
+    ADD CONSTRAINT journal_lines_project_id_fkey FOREIGN KEY (project_id) REFERENCES app.projects(id);
+
+
+--
+-- Name: ledger_accounts ledger_accounts_parent_code_kind_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.ledger_accounts
+    ADD CONSTRAINT ledger_accounts_parent_code_kind_fkey FOREIGN KEY (parent_code, kind) REFERENCES app.ledger_accounts(code, kind);
+
+
+--
 -- Name: message_templates message_templates_private_to_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -6167,6 +7095,22 @@ ALTER TABLE ONLY app.person_sources
 
 ALTER TABLE ONLY app.person_sources
     ADD CONSTRAINT person_sources_reported_by_fkey FOREIGN KEY (reported_by) REFERENCES app.staff(user_id);
+
+
+--
+-- Name: projects projects_funder_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.projects
+    ADD CONSTRAINT projects_funder_id_fkey FOREIGN KEY (funder_id) REFERENCES app.counterparties(id);
+
+
+--
+-- Name: receipts receipts_entry_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.receipts
+    ADD CONSTRAINT receipts_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES app.journal_entries(id);
 
 
 --
@@ -6404,6 +7348,55 @@ ALTER TABLE app.arrival_channels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app.audit_log ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: counterparties books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.counterparties FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: fiscal_years books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.fiscal_years FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: journal_entries books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.journal_entries FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: journal_lines books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.journal_lines FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: ledger_accounts books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.ledger_accounts FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: projects books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.projects FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: receipts books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.receipts FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: campaign_anchors; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -6464,10 +7457,22 @@ ALTER TABLE app.contact_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app.contacts ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: counterparties; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.counterparties ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: exports; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
 ALTER TABLE app.exports ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: fiscal_years; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.fiscal_years ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: identities; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
@@ -6492,6 +7497,24 @@ ALTER TABLE app.intake_records ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE app.invitations ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: journal_entries; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.journal_entries ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: journal_lines; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.journal_lines ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: ledger_accounts; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.ledger_accounts ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: message_templates; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
@@ -6880,6 +7903,18 @@ ALTER TABLE app.person_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app.person_sources ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: projects; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.projects ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: receipts; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.receipts ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: settings; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -6909,14 +7944,14 @@ CREATE POLICY staff_read ON app.settings FOR SELECT TO pauseai_backoffice_app US
 -- Name: staff staff_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY staff_read ON app.staff FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY staff_read ON app.staff FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role, 'outreach'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
 
 
 --
 -- Name: staff_roles staff_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
-CREATE POLICY staff_read ON app.staff_roles FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role, 'outreach'::app.staff_role]) AS staff_can));
+CREATE POLICY staff_read ON app.staff_roles FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role, 'outreach'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
 
 
 --
@@ -6937,6 +7972,132 @@ CREATE POLICY team_or_own_insert ON app.message_templates FOR INSERT TO pauseai_
 --
 
 CREATE POLICY team_or_own_update ON app.message_templates FOR UPDATE TO pauseai_backoffice_app USING ((((private_to IS NULL) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) OR ((private_to = ( SELECT private.current_user_id() AS current_user_id)) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can)))) WITH CHECK ((((private_to IS NULL) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role]) AS staff_can)) OR ((private_to = ( SELECT private.current_user_id() AS current_user_id)) AND ( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'onboarding'::app.staff_role]) AS staff_can))));
+
+
+--
+-- Name: counterparties tesoreria_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_delete ON app.counterparties FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: journal_entries tesoreria_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_delete ON app.journal_entries FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: journal_lines tesoreria_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_delete ON app.journal_lines FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: ledger_accounts tesoreria_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_delete ON app.ledger_accounts FOR DELETE TO pauseai_backoffice_app USING ((( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can) AND (NOT year_result)));
+
+
+--
+-- Name: projects tesoreria_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_delete ON app.projects FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: receipts tesoreria_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_delete ON app.receipts FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: counterparties tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.counterparties FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: fiscal_years tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.fiscal_years FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: journal_entries tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.journal_entries FOR INSERT TO pauseai_backoffice_app WITH CHECK ((( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can) AND ((kind <> ALL (ARRAY['opening'::app.entry_kind, 'closing'::app.entry_kind])) OR (pg_trigger_depth() > 0))));
+
+
+--
+-- Name: journal_lines tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.journal_lines FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: ledger_accounts tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.ledger_accounts FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: projects tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.projects FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: receipts tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.receipts FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: counterparties tesoreria_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_update ON app.counterparties FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: fiscal_years tesoreria_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_update ON app.fiscal_years FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: journal_entries tesoreria_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_update ON app.journal_entries FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: ledger_accounts tesoreria_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_update ON app.ledger_accounts FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: projects tesoreria_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_update ON app.projects FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
 
 
 --
@@ -7142,6 +8303,13 @@ GRANT ALL ON FUNCTION private.claim_person(person uuid) TO pauseai_backoffice_ap
 
 
 --
+-- Name: FUNCTION closed_years_refuse(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.closed_years_refuse() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION contact_attempt_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -7192,6 +8360,13 @@ REVOKE ALL ON FUNCTION private.erased_ref(source app.source_kind, external_id te
 
 REVOKE ALL ON FUNCTION private.export_contact(contact uuid) FROM PUBLIC;
 GRANT ALL ON FUNCTION private.export_contact(contact uuid) TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION fiscal_year_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.fiscal_year_rules() FROM PUBLIC;
 
 
 --
@@ -7297,10 +8472,31 @@ REVOKE ALL ON FUNCTION private.invitation_transition() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION journal_entry_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.journal_entry_rules() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION journal_line_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.journal_line_rules() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION keep_an_admin(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
 REVOKE ALL ON FUNCTION private.keep_an_admin() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION ledger_account_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.ledger_account_rules() FROM PUBLIC;
 
 
 --
@@ -7396,6 +8592,21 @@ GRANT ALL ON FUNCTION private.private_records() TO pauseai_backoffice_app;
 --
 
 REVOKE ALL ON FUNCTION private.private_rules() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION receipt_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.receipt_rules() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION receipts_without_row(ids uuid[]); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.receipts_without_row(ids uuid[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION private.receipts_without_row(ids uuid[]) TO pauseai_backoffice_app;
 
 
 --
@@ -8381,6 +9592,48 @@ GRANT INSERT(private_to),UPDATE(private_to) ON TABLE app.contacts TO pauseai_bac
 
 
 --
+-- Name: TABLE counterparties; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.counterparties TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN counterparties.kind; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(kind),UPDATE(kind) ON TABLE app.counterparties TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN counterparties.name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(name),UPDATE(name) ON TABLE app.counterparties TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN counterparties.tax_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(tax_id),UPDATE(tax_id) ON TABLE app.counterparties TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN counterparties.province; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(province),UPDATE(province) ON TABLE app.counterparties TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN counterparties.iban; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(iban),UPDATE(iban) ON TABLE app.counterparties TO pauseai_backoffice_app;
+
+
+--
 -- Name: TABLE exports; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -8406,6 +9659,34 @@ GRANT INSERT(filter) ON TABLE app.exports TO pauseai_backoffice_app;
 --
 
 GRANT INSERT(row_count) ON TABLE app.exports TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE fiscal_years; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.fiscal_years TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN fiscal_years.year; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(year) ON TABLE app.fiscal_years TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN fiscal_years.status; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(status) ON TABLE app.fiscal_years TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN fiscal_years.assembly_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(assembly_on) ON TABLE app.fiscal_years TO pauseai_backoffice_app;
 
 
 --
@@ -8497,6 +9778,160 @@ GRANT INSERT(expires_at) ON TABLE app.invitations TO pauseai_backoffice_app;
 --
 
 GRANT UPDATE(revoked_at) ON TABLE app.invitations TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE journal_entries; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.journal_entries TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_entries.entry_date; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(entry_date),UPDATE(entry_date) ON TABLE app.journal_entries TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_entries.description; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(description),UPDATE(description) ON TABLE app.journal_entries TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_entries.kind; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(kind) ON TABLE app.journal_entries TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_entries.status; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(status) ON TABLE app.journal_entries TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_entries.reverses; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(reverses) ON TABLE app.journal_entries TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_entries.counterparty_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(counterparty_id),UPDATE(counterparty_id) ON TABLE app.journal_entries TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_entries.project_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(project_id),UPDATE(project_id) ON TABLE app.journal_entries TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE journal_lines; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.journal_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_lines.entry_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(entry_id) ON TABLE app.journal_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_lines.account_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(account_id) ON TABLE app.journal_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_lines.debit_cents; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(debit_cents) ON TABLE app.journal_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_lines.credit_cents; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(credit_cents) ON TABLE app.journal_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN journal_lines.project_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(project_id) ON TABLE app.journal_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE ledger_accounts; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.ledger_accounts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN ledger_accounts.code; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(code) ON TABLE app.ledger_accounts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN ledger_accounts.name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(name),UPDATE(name) ON TABLE app.ledger_accounts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN ledger_accounts.kind; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(kind) ON TABLE app.ledger_accounts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN ledger_accounts.parent_code; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(parent_code) ON TABLE app.ledger_accounts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN ledger_accounts.treasury; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(treasury),UPDATE(treasury) ON TABLE app.ledger_accounts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN ledger_accounts.iban; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(iban),UPDATE(iban) ON TABLE app.ledger_accounts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN ledger_accounts.active; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(active) ON TABLE app.ledger_accounts TO pauseai_backoffice_app;
 
 
 --
@@ -8910,6 +10345,90 @@ GRANT INSERT(option_id) ON TABLE app.person_options TO pauseai_backoffice_app;
 --
 
 GRANT SELECT ON TABLE app.person_sources TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE projects; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.projects TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN projects.name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(name),UPDATE(name) ON TABLE app.projects TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN projects.funder_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(funder_id),UPDATE(funder_id) ON TABLE app.projects TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN projects.description; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(description),UPDATE(description) ON TABLE app.projects TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN projects.active; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(active),UPDATE(active) ON TABLE app.projects TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE receipts; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.receipts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN receipts.id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(id) ON TABLE app.receipts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN receipts.entry_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(entry_id) ON TABLE app.receipts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN receipts.file_name; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(file_name) ON TABLE app.receipts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN receipts.content_type; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(content_type) ON TABLE app.receipts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN receipts.byte_size; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(byte_size) ON TABLE app.receipts TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN receipts.sha256; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(sha256) ON TABLE app.receipts TO pauseai_backoffice_app;
 
 
 --

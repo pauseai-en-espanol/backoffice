@@ -1,0 +1,474 @@
+[
+  {
+    "name": "an unbalanced entry posts",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "IF line_count < 2 OR debits <> credits THEN",
+    "new": "IF line_count < 2 THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an entry of one line posts",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "IF line_count < 2 OR debits <> credits THEN",
+    "new": "IF debits <> credits THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a line debits and credits at once, or neither",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "  CHECK ((debit_cents > 0) <> (credit_cents > 0))\n",
+    "new": "  CHECK (true)\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a posted entry changes",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "IF TG_OP = 'UPDATE' AND OLD.status = 'posted' THEN",
+    "new": "IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a posted entry is deleted",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "RAISE EXCEPTION 'a posted entry is never deleted: reverse it' USING ERRCODE = 'restrict_violation';",
+    "new": "NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an entry is written already posted",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "RAISE EXCEPTION 'an entry is written as a draft, then posted' USING ERRCODE = 'restrict_violation';",
+    "new": "NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a draft keeps a number or a poster it was written with",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "    NEW.number := NULL;\n    NEW.posted_by := NULL;\n    NEW.posted_at := NULL;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a posted entry's lines change",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "RAISE EXCEPTION 'a posted entry''s lines never change: reverse it' USING ERRCODE = 'restrict_violation';",
+    "new": "NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the owner edits a posted entry's line",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "CREATE TRIGGER rules AFTER INSERT OR UPDATE OR DELETE ON app.journal_lines",
+    "new": "CREATE TRIGGER rules AFTER INSERT OR DELETE ON app.journal_lines",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a posting skips a number",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "SELECT coalesce(max(e.number), 0) + 1 INTO NEW.number",
+    "new": "SELECT coalesce(max(e.number), 0) + 2 INTO NEW.number",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "numbers run on across years",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "      FROM app.journal_entries e WHERE e.fiscal_year = entry_year;",
+    "new": "      FROM app.journal_entries e;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "two postings at once race for a number",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "PERFORM 1 FROM app.fiscal_years y WHERE y.year = entry_year FOR UPDATE;",
+    "new": "PERFORM 1 FROM app.fiscal_years y WHERE y.year = entry_year;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a posting isn't stamped with who posted it",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "    NEW.posted_by := private.current_user_id();\n",
+    "new": "    NEW.posted_by := '00000000-0000-0000-0000-000000000000';\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an entry is reversed twice",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "reverses         uuid UNIQUE REFERENCES",
+    "new": "reverses         uuid REFERENCES",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a reversal needn't mirror its original",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "      IF EXISTS (\n        (SELECT l.account_id",
+    "new": "      IF false AND EXISTS (\n        (SELECT l.account_id",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a reversal may undo only part of its original",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "        UNION ALL\n        (SELECT l.account_id, l.project_id, l.credit_cents, l.debit_cents\n           FROM app.journal_lines l WHERE l.entry_id = original.id\n         EXCEPT ALL\n         SELECT l.account_id, l.project_id, l.debit_cents, l.credit_cents\n           FROM app.journal_lines l WHERE l.entry_id = NEW.id)) THEN",
+    "new": ")) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a draft is reversed",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "IF original.status IS DISTINCT FROM 'posted' OR original.kind",
+    "new": "IF original.kind",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a reversal is reversed",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "original.kind IN ('reversal', 'opening', 'closing')",
+    "new": "original.kind IN ('opening', 'closing')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an opening entry is reversed",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "original.kind IN ('reversal', 'opening', 'closing')",
+    "new": "original.kind IN ('reversal', 'closing')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a closing entry is reversed",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "original.kind IN ('reversal', 'opening', 'closing')",
+    "new": "original.kind IN ('reversal', 'opening')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a reversal is dated before its original",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "\n         OR NEW.entry_date < original.entry_date THEN",
+    "new": " THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an opening entry is written by hand",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "\n              AND (kind NOT IN ('opening', 'closing') OR pg_trigger_depth() > 0));",
+    "new": ");",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an entry is written in a closed year",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "RAISE EXCEPTION 'nothing is written dated in a closed year' USING ERRCODE = 'restrict_violation';",
+    "new": "NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a receipt is attached in a closed year",
+    "file": "db/migrations/20261030140400_receipts.sql",
+    "old": "RAISE EXCEPTION 'nothing is written dated in a closed year' USING ERRCODE = 'restrict_violation';",
+    "new": "NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a closed year reopens",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "RAISE EXCEPTION 'fiscal year % is closed for good', OLD.year USING ERRCODE = 'restrict_violation';",
+    "new": "NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a year closes before its assembly has met",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "IF NEW.assembly_on > current_date THEN",
+    "new": "IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a year closes with an assembly before it ended",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "  assembly_on  date CHECK (assembly_on > make_date(year, 12, 31)),",
+    "new": "  assembly_on  date,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a year closes before the years before it",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "IF EXISTS (SELECT 1 FROM app.fiscal_years y WHERE y.year < OLD.year AND y.status = 'open') THEN",
+    "new": "IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a year closes with drafts",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "IF EXISTS (SELECT 1 FROM app.journal_entries e WHERE e.fiscal_year = OLD.year AND e.status = 'draft') THEN",
+    "new": "IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a year closes without an account for its result",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "    IF result_account IS NULL THEN",
+    "new": "    IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "closing leaves expenses open",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "AND a.kind IN ('income', 'expense')",
+    "new": "AND a.kind IN ('income')",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "closing doubles income and expenses instead of zeroing them",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "      VALUES (entry, account, greatest(-balance, 0), greatest(balance, 0));",
+    "new": "      VALUES (entry, account, greatest(balance, 0), greatest(-balance, 0));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "closing puts the result on the wrong side",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "VALUES (entry, result_account, greatest(total, 0), greatest(-total, 0));",
+    "new": "VALUES (entry, result_account, greatest(-total, 0), greatest(total, 0));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the opening entry turns the balances around",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "      VALUES (entry, account, greatest(balance, 0), greatest(-balance, 0));\n    END LOOP;\n    IF entry IS NOT NULL THEN\n      UPDATE app.journal_entries SET status = 'posted' WHERE id = entry;\n    END IF;\n\n    NEW.closed_at",
+    "new": "      VALUES (entry, account, greatest(-balance, 0), greatest(balance, 0));\n    END LOOP;\n    IF entry IS NOT NULL THEN\n      UPDATE app.journal_entries SET status = 'posted' WHERE id = entry;\n    END IF;\n\n    NEW.closed_at",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "closing doesn't open the next year",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "    IF NOT EXISTS (SELECT 1 FROM app.fiscal_years y WHERE y.year = OLD.year + 1) THEN\n      INSERT INTO app.fiscal_years (year) VALUES (OLD.year + 1);\n    END IF;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "closing isn't stamped with who closed it",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "    NEW.closed_by := private.current_user_id();\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a year opens with a hole before it",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "AND NEW.year IS DISTINCT FROM (SELECT max(y.year) + 1 FROM app.fiscal_years y) THEN",
+    "new": "AND false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a line sits on a group",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "\n                          AND NOT EXISTS (SELECT 1 FROM app.ledger_accounts c WHERE c.parent_code = a.code)) THEN",
+    "new": ") THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a line sits on a retired account",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "WHERE a.id = NEW.account_id AND a.active",
+    "new": "WHERE a.id = NEW.account_id",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an account with lines gets a sub-account",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "RAISE EXCEPTION 'an account with lines gets no sub-accounts'",
+    "new": "RETURN NEW; RAISE EXCEPTION 'an account with lines gets no sub-accounts'",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a sub-account's kind isn't its parent's",
+    "file": "db/migrations/20261030140200_chart_of_accounts.sql",
+    "old": "FOREIGN KEY (parent_code, kind) REFERENCES app.ledger_accounts (code, kind),",
+    "new": "FOREIGN KEY (parent_code) REFERENCES app.ledger_accounts (code),",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a sub-account doesn't extend its parent's code",
+    "file": "db/migrations/20261030140200_chart_of_accounts.sql",
+    "old": "CHECK (parent_code IS NULL OR (length(code) > length(parent_code) AND starts_with(code, parent_code))),",
+    "new": "CHECK (true),",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a treasury account isn't an asset",
+    "file": "db/migrations/20261030140200_chart_of_accounts.sql",
+    "old": "CHECK (NOT treasury OR kind = 'asset'),",
+    "new": "CHECK (true),",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an IBAN sits on an account that isn't a treasury one",
+    "file": "db/migrations/20261030140200_chart_of_accounts.sql",
+    "old": "CHECK (iban IS NULL OR treasury),",
+    "new": "CHECK (true),",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the account a year closes to is deleted",
+    "file": "db/migrations/20261030140200_chart_of_accounts.sql",
+    "old": "USING ((SELECT private.staff_can('tesoreria')) AND NOT year_result);",
+    "new": "USING ((SELECT private.staff_can('tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a posted entry's receipt is removed",
+    "file": "db/migrations/20261030140400_receipts.sql",
+    "old": "RAISE EXCEPTION 'a posted entry''s receipts are kept with it' USING ERRCODE = 'restrict_violation';",
+    "new": "NULL;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the volume's check names receipts that have a row",
+    "file": "db/migrations/20261030140400_receipts.sql",
+    "old": "     WHERE NOT EXISTS (SELECT 1 FROM app.receipts r WHERE r.id = i.id)",
+    "new": "     WHERE EXISTS (SELECT 1 FROM app.receipts r WHERE r.id = i.id)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "admins record entries",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "CREATE POLICY tesoreria_insert ON app.journal_entries FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('tesoreria'))",
+    "new": "CREATE POLICY tesoreria_insert ON app.journal_entries FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'tesoreria'))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "admins close a year",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "CREATE POLICY tesoreria_update ON app.fiscal_years FOR UPDATE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('tesoreria')))\n  WITH CHECK ((SELECT private.staff_can('tesoreria')));",
+    "new": "CREATE POLICY tesoreria_update ON app.fiscal_years FOR UPDATE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'tesoreria')))\n  WITH CHECK ((SELECT private.staff_can('admin', 'tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot reads the journal",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "CREATE POLICY books_read ON app.journal_entries FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'tesoreria')));",
+    "new": "CREATE POLICY books_read ON app.journal_entries FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'tesoreria')) OR (SELECT private.bot_can('tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "onboarding reads who gave money",
+    "file": "db/migrations/20261030140200_chart_of_accounts.sql",
+    "old": "CREATE POLICY books_read ON app.counterparties FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'tesoreria')));",
+    "new": "CREATE POLICY books_read ON app.counterparties FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'onboarding', 'tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "outreach reads receipts",
+    "file": "db/migrations/20261030140400_receipts.sql",
+    "old": "CREATE POLICY books_read ON app.receipts FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'tesoreria')));",
+    "new": "CREATE POLICY books_read ON app.receipts FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'outreach', 'tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an entry's number is anyone's to write",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "  UPDATE (entry_date, description, counterparty_id, project_id, status), DELETE",
+    "new": "  UPDATE (entry_date, description, counterparty_id, project_id, status, number), DELETE",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a draft's line is edited in place",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "GRANT SELECT, INSERT (entry_id, account_id, debit_cents, credit_cents, project_id), DELETE\n  ON app.journal_lines TO pauseai_backoffice_app;",
+    "new": "GRANT SELECT, INSERT (entry_id, account_id, debit_cents, credit_cents, project_id), UPDATE (debit_cents), DELETE\n  ON app.journal_lines TO pauseai_backoffice_app;\nCREATE POLICY tesoreria_update ON app.journal_lines FOR UPDATE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('tesoreria'))) WITH CHECK ((SELECT private.staff_can('tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "tesorería doesn't see the team",
+    "file": "db/migrations/20261030140100_tesoreria_sees_the_team.sql",
+    "old": "  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach', 'tesoreria')));\nALTER POLICY staff_read ON app.staff_roles",
+    "new": "  USING ((SELECT private.staff_can('admin', 'onboarding', 'outreach')));\nALTER POLICY staff_read ON app.staff_roles",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a donor's tax ID reaches the audit log",
+    "file": "db/migrations/20261030140200_chart_of_accounts.sql",
+    "old": "COMMENT ON COLUMN app.counterparties.tax_id IS 'personal data';\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an entry's concept reaches the audit log",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "COMMENT ON COLUMN app.journal_entries.description IS 'personal data';\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a receipt's file name reaches the audit log",
+    "file": "db/migrations/20261030140400_receipts.sql",
+    "old": "COMMENT ON COLUMN app.receipts.file_name IS 'personal data';\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "closing a year isn't audited",
+    "file": "db/migrations/20261030140300_journal.sql",
+    "old": "CREATE TRIGGER audit AFTER INSERT OR UPDATE OR DELETE ON app.fiscal_years\n  FOR EACH ROW EXECUTE FUNCTION private.audit();\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  }
+]

@@ -5,6 +5,8 @@
 
 import type { ColumnType } from 'kysely';
 
+export type AppAccountKind = 'asset' | 'equity' | 'expense' | 'income' | 'liability';
+
 export type AppAvailability = 'from_2_to_5h' | 'occasional' | 'over_5h' | 'under_2h';
 
 export type AppContactEventKind =
@@ -17,6 +19,13 @@ export type AppContactEventKind =
   | 'shared'
   | 'stage_changed'
   | 'status_changed';
+
+export type AppCounterpartyKind = 'organisation' | 'person';
+
+export type AppEntryKind =
+  'closing' | 'expense' | 'income' | 'manual' | 'opening' | 'reversal' | 'transfer';
+
+export type AppEntryStatus = 'draft' | 'posted';
 
 export type AppEventKind =
   | 'contact_attempt'
@@ -32,6 +41,8 @@ export type AppEventKind =
   | 'profile_updated'
   | 'reported'
   | 'stage_changed';
+
+export type AppFiscalYearStatus = 'closed' | 'open';
 
 export type AppIdentityKind = 'airtable' | 'discord' | 'email' | 'phone';
 
@@ -56,7 +67,7 @@ export type AppRelationshipStage =
 
 export type AppSourceKind = 'airtable' | 'census' | 'csv' | 'manual' | 'telegram';
 
-export type AppStaffRole = 'admin' | 'onboarding' | 'outreach';
+export type AppStaffRole = 'admin' | 'onboarding' | 'outreach' | 'tesoreria';
 
 export type AppStage =
   'active' | 'contacting' | 'discarded' | 'dormant' | 'left' | 'new' | 'unresponsive' | 'welcomed';
@@ -350,6 +361,31 @@ export interface AppContacts {
   website: string | null;
 }
 
+export interface AppCounterparties {
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  /**
+   * personal data
+   */
+  iban: string | null;
+  id: Generated<string>;
+  kind: AppCounterpartyKind;
+  /**
+   * personal data
+   */
+  name: string;
+  /**
+   * personal data
+   */
+  province: string | null;
+  /**
+   * personal data
+   */
+  tax_id: string | null;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
 export interface AppExports {
   created_at: Generated<Timestamp>;
   created_by: string;
@@ -360,6 +396,16 @@ export interface AppExports {
   id: Generated<string>;
   kind: string;
   row_count: number;
+}
+
+export interface AppFiscalYears {
+  assembly_on: Timestamp | null;
+  closed_at: Timestamp | null;
+  closed_by: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  status: Generated<AppFiscalYearStatus>;
+  year: number;
 }
 
 export interface AppIdentities {
@@ -425,6 +471,55 @@ export interface AppInvitations {
   revoked_at: Timestamp | null;
   roles: ArrayType<AppStaffRole>;
   token_hash: string;
+}
+
+export interface AppJournalEntries {
+  counterparty_id: string | null;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  /**
+   * personal data
+   */
+  description: string;
+  entry_date: Timestamp;
+  fiscal_year: Generated<number>;
+  id: Generated<string>;
+  kind: AppEntryKind;
+  number: number | null;
+  posted_at: Timestamp | null;
+  posted_by: string | null;
+  project_id: string | null;
+  reverses: string | null;
+  status: Generated<AppEntryStatus>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface AppJournalLines {
+  account_id: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  credit_cents: Generated<Int8>;
+  debit_cents: Generated<Int8>;
+  entry_id: string;
+  id: Generated<string>;
+  project_id: string | null;
+}
+
+export interface AppLedgerAccounts {
+  active: Generated<boolean>;
+  code: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  iban: string | null;
+  id: Generated<string>;
+  kind: AppAccountKind;
+  name: string;
+  parent_code: string | null;
+  treasury: Generated<boolean>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+  year_result: Generated<boolean>;
 }
 
 export interface AppMessageTemplates {
@@ -586,6 +681,32 @@ export interface AppPersonSources {
   source: AppSourceKind;
 }
 
+export interface AppProjects {
+  active: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  description: string | null;
+  funder_id: string | null;
+  id: Generated<string>;
+  name: string;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
+export interface AppReceipts {
+  byte_size: number;
+  content_type: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  entry_id: string;
+  /**
+   * personal data
+   */
+  file_name: string;
+  id: string;
+  sha256: string;
+}
+
 export interface AppSettings {
   community_chats: Generated<string[]>;
   follow_up_days: Generated<number>;
@@ -640,11 +761,16 @@ export interface DB {
   'app.consents': AppConsents;
   'app.contact_events': AppContactEvents;
   'app.contacts': AppContacts;
+  'app.counterparties': AppCounterparties;
   'app.exports': AppExports;
+  'app.fiscal_years': AppFiscalYears;
   'app.identities': AppIdentities;
   'app.imports': AppImports;
   'app.intake_records': AppIntakeRecords;
   'app.invitations': AppInvitations;
+  'app.journal_entries': AppJournalEntries;
+  'app.journal_lines': AppJournalLines;
+  'app.ledger_accounts': AppLedgerAccounts;
   'app.message_templates': AppMessageTemplates;
   'app.organisation_notes': AppOrganisationNotes;
   'app.organisations': AppOrganisations;
@@ -653,6 +779,8 @@ export interface DB {
   'app.person_events': AppPersonEvents;
   'app.person_options': AppPersonOptions;
   'app.person_sources': AppPersonSources;
+  'app.projects': AppProjects;
+  'app.receipts': AppReceipts;
   'app.settings': AppSettings;
   'app.staff': AppStaff;
   'app.staff_roles': AppStaffRoles;

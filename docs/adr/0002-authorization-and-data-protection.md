@@ -1,7 +1,8 @@
 # ADR-0002: Authorization and data protection
 
 - **Status:** Accepted for M0 (Claude's recommendations D5 and D7, taken unless Dani objects; PLAN R1–R5, R13 to
-  review)
+  review). Amended 2026-10-30 for M6: the `tesoreria` role and the books' policies, and
+  `private.receipts_without_row` ([ADR-0006](0006-accounting.md))
 - **Date:** 2026-10-15
 - **Deciders:** Dani; drafted by Claude
 - **Relates to:** [BRIEF](../BRIEF.md) G5, §3, §5; [ADR-0001](0001-hosting-and-delivery.md),
@@ -13,8 +14,8 @@
 - **What is at stake** (BRIEF §5, in priority order): members' personal data, which reveals who supports an
   AI-pause organisation; staff accounts, each of which opens it; linked Telegram accounts, the bot token and the
   webhook secret; the Airtable shared view link; outreach notes.
-- **Who uses it:** a handful of volunteers with three roles (`admin`, `onboarding`, `outreach`) that combine, on a
-  public host (D4), from their phones, plus a Telegram bot acting for them (ADR-0004).
+- **Who uses it:** a handful of volunteers with roles that combine (`admin`, `onboarding`, `outreach`, and from M6
+  `tesoreria`, D20), on a public host (D4), from their phones, plus a Telegram bot acting for them (ADR-0004).
 - **What an earlier project already proved** ([ADR-0003](0003-application-stack.md)): least privilege enforced in
   Postgres (non-owner runtime roles, RLS, explicit grants, closed by default), the actor set per transaction by
   `withActor`, the second factor checked in the database (`app.aal`), and a narrower channel for tools
@@ -90,7 +91,9 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 ### 4. Row-level security by module and channel
 
 - **By module role:** onboarding tables need `onboarding` or `admin`; outreach tables `outreach` or `admin`;
-  `audit_log`, exports and erasure `admin` only; staff and invitations are managed by `admin`.
+  `audit_log`, exports and erasure `admin` only; staff and invitations are managed by `admin`. The books (M6) are
+  read by `tesoreria` or `admin` and written by `tesoreria` alone. Every staff member sees the team (`staff`,
+  `staff_roles`), tesorería included, and nothing else outside their modules.
 - **Lists edited in Ajustes** (the census's options; "Llegó por", `app.arrival_channels`, PLAN M5) are read by the
   staff who choose from them and changed by admins only, never deleted. "Llegó por" adds no function the runtime
   roles run: the intake functions resolve it as their owner (`private.arrival_channel`), and the bot names no entry
@@ -178,6 +181,17 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   the API for that transaction), its timeline or notes, private to that person, become the team's, with
   `app.redact` as the timelines are append-only. It runs only at that change, so a private note written later on a
   team record stays private.
+- **Cuentas** (M6, [ADR-0006](0006-accounting.md), D20): the books' tables (`ledger_accounts`, `counterparties`,
+  `projects`, `fiscal_years`, `journal_entries`, `journal_lines`, `receipts`) admit
+  `staff_can('admin', 'tesoreria')` to read and `staff_can('tesoreria')` to write, through the staff app alone:
+  whoever records isn't the only one who sees, and an admin who needs to record holds tesorería too. No policy names
+  `bot_can`. Their rules are triggers that run as the writer, under RLS (posting, numbering, reversals, closing a
+  year, which posts the closing and opening entries as tesorería). One new function for the runtime roles:
+  receipts' files are on the API's volume, and `private.receipts_without_row(ids)`, `SECURITY DEFINER` and
+  executable by the app role, tells the API as it starts, without an actor, which of the receipt ids it found on the
+  volume have no row, so it sets those files aside. It returns ids among those it is given, nothing else, and checks
+  no channel: nothing about anyone passes through it. The bytes are encrypted with `RECEIPTS_KEY` and served only
+  after the receipt's row is read through `withActor`.
 - **The bot's own state** is in `private` (`telegram_updates`, `telegram_dialogs`, `telegram_posts`), outside `app`
   and its policies: only the app role reaches it, with exactly the privileges the bot uses, and a catalog test keeps
   that list. Its links and their codes are credentials, in `auth`, for the auth role alone.

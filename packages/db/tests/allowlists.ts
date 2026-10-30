@@ -24,6 +24,8 @@ export const EXECUTE_ALLOWLIST: readonly string[] = [
   'pauseai_backoffice_app private.merge_private_contact(private_contact uuid, team_contact uuid)',
   'pauseai_backoffice_app private.pending_invitation(token_hash text)',
   'pauseai_backoffice_app private.private_records()',
+  // Receipts' files without a row (ADR-0006 decision 7): ids in, ids out, at the API's start, without an actor.
+  'pauseai_backoffice_app private.receipts_without_row(ids uuid[])',
   'pauseai_backoffice_app private.report_leave(person uuid, left_on date)',
   'pauseai_backoffice_app private.resolve_intake(intake_id uuid, decision text, target uuid)',
   'pauseai_backoffice_app private.rights_contacts(query text)',
@@ -72,6 +74,9 @@ export const SECURITY_DEFINER_ALLOWLIST: readonly string[] = [
   'private.merge_private_contact',
   'private.pending_invitation',
   'private.private_records',
+  // Which receipt files on the API's volume have no row (ADR-0006 decision 7): ids among those given, nothing else,
+  // for the API's start, which has no actor to see the rows with.
+  'private.receipts_without_row',
   'private.report_leave',
   'private.resolve_intake',
   'private.rights_contacts',

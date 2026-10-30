@@ -116,6 +116,11 @@ and six as the usual practice (Código de Comercio art. 30), which the associati
 - A request to access one's data covers counterparties and receipts too; admins can read them.
 - Once a closed year is past the retention the association sets, an admin may anonymise its counterparties (a
   definer function, added with the first year that gets there).
+- As built (M6): personal data are counterparties' names, tax IDs, provinces and IBANs, an entry's concept (which
+  may name whoever was paid or reimbursed) and what a receipt's uploader called it, all commented so the audit log
+  never copies them. A receipt's bytes are encrypted on the API's volume with `RECEIPTS_KEY`; a file left without a
+  row is set aside there, still encrypted, until a person deletes it ([receipts runbook](../runbooks/receipts.md)).
+  A draft's receipt removed by tesorería is deleted at once.
 
 ## 10. Processors
 

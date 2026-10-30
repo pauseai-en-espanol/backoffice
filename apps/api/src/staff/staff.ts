@@ -2,8 +2,8 @@ import type { DB } from '@backoffice/db/generated/db';
 
 import { sql, type Transaction } from 'kysely';
 
-/** The roles a staff member can hold, as `app.staff_role` has them (ADR-0002). */
-export const STAFF_ROLES = ['admin', 'onboarding', 'outreach'] as const;
+/** The roles a staff member can hold, as `app.staff_role` has them (ADR-0002); tesorería keeps the books (ADR-0006). */
+export const STAFF_ROLES = ['admin', 'onboarding', 'outreach', 'tesoreria'] as const;
 export type StaffRole = (typeof STAFF_ROLES)[number];
 
 export const isStaffRole = (value: unknown): value is StaffRole =>

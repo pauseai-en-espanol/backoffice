@@ -2,6 +2,7 @@
 
 - **Status:** Accepted (Dani, 2026-10-30: "i approve the accounting proposal"; in scope by D20, receipts on a volume
   by D21). Public utility is the association's goal (D24), so the books are kept ready for it from the first entry.
+  Decision 7 amended 2026-10-30: receipts' files without a row are set aside, not removed.
 - **Date:** 2026-10-30
 - **Deciders:** Dani; drafted by Claude
 - **Relates to:** [BRIEF](../BRIEF.md) G7, §3, §5; [ADR-0001](0001-hosting-and-delivery.md) (the volume),
@@ -86,8 +87,15 @@
    - Served only by the API, after the receipt's row is read through `withActor`, so RLS decides who gets it:
      `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, `Content-Security-Policy: sandbox`.
      PDF, JPEG, PNG and WebP only, recognised by their first bytes, not by what the browser claims; 10 MB at most.
-   - Written before its row: encrypt, write to a temporary name, flush, rename, then insert. A file without a row is
-     removed when the API starts. A posted entry's receipts are kept with it; more can be added.
+   - Written before its row: encrypt, write to a temporary name, flush, rename, then insert. A file without a row
+     (a crash between the two, or a database restored from before it) is set aside when the API starts, in
+     `orphans/` on the volume: never served, never deleted on its own, and put back if its row comes back with a
+     later restore; how many is logged, and deleting them for good is a person's step
+     ([receipts runbook](../runbooks/receipts.md)). Amended 2026-10-30 (Dani: "Set aside"), rather than removing
+     them at start, which would lose for good the receipts recorded after an older dump that was restored. The API
+     learns which files have no row from `private.receipts_without_row`, ids in and ids out
+     ([ADR-0002](0002-authorization-and-data-protection.md) §4). A posted entry's receipts are kept with it; more can
+     be added.
    - The volume is ReadWriteOnce unless the cluster offers more, so the API deploys with the `Recreate` strategy (it
      already runs one replica; ADR-0003). Its size and storage class come from the chart's values, set in gitops.
 8. **Ready for public utility** (D24): every year's accounts come from the books as the assembly approves them;
