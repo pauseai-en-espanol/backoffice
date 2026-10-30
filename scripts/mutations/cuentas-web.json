@@ -112,5 +112,83 @@
     "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
     "cwd": "e2e",
     "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "the first menu link that starts the page's address is current",
+    "file": "apps/web/src/shell/nav.ts",
+    "old": ".toSorted((a, b) => b.length - a.length)[0];",
+    "new": "[0];",
+    "cmd": "pnpm exec vitest run src/shell/nav.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "Movimientos is current on every Cuentas page",
+    "file": "apps/web/src/shell/NavLink.tsx",
+    "old": "const current = currentHref(usePathname(), hrefs) === href;",
+    "new": "const current = usePathname().startsWith(href);",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'records an income'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Traspaso and Asiento manual offered from the start",
+    "file": "apps/web/src/accounting/EntryForm.tsx",
+    "old": "(each) => showOthers || each === 'income' || each === 'expense'",
+    "new": "() => true",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'records an income'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a counterparty added from the form isn't chosen",
+    "file": "apps/web/src/accounting/EntryForm.tsx",
+    "old": "              setCounterpartyId(added.id);\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'records an income'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "a donor's NIF added from the form is dropped",
+    "file": "apps/web/src/accounting/QuickCounterparty.tsx",
+    "old": "taxId: income ? blank(taxId) : null,",
+    "new": "taxId: null,",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'records an income'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "the project field with no project to give",
+    "file": "apps/web/src/accounting/EntryForm.tsx",
+    "old": "{choices.projects.length > 0 ? (",
+    "new": "{true ? (",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'records an income'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "the full chart open with the bank account in it",
+    "file": "apps/web/src/app/cuentas/plan/page.tsx",
+    "old": "defaultOpen={banks.length === 0}",
+    "new": "defaultOpen",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'records an income'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "accounts offered by code first",
+    "file": "apps/web/src/accounting/EntryForm.tsx",
+    "old": "{choice.name} · {choice.code}",
+    "new": "{choice.code} · {choice.name}",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'records an income'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
   }
 ]

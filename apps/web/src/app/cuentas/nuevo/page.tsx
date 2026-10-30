@@ -18,7 +18,7 @@ import {
   type EntryFormText,
   type EntryStart,
 } from '@/accounting/EntryForm';
-import { bookErrors, canKeepBooks, canReadBooks } from '@/accounting/text';
+import { bookErrors, canKeepBooks, canReadBooks, chartErrors } from '@/accounting/text';
 import {
   type BankLineDetail,
   type EntryDetail,
@@ -178,6 +178,7 @@ const NewMovementPage = async ({
         : undefined;
   const text: EntryFormText = {
     kind: t('books.form.kind'),
+    otherKinds: t('books.form.otherKinds'),
     kinds: {
       income: t('books.kinds.income'),
       expense: t('books.kinds.expense'),
@@ -213,6 +214,19 @@ const NewMovementPage = async ({
     post: t('books.form.post'),
     save: t('books.form.save'),
     noTreasury: t('books.form.noTreasury'),
+    quickCounterparty: {
+      title: t('books.form.newCounterparty'),
+      name: t('books.chart.name'),
+      kind: t('books.chart.counterpartyKind'),
+      person: t('books.chart.person'),
+      organisation: t('books.chart.organisation'),
+      taxId: t('books.chart.taxId'),
+      province: t('books.chart.province'),
+      donorHint: t('books.form.donorHint'),
+      add: t('books.form.addCounterparty'),
+      added: t('books.form.counterpartyAdded'),
+      errors: chartErrors(t),
+    },
     errors: bookErrors(t),
   };
 

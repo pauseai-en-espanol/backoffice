@@ -424,6 +424,13 @@ export const rowActions = css({
 export const form = css({ display: 'flex', flexDirection: 'column', gap: '5', maxWidth: '40rem' });
 
 /** A folded form (Disclosure): its button, then what it opens. */
+/** A folded section's heading: as far from what came before as a section's, its button at the heading's own size. */
+export const disclosureHeading = css({
+  marginBlockStart: '6',
+  fontSize: 'md',
+  fontWeight: 'normal',
+});
+
 export const disclosure = css({ display: 'flex', flexDirection: 'column', gap: '4' });
 
 export const field = css({ display: 'flex', flexDirection: 'column', gap: '1.5' });

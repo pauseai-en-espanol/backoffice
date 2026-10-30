@@ -17,6 +17,7 @@ import { accountKindNames, canKeepBooks, canReadBooks, chartErrors } from '@/acc
 import { isUnavailable } from '@/data';
 import { requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
+import { Disclosure } from '@/ui/Disclosure';
 import * as styles from '@/ui/styles';
 
 const t = getTranslator();
@@ -61,6 +62,8 @@ const ChartPage = async () => {
     }
     return depth;
   };
+  // The bank's accounts: the one thing the books need before the first movement.
+  const banks = accounts.filter((account) => account.treasury && !account.group && account.active);
   const text: ChartText = {
     code: t('books.chart.code'),
     name: t('books.chart.name'),
@@ -109,124 +112,155 @@ const ChartPage = async () => {
       <h1 className={styles.h1}>{t('books.chart.title')}</h1>
       <p className={styles.text}>{t('books.chart.intro')}</p>
       {keeper ? null : <p className={styles.hint}>{t('books.chart.readOnly')}</p>}
-      <h2 className={styles.h2}>{t('books.chart.accounts')}</h2>
-      {keeper ? (
-        <NewAccountForm parents={accounts.filter((account) => !account.used)} text={text} />
-      ) : null}
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <caption className={styles.srOnly}>{t('books.chart.accounts')}</caption>
-          <thead>
-            <tr>
-              <th scope="col">{t('books.chart.name')}</th>
-              <th scope="col" className={styles.wideColumn}>
-                {t('books.chart.kind')}
-              </th>
-              <th scope="col">{t('books.chart.treasury')}</th>
-              {keeper ? <th scope="col">{t('books.chart.edit')}</th> : null}
-            </tr>
-          </thead>
-          <tbody>
-            {accounts.map((account) => (
-              <tr key={account.id} className={account.group ? books.groupRow : undefined}>
-                <th
-                  scope="row"
-                  className={books.chartName}
-                  data-depth={Math.min(depthOf(account.code), 3)}
-                >
-                  <span className={books.code}>{account.code}</span> · {account.name}
-                  {account.active ? null : (
-                    <span className={styles.block}>{t('books.chart.retired')}</span>
-                  )}
-                  {account.yearResult ? (
-                    <span className={styles.block}>{t('books.chart.yearResult')}</span>
-                  ) : null}
-                  <span className={styles.narrowOnly}>{kinds[account.kind]}</span>
-                </th>
-                <td className={styles.wideColumn}>{kinds[account.kind]}</td>
-                <td>
-                  {account.treasury ? t('books.chart.treasury') : ''}
-                  {account.iban ? (
-                    <span className={`${styles.block} ${books.code}`}>
-                      {formatIban(account.iban)}
-                    </span>
-                  ) : null}
-                </td>
-                {keeper ? (
-                  <td>
-                    <AccountActions account={account} text={text} />
-                  </td>
-                ) : null}
-              </tr>
+      <section aria-labelledby="para-empezar" className={styles.card}>
+        <h2 id="para-empezar" className={styles.h3}>
+          {t('books.chart.startTitle')}
+        </h2>
+        {banks.length === 0 ? (
+          <p className={styles.text}>{t('books.chart.noBankAccount')}</p>
+        ) : (
+          <ul className={styles.linkList}>
+            {banks.map((bank) => (
+              <li key={bank.id}>
+                {t('books.chart.bankAccount', { account: `${bank.code} · ${bank.name}` })}
+                {bank.iban ? <span className={books.code}> · {formatIban(bank.iban)}</span> : null}
+              </li>
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      <h2 className={styles.h2}>{t('books.chart.counterparties')}</h2>
-      <p className={styles.text}>{t('books.chart.counterpartiesIntro')}</p>
-      {keeper ? <CounterpartyForm text={text} /> : null}
-      {counterparties.length === 0 ? (
-        <p className={styles.text}>{t('books.chart.noCounterparties')}</p>
-      ) : (
-        <ul className={styles.cardList}>
-          {counterparties.map((counterparty) => (
-            <li key={counterparty.id} className={styles.card}>
-              <p>
-                <strong>{counterparty.name}</strong> · {t(`books.chart.${counterparty.kind}`)}
-              </p>
-              <dl className={styles.facts}>
-                {counterparty.taxId ? (
-                  <>
-                    <dt>{t('books.chart.taxId')}</dt>
-                    <dd>{counterparty.taxId}</dd>
-                  </>
-                ) : null}
-                {counterparty.province ? (
-                  <>
-                    <dt>{t('books.chart.province')}</dt>
-                    <dd>{counterparty.province}</dd>
-                  </>
-                ) : null}
-                {counterparty.iban ? (
-                  <>
-                    <dt>{t('books.chart.iban')}</dt>
-                    <dd className={books.code}>{formatIban(counterparty.iban)}</dd>
-                  </>
-                ) : null}
-              </dl>
-              {keeper ? <CounterpartyForm counterparty={counterparty} text={text} /> : null}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <h2 className={styles.h2}>{t('books.chart.projects')}</h2>
-      <p className={styles.text}>{t('books.chart.projectsIntro')}</p>
-      {keeper ? <ProjectForm funders={counterparties} text={text} /> : null}
-      {projects.length === 0 ? (
-        <p className={styles.text}>{t('books.chart.noProjects')}</p>
-      ) : (
-        <ul className={styles.cardList}>
-          {projects.map((project) => (
-            <li key={project.id} className={styles.card}>
-              <p>
-                <strong>{project.name}</strong> ·{' '}
-                {project.active ? t('books.chart.active') : t('books.chart.ended')}
-              </p>
-              {project.funder ? (
-                <p className={styles.text}>
-                  {t('books.reports.funder', { name: project.funder.name })}
+          </ul>
+        )}
+      </section>
+      <Disclosure
+        id="plan-completo"
+        heading
+        label={t('books.chart.showChart', { count: accounts.length })}
+        defaultOpen={banks.length === 0}
+      >
+        {keeper ? (
+          <NewAccountForm parents={accounts.filter((account) => !account.used)} text={text} />
+        ) : null}
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <caption className={styles.srOnly}>{t('books.chart.accounts')}</caption>
+            <thead>
+              <tr>
+                <th scope="col">{t('books.chart.name')}</th>
+                <th scope="col" className={styles.wideColumn}>
+                  {t('books.chart.kind')}
+                </th>
+                <th scope="col">{t('books.chart.treasury')}</th>
+                {keeper ? <th scope="col">{t('books.chart.edit')}</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((account) => (
+                <tr key={account.id} className={account.group ? books.groupRow : undefined}>
+                  <th
+                    scope="row"
+                    className={books.chartName}
+                    data-depth={Math.min(depthOf(account.code), 3)}
+                  >
+                    <span className={books.code}>{account.code}</span> · {account.name}
+                    {account.active ? null : (
+                      <span className={styles.block}>{t('books.chart.retired')}</span>
+                    )}
+                    {account.yearResult ? (
+                      <span className={styles.block}>{t('books.chart.yearResult')}</span>
+                    ) : null}
+                    <span className={styles.narrowOnly}>{kinds[account.kind]}</span>
+                  </th>
+                  <td className={styles.wideColumn}>{kinds[account.kind]}</td>
+                  <td>
+                    {account.treasury ? t('books.chart.treasury') : ''}
+                    {account.iban ? (
+                      <span className={`${styles.block} ${books.code}`}>
+                        {formatIban(account.iban)}
+                      </span>
+                    ) : null}
+                  </td>
+                  {keeper ? (
+                    <td>
+                      <AccountActions account={account} text={text} />
+                    </td>
+                  ) : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Disclosure>
+      <Disclosure
+        id="plan-contrapartes"
+        heading
+        label={t('books.chart.showCounterparties', { count: counterparties.length })}
+      >
+        <p className={styles.text}>{t('books.chart.counterpartiesIntro')}</p>
+        {keeper ? <CounterpartyForm text={text} /> : null}
+        {counterparties.length === 0 ? (
+          <p className={styles.text}>{t('books.chart.noCounterparties')}</p>
+        ) : (
+          <ul className={styles.cardList}>
+            {counterparties.map((counterparty) => (
+              <li key={counterparty.id} className={styles.card}>
+                <p>
+                  <strong>{counterparty.name}</strong> · {t(`books.chart.${counterparty.kind}`)}
                 </p>
-              ) : null}
-              {project.description ? <p className={styles.text}>{project.description}</p> : null}
-              {keeper ? (
-                <ProjectForm project={project} funders={counterparties} text={text} />
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
+                <dl className={styles.facts}>
+                  {counterparty.taxId ? (
+                    <>
+                      <dt>{t('books.chart.taxId')}</dt>
+                      <dd>{counterparty.taxId}</dd>
+                    </>
+                  ) : null}
+                  {counterparty.province ? (
+                    <>
+                      <dt>{t('books.chart.province')}</dt>
+                      <dd>{counterparty.province}</dd>
+                    </>
+                  ) : null}
+                  {counterparty.iban ? (
+                    <>
+                      <dt>{t('books.chart.iban')}</dt>
+                      <dd className={books.code}>{formatIban(counterparty.iban)}</dd>
+                    </>
+                  ) : null}
+                </dl>
+                {keeper ? <CounterpartyForm counterparty={counterparty} text={text} /> : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Disclosure>
+      <Disclosure
+        id="plan-proyectos"
+        heading
+        label={t('books.chart.showProjects', { count: projects.length })}
+      >
+        <p className={styles.text}>{t('books.chart.projectsIntro')}</p>
+        {keeper ? <ProjectForm funders={counterparties} text={text} /> : null}
+        {projects.length === 0 ? (
+          <p className={styles.text}>{t('books.chart.noProjects')}</p>
+        ) : (
+          <ul className={styles.cardList}>
+            {projects.map((project) => (
+              <li key={project.id} className={styles.card}>
+                <p>
+                  <strong>{project.name}</strong> ·{' '}
+                  {project.active ? t('books.chart.active') : t('books.chart.ended')}
+                </p>
+                {project.funder ? (
+                  <p className={styles.text}>
+                    {t('books.reports.funder', { name: project.funder.name })}
+                  </p>
+                ) : null}
+                {project.description ? <p className={styles.text}>{project.description}</p> : null}
+                {keeper ? (
+                  <ProjectForm project={project} funders={counterparties} text={text} />
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Disclosure>
     </AppShell>
   );
 };

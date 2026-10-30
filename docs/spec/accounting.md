@@ -41,7 +41,11 @@ Tesorería sees forms, not debits and credits:
 
 - Each form takes an optional project and any number of receipts, and saves a draft or posts at once.
 - The kinds offered are the chart's income or expense accounts, by their names ("Donaciones", "Servicios
-  bancarios"), with the code beside them.
+  bancarios"), with the code after them.
+- Simple first (D25): Ingreso and Gasto are offered, Traspaso and Asiento manual a click away ("Otros tipos"); a
+  counterparty is added from the form itself, by its name, with the NIF and province for an income (a donor's, D24);
+  the project field appears once there is a project. Plan de cuentas leads with the bank account, the one thing the
+  books need; the whole chart, the counterparties and the projects are folded until opened.
 - A posted entry shows "Corregir": it makes the reversing entry and opens a new form with the original's values,
   so a mistake is fixed by two entries the journal can explain.
 - The first year opens with an opening entry of zero (the association had no assets: statutes, art. 29).

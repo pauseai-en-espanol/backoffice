@@ -11,12 +11,14 @@ import * as ui from '@/ui/styles';
 import { useWrite } from '@/ui/useWrite';
 
 import { createEntry, type EntryInput, type LineInput, updateEntry } from './actions';
+import { QuickCounterparty, type QuickCounterpartyText } from './QuickCounterparty';
 import * as styles from './styles';
 import { createdId, FORM_KINDS, type FormKind } from './types';
 
 export interface EntryFormText {
   kind: string;
   kinds: Readonly<Record<FormKind, string>>;
+  otherKinds: string;
   date: string;
   amount: string;
   amountHint: string;
@@ -46,6 +48,7 @@ export interface EntryFormText {
   post: string;
   save: string;
   noTreasury: string;
+  quickCounterparty: QuickCounterpartyText;
   errors: Readonly<Record<string, string>>;
 }
 
@@ -122,7 +125,7 @@ const AccountSelect = ({
       <option value="">{choose}</option>
       {choices.map((choice) => (
         <option key={choice.id} value={choice.id}>
-          {choice.code} · {choice.name}
+          {choice.name} · {choice.code}
         </option>
       ))}
     </select>
@@ -156,6 +159,10 @@ export const EntryForm = ({
   const router = useRouter();
   const write = useWrite(text.errors);
   const [kind, setKind] = useState<FormKind>(start?.kind ?? 'income');
+  // Ingreso and Gasto first; Traspaso and Asiento manual a click away, or shown when the entry is one.
+  const [others, setOthers] = useState(false);
+  const [counterparties, setCounterparties] = useState(choices.counterparties);
+  const [counterpartyId, setCounterpartyId] = useState(start?.counterpartyId ?? '');
   const [lines, setLines] = useState<LineState[]>(() =>
     (start?.lines.length ? start.lines : [{ accountId: '' }, { accountId: '' }]).map(withKey),
   );
@@ -226,25 +233,40 @@ export const EntryForm = ({
   const errorId = error ? 'movimiento-error' : undefined;
   const invalid = (field: string) => refused === field;
   const needsTreasury = kind !== 'manual' && choices.treasury.length === 0;
+  const showOthers = others || kind === 'transfer' || kind === 'manual';
 
   return (
     <form method="post" className={ui.form} onSubmit={submit} noValidate>
       <fieldset className={ui.fieldset}>
         <legend className={ui.label}>{text.kind}</legend>
         <div className={onboarding.choicesRow}>
-          {FORM_KINDS.map((each) => (
-            <label key={each} className={ui.checkbox}>
-              <input
-                type="radio"
-                name="kind"
-                value={each}
-                checked={kind === each}
-                onChange={() => setKind(each)}
-              />
-              {text.kinds[each]}
-            </label>
-          ))}
+          {FORM_KINDS.filter((each) => showOthers || each === 'income' || each === 'expense').map(
+            (each) => (
+              <label key={each} className={ui.checkbox}>
+                <input
+                  type="radio"
+                  name="kind"
+                  value={each}
+                  checked={kind === each}
+                  onChange={() => setKind(each)}
+                />
+                {text.kinds[each]}
+              </label>
+            ),
+          )}
         </div>
+        {kind === 'income' || kind === 'expense' ? (
+          <div>
+            <button
+              type="button"
+              className={ui.textButton}
+              aria-expanded={others}
+              onClick={() => setOthers(!others)}
+            >
+              {text.otherKinds}
+            </button>
+          </div>
+        ) : null}
       </fieldset>
       {needsTreasury ? <p className={ui.notice}>{text.noTreasury}</p> : null}
       <div className={ui.field}>
@@ -439,11 +461,12 @@ export const EntryForm = ({
             id="movimiento-contraparte"
             name="counterpartyId"
             className={onboarding.select}
-            defaultValue={start?.counterpartyId ?? ''}
+            value={counterpartyId}
+            onChange={(event) => setCounterpartyId(event.target.value)}
             aria-describedby="movimiento-contraparte-pista"
           >
             <option value="">{text.noCounterparty}</option>
-            {choices.counterparties.map((counterparty) => (
+            {counterparties.map((counterparty) => (
               <option key={counterparty.id} value={counterparty.id}>
                 {counterparty.name}
               </option>
@@ -452,26 +475,39 @@ export const EntryForm = ({
           <span id="movimiento-contraparte-pista" className={ui.hint}>
             {text.counterpartyHint}
           </span>
+          <QuickCounterparty
+            income={kind === 'income'}
+            text={text.quickCounterparty}
+            onAdded={(added) => {
+              setCounterparties(
+                [...counterparties, added].toSorted((a, b) => a.name.localeCompare(b.name, 'es')),
+              );
+              setCounterpartyId(added.id);
+            }}
+          />
         </div>
       )}
-      <div className={ui.field}>
-        <label className={ui.label} htmlFor="movimiento-proyecto">
-          {text.project}
-        </label>
-        <select
-          id="movimiento-proyecto"
-          name="projectId"
-          className={onboarding.select}
-          defaultValue={start?.projectId ?? ''}
-        >
-          <option value="">{text.noProject}</option>
-          {choices.projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Only once there is a project to give: none, and the field would only be in the way. */}
+      {choices.projects.length > 0 ? (
+        <div className={ui.field}>
+          <label className={ui.label} htmlFor="movimiento-proyecto">
+            {text.project}
+          </label>
+          <select
+            id="movimiento-proyecto"
+            name="projectId"
+            className={onboarding.select}
+            defaultValue={start?.projectId ?? ''}
+          >
+            <option value="">{text.noProject}</option>
+            {choices.projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
       <div className={ui.field}>
         <label className={ui.label} htmlFor="movimiento-concepto">
           {text.description}

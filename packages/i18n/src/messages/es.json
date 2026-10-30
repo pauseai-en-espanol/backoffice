@@ -2253,7 +2253,7 @@
       "from": "Desde",
       "to": "Hacia",
       "counterparty": "Contraparte",
-      "counterpartyHint": "Quién da o recibe el dinero: añade más en Plan de cuentas",
+      "counterpartyHint": "Quién da o recibe el dinero, si quieres anotarlo.",
       "noCounterparty": "Ninguna",
       "project": "Proyecto",
       "noProject": "Ninguno",
@@ -2278,7 +2278,12 @@
       "readOnly": "Solo Tesorería anota movimientos. Las personas de administración los leen.",
       "correcting": "Escribe el movimiento correcto. El asiento anterior ya está anulado.",
       "fromBank": "Anotas un movimiento del banco: al contabilizarlo queda conciliado con él.",
-      "bankLineGone": "Ese movimiento del banco ya está conciliado o ya no existe: este movimiento no se conciliará solo."
+      "bankLineGone": "Ese movimiento del banco ya está conciliado o ya no existe: este movimiento no se conciliará solo.",
+      "otherKinds": "Otros tipos: Traspaso o Asiento manual",
+      "newCounterparty": "Nueva contraparte",
+      "donorHint": "Si es una donación, anota el NIF y la provincia si te los dan: el modelo 182 los pedirá cuando la asociación sea de utilidad pública.",
+      "addCounterparty": "Añadirla y elegirla",
+      "counterpartyAdded": "Contraparte añadida y elegida."
     },
     "reports": {
       "title": "Informes",
@@ -2323,7 +2328,7 @@
     },
     "chart": {
       "title": "Plan de cuentas",
-      "intro": "Las cuentas del plan de pequeñas entidades sin fines lucrativos que usa la asociación. Tesorería añade subcuentas (una por cada cuenta bancaria) y retira las que ya no usa. Una cuenta con movimientos no se borra.",
+      "intro": "Para llevar las cuentas solo hace falta la cuenta del banco. El resto del plan, el de las pequeñas entidades sin fines lucrativos, ya está, y los movimientos ofrecen sus cuentas por su nombre. Las contrapartes y los proyectos son opcionales.",
       "accounts": "Cuentas",
       "code": "Código",
       "name": "Nombre",
@@ -2387,7 +2392,13 @@
         "taken": "Ya hay uno con ese nombre.",
         "forbidden": "Solo Tesorería puede hacer esto.",
         "unexpected": "No se ha podido guardar. Inténtalo de nuevo."
-      }
+      },
+      "startTitle": "Para empezar",
+      "bankAccount": "Cuenta del banco: {account}",
+      "noBankAccount": "Falta la cuenta del banco: en «Ver el plan completo», «Añadir una subcuenta» dentro de 572 (Bancos), marcada como cuenta de tesorería y con su IBAN.",
+      "showChart": "Ver el plan completo ({count} cuentas)",
+      "showCounterparties": "Contrapartes ({count})",
+      "showProjects": "Proyectos ({count})"
     },
     "years": {
       "title": "Ejercicios",
@@ -2406,7 +2417,7 @@
       "closedDone": "Ejercicio cerrado.",
       "closeHint": "No se puede deshacer: después no se podrá escribir nada fechado en {year}. Pide confirmar que eres tú.",
       "closedOn": "Cerrado por {name} el {date}. Aprobado en la asamblea del {assembly}.",
-      "readOnly": "Solo Tesorería abre y cierra los ejercicios.",
+      "readOnly": "Solo Tesorería abre y cierra los ejercicios. Un admin puede darse ese rol en Equipo.",
       "errors": {
         "assemblyDate": "La asamblea tuvo que reunirse después del 31 de diciembre de ese año, y no puede ser una fecha futura.",
         "assemblyOn": "Escribe la fecha de la asamblea.",

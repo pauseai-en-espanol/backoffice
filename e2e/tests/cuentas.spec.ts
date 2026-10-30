@@ -47,11 +47,24 @@ test('Cuentas: tesorería records an income with its receipt, corrects it, reads
   await openThisYear(page);
   const mark = tag();
 
-  // The bank account, a sub-account of 572, and a donor with the tax ID and province the modelo 182 asks (D24).
+  // The bank account, a sub-account of 572: the one thing Plan de cuentas needs, the rest folded until opened. Its
+  // menu link alone is the current one (not Movimientos, whose address starts the same).
   await page.goto('/cuentas/plan');
   await expectAccessible(page);
+  const menu = page.getByRole('navigation', { name: 'Secciones' });
+  await expect(menu.getByRole('link', { name: 'Plan de cuentas' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+  await expect(menu.getByRole('link', { name: 'Movimientos' })).not.toHaveAttribute('aria-current');
+  await expect(page.getByRole('heading', { name: 'Para empezar' })).toBeVisible();
   const code = `572${String(Number.parseInt(mark.slice(0, 4), 16) % 10_000).padStart(4, '0')}`;
   const bank = `Cuenta de prueba ${mark}`;
+  // Open already when there is no bank account yet (a fresh database), folded otherwise.
+  const chart = page.getByRole('button', { name: /^Ver el plan completo/u });
+  if ((await chart.getAttribute('aria-expanded')) === 'false') {
+    await chart.click();
+  }
   await page.getByRole('button', { name: 'Añadir una subcuenta' }).click();
   const newAccount = page.locator('#nueva-cuenta');
   await newAccount
@@ -65,27 +78,38 @@ test('Cuentas: tesorería records an income with its receipt, corrects it, reads
   await expect(
     page.getByRole('rowheader', { name: new RegExp(`${code} · ${bank}`, 'u') }),
   ).toBeVisible();
+  await expect(page.getByText(`Cuenta del banco: ${code} · ${bank}`)).toBeVisible();
+  // With a bank account, the full chart waits folded.
+  await page.reload();
+  await expect(chart).toHaveAttribute('aria-expanded', 'false');
+
+  // An income, written the Spanish way, posted at once; Ingreso and Gasto first, the other kinds a click away. Its
+  // donor added from the form, with the tax ID and province the modelo 182 asks (D24).
+  await page.goto('/cuentas/nuevo');
+  await expectAccessible(page);
+  await expect(page.getByRole('radio', { name: 'Asiento manual' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Otros tipos: Traspaso o Asiento manual' }).click();
+  await expect(page.getByRole('radio', { name: 'Asiento manual' })).toBeVisible();
+  // No project field until there is a project to give.
+  const { projects } = (await (await page.request.get('/api/accounting/projects')).json()) as {
+    projects: unknown[];
+  };
+  if (projects.length === 0) {
+    await expect(page.getByLabel('Proyecto')).toHaveCount(0);
+  }
+  const concept = `Donación de prueba ${mark}`;
+  await page.getByLabel('Importe').fill('1.234,56');
+  await page.getByLabel('Cuenta (banco o caja)').selectOption({ label: `${bank} · ${code}` });
+  await page.getByLabel('Tipo de ingreso').selectOption({ label: 'Donaciones · 7400002' });
   const donor = `Persona donante de prueba ${mark}`;
-  await page.getByRole('button', { name: 'Añadir una contraparte' }).click();
-  const newCounterparty = page.locator('#contraparte-nueva-formulario');
+  await page.getByRole('button', { name: 'Nueva contraparte' }).click();
+  const newCounterparty = page.getByRole('group', { name: 'Nueva contraparte' });
   await newCounterparty.getByLabel('Nombre').fill(donor);
   await newCounterparty.getByLabel('NIF').fill('00000000-T');
   await newCounterparty.getByLabel('Provincia').fill('Teruel');
-  await newCounterparty.getByRole('button', { name: 'Añadir', exact: true }).click();
-  const card = page
-    .getByRole('listitem')
-    .filter({ has: page.locator('strong', { hasText: donor }) });
-  await expect(card).toBeVisible();
-  await expect(card.getByText('00000000T')).toBeVisible();
-
-  // An income, written the Spanish way, posted at once.
-  await page.goto('/cuentas/nuevo');
+  await newCounterparty.getByRole('button', { name: 'Añadirla y elegirla' }).click();
+  await expect(page.locator('#movimiento-contraparte option:checked')).toHaveText(donor);
   await expectAccessible(page);
-  const concept = `Donación de prueba ${mark}`;
-  await page.getByLabel('Importe').fill('1.234,56');
-  await page.getByLabel('Cuenta (banco o caja)').selectOption({ label: `${code} · ${bank}` });
-  await page.getByLabel('Tipo de ingreso').selectOption({ label: '7400002 · Donaciones' });
-  await page.getByLabel('Contraparte').selectOption({ label: donor });
   await page.getByLabel('Concepto').fill(concept);
   await page.getByRole('button', { name: 'Contabilizar' }).click();
   await expect(page).toHaveURL(/\/cuentas\/[\da-f-]{36}$/u);
@@ -95,6 +119,15 @@ test('Cuentas: tesorería records an income with its receipt, corrects it, reads
   ).toBeVisible();
   await expect(page.getByRole('cell', { name: '1.234,56 €' }).first()).toBeVisible();
   await expectAccessible(page);
+
+  // The donor is in Plan de cuentas, under Contrapartes, its NIF as kept.
+  await page.goto('/cuentas/plan');
+  await page.getByRole('button', { name: /^Contrapartes \(/u }).click();
+  const card = page
+    .getByRole('listitem')
+    .filter({ has: page.locator('strong', { hasText: donor }) });
+  await expect(card.getByText('00000000T')).toBeVisible();
+  await page.goto(original);
 
   // Its receipt: stored encrypted, recognised by its first bytes, downloaded as it went in.
   await page.locator('#justificante').setInputFiles({
@@ -303,7 +336,7 @@ test('Cuentas: tesorería imports a statement, matches one line and records the 
   await expect(page.getByText('Anotas un movimiento del banco')).toBeVisible();
   await expect(page.getByLabel('Importe')).toHaveValue('1,50');
   await expect(page.getByRole('button', { name: 'Guardar borrador' })).toHaveCount(0);
-  await page.getByLabel('Tipo de gasto').selectOption({ label: `629${suffix} · ${feesName}` });
+  await page.getByLabel('Tipo de gasto').selectOption({ label: `${feesName} · 629${suffix}` });
   await page.getByRole('button', { name: 'Contabilizar' }).click();
   await expect(page).toHaveURL(/\/cuentas\/banco\?cuenta=/u);
   await expect(page.getByText('Ningún movimiento del banco por conciliar.')).toBeVisible();
