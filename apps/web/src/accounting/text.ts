@@ -55,3 +55,20 @@ export const yearErrors = (t: T): Readonly<Record<string, string>> => ({
   network: t('errors.network'),
   incomplete: t('books.years.errors.assemblyDate'),
 });
+
+export const bankErrors = (t: T): Readonly<Record<string, string>> => ({
+  ...messages.es.books.bank.errors,
+  invalid: t('errors.invalid'),
+  stale: t('books.bank.errors.matchedAlready'),
+  limit: t('errors.limit'),
+  network: t('errors.network'),
+  signIn: t('errors.signIn'),
+});
+
+export const budgetErrors = (t: T): Readonly<Record<string, string>> => ({
+  ...messages.es.books.budget.errors,
+  invalid: t('books.budget.errors.amount'),
+  incomplete: t('books.budget.errors.nested'),
+  network: t('errors.network'),
+  signIn: t('errors.signIn'),
+});

@@ -78,6 +78,11 @@ const YearsPage = async () => {
                 {t('books.years.posted', { count: year.posted })} ·{' '}
                 {t('books.years.drafts', { count: year.drafts })}
               </p>
+              <p>
+                <Link className={styles.link} href={`/cuentas/presupuesto?ejercicio=${year.year}`}>
+                  {t('books.years.budgetLink', { year: year.year })}
+                </Link>
+              </p>
               {year.status === 'closed' && year.closedAt && year.assemblyOn ? (
                 <p className={styles.text}>
                   {t('books.years.closedOn', {

@@ -1,8 +1,12 @@
 import { readFromApi } from '@/data';
 
 import {
+  type LineState,
   parseAccounts,
   parseBalance,
+  parseBank,
+  parseBankLine,
+  parseBudget,
   parseCounterparties,
   parseEntries,
   parseEntry,
@@ -71,3 +75,16 @@ export const getBalance = (values: ReportQuery) =>
   readFromApi(`/api/accounting/reports/balance${reportQuery(values)}`, parseBalance);
 export const getProjectReport = (values: ReportQuery) =>
   readFromApi(`/api/accounting/reports/project${reportQuery(values)}`, parseProjectReport);
+
+export interface BankQuery {
+  account?: string;
+  year?: number;
+  state?: LineState;
+}
+
+export const getBank = (values: BankQuery) =>
+  readFromApi(`/api/accounting/bank${query({ ...values })}`, parseBank);
+export const getBankLine = (id: string) =>
+  readFromApi(`/api/accounting/bank/lines/${encodeURIComponent(id)}`, parseBankLine);
+export const getBudget = (year: number) =>
+  readFromApi(`/api/accounting/budget${query({ year })}`, parseBudget);

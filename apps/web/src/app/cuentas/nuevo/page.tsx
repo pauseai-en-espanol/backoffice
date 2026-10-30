@@ -2,10 +2,16 @@ import type { Metadata } from 'next';
 
 import { madridToday } from '@backoffice/domain/days';
 import { formatEurosPlain } from '@backoffice/domain/money';
-import { getTranslator } from '@backoffice/i18n/messages';
+import { getTranslator, messages } from '@backoffice/i18n/messages';
 
 import { BooksOnly, BooksUnavailable } from '@/accounting/BooksOnly';
-import { getAccounts, getCounterparties, getEntry, getProjects } from '@/accounting/data';
+import {
+  getAccounts,
+  getBankLine,
+  getCounterparties,
+  getEntry,
+  getProjects,
+} from '@/accounting/data';
 import {
   type EntryChoices,
   EntryForm,
@@ -14,6 +20,7 @@ import {
 } from '@/accounting/EntryForm';
 import { bookErrors, canKeepBooks, canReadBooks } from '@/accounting/text';
 import {
+  type BankLineDetail,
   type EntryDetail,
   FORM_KINDS,
   type FormKind,
@@ -83,8 +90,35 @@ const startOf = (entry: EntryDetail, date: string): EntryStart => {
 };
 
 /**
+ * What a form starts with from a bank line (Banco's "Anotar"): money in an income, money out an expense, its day,
+ * amount and account, and the bank's text as the concept (or its common concept's name); a transfer starts from it too.
+ */
+const startOfLine = (line: BankLineDetail): EntryStart => {
+  const income = line.amountCents > 0;
+  return {
+    kind: income ? 'income' : 'expense',
+    date: line.bookedOn,
+    description: (
+      line.description ||
+      (messages.es.books.bank.concepts as Record<string, string>)[line.commonConcept] ||
+      line.reference
+    ).slice(0, 500),
+    amount: amountOf(Math.abs(line.amountCents)),
+    treasuryAccountId: line.accountId,
+    accountId: '',
+    fromAccountId: income ? '' : line.accountId,
+    toAccountId: income ? line.accountId : '',
+    lines: [],
+    counterpartyId: '',
+    projectId: '',
+  };
+};
+
+/**
  * Nuevo movimiento (accounting spec §2): Ingreso, Gasto, Traspaso or Asiento manual, for tesorería. Also a draft
- * written again (`?borrador=<id>`), and, after Corregir, a new entry with the corrected one's values (`?desde=<id>`).
+ * written again (`?borrador=<id>`); after Corregir, a new entry with the corrected one's values (`?desde=<id>`); and
+ * from Banco, the entry that records a bank line (`?extracto=<id>`), matched to it once posted. Only ids travel in the
+ * address: what the bank wrote may name someone, and is read from the API.
  */
 const NewMovementPage = async ({
   searchParams,
@@ -110,12 +144,14 @@ const NewMovementPage = async ({
   const params = await searchParams;
   const draftId = one(params.borrador);
   const fromId = one(params.desde);
+  const lineId = one(params.extracto);
   const today = madridToday();
-  const [accounts, counterparties, projects, entry] = await Promise.all([
+  const [accounts, counterparties, projects, entry, line] = await Promise.all([
     getAccounts(),
     getCounterparties(),
     getProjects(),
     draftId || fromId ? getEntry(draftId || fromId) : Promise.resolve(undefined),
+    lineId ? getBankLine(lineId) : Promise.resolve(undefined),
   ]);
   if (
     isUnavailable(accounts) ||
@@ -131,11 +167,15 @@ const NewMovementPage = async ({
   }
   const editing = draftId !== '' && entry?.status === 'draft' ? entry : undefined;
   const correcting = fromId !== '' && entry ? entry : undefined;
+  // A line not found reads as unavailable, as when the API is down; then the reads above would have failed too.
+  const recording = line && !isUnavailable(line) && line.pending ? line : undefined;
   const start = editing
     ? startOf(editing, editing.date)
     : correcting
       ? startOf(correcting, today)
-      : undefined;
+      : recording
+        ? startOfLine(recording)
+        : undefined;
   const text: EntryFormText = {
     kind: t('books.form.kind'),
     kinds: {
@@ -180,6 +220,10 @@ const NewMovementPage = async ({
     <AppShell me={me}>
       <h1 className={styles.h1}>{editing ? t('books.entry.edit') : t('web.nav.newMovement')}</h1>
       {correcting ? <p className={styles.notice}>{t('books.form.correcting')}</p> : null}
+      {recording ? <p className={styles.notice}>{t('books.form.fromBank')}</p> : null}
+      {lineId !== '' && !recording ? (
+        <p className={styles.notice}>{t('books.form.bankLineGone')}</p>
+      ) : null}
       <EntryForm
         text={text}
         choices={choicesOf(
@@ -192,6 +236,12 @@ const NewMovementPage = async ({
         today={today}
         {...(start ? { start } : {})}
         {...(editing ? { entryId: editing.id } : {})}
+        {...(recording
+          ? {
+              bankLineId: recording.id,
+              after: `/cuentas/banco?cuenta=${encodeURIComponent(recording.accountId)}&ejercicio=${recording.bookedOn.slice(0, 4)}`,
+            }
+          : {})}
       />
     </AppShell>
   );

@@ -101,9 +101,18 @@ export interface Receipt {
   createdAt: string;
 }
 
+/** A bank line an entry is matched to (Banco). */
+export interface EntryBankLine {
+  id: string;
+  accountId: string;
+  bookedOn: string;
+  amountCents: number;
+}
+
 export interface EntryDetail extends EntrySummary {
   lines: EntryLine[];
   receiptList: Receipt[];
+  bankLines: EntryBankLine[];
   createdBy: string | null;
   createdAt: string;
   postedBy: string | null;
@@ -231,7 +240,16 @@ export const parseEntry = (body: unknown): EntryDetail | undefined => {
     isNullableString(entry.createdBy) &&
     isString(entry.createdAt) &&
     isNullableString(entry.postedBy) &&
-    isNullableString(entry.postedAt)
+    isNullableString(entry.postedAt) &&
+    Array.isArray(entry.bankLines) &&
+    entry.bankLines.every(
+      (line) =>
+        isRecord(line) &&
+        isString(line.id) &&
+        isString(line.accountId) &&
+        isString(line.bookedOn) &&
+        isNumber(line.amountCents),
+    )
     ? (entry as unknown as EntryDetail)
     : undefined;
 };
@@ -393,5 +411,289 @@ export const parseProjectReport = (body: unknown): ProjectReport | undefined => 
     isNumber(report.totalIncomeCents) &&
     isNumber(report.totalExpensesCents)
     ? (report as unknown as ProjectReport)
+    : undefined;
+};
+
+// The bank -------------------------------------------------------------------------------------------------------------
+
+export interface TreasuryAccount {
+  id: string;
+  code: string;
+  name: string;
+  iban: string | null;
+  active: boolean;
+}
+
+export interface StatementSummary {
+  id: string;
+  startsOn: string;
+  endsOn: string;
+  openingCents: number;
+  closingCents: number;
+  lines: number;
+  matched: number;
+  importedBy: string | null;
+  importedAt: string;
+}
+
+export interface EntryRef {
+  id: string;
+  number: number | null;
+  year: number;
+  date: string;
+  description: string;
+}
+
+export interface BankLine {
+  id: string;
+  statementId: string;
+  bookedOn: string;
+  valueOn: string;
+  commonConcept: string;
+  amountCents: number;
+  description: string;
+  reference: string;
+  entry: (EntryRef & { corrected: boolean }) | null;
+  suggestions: EntryRef[];
+}
+
+export interface Reconciliation {
+  asOf: string | null;
+  bankCents: number | null;
+  booksCents: number | null;
+  pendingLines: number;
+  unmatchedEntries: EntryRef[];
+}
+
+export const LINE_STATES = ['pending', 'matched', 'all'] as const;
+export type LineState = (typeof LINE_STATES)[number];
+
+export interface Bank {
+  accounts: TreasuryAccount[];
+  /** The account shown; null when the chart has no treasury account. */
+  account: string | null;
+  year: number;
+  state: LineState;
+  statements: StatementSummary[];
+  lines: BankLine[];
+  reconciliation: Reconciliation | null;
+}
+
+const isEntryRef = (value: unknown): value is EntryRef =>
+  isRecord(value) &&
+  isString(value.id) &&
+  isNullable(isNumber)(value.number) &&
+  isNumber(value.year) &&
+  isString(value.date) &&
+  isString(value.description);
+
+const isBankLine = (value: unknown): value is BankLine =>
+  isRecord(value) &&
+  isString(value.id) &&
+  isString(value.statementId) &&
+  isString(value.bookedOn) &&
+  isString(value.valueOn) &&
+  isString(value.commonConcept) &&
+  isNumber(value.amountCents) &&
+  isString(value.description) &&
+  isString(value.reference) &&
+  (value.entry === null ||
+    (isEntryRef(value.entry) &&
+      isRecord(value.entry) &&
+      typeof value.entry.corrected === 'boolean')) &&
+  Array.isArray(value.suggestions) &&
+  value.suggestions.every(isEntryRef);
+
+const isStatement = (value: unknown): value is StatementSummary =>
+  isRecord(value) &&
+  isString(value.id) &&
+  isString(value.startsOn) &&
+  isString(value.endsOn) &&
+  isNumber(value.openingCents) &&
+  isNumber(value.closingCents) &&
+  isNumber(value.lines) &&
+  isNumber(value.matched) &&
+  isNullableString(value.importedBy) &&
+  isString(value.importedAt);
+
+const isReconciliation = (value: unknown): value is Reconciliation =>
+  isRecord(value) &&
+  isNullableString(value.asOf) &&
+  isNullable(isNumber)(value.bankCents) &&
+  isNullable(isNumber)(value.booksCents) &&
+  isNumber(value.pendingLines) &&
+  Array.isArray(value.unmatchedEntries) &&
+  value.unmatchedEntries.every(isEntryRef);
+
+const isTreasury = (value: unknown): value is TreasuryAccount =>
+  isRecord(value) &&
+  isString(value.id) &&
+  isString(value.code) &&
+  isString(value.name) &&
+  isNullableString(value.iban) &&
+  typeof value.active === 'boolean';
+
+export const parseBank = (body: unknown): Bank | undefined => {
+  if (
+    !isRecord(body) ||
+    !Array.isArray(body.accounts) ||
+    !body.accounts.every(isTreasury) ||
+    !isNullableString(body.account) ||
+    !isNumber(body.year) ||
+    !isOneOf(LINE_STATES)(body.state)
+  ) {
+    return undefined;
+  }
+  const base = {
+    accounts: body.accounts,
+    account: body.account,
+    year: body.year,
+    state: body.state,
+  };
+  if (body.account === null) {
+    return { ...base, statements: [], lines: [], reconciliation: null };
+  }
+  return Array.isArray(body.statements) &&
+    body.statements.every(isStatement) &&
+    Array.isArray(body.lines) &&
+    body.lines.every(isBankLine) &&
+    isReconciliation(body.reconciliation)
+    ? {
+        ...base,
+        statements: body.statements,
+        lines: body.lines,
+        reconciliation: body.reconciliation,
+      }
+    : undefined;
+};
+
+/** One line, as Nuevo movimiento starts from it ("Anotar"). */
+export interface BankLineDetail {
+  id: string;
+  accountId: string;
+  bookedOn: string;
+  commonConcept: string;
+  amountCents: number;
+  description: string;
+  reference: string;
+  pending: boolean;
+}
+
+export const parseBankLine = (body: unknown): BankLineDetail | undefined => {
+  const line = isRecord(body) ? body.line : undefined;
+  return isRecord(line) &&
+    isString(line.id) &&
+    isString(line.accountId) &&
+    isString(line.bookedOn) &&
+    isString(line.commonConcept) &&
+    isNumber(line.amountCents) &&
+    isString(line.description) &&
+    isString(line.reference) &&
+    typeof line.pending === 'boolean'
+    ? (line as unknown as BankLineDetail)
+    : undefined;
+};
+
+/** A statement file's dry run (bank-routes.ts): each account in it, and the first new movements. */
+export interface StatementReview {
+  statements: {
+    iban: string;
+    account: { id: string; code: string; name: string } | null;
+    startsOn: string;
+    endsOn: string;
+    openingCents: number;
+    closingCents: number;
+    lines: number;
+    new: number;
+    already: number;
+    closedYear: number;
+  }[];
+  preview: {
+    bookedOn: string;
+    commonConcept: string;
+    amountCents: number;
+    description: string;
+    reference: string;
+  }[];
+  canApply: boolean;
+}
+
+export const parseStatementReview = (body: unknown): StatementReview | undefined =>
+  isRecord(body) &&
+  Array.isArray(body.statements) &&
+  body.statements.every(
+    (each) =>
+      isRecord(each) &&
+      isString(each.iban) &&
+      (each.account === null || isRecord(each.account)) &&
+      isString(each.startsOn) &&
+      isString(each.endsOn) &&
+      isNumber(each.openingCents) &&
+      isNumber(each.closingCents) &&
+      isNumber(each.lines) &&
+      isNumber(each.new) &&
+      isNumber(each.already) &&
+      isNumber(each.closedYear),
+  ) &&
+  Array.isArray(body.preview) &&
+  typeof body.canApply === 'boolean'
+    ? (body as unknown as StatementReview)
+    : undefined;
+
+// The budget ---------------------------------------------------------------------------------------------------------
+
+export interface BudgetAccount {
+  id: string;
+  code: string;
+  name: string;
+  kind: 'income' | 'expense';
+}
+
+export interface BudgetLine {
+  id: string;
+  account: BudgetAccount;
+  budgetCents: number;
+  actualCents: number;
+}
+
+export interface Budget {
+  year: number;
+  status: 'open' | 'closed';
+  lines: BudgetLine[];
+  unbudgeted: { account: BudgetAccount; actualCents: number }[];
+  income: { budgetCents: number; actualCents: number };
+  expenses: { budgetCents: number; actualCents: number };
+}
+
+const isBudgetAccount = (value: unknown): value is BudgetAccount =>
+  isRecord(value) &&
+  isString(value.id) &&
+  isString(value.code) &&
+  isString(value.name) &&
+  isOneOf(['income', 'expense'] as const)(value.kind);
+const isTotals = (value: unknown): value is Budget['income'] =>
+  isRecord(value) && isNumber(value.budgetCents) && isNumber(value.actualCents);
+
+export const parseBudget = (body: unknown): Budget | undefined => {
+  const budget = isRecord(body) ? body.budget : undefined;
+  return isRecord(budget) &&
+    isNumber(budget.year) &&
+    isOneOf(['open', 'closed'] as const)(budget.status) &&
+    Array.isArray(budget.lines) &&
+    budget.lines.every(
+      (line) =>
+        isRecord(line) &&
+        isString(line.id) &&
+        isBudgetAccount(line.account) &&
+        isNumber(line.budgetCents) &&
+        isNumber(line.actualCents),
+    ) &&
+    Array.isArray(budget.unbudgeted) &&
+    budget.unbudgeted.every(
+      (each) => isRecord(each) && isBudgetAccount(each.account) && isNumber(each.actualCents),
+    ) &&
+    isTotals(budget.income) &&
+    isTotals(budget.expenses)
+    ? (budget as unknown as Budget)
     : undefined;
 };

@@ -80,6 +80,24 @@ const MovementsPage = async ({
           </Link>
         </p>
       ) : null}
+      {/* Not in the menu, which an admin's must fit on a laptop's screen (PLAN R48, R94, R95). */}
+      <nav aria-label={t('books.movements.alsoLabel')}>
+        <ul className={styles.linkList}>
+          <li>
+            <Link className={styles.link} href="/cuentas/banco">
+              {t('books.movements.bank')}
+            </Link>
+          </li>
+          <li>
+            <Link
+              className={styles.link}
+              href={`/cuentas/presupuesto${year === undefined ? '' : `?ejercicio=${year}`}`}
+            >
+              {t('books.movements.budget')}
+            </Link>
+          </li>
+        </ul>
+      </nav>
       {year === undefined ? (
         <p className={styles.notice}>{t('books.movements.noYears')}</p>
       ) : (

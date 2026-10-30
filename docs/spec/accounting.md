@@ -81,7 +81,9 @@ Each exports to CSV with formula-looking cells defused (R18), for tesorería and
 |                        | (unique), counterparty, project, posted when and by whom                                  |
 | `journal_lines`        | Entry, account, debit or credit in cents (one of them, more than zero), project           |
 | `receipts`             | Entry, file name as uploaded (personal data), type, size, SHA-256; the bytes are on disk  |
-| `bank_statement_lines` | Step 2: an imported statement's line, and the entry it was matched to                     |
+| `bank_statements`      | Step 2: an imported statement: treasury account, period and balances, the file's SHA-256  |
+| `bank_statement_lines` | Step 2: its lines (days, amount, the bank's text), and the entry each is matched to       |
+| `budget_lines`         | Step 2: a year's budget, by income or expense account                                     |
 
 ## 6. Steps
 
@@ -90,11 +92,40 @@ Each exports to CSV with formula-looking cells defused (R18), for tesorería and
    Global.
 2. **The bank:** import a statement (Norma 43, or the bank's CSV) with a dry run (R17), match each line to an entry
    or make one from it, and see what isn't matched yet; a budget per year, with what was spent against it.
+   Built as Norma 43 alone (Dani, 2026-10-30: the bank's formats aren't known yet); a CSV import waits on knowing
+   which one the bank gives. See §6a.
 3. **Later, when needed:** volunteers asking for a reimbursement with their receipt from the staff app, approved by
    tesorería; member fees if the assembly sets them; donation certificates and the modelo 182 once the association
    is of public utility (D24), from the donations already recorded.
 
+## 6a. The bank and the budget (step 2)
+
+- **Banco** (`/cuentas/banco`, from Movimientos and an entry's page; not in the menu, PLAN R95): for each treasury
+  account, the lines of its imported statements, those waiting for their entry first, and what the bank and the books
+  say it held on the last statement's last day.
+- **Importing:** tesorería picks the Norma 43 file the bank's website gives; the review is the import itself rolled
+  back (R17): each account in the file, the treasury account with its IBAN, its period and balances, how many
+  movements are new and how many came with an earlier statement. Every total in the file is checked, so a file cut
+  short or edited is refused whole. A movement is imported once (its records and its place among equal ones,
+  hashed), so overlapping statements bring only what is new; one dated in a closed year refuses the import. An
+  import with nothing matched can be undone.
+- **Matching:** a line is matched to a posted entry of a form, not corrected, that moves its account by its amount;
+  the page suggests up to three, within 15 days, the nearest first, and tesorería confirms one, or writes an entry's
+  number. "Anotar" opens Nuevo movimiento with the line's day, amount and account; posting it matches it. A match
+  whose entry is corrected later stays, and the line waits for the right entry. Nothing is matched on its own.
+- **Banco y libros:** the books' balance counts posted entries up to that day, from the year's opening entry (or,
+  while the years before aren't closed, theirs too); entries of the account within the statements' periods with no
+  line are listed, so a missing statement or an entry too many shows.
+- **Presupuesto** (`/cuentas/presupuesto`, from Movimientos, Informes and each year in Ejercicios): a year's lines,
+  each an income or expense account (a group such as 62, or one of its accounts, never both), against what was
+  posted (the closing entry left out), with the accounts that moved and have no line. Set while the year is open;
+  tesorería writes, admins read.
+
 ## 7. Rules in the database
 
 As ADR-0006, decision 4: posted entries balance, never change, are numbered without gaps and are reversed at most
-once; nothing is written in a closed year; only tesorería writes; nothing is opened to the bot.
+once; nothing is written in a closed year; only tesorería writes; nothing is opened to the bot. Step 2's, in
+migrations `bank_statements` and `budgets`: a statement is of a treasury account and its lines of the same; a line
+is imported once and never changes but for its match, which names a posted entry of a form, not corrected, that
+moves the account by the line's amount, one line per entry and account; a matched line is never deleted; a budget
+line is of an income or expense account, for more than zero, neither above nor below another of its year.

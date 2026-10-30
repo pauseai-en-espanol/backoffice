@@ -364,6 +364,11 @@ const ReportsPage = async ({
     <AppShell me={me}>
       <h1 className={styles.h1}>{t('books.reports.title')}</h1>
       <p className={styles.text}>{t('books.reports.intro')}</p>
+      <p>
+        <Link className={styles.link} href={`/cuentas/presupuesto?ejercicio=${year}`}>
+          {t('books.reports.budgetLink')}
+        </Link>
+      </p>
       <p className={styles.hint}>{t('books.reports.review')}</p>
       <form method="get" action="/cuentas/informes" className={onboarding.filters}>
         <div className={styles.field}>

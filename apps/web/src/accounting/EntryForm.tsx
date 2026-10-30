@@ -132,7 +132,8 @@ const AccountSelect = ({
 /**
  * Ingreso, Gasto, Traspaso or Asiento manual (accounting spec §2): tesorería sees forms, not debits and credits, but
  * for the manual entry, whose lines it writes itself, their sums said as they are typed. Saved as a draft or posted at
- * once; then the entry's page opens. A draft (`entryId`) is written again whole.
+ * once; then the entry's page opens. A draft (`entryId`) is written again whole. One that records a bank line
+ * (`bankLineId`, Banco's "Anotar") is posted, never kept as a draft, and matched to the line; then Banco opens again.
  */
 export const EntryForm = ({
   text,
@@ -140,12 +141,17 @@ export const EntryForm = ({
   today,
   start,
   entryId,
+  bankLineId,
+  after,
 }: {
   text: EntryFormText;
   choices: EntryChoices;
   today: string;
   start?: EntryStart;
   entryId?: string;
+  bankLineId?: string;
+  /** Where to go once saved, rather than the entry's page. */
+  after?: string;
 }) => {
   const router = useRouter();
   const write = useWrite(text.errors);
@@ -174,7 +180,8 @@ export const EntryForm = ({
       description: read('description'),
       counterpartyId: blank(read('counterpartyId')),
       projectId: blank(read('projectId')),
-      post: submitter?.getAttribute('value') === 'post',
+      post: bankLineId !== undefined || submitter?.getAttribute('value') === 'post',
+      ...(bankLineId === undefined ? {} : { bankLineId }),
       ...(kind === 'manual'
         ? {
             lines: lines.map((line) => ({
@@ -209,7 +216,7 @@ export const EntryForm = ({
     );
     const id = answer?.ok ? (entryId ?? createdId(answer.body)) : undefined;
     if (id !== undefined) {
-      router.push(`/cuentas/${encodeURIComponent(id)}`);
+      router.push(after ?? `/cuentas/${encodeURIComponent(id)}`);
       router.refresh();
     }
   };
@@ -491,14 +498,16 @@ export const EntryForm = ({
         <button type="submit" value="post" className={ui.button} aria-disabled={write.pending}>
           {text.post}
         </button>
-        <button
-          type="submit"
-          value="draft"
-          className={ui.secondaryButton}
-          aria-disabled={write.pending}
-        >
-          {entryId === undefined ? text.saveDraft : text.save}
-        </button>
+        {bankLineId === undefined ? (
+          <button
+            type="submit"
+            value="draft"
+            className={ui.secondaryButton}
+            aria-disabled={write.pending}
+          >
+            {entryId === undefined ? text.saveDraft : text.save}
+          </button>
+        ) : null}
       </div>
     </form>
   );

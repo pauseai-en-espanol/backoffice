@@ -121,6 +121,29 @@ const EntryPage = async ({ params }: { params: Promise<{ id: string }> }) => {
           </Link>
         </p>
       ) : null}
+      {entry.bankLines.length > 0 ? (
+        <section aria-labelledby="en-el-banco">
+          <h2 id="en-el-banco" className={styles.h2}>
+            {t('books.entry.bankLines')}
+          </h2>
+          <ul className={styles.linkList}>
+            {entry.bankLines.map((line) => (
+              <li key={line.id}>
+                {t('books.entry.bankLine', {
+                  date: formatDay(line.bookedOn),
+                  amount: formatEuros(line.amountCents),
+                })}{' '}
+                <Link
+                  className={styles.link}
+                  href={`/cuentas/banco?cuenta=${encodeURIComponent(line.accountId)}&ejercicio=${line.bookedOn.slice(0, 4)}&estado=all`}
+                >
+                  {t('books.entry.toBank')}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <h2 className={styles.h2}>{t('books.entry.lines')}</h2>
       <div className={styles.tableWrap}>
         <table className={styles.table}>

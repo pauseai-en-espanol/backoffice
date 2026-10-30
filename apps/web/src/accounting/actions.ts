@@ -36,6 +36,8 @@ export interface EntryInput {
   counterpartyId: string | null;
   projectId: string | null;
   post: boolean;
+  /** The bank line it records (Banco's "Anotar"), matched to it once posted. */
+  bankLineId?: string;
 }
 
 export const createEntry = (input: EntryInput) => send('POST', ENTRIES, input);
@@ -44,19 +46,17 @@ export const postEntry = (id: string) => send('POST', `${at(ENTRIES, id)}/post`)
 export const reverseEntry = (id: string) => send('POST', `${at(ENTRIES, id)}/reverse`, {});
 export const deleteEntry = (id: string) => send('DELETE', at(ENTRIES, id));
 
-/**
- * A receipt's file, as its bytes, its name in `X-File-Name` (receipt-routes.ts). Not through `send`, which sends JSON;
- * answered as `send` answers.
- */
-export const uploadReceipt = async (entryId: string, file: File): Promise<WriteAnswer> => {
+/** A file as its bytes, as the receipts' and the statements' routes take one; answered as `send` answers. */
+const sendFile = async (
+  path: string,
+  file: File,
+  headers: Readonly<Record<string, string>> = {},
+): Promise<WriteAnswer> => {
   let response: Response;
   try {
-    response = await fetch(`${at(ENTRIES, entryId)}/receipts`, {
+    response = await fetch(path, {
       method: 'POST',
-      headers: {
-        'content-type': 'application/octet-stream',
-        'x-file-name': encodeURIComponent(file.name),
-      },
+      headers: { 'content-type': 'application/octet-stream', ...headers },
       body: file,
     });
   } catch {
@@ -78,7 +78,33 @@ export const uploadReceipt = async (entryId: string, file: File): Promise<WriteA
   };
 };
 
+/** A receipt's file, its name in `X-File-Name` (receipt-routes.ts). */
+export const uploadReceipt = (entryId: string, file: File): Promise<WriteAnswer> =>
+  sendFile(`${at(ENTRIES, entryId)}/receipts`, file, {
+    'x-file-name': encodeURIComponent(file.name),
+  });
+
 export const deleteReceipt = (id: string) => send('DELETE', at('/api/accounting/receipts', id));
+
+const STATEMENTS = '/api/accounting/bank/statements';
+const BANK_LINES = '/api/accounting/bank/lines';
+const BUDGET = '/api/accounting/budget';
+
+/** A statement file (bank-routes.ts): its dry run, answered with what importing would do, or the import itself. */
+export const reviewStatement = (file: File) => sendFile(STATEMENTS, file);
+export const importStatement = (file: File) => sendFile(`${STATEMENTS}?apply=true`, file);
+export const deleteStatement = (id: string) => send('DELETE', at(STATEMENTS, id));
+export const matchLine = (
+  lineId: string,
+  target: { entryId: string } | { year: number; number: number },
+) => send('PUT', `${at(BANK_LINES, lineId)}/match`, target);
+export const unmatchLine = (lineId: string) => send('DELETE', `${at(BANK_LINES, lineId)}/match`);
+
+export const addBudgetLine = (input: { year: number; accountId: string; amount: string }) =>
+  send('POST', BUDGET, input);
+export const changeBudgetLine = (id: string, amount: string) =>
+  send('PATCH', at(BUDGET, id), { amount });
+export const deleteBudgetLine = (id: string) => send('DELETE', at(BUDGET, id));
 
 export const openYear = (year: number) => send('POST', YEARS, { year });
 export const closeYear = (year: number, assemblyOn: string) =>
