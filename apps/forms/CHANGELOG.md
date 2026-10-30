@@ -1,5 +1,13 @@
 # @backoffice/forms
 
+## 0.1.26
+
+### Patch Changes
+
+- Updated dependencies [19c2840]
+- Updated dependencies [470a216]
+  - @backoffice/i18n@0.16.0
+
 ## 0.1.25
 
 ### Patch Changes

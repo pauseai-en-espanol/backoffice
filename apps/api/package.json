@@ -1,6 +1,6 @@
 {
   "name": "@backoffice/api",
-  "version": "0.11.9",
+  "version": "0.12.0",
   "private": true,
   "description": "Fastify API: the only code that talks to Postgres; sign-in, staff routes and the jobs' entrypoints",
   "type": "module",

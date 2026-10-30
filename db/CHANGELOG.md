@@ -1,5 +1,19 @@
 # @backoffice/migrations
 
+## 0.10.0
+
+### Minor Changes
+
+- 19c2840: Confirming it's you again before the riskiest actions (PLAN D23). Sessions last up to a week now, so erasure, exports,
+  the rights lookup, Equipo's changes, what admins change in Ajustes, the audit log and adding a passkey want a code or
+  a passkey of the last 12 hours: if it is older, the page goes to "Confirma que eres tú" and comes back once confirmed.
+  Five wrong codes there end the session.
+- 470a216: Signing in less often (PLAN D22). A session now ends 48 hours after it was last used, and a week after sign-in at the
+  latest, instead of 12 hours after sign-in whatever happened. And passkeys, optional: in Ajustes, "Llaves de acceso"
+  adds one on this computer or phone (or in a password manager), and Entrar's "Usar una llave de acceso" then signs in
+  with it alone, the device checking the fingerprint, face or PIN. The password and the code keep working; the owner's
+  reset of a lost authenticator removes the passkeys too.
+
 ## 0.9.7
 
 ### Patch Changes
