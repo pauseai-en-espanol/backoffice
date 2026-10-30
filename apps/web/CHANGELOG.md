@@ -1,5 +1,22 @@
 # @backoffice/web
 
+## 0.19.0
+
+### Minor Changes
+
+- 0bdaf99: Cuentas opens simple (D25): Nuevo movimiento offers Ingreso and Gasto, with Traspaso and Asiento manual under "Otros
+  tipos"; accounts by their names first; a counterparty added from the form itself, with a donor's NIF and province
+  for an income; the project field only once there is a project. Plan de cuentas leads with the bank account, the
+  whole chart, the counterparties and the projects folded until opened. Ejercicios tells an admin they can give
+  themselves Tesorería in Equipo.
+
+### Patch Changes
+
+- 11f9571: The menu marks only the section a page is in: on Ejercicios, Informes or Plan de cuentas, Movimientos is no longer
+  marked as the current page too.
+- Updated dependencies [0bdaf99]
+  - @backoffice/i18n@0.19.0
+
 ## 0.18.0
 
 ### Minor Changes

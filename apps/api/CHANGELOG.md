@@ -1,5 +1,12 @@
 # @backoffice/api
 
+## 0.14.1
+
+### Patch Changes
+
+- Updated dependencies [0bdaf99]
+  - @backoffice/i18n@0.19.0
+
 ## 0.14.0
 
 ### Minor Changes
