@@ -1,6 +1,6 @@
 # Accounting
 
-- **Status:** Drafted (2026-10-30) with [ADR-0006](../adr/0006-accounting.md); reviewed by Dani before M6 starts.
+- **Status:** Approved (Dani, 2026-10-30) with [ADR-0006](../adr/0006-accounting.md).
   The chart and the reports want a gestoría's or a treasurer's look before the first year closes.
 - **Relates to:** [BRIEF](../BRIEF.md) G7; [data model](data-model.md);
   [personal data §9a](personal-data.md#9a-accounting-records-m6)
@@ -20,8 +20,9 @@ admins read; the assembly approves the year's accounts from the reports.
   association's, not personal data) and, if there is ever one, a cash box.
 - **Asiento (entry):** a date, a description, lines that balance, and optionally a counterparty, a project and
   receipts. A `draft` until posted; then numbered within its year and never changed.
-- **Contraparte (counterparty):** who money came from or went to: a name, optionally a tax ID and an IBAN. The
-  module's own record, never linked to a person in onboarding (ADR-0006, decision 6).
+- **Contraparte (counterparty):** who money came from or went to: a name, optionally a tax ID, a province and an
+  IBAN. The module's own record, never linked to a person in onboarding (ADR-0006, decision 6). A donor's tax ID and
+  province are asked for when they give them, for the modelo 182 once the association is of public utility (D24).
 - **Proyecto (project):** a label on an entry or line for money given for a purpose (Global's funding, a grant), so
   its use can be reported to whoever gave it.
 - **Justificante (receipt):** a PDF or photo attached to an entry, stored encrypted on the API's volume
@@ -49,7 +50,8 @@ Tesorería sees forms, not debits and credits:
 
 ## 3. Closing a year
 
-Once the assembly approves the accounts, tesorería closes the year, entering the assembly's date. In one
+Once the assembly approves the accounts, tesorería closes the year, entering the assembly's date. Closing is one of
+the riskiest actions (PLAN D23): it wants a second factor of the last 12 hours. In one
 transaction the database posts the closing entry (income and expense accounts to the year's result, 129), opens
 the next year if it isn't open yet with the balances carried forward, and marks the year closed. From then on
 nothing dated in it can be written. A year can't be closed while it has drafts, or before 31 December.
@@ -73,7 +75,7 @@ Each exports to CSV with formula-looking cells defused (R18), for tesorería and
 | ---------------------- | ----------------------------------------------------------------------------------------- |
 | `fiscal_years`         | Year, status, closed when and by whom, the assembly's date                                |
 | `ledger_accounts`      | Code (unique), name, kind, parent, treasury flag, IBAN for a bank account, active         |
-| `counterparties`       | Name, tax ID, IBAN (all personal data), kind (person or organisation)                     |
+| `counterparties`       | Name, tax ID, province, IBAN (all personal data), kind (person or organisation)           |
 | `projects`             | Name, funder (a counterparty), description, active                                        |
 | `journal_entries`      | Year, number (when posted), date, description, kind (form), status, the entry it reverses |
 |                        | (unique), counterparty, project, posted when and by whom                                  |
@@ -89,8 +91,8 @@ Each exports to CSV with formula-looking cells defused (R18), for tesorería and
 2. **The bank:** import a statement (Norma 43, or the bank's CSV) with a dry run (R17), match each line to an entry
    or make one from it, and see what isn't matched yet; a budget per year, with what was spent against it.
 3. **Later, when needed:** volunteers asking for a reimbursement with their receipt from the staff app, approved by
-   tesorería; member fees if the assembly sets them; donation certificates and the modelo 182 if the association
-   becomes of public utility.
+   tesorería; member fees if the assembly sets them; donation certificates and the modelo 182 once the association
+   is of public utility (D24), from the donations already recorded.
 
 ## 7. Rules in the database
 

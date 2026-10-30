@@ -35,7 +35,7 @@ Each spec is reviewed by Dani before the milestone that builds it starts:
 | [Onboarding](spec/onboarding.md)       | M1                              | Drafted from the specification                    |
 | [Personal data](spec/personal-data.md) | M2                              | Drafted; D9 and D12 decided; the notice is Dani's |
 | [Outreach](spec/outreach.md)           | M3                              | Drafted from the specification                    |
-| [Accounting](spec/accounting.md)       | M6                              | Drafted 2026-10-30 with ADR-0006; awaits review   |
+| [Accounting](spec/accounting.md)       | M6                              | Approved 2026-10-30 with ADR-0006                 |
 
 ## Milestones
 
@@ -204,8 +204,8 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
 
 ### M6: Cuentas
 
-The association's books (D20, [ADR-0006](adr/0006-accounting.md), [accounting spec](spec/accounting.md)). Starts
-once Dani has reviewed the ADR and the spec.
+The association's books (D20, [ADR-0006](adr/0006-accounting.md), [accounting spec](spec/accounting.md)), approved
+by Dani on 2026-10-30, ready for public utility (D24).
 
 **Ships**, in the spec's steps:
 
@@ -240,6 +240,7 @@ once Dani has reviewed the ADR and the spec.
 | **D21** | Receipts are stored on a persistent volume mounted in the API, not in Postgres                                                                                                                                                   | Dani, 2026-10-30 |
 | **D22** | Signing in less often: optional passkeys (desktop and phone, Enpass included), and sessions that end 48 hours after their last use, a week after sign-in at most (R92)                                                           | Dani, 2026-10-30 |
 | **D23** | The riskiest actions (erasure, exports, the rights lookup, Equipo's changes, admins' Ajustes, the audit log, adding a passkey) want a second factor of the last 12 hours: a code typed again, or a passkey ("ok go for it"; R93) | Dani, 2026-10-30 |
+| **D24** | Becoming an association of public utility is the goal: the books are kept ready for it (donors' tax ID and province, donations told apart) ([ADR-0006](adr/0006-accounting.md))                                                  | Dani, 2026-10-30 |
 | —       | Backups are handled in gitops, separately from this plan                                                                                                                                                                         | Dani, 2026-10-15 |
 | —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                                                                                            | Dani, 2026-10-15 |
 
