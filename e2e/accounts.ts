@@ -10,7 +10,7 @@ if (existsSync('../.env')) {
 /** A fictional password, long enough for the 12-character rule. */
 export const PASSWORD = 'una contraseña de ejemplo';
 
-export type StaffRole = 'admin' | 'onboarding' | 'outreach';
+export type StaffRole = 'admin' | 'onboarding' | 'outreach' | 'tesoreria';
 
 const pool = (name: string) => {
   const connectionString = process.env[name];

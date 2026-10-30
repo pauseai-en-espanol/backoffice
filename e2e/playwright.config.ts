@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import {
   AIRTABLE_LINK_KEY,
@@ -14,6 +16,7 @@ import {
   MAILBOX_URL,
   PORTS,
   PRODUCT_NAME,
+  RECEIPTS_KEY,
   SMTP_URL,
   STAFF_URL,
   WEB_URL,
@@ -38,6 +41,9 @@ const AUTH_DATABASE_URL = required('AUTH_DATABASE_URL');
 const APP_DATABASE_URL = required('APP_DATABASE_URL');
 // The census form's answers reach the database as the public role, which may only run its two functions.
 const PUBLIC_DATABASE_URL = required('PUBLIC_DATABASE_URL');
+
+// Receipts' files (ADR-0006): a folder of this run's own, as the API's volume would be.
+const RECEIPTS_ROOT = mkdtempSync(join(tmpdir(), 'backoffice-e2e-justificantes-'));
 
 // Runs against production builds (turbo builds the apps first), never against dev servers.
 export default defineConfig({
@@ -89,6 +95,9 @@ export default defineConfig({
         CENSUS_URL: FORMS_URL,
         // Admins can set Global's Airtable link in Ajustes (ADR-0005); without the ingest role, nothing syncs here.
         AIRTABLE_LINK_KEY,
+        // Receipts, encrypted on a folder standing in for the API's volume (ADR-0006).
+        RECEIPTS_ROOT,
+        RECEIPTS_KEY,
       },
     },
     {

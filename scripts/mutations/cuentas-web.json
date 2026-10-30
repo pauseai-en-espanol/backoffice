@@ -1,0 +1,26 @@
+[
+  {
+    "name": "admins get Nuevo movimiento without Tesorería",
+    "file": "apps/web/src/shell/nav.ts",
+    "old": "        ...(keepsBooks ? [{ href: '/cuentas/nuevo', label: 'newMovement' } as const] : []),",
+    "new": "        { href: '/cuentas/nuevo', label: 'newMovement' } as const,",
+    "cmd": "pnpm exec vitest run src/shell/nav.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "everyone sees Cuentas",
+    "file": "apps/web/src/shell/nav.ts",
+    "old": "  if (admin || keepsBooks) {\n    groups.push({\n      id: 'books',",
+    "new": "  if (true) {\n    groups.push({\n      id: 'books',",
+    "cmd": "pnpm exec vitest run src/shell/nav.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "tesorería's Cuentas waits for an admin",
+    "file": "apps/web/src/shell/nav.ts",
+    "old": "  const keepsBooks = roles.includes('tesoreria');",
+    "new": "  const keepsBooks = admin && roles.includes('tesoreria');",
+    "cmd": "pnpm exec vitest run src/shell/nav.spec.ts",
+    "cwd": "apps/web"
+  }
+]
