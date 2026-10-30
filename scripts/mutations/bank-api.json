@@ -48,6 +48,14 @@
     "cwd": "apps/api"
   },
   {
+    "name": "a file's statements are counted by their account",
+    "file": "apps/api/src/accounting/bank-routes.ts",
+    "old": "const count = account ? counts[next++] : undefined;",
+    "new": "const count = counts.find((each) => each.accountId === account?.id);",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/accounting-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
     "name": "a line already imported is imported again",
     "file": "apps/api/src/accounting/bank.ts",
     "old": ".filter((each) => !already.has(each.fingerprint));",

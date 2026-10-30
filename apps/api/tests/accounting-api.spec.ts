@@ -621,7 +621,11 @@ describe('the bank (accounting spec §6, step 2)', () => {
     text: string;
   }
 
-  const norma43 = (movements: readonly Movement[], identity = '00000000' + '0000000001') => {
+  /** An account's records: its header, movements and footer. */
+  const account43 = (
+    movements: readonly Movement[],
+    identity = '00000000' + '0000000001',
+  ): string[] => {
     const days = movements.map((each) => each.day ?? today).sort();
     const from = yymmdd(days[0] ?? today);
     const to = yymmdd(days.at(-1) ?? today);
@@ -637,11 +641,20 @@ describe('the bank (accounting spec §6, step 2)', () => {
       ]),
       `33${identity}${digits(debits.length, 5)}${digits(out, 14)}${digits(credits.length, 5)}${digits(into, 14)}${into >= out ? '2' : '1'}${digits(Math.abs(into - out), 14)}978${pad('', 4)}`,
     ];
+    return records;
+  };
+
+  /** A whole file of accounts' records, in ISO-8859-1 as banks write it, its end record counting them. */
+  const file43 = (...accounts: readonly string[][]) => {
+    const records = accounts.flat();
     return Buffer.from(
       [...records, `88${'9'.repeat(18)}${digits(records.length, 6)}${pad('', 54)}`].join('\r\n'),
       'latin1',
     );
   };
+
+  const norma43 = (movements: readonly Movement[], identity?: string) =>
+    file43(account43(movements, identity));
 
   /** A statement file as the staff app sends one: its bytes as the body; a dry run unless `apply`. */
   const send = (who: typeof treasurer.who, bytes: Buffer, apply = false) =>
@@ -742,6 +755,23 @@ describe('the bank (accounting spec §6, step 2)', () => {
       canApply: false,
     });
     expect((await send(treasurer.who, closed, true)).json()).toEqual({ error: 'yearClosed' });
+  });
+
+  it('counts each statement of a file on its own, the same account twice included', async () => {
+    const twice = file43(
+      account43([{ cents: 300, text: `PRIMERO ${mark}` }]),
+      account43([
+        { cents: 400, text: `SEGUNDO ${mark}` },
+        { cents: 500, text: `TERCERO ${mark}` },
+      ]),
+    );
+    expect((await send(treasurer.who, twice)).json()).toMatchObject({
+      statements: [
+        { lines: 1, new: 1, account: { code: '5720001' } },
+        { lines: 2, new: 2, account: { code: '5720001' } },
+      ],
+      canApply: true,
+    });
   });
 
   it('suggests the entry that records a line, and matches it when tesorería says so', async () => {

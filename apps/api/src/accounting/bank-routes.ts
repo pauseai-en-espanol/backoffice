@@ -251,9 +251,11 @@ export const bankRoutes =
                     ]
                   : [],
               );
+              // In the order given, one for each statement of a known account: a file may hold one account twice.
               const counts = await importStatements(trx, sha256, toImport);
+              let next = 0;
               const statements = found.map(({ statement, account }) => {
-                const count = counts.find((each) => each.accountId === account?.id);
+                const count = account ? counts[next++] : undefined;
                 return {
                   iban: ibanOf(statement),
                   account: account
