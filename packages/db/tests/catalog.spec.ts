@@ -225,7 +225,8 @@ describe('catalog: closed by default', () => {
         GROUP BY c.relname ORDER BY 1`,
     );
     expect(granted.map((g) => g.grant)).toEqual([
-      ...['accounts', 'rate_limits', 'sessions'].map(
+      // Passkeys (PLAN D22) are Better Auth's too, from its passkey plugin.
+      ...['accounts', 'passkeys', 'rate_limits', 'sessions'].map(
         (table) => `${table} DELETE,INSERT,SELECT,UPDATE`,
       ),
       // The bot's links and their codes (ADR-0004): a link is replaced, never edited; a code is only marked used.
@@ -525,6 +526,7 @@ const PERSONAL_DATA: readonly string[] = [
 
 /** Better Auth's, in `auth`: it has no audit trigger, but the marks still say what is. */
 const AUTH_PERSONAL_DATA: readonly string[] = [
+  'auth.passkeys.name',
   'auth.rate_limits.key',
   'auth.sessions.ip_address',
   'auth.sessions.user_agent',

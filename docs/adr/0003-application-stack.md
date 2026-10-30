@@ -1,8 +1,10 @@
 # ADR-0003: Application stack
 
 - **Status:** Accepted (Dani, 2026-10-15: the same technology stack as an earlier project of his, and "security and
-  quality wise feel free to reassess"; D6 is Claude's recommendation, taken unless Dani objects)
-- **Date:** 2026-10-15
+  quality wise feel free to reassess"; D6 is Claude's recommendation, taken unless Dani objects). **Amended
+  2026-10-30** (Dani, D22: signing in again "very often" bothered him): optional passkeys, and sessions that last
+  while used, up to a week (§2).
+- **Date:** 2026-10-15; amended 2026-10-30
 - **Deciders:** Dani; drafted by Claude
 - **Relates to:** [BRIEF](../BRIEF.md) G5, G6; [ADR-0001](0001-hosting-and-delivery.md),
   [ADR-0002](0002-authorization-and-data-protection.md)
@@ -54,8 +56,16 @@ As the earlier project:
 
 - Better Auth, mounted in the API, with password plus **mandatory TOTP** and backup codes.
 - Invite-only; no sign-up ([ADR-0002 §6](0002-authorization-and-data-protection.md#6-staff-accounts-and-sign-in)).
-- Sessions are stored in Postgres, last 12 hours, are never refreshed, and are revocable. No "remember me", no
-  "trust this device" (PLAN R12).
+- Sessions are stored in Postgres and are revocable. **Since D22 (2026-10-30)** each ends 48 hours after it was last
+  used, and a week after sign-in whatever happens (before: 12 hours, never extended; PLAN R12): the API moves its end
+  on as it is used, and the database refuses an end past the week. No "remember me", no "trust this device".
+- **Passkeys, optional (D22; PLAN R6 deferred them).** An enrolled staff member adds them in Ajustes and then signs
+  in with one alone: the device holds the key and must check who holds it (fingerprint, face or PIN; WebAuthn's
+  user verification, required at both ceremonies), so its session is aal2. TOTP stays mandatory and the way back in:
+  only an account with it can have a passkey (a database trigger), and the owner's reset of a lost authenticator
+  removes the passkeys too. Adding one needs a sign-in of the last 12 hours and a session that passed a second factor;
+  removing one, the latter. Passkeys are discoverable, bound to the staff host, and kept wherever the person's device
+  keeps them (a platform's or a password manager's store, which may sync them).
 - Attempts are rate-limited, counted in the database.
 - A session without the second factor reaches only the enrolment page, and the database refuses it any data
   (`app.aal`).
@@ -63,8 +73,8 @@ As the earlier project:
   15 minutes (PLAN R7).
 - Cookies are host-only (`__Host-`), `Secure`, `HttpOnly`, `SameSite=Lax`. The API passes on only the Better Auth
   endpoints and body fields the app uses; every other endpoint answers 404.
-- **Passkeys** were allowed from M0 as an extra, because the staff host is final from day one; they are deferred
-  until after M1 (PLAN R6).
+- **Passkeys** were allowed from M0 as an extra, because the staff host is final from day one; deferred until after
+  M1 (PLAN R6), they came with D22.
 
 ### 3. Interface language (D6)
 
@@ -131,5 +141,6 @@ not shared as dependencies. The repos then evolve separately.
 - **Easier:** Claude and Dani already know every piece; the earlier project's tested patterns (sign-in, `withActor`,
   the RLS matrix, the release flow) come over with their tests.
 - **Harder:** two repos to keep current with the same tools; a fix found in one is copied to the other by hand.
-- **Revisit:** shared packages if a third app copies the same scaffold; passkeys after M1; English if a non-Spanish
-  speaker joins the staff.
+- **Revisit:** shared packages if a third app copies the same scaffold; English if a non-Spanish speaker joins the
+  staff; asking again for a second factor before admins' riskiest actions (erasure, exports, Equipo, Ajustes), now
+  that a session can last a week (proposed with D22, left out until Dani decides).

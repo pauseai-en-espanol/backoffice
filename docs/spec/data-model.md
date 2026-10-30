@@ -167,11 +167,14 @@ trigger.
 ### `auth` schema
 
 Better Auth's tables: `users`, `sessions` (with `aal`), `accounts`, `verifications`, `two_factors`,
-`rate_limits`. Only `pauseai_backoffice_auth` reaches them. They have no audit trigger, so none of their personal
-data is copied elsewhere.
+`passkeys` (PLAN D22), `rate_limits`. Only `pauseai_backoffice_auth` reaches them. They have no audit trigger, so
+none of their personal data is copied elsewhere.
 
-- `sessions.aal` is 2 only for a session that a TOTP or backup code created; every other session stays 1 for life.
-- A trigger refuses an aal2 session for an account without a second factor.
+- `sessions.aal` is 2 only for a session that a TOTP code, a backup code or a passkey created; every other session
+  stays 1 for life.
+- A trigger refuses an aal2 session for an account without a second factor, and another a passkey for one.
+- A session's end is at most a week after its start (a trigger); the API moves it to 48 hours after each use.
+- `passkeys.name`, what its owner called it, is personal data.
 - Expired sessions, verification values and day-old rate-limit rows are deleted daily (the session clean-up job).
 
 ### Bot tables (M1)

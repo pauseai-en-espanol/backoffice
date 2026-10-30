@@ -7,8 +7,8 @@ type AuthPool = ReturnType<typeof createAuthPool>;
 /**
  * The owner's reset of a lost authenticator (ADR-0002): for a staff member who has lost both
  * their authenticator and their backup codes. It removes the account's second factor (its TOTP secret and backup
- * codes, with any lock from wrong codes) and ends every session it has, so the next sign-in with the password leads to
- * enrolment, as for a new account. The password, the staff row and its roles stay; every
+ * codes, with any lock from wrong codes) and its passkeys, and ends every session it has, so the next sign-in with the
+ * password leads to enrolment, as for a new account. The password, the staff row and its roles stay; every
  * policy gives the account nothing until it has enrolled again and signed in with a code (ADR-0002).
  *
  * It runs as pauseai_backoffice_auth, like Better Auth in the API (no new grant), and reads nothing about the account but
@@ -84,6 +84,9 @@ export const resetAuthenticator = async (pool: AuthPool, userId: string): Promis
       [userId],
     );
     await client.query('DELETE FROM two_factors WHERE user_id = $1', [userId]);
+    // Its passkeys too: the lost phone may hold one, and a passkey needs the factor (migration passkeys), which is
+    // what a passkey added meanwhile, waiting on the account's row, now finds gone.
+    await client.query('DELETE FROM passkeys WHERE user_id = $1', [userId]);
     // Its Telegram link goes with the factor it was made behind (ADR-0004).
     await client.query('DELETE FROM telegram_links WHERE user_id = $1', [userId]);
     await client.query(

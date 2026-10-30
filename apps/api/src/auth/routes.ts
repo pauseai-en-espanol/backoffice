@@ -1,7 +1,8 @@
 import type { Database } from '@backoffice/db/client';
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { withActor } from '@backoffice/db/actor';
+import { getAuthenticatorName } from '@better-auth/passkey';
 
 import type { CensusConfig } from '../config.js';
 import type { SyncCounts } from '../imports/airtable-sync.js';
@@ -24,8 +25,8 @@ import { visitorAddress } from './visitor.js';
  * The Better Auth endpoints the staff app uses, each with the only body fields passed on; every other endpoint answers
  * 404 (sign-up, password changes while signed in, account linking, and whatever a Better Auth upgrade adds). Fields
  * left out on purpose: `rememberMe` (false makes a 24-hour session), `trustDevice` (skips TOTP for 30 days),
- * `callbackURL` and `redirectTo` (the link is the API's own, auth.ts), and the enrolment's `method` and `issuer` (TOTP
- * only, its issuer from configuration).
+ * `callbackURL` and `redirectTo` (the link is the API's own, auth.ts), the enrolment's `method` and `issuer` (TOTP
+ * only, its issuer from configuration), and a passkey's `createSession` (adding one never signs anyone in).
  */
 const ENDPOINTS: Readonly<Record<string, readonly string[]>> = {
   '/sign-in/email': ['email', 'password'],
@@ -39,7 +40,27 @@ const ENDPOINTS: Readonly<Record<string, readonly string[]>> = {
   // "He olvidado mi contraseña": the same answer whether or not the address has an account; Better Auth limits it per
   // visitor, and auth.ts sends an account at most one link every 15 minutes.
   '/request-password-reset': ['email'],
+  // Passkeys (PLAN D22): signing in with one, and, signed in, adding or removing one's own.
+  '/passkey/verify-authentication': ['response'],
+  '/passkey/verify-registration': ['response', 'name'],
+  '/passkey/delete-passkey': ['id'],
 };
+
+/** The Better Auth endpoints read with GET, with no query passed on: a passkey's challenge, to sign in or to add one. */
+const GET_ENDPOINTS: ReadonlySet<string> = new Set([
+  '/passkey/generate-authenticate-options',
+  '/passkey/generate-register-options',
+]);
+
+/**
+ * Endpoints only a signed-in session reaches (a second factor passed, `stageOf`), whatever Better Auth itself accepts:
+ * it would let a session a password alone opened, before enrolling, add a passkey.
+ */
+const SIGNED_IN_ONLY: ReadonlySet<string> = new Set([
+  '/passkey/generate-register-options',
+  '/passkey/verify-registration',
+  '/passkey/delete-passkey',
+]);
 
 /** The headers Better Auth reads: the session, its CSRF checks (Origin, Fetch Metadata), the session's record. */
 const PASSED_HEADERS = [
@@ -66,8 +87,8 @@ const pick = (body: unknown, fields: readonly string[]): Record<string, unknown>
 };
 
 /**
- * Better Auth returns the session's token in the body too; the browser never needs it, and it is the cookie's whole
- * point that page scripts can't read it.
+ * Better Auth returns the session's token in the body too, on its own or in the session a passkey's sign-in returns;
+ * the browser never needs it, and it is the cookie's whole point that page scripts can't read it.
  */
 const withoutToken = (body: string, contentType: string | null): string => {
   if (!contentType?.startsWith('application/json')) {
@@ -75,9 +96,9 @@ const withoutToken = (body: string, contentType: string | null): string => {
   }
   try {
     const value: unknown = JSON.parse(body);
-    if (typeof value === 'object' && value !== null && !Array.isArray(value) && 'token' in value) {
-      const { token: _token, ...rest } = value;
-      return JSON.stringify(rest);
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      const { token, session, ...rest } = value as Record<string, unknown>;
+      return token === undefined && session === undefined ? body : JSON.stringify(rest);
     }
   } catch {
     // Not JSON after all: passed on as it is.
@@ -168,13 +189,22 @@ export const staffApiRoutes =
       }
     });
 
-    scope.post<{ Params: { '*': string } }>('/auth/*', async (request, reply) => {
-      const path = `/${request.params['*']}`;
-      const fields = ENDPOINTS[path];
-      if (!fields) {
-        return reply.code(404).send({ error: 'notFound' });
-      }
-      const headers = new Headers({ 'content-type': 'application/json' });
+    const findSession = async (request: FastifyRequest): Promise<FoundSession | null> =>
+      auth.api.getSession({ headers: cookieHeaders(request) });
+
+    const signedIn = async (request: FastifyRequest): Promise<FoundSession | undefined> => {
+      const found = await findSession(request);
+      return found && stageOf(found, false) === 'signed-in' ? found : undefined;
+    };
+
+    /** Passes one request on to Better Auth, with only what it reads, and its answer back without the token. */
+    const forward = async (
+      request: FastifyRequest,
+      reply: FastifyReply,
+      path: string,
+      body?: Record<string, unknown>,
+    ) => {
+      const headers = new Headers(body === undefined ? {} : { 'content-type': 'application/json' });
       for (const name of PASSED_HEADERS) {
         const value = request.headers[name];
         if (typeof value === 'string') {
@@ -190,9 +220,9 @@ export const staffApiRoutes =
       }
       const response = await auth.handler(
         new Request(`${staffOrigin}${AUTH_BASE_PATH}${path}`, {
-          method: 'POST',
+          method: body === undefined ? 'GET' : 'POST',
           headers,
-          body: JSON.stringify(pick(request.body, fields)),
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         }),
       );
       void reply.code(response.status);
@@ -207,10 +237,61 @@ export const staffApiRoutes =
         void reply.header('set-cookie', cookies);
       }
       return reply.send(withoutToken(await response.text(), response.headers.get('content-type')));
+    };
+
+    scope.post<{ Params: { '*': string } }>('/auth/*', async (request, reply) => {
+      const path = `/${request.params['*']}`;
+      const fields = ENDPOINTS[path];
+      if (!fields) {
+        return reply.code(404).send({ error: 'notFound' });
+      }
+      if (SIGNED_IN_ONLY.has(path) && !(await signedIn(request))) {
+        return reply.code(401).send({ error: 'signIn' });
+      }
+      return forward(request, reply, path, pick(request.body, fields));
     });
 
-    const findSession = async (request: FastifyRequest): Promise<FoundSession | null> =>
-      auth.api.getSession({ headers: cookieHeaders(request) });
+    scope.get<{ Params: { '*': string } }>('/auth/*', async (request, reply) => {
+      const path = `/${request.params['*']}`;
+      if (!GET_ENDPOINTS.has(path)) {
+        return reply.code(404).send({ error: 'notFound' });
+      }
+      if (SIGNED_IN_ONLY.has(path) && !(await signedIn(request))) {
+        return reply.code(401).send({ error: 'signIn' });
+      }
+      return forward(request, reply, path);
+    });
+
+    // One's own passkeys, for Ajustes: what tells them apart, never their keys or the device's identifiers.
+    scope.get('/passkeys', async (request, reply) => {
+      if (!(await signedIn(request))) {
+        return reply.code(401).send({ error: 'signIn' });
+      }
+      const response = await auth.handler(
+        new Request(`${staffOrigin}${AUTH_BASE_PATH}/passkey/list-user-passkeys`, {
+          headers: cookieHeaders(request),
+        }),
+      );
+      if (!response.ok) {
+        return reply.code(502).send({ error: 'internal' });
+      }
+      const listed = (await response.json()) as {
+        id: string;
+        name?: string | null;
+        aaguid?: string | null;
+        backedUp: boolean;
+        createdAt?: string | null;
+      }[];
+      return {
+        passkeys: listed.map((passkey) => ({
+          id: passkey.id,
+          name: passkey.name ?? null,
+          provider: getAuthenticatorName(passkey.aaguid ?? undefined) ?? null,
+          synced: passkey.backedUp,
+          createdAt: passkey.createdAt ?? null,
+        })),
+      };
+    });
 
     // Where the request stands, for the staff app's pages to decide what to show. Never the token, nor the session's
     // address or browser. `staff` is the account as active staff, or null: the database's own answer.

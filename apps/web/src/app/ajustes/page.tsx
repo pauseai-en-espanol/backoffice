@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 
 import { getTranslator } from '@backoffice/i18n/messages';
 
+import { getPasskeys } from '@/auth/passkey-data';
+import { Passkeys } from '@/auth/Passkeys';
+import { authErrors } from '@/auth/text';
 import { isUnavailable } from '@/data';
 import { getCensusOptions } from '@/onboarding/census/data';
 import { sortOptions } from '@/onboarding/census/format';
@@ -13,7 +16,7 @@ import {
   getSettings,
   getTelegramLink,
 } from '@/onboarding/data';
-import { formatInstant } from '@/onboarding/format';
+import { formatInstant, formatInstantDay } from '@/onboarding/format';
 import { Counts } from '@/onboarding/imports/Counts';
 import { AirtableLink } from '@/onboarding/settings/AirtableLink';
 import { SettingsForm } from '@/onboarding/settings/SettingsForm';
@@ -51,7 +54,7 @@ const isRunFailure = (value: string): value is (typeof RUN_FAILURES)[number] =>
   (RUN_FAILURES as readonly string[]).includes(value);
 
 /**
- * Ajustes: onboarding staff link (or unlink) their Telegram account to the bot, which is theirs alone (ADR-0004);
+ * Ajustes: everyone adds or removes their own passkeys (PLAN D22); onboarding staff link (or unlink) their Telegram account to the bot, which is theirs alone (ADR-0004);
  * onboarding staff and admins see the onboarding settings and "Llegó por"'s list (PLAN M5), which admins change;
  * admins alone set Global's Airtable link and turn its sync on or off (ADR-0005); everyone sees the census's lists,
  * which admins edit.
@@ -61,7 +64,8 @@ const SettingsPage = async () => {
   const admin = isAdmin(me);
   const onboarder = canOnboard(me);
   const botUser = usesTelegramBot(me.staff.roles);
-  const [telegram, settings, options, arrivals, airtable] = await Promise.all([
+  const [passkeys, telegram, settings, options, arrivals, airtable] = await Promise.all([
+    getPasskeys(),
     botUser ? getTelegramLink() : Promise.resolve(undefined),
     onboarder ? getSettings() : Promise.resolve(undefined),
     getCensusOptions(),
@@ -106,6 +110,47 @@ const SettingsPage = async () => {
       <h1 className={styles.h1}>{t('settings.title')}</h1>
       <p className={styles.text}>{t('settings.intro')}</p>
       <Announcer>
+        <section className={onboarding.section} aria-labelledby="llaves">
+          <h2 id="llaves" className={styles.h3}>
+            {t('passkeys.title')}
+          </h2>
+          <p className={styles.hint}>{t('passkeys.intro')}</p>
+          {isUnavailable(passkeys) ? (
+            <p className={styles.notice}>{t('web.unavailable.body')}</p>
+          ) : (
+            <Passkeys
+              passkeys={passkeys}
+              dates={Object.fromEntries(
+                passkeys.flatMap((passkey) =>
+                  passkey.createdAt === null
+                    ? []
+                    : [[passkey.id, formatInstantDay(passkey.createdAt)]],
+                ),
+              )}
+              text={{
+                listLabel: t('passkeys.listLabel'),
+                none: t('passkeys.none'),
+                unnamed: t('passkeys.unnamed'),
+                addedOn: raw('passkeys.addedOn'),
+                keptIn: raw('passkeys.keptIn'),
+                synced: t('passkeys.synced'),
+                name: t('passkeys.name'),
+                nameHint: t('passkeys.nameHint'),
+                add: t('passkeys.add'),
+                added: t('passkeys.added'),
+                remove: t('passkeys.remove'),
+                removeLabel: raw('passkeys.removeLabel'),
+                confirmRemove: t('passkeys.confirmRemove'),
+                removed: t('passkeys.removed'),
+                confirm: t('team.confirm'),
+                cancel: t('person.cancel'),
+                restart: t('auth.challenge.restart'),
+                errors: authErrors(t),
+                writeErrors: errors,
+              }}
+            />
+          )}
+        </section>
         <section className={onboarding.section} aria-labelledby="telegram">
           <h2 id="telegram" className={styles.h3}>
             {t('telegramLink.title')}

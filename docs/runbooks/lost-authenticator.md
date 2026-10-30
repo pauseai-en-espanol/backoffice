@@ -26,8 +26,9 @@ kubectl --context "$KUBE_CONTEXT" -n pauseai-es-backoffice exec -it deploy/backo
   node dist/reset-authenticator.js
 ```
 
-It deletes the account's second factor and backup codes and ends every session it has, in one transaction, and the
-database refuses any second-factor session for an account without a factor from then on. The password stays.
+It deletes the account's second factor and backup codes and its passkeys (the lost phone may hold one), and ends
+every session it has, in one transaction; the database refuses any second-factor session, or passkey, for an account
+without a factor from then on. The password stays. They can add passkeys again from Ajustes once enrolled.
 
 ## 3. The person enrols again
 

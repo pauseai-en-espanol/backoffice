@@ -238,6 +238,7 @@ once Dani has reviewed the ADR and the spec.
 | **D19** | The community is Spain's, Spaniards abroad, Latin America's and Latin Americans abroad; a person has a country where they live, and may say where they're from (R74)                              | Dani, 2026-10-22 |
 | **D20** | The association's accounts come into scope, from the first movement: a `tesoreria` role records, admins read ("follow best practices"); no history to import ([ADR-0006](adr/0006-accounting.md)) | Dani, 2026-10-30 |
 | **D21** | Receipts are stored on a persistent volume mounted in the API, not in Postgres                                                                                                                    | Dani, 2026-10-30 |
+| **D22** | Signing in less often: optional passkeys (desktop and phone, Enpass included), and sessions that end 48 hours after their last use, a week after sign-in at most (R92)                            | Dani, 2026-10-30 |
 | —       | Backups are handled in gitops, separately from this plan                                                                                                                                          | Dani, 2026-10-15 |
 | —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                                                             | Dani, 2026-10-15 |
 
@@ -245,12 +246,13 @@ once Dani has reviewed the ADR and the spec.
 
 Each has a recommendation. Unless Dani objects, the recommendation is what gets built.
 
-| ID     | Decision           | Options                                                                                | Recommendation                                                                                                                                  |
-| ------ | ------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D5** | Tenancy            | Single organisation, or tenant-ready from day one                                      | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away)) |
-| **D6** | UI language        | Spanish only, or English source with mandatory Spanish                                 | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                 |
-| **D7** | Access granularity | Module roles, or "a volunteer sees only their own people"                              | **Module roles** for v1; revisit when the team grows past about 8                                                                               |
-| **D8** | Outreach sending   | A person sends (handover), or the app sends through the mail server per explicit click | **A person sends**, as the outreach repo already does                                                                                           |
+| ID      | Decision                                              | Options                                                                                                                                                                    | Recommendation                                                                                                                                  |
+| ------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D5**  | Tenancy                                               | Single organisation, or tenant-ready from day one                                                                                                                          | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away)) |
+| **D6**  | UI language                                           | Spanish only, or English source with mandatory Spanish                                                                                                                     | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                 |
+| **D7**  | Access granularity                                    | Module roles, or "a volunteer sees only their own people"                                                                                                                  | **Module roles** for v1; revisit when the team grows past about 8                                                                               |
+| **D8**  | Outreach sending                                      | A person sends (handover), or the app sends through the mail server per explicit click                                                                                     | **A person sends**, as the outreach repo already does                                                                                           |
+| **D23** | A second factor again before admins' riskiest actions | With week-long sessions (D22), ask for a code or a passkey again before erasure, exports, Equipo, Ajustes and the audit log when the last one is over 12 hours old; or not | **Ask again** (proposed with D22). Dani unsure (2026-10-30): **not built until he decides**                                                     |
 
 ## Open questions
 
@@ -292,7 +294,7 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   catalog test lists every such policy. A `SECURITY DEFINER` function checks the channel itself. No channel set:
   every policy denies.
 - **R6. Passkeys later.** The specification allowed them from M0 as an extra. **Chose to defer them** until after
-  M1: scope first, and TOTP is already mandatory.
+  M1: scope first, and TOTP is already mandatory. **Done since, with D22** (R92).
 - **R7. Password recovery in M0.** Options: only the owner's command; email recovery. **Chose email recovery**
   ("He olvidado mi contraseña"), as the earlier project: only for accounts with a second factor (so the mailbox alone
   gets nothing), one link per 15 minutes per account.
@@ -305,7 +307,7 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
 - **R11. Hosts.** The staff host `backoffice.pauseai.es` stays the default in docs and values (D4 says
   configuration); the census host is chosen in M2.
 - **R12. Sessions** last 12 hours, are never refreshed, and offer no "remember me" or "trust this device", as
-  the earlier project.
+  the earlier project. **Superseded by D22** (R92): 48 hours from the last use, a week at most.
 - **R13. Database names are fixed in the migrations.** Options: role and database names from config; fixed.
   **Chose fixed** (`pauseai_backoffice_*`), as the earlier project: dbmate has no variables, and building every `GRANT`
   and `POLICY` with dynamic SQL would make the security review harder. Consequence: another chapter's instance
@@ -802,6 +804,19 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   is never wider than its field, so another font cuts a long option rather than covering the next field. On a laptop
   Registrar and the next step stack; Añadir and a tablet keep their rows. R64's test runs on a wide screen; a new one
   checks the fields stack on a laptop and a long option stays in its field. Mutation list `forms`.
+- **R92. Passkeys and longer sessions, as built** (D22; Dani, 2026-10-30: "would passkeys be optional? [...] if it's a
+  yes to both, let's do that", then "1, 2, and 3 as you suggested", then unsure about the third, now D23). How sessions
+  live on: Better Auth's own refresh moves the row's end but not the cookie the API reads on the server, and never
+  stops; or our own. **Chose our own:** the cookie lasts the week; a session starts with 48 hours, and the API moves its
+  end to 48 hours after each use (at most once a minute), never past a week from sign-in, which a trigger holds too.
+  Passkeys sit beside the password and TOTP, never instead: a passkey's sign-in is aal2 only because the device checks
+  who holds it (user verification, which Better Auth's plugin asks for but doesn't require, so the API refuses an
+  answer without it at both ceremonies); only an enrolled account has one (a trigger); one is added only from an aal2
+  session signed in within 12 hours (Better Auth's freshness), and removed only from an aal2 session; the owner's reset
+  of a lost authenticator removes them; the sign-in's answer reaches the browser without the session it carries.
+  Ajustes lists one's own, never a key, and adds or removes them; Entrar offers "Usar una llave de acceso" under the
+  password. Not done: an email when a passkey is added (as a changed password has one); the browser offering passkeys
+  in the email field (conditional UI). Mutation list `sign-in`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

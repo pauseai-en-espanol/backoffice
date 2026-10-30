@@ -80,8 +80,8 @@ Every query a signed-in person or the bot makes runs inside `withActor`, which s
 (`set_config(..., true)`, so nothing leaks to the next user of a pooled connection):
 
 - `app.user_id`: the staff member's account (the Better Auth user id);
-- `app.aal`: 2 only for a session a TOTP or backup code created, and for a linked Telegram account
-  ([ADR-0004](0004-telegram-bot.md)); 1 otherwise;
+- `app.aal`: 2 only for a session a TOTP code, a backup code or a passkey created (PLAN D22), and for a linked
+  Telegram account ([ADR-0004](0004-telegram-bot.md)); 1 otherwise;
 - `app.channel`: `web` or `bot`.
 
 With no actor, every policy denies. Jobs without a person act as a system actor where a table needs one (ADR-0001
@@ -203,8 +203,10 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 - **The first admin** (PLAN R4): the owner's `create-account` command in an API pod prints a one-hour link to set
   the password and the owner SQL that makes the account an admin once it has enrolled TOTP. A lost authenticator
   is reset by the owner's `reset-authenticator` command.
-- **Sign-in** is in [ADR-0003 §2](0003-application-stack.md#2-sign-in): password plus mandatory TOTP. A session
-  without the second factor reaches only the enrolment page, and the database refuses it any data (`app.aal`).
+- **Sign-in** is in [ADR-0003 §2](0003-application-stack.md#2-sign-in): password plus mandatory TOTP, or an
+  optional passkey alone once enrolled (PLAN D22). A session without the second factor reaches only the enrolment
+  page, and the database refuses it any data (`app.aal`). `auth.passkeys` is Better Auth's, granted to its role like
+  the other tables there.
 - Deactivating a staff member closes every policy to them at once, and unlinks their Telegram account.
 
 ### 7. Public surfaces
