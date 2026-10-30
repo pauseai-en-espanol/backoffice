@@ -734,6 +734,93 @@ CREATE FUNCTION private.audit() RETURNS trigger
 ALTER FUNCTION private.audit() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: bank_line_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.bank_line_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    day date;
+    moved bigint;
+  BEGIN
+    IF TG_OP = 'INSERT' THEN
+      day := NEW.booked_on;
+    ELSE
+      day := OLD.booked_on;
+    END IF;
+    IF TG_OP = 'DELETE' AND OLD.entry_id IS NOT NULL THEN
+      RAISE EXCEPTION 'a matched bank line is never deleted: undo its match first'
+        USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF TG_OP = 'UPDATE'
+       AND (NEW.statement_id, NEW.account_id, NEW.booked_on, NEW.value_on, NEW.common_concept, NEW.amount_cents,
+            NEW.description, NEW.reference, NEW.fingerprint)
+           IS DISTINCT FROM
+           (OLD.statement_id, OLD.account_id, OLD.booked_on, OLD.value_on, OLD.common_concept, OLD.amount_cents,
+            OLD.description, OLD.reference, OLD.fingerprint) THEN
+      RAISE EXCEPTION 'a bank line is what the bank said: only its match changes'
+        USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF EXISTS (SELECT 1 FROM app.fiscal_years y
+                WHERE y.year = extract(year FROM day)::integer AND y.status = 'closed') THEN
+      RAISE EXCEPTION 'nothing is written dated in a closed year' USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+      RETURN OLD;
+    END IF;
+
+    IF TG_OP = 'UPDATE' AND NEW.entry_id IS NOT DISTINCT FROM OLD.entry_id THEN
+      NEW.matched_by := OLD.matched_by;
+      NEW.matched_at := OLD.matched_at;
+      RETURN NEW;
+    END IF;
+    IF NEW.entry_id IS NULL THEN
+      NEW.matched_by := NULL;
+      NEW.matched_at := NULL;
+      RETURN NEW;
+    END IF;
+    SELECT sum(l.debit_cents - l.credit_cents) INTO moved
+      FROM app.journal_lines l
+      JOIN app.journal_entries e ON e.id = l.entry_id
+     WHERE e.id = NEW.entry_id AND l.account_id = NEW.account_id
+       AND e.status = 'posted' AND e.kind IN ('income', 'expense', 'transfer', 'manual')
+       AND NOT EXISTS (SELECT 1 FROM app.journal_entries r WHERE r.reverses = e.id);
+    IF moved IS DISTINCT FROM NEW.amount_cents THEN
+      RAISE EXCEPTION 'a bank line matches a posted entry, not corrected, that moves its account by its amount'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'bank_statement_lines_match';
+    END IF;
+    NEW.matched_by := private.current_user_id();
+    NEW.matched_at := now();
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.bank_line_rules() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: bank_statement_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.bank_statement_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM app.ledger_accounts a WHERE a.id = NEW.account_id AND a.treasury) THEN
+      RAISE EXCEPTION 'a statement is of a treasury account'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'bank_statements_account';
+    END IF;
+    RETURN NULL;
+  END
+  $$;
+
+
+ALTER FUNCTION private.bank_statement_rules() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: bot_can(app.staff_role[]); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -850,6 +937,59 @@ CREATE FUNCTION private.bot_summary() RETURNS TABLE(unassigned integer, arrived_
 
 
 ALTER FUNCTION private.bot_summary() OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: budget_line_rules(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.budget_line_rules() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  DECLARE
+    years integer[] := '{}';
+  BEGIN
+    IF TG_OP IN ('UPDATE', 'DELETE') THEN
+      years := years || OLD.fiscal_year;
+    END IF;
+    IF TG_OP IN ('INSERT', 'UPDATE') THEN
+      years := years || NEW.fiscal_year;
+    END IF;
+    IF EXISTS (SELECT 1 FROM app.fiscal_years y WHERE y.year = ANY (years) AND y.status = 'closed') THEN
+      RAISE EXCEPTION 'nothing is written dated in a closed year' USING ERRCODE = 'restrict_violation';
+    END IF;
+    IF TG_OP = 'DELETE' THEN
+      RETURN OLD;
+    END IF;
+
+    IF NOT EXISTS (SELECT 1 FROM app.ledger_accounts a
+                    WHERE a.id = NEW.account_id AND a.kind IN ('income', 'expense')) THEN
+      RAISE EXCEPTION 'a budget line is of an income or expense account'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'budget_lines_account';
+    END IF;
+    PERFORM 1 FROM app.fiscal_years y WHERE y.year = NEW.fiscal_year FOR UPDATE;
+    IF EXISTS (
+      WITH RECURSIVE above AS (
+        SELECT a.code, a.parent_code FROM app.ledger_accounts a WHERE a.id = NEW.account_id
+        UNION ALL
+        SELECT p.code, p.parent_code FROM app.ledger_accounts p JOIN above ON p.code = above.parent_code
+      ), below AS (
+        SELECT a.code FROM app.ledger_accounts a WHERE a.id = NEW.account_id
+        UNION ALL
+        SELECT c.code FROM app.ledger_accounts c JOIN below ON c.parent_code = below.code
+      )
+      SELECT 1 FROM app.budget_lines b JOIN app.ledger_accounts a ON a.id = b.account_id
+       WHERE b.fiscal_year = NEW.fiscal_year AND b.id <> NEW.id
+         AND (a.code IN (SELECT above.code FROM above) OR a.code IN (SELECT below.code FROM below))) THEN
+      RAISE EXCEPTION 'a budget line sits neither above nor below another of its year'
+        USING ERRCODE = 'check_violation', CONSTRAINT = 'budget_lines_nested';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.budget_line_rules() OWNER TO pauseai_backoffice_owner;
 
 --
 -- Name: census_apply(uuid, jsonb, text); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
@@ -3480,6 +3620,94 @@ ALTER TABLE app.audit_log ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
 
 
 --
+-- Name: bank_statement_lines; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.bank_statement_lines (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    statement_id uuid NOT NULL,
+    account_id uuid NOT NULL,
+    booked_on date NOT NULL,
+    value_on date NOT NULL,
+    common_concept text NOT NULL,
+    amount_cents bigint NOT NULL,
+    description text NOT NULL,
+    reference text NOT NULL,
+    fingerprint text NOT NULL,
+    entry_id uuid,
+    matched_by uuid,
+    matched_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bank_statement_lines_amount_cents_check CHECK (((amount_cents <> 0) AND (abs(amount_cents) <= '99999999999'::bigint))),
+    CONSTRAINT bank_statement_lines_check CHECK (((entry_id IS NULL) = (matched_at IS NULL))),
+    CONSTRAINT bank_statement_lines_check1 CHECK (((entry_id IS NULL) = (matched_by IS NULL))),
+    CONSTRAINT bank_statement_lines_common_concept_check CHECK ((common_concept ~ '^[0-9]{2}$'::text)),
+    CONSTRAINT bank_statement_lines_description_check CHECK ((length(description) <= 1000)),
+    CONSTRAINT bank_statement_lines_fingerprint_check CHECK ((fingerprint ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT bank_statement_lines_reference_check CHECK ((length(reference) <= 200))
+);
+
+
+ALTER TABLE app.bank_statement_lines OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: COLUMN bank_statement_lines.description; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.bank_statement_lines.description IS 'personal data';
+
+
+--
+-- Name: COLUMN bank_statement_lines.reference; Type: COMMENT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+COMMENT ON COLUMN app.bank_statement_lines.reference IS 'personal data';
+
+
+--
+-- Name: bank_statements; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.bank_statements (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    account_id uuid NOT NULL,
+    sha256 text NOT NULL,
+    starts_on date NOT NULL,
+    ends_on date NOT NULL,
+    opening_cents bigint NOT NULL,
+    closing_cents bigint NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT bank_statements_check CHECK ((ends_on >= starts_on)),
+    CONSTRAINT bank_statements_closing_cents_check CHECK ((abs(closing_cents) <= '99999999999'::bigint)),
+    CONSTRAINT bank_statements_opening_cents_check CHECK ((abs(opening_cents) <= '99999999999'::bigint)),
+    CONSTRAINT bank_statements_sha256_check CHECK ((sha256 ~ '^[0-9a-f]{64}$'::text))
+);
+
+
+ALTER TABLE app.bank_statements OWNER TO pauseai_backoffice_owner;
+
+--
+-- Name: budget_lines; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE app.budget_lines (
+    id uuid DEFAULT uuidv7() NOT NULL,
+    fiscal_year integer NOT NULL,
+    account_id uuid NOT NULL,
+    amount_cents bigint NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT budget_lines_amount_cents_check CHECK (((amount_cents >= 1) AND (amount_cents <= '99999999999'::bigint)))
+);
+
+
+ALTER TABLE app.budget_lines OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: campaign_anchors; Type: TABLE; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5004,6 +5232,62 @@ ALTER TABLE ONLY app.audit_log
 
 
 --
+-- Name: bank_statement_lines bank_statement_lines_account_id_entry_id_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.bank_statement_lines
+    ADD CONSTRAINT bank_statement_lines_account_id_entry_id_key UNIQUE (account_id, entry_id);
+
+
+--
+-- Name: bank_statement_lines bank_statement_lines_account_id_fingerprint_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.bank_statement_lines
+    ADD CONSTRAINT bank_statement_lines_account_id_fingerprint_key UNIQUE (account_id, fingerprint);
+
+
+--
+-- Name: bank_statement_lines bank_statement_lines_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.bank_statement_lines
+    ADD CONSTRAINT bank_statement_lines_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bank_statements bank_statements_id_account_id_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.bank_statements
+    ADD CONSTRAINT bank_statements_id_account_id_key UNIQUE (id, account_id);
+
+
+--
+-- Name: bank_statements bank_statements_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.bank_statements
+    ADD CONSTRAINT bank_statements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: budget_lines budget_lines_fiscal_year_account_id_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.budget_lines
+    ADD CONSTRAINT budget_lines_fiscal_year_account_id_key UNIQUE (fiscal_year, account_id);
+
+
+--
+-- Name: budget_lines budget_lines_pkey; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.budget_lines
+    ADD CONSTRAINT budget_lines_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: campaign_anchors campaign_anchors_campaign_id_key_key; Type: CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5562,6 +5846,34 @@ CREATE INDEX audit_log_row_idx ON app.audit_log USING btree (table_name, row_id)
 
 
 --
+-- Name: bank_statement_lines_entry_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX bank_statement_lines_entry_idx ON app.bank_statement_lines USING btree (entry_id);
+
+
+--
+-- Name: bank_statement_lines_statement_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX bank_statement_lines_statement_idx ON app.bank_statement_lines USING btree (statement_id);
+
+
+--
+-- Name: bank_statements_account_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX bank_statements_account_idx ON app.bank_statements USING btree (account_id, ends_on);
+
+
+--
+-- Name: budget_lines_account_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE INDEX budget_lines_account_idx ON app.budget_lines USING btree (account_id);
+
+
+--
 -- Name: campaign_targets_contact_id_idx; Type: INDEX; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -5846,6 +6158,27 @@ CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.airtable_sync FOR E
 --
 
 CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.arrival_channels FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: bank_statement_lines audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.bank_statement_lines FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: bank_statements audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.bank_statements FOR EACH ROW EXECUTE FUNCTION private.audit();
+
+
+--
+-- Name: budget_lines audit; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER audit AFTER INSERT OR DELETE OR UPDATE ON app.budget_lines FOR EACH ROW EXECUTE FUNCTION private.audit();
 
 
 --
@@ -6283,6 +6616,27 @@ CREATE TRIGGER private_rules AFTER INSERT OR UPDATE OF private_to ON app.organis
 
 
 --
+-- Name: bank_statement_lines rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules BEFORE INSERT OR DELETE OR UPDATE ON app.bank_statement_lines FOR EACH ROW EXECUTE FUNCTION private.bank_line_rules();
+
+
+--
+-- Name: bank_statements rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules AFTER INSERT ON app.bank_statements FOR EACH ROW EXECUTE FUNCTION private.bank_statement_rules();
+
+
+--
+-- Name: budget_lines rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER rules BEFORE INSERT OR DELETE OR UPDATE ON app.budget_lines FOR EACH ROW EXECUTE FUNCTION private.budget_line_rules();
+
+
+--
 -- Name: campaign_targets rules; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -6378,6 +6732,27 @@ CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.arrival_channels FOR EACH RO
 --
 
 CREATE TRIGGER stamp BEFORE INSERT ON app.audit_log FOR EACH ROW EXECUTE FUNCTION private.stamp('actor_id');
+
+
+--
+-- Name: bank_statement_lines stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT ON app.bank_statement_lines FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: bank_statements stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT ON app.bank_statements FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at');
+
+
+--
+-- Name: budget_lines stamp; Type: TRIGGER; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER stamp BEFORE INSERT OR UPDATE ON app.budget_lines FOR EACH ROW EXECUTE FUNCTION private.stamp('created_by', 'created_at', 'updated_by', 'updated_at');
 
 
 --
@@ -6735,6 +7110,46 @@ CREATE TRIGGER session_within_a_week BEFORE INSERT OR UPDATE OF expires_at, crea
 --
 
 CREATE TRIGGER step_up_needs_aal2 BEFORE INSERT OR UPDATE ON auth.session_step_ups FOR EACH ROW EXECUTE FUNCTION private.step_up_needs_aal2();
+
+
+--
+-- Name: bank_statement_lines bank_statement_lines_entry_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.bank_statement_lines
+    ADD CONSTRAINT bank_statement_lines_entry_id_fkey FOREIGN KEY (entry_id) REFERENCES app.journal_entries(id);
+
+
+--
+-- Name: bank_statement_lines bank_statement_lines_statement_id_account_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.bank_statement_lines
+    ADD CONSTRAINT bank_statement_lines_statement_id_account_id_fkey FOREIGN KEY (statement_id, account_id) REFERENCES app.bank_statements(id, account_id) ON DELETE CASCADE;
+
+
+--
+-- Name: bank_statements bank_statements_account_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.bank_statements
+    ADD CONSTRAINT bank_statements_account_id_fkey FOREIGN KEY (account_id) REFERENCES app.ledger_accounts(id);
+
+
+--
+-- Name: budget_lines budget_lines_account_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.budget_lines
+    ADD CONSTRAINT budget_lines_account_id_fkey FOREIGN KEY (account_id) REFERENCES app.ledger_accounts(id);
+
+
+--
+-- Name: budget_lines budget_lines_fiscal_year_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY app.budget_lines
+    ADD CONSTRAINT budget_lines_fiscal_year_fkey FOREIGN KEY (fiscal_year) REFERENCES app.fiscal_years(year);
 
 
 --
@@ -7348,6 +7763,39 @@ ALTER TABLE app.arrival_channels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app.audit_log ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: bank_statement_lines; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.bank_statement_lines ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: bank_statements; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.bank_statements ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: bank_statement_lines books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.bank_statement_lines FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: bank_statements books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.bank_statements FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: budget_lines books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY books_read ON app.budget_lines FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: counterparties books_read; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -7395,6 +7843,12 @@ CREATE POLICY books_read ON app.projects FOR SELECT TO pauseai_backoffice_app US
 
 CREATE POLICY books_read ON app.receipts FOR SELECT TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['admin'::app.staff_role, 'tesoreria'::app.staff_role]) AS staff_can));
 
+
+--
+-- Name: budget_lines; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE app.budget_lines ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: campaign_anchors; Type: ROW SECURITY; Schema: app; Owner: pauseai_backoffice_owner
@@ -7975,6 +8429,20 @@ CREATE POLICY team_or_own_update ON app.message_templates FOR UPDATE TO pauseai_
 
 
 --
+-- Name: bank_statements tesoreria_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_delete ON app.bank_statements FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: budget_lines tesoreria_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_delete ON app.budget_lines FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
 -- Name: counterparties tesoreria_delete; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -8014,6 +8482,27 @@ CREATE POLICY tesoreria_delete ON app.projects FOR DELETE TO pauseai_backoffice_
 --
 
 CREATE POLICY tesoreria_delete ON app.receipts FOR DELETE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: bank_statement_lines tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.bank_statement_lines FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: bank_statements tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.bank_statements FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: budget_lines tesoreria_insert; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_insert ON app.budget_lines FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
 
 
 --
@@ -8070,6 +8559,20 @@ CREATE POLICY tesoreria_insert ON app.projects FOR INSERT TO pauseai_backoffice_
 --
 
 CREATE POLICY tesoreria_insert ON app.receipts FOR INSERT TO pauseai_backoffice_app WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: bank_statement_lines tesoreria_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_update ON app.bank_statement_lines FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
+
+
+--
+-- Name: budget_lines tesoreria_update; Type: POLICY; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+CREATE POLICY tesoreria_update ON app.budget_lines FOR UPDATE TO pauseai_backoffice_app USING (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can)) WITH CHECK (( SELECT private.staff_can(VARIADIC ARRAY['tesoreria'::app.staff_role]) AS staff_can));
 
 
 --
@@ -8220,6 +8723,20 @@ REVOKE ALL ON FUNCTION private.audit() FROM PUBLIC;
 
 
 --
+-- Name: FUNCTION bank_line_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.bank_line_rules() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION bank_statement_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.bank_statement_rules() FROM PUBLIC;
+
+
+--
 -- Name: FUNCTION bot_can(VARIADIC roles app.staff_role[]); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -8249,6 +8766,13 @@ GRANT ALL ON FUNCTION private.bot_people(scope text, query text, phones text[], 
 
 REVOKE ALL ON FUNCTION private.bot_summary() FROM PUBLIC;
 GRANT ALL ON FUNCTION private.bot_summary() TO pauseai_backoffice_app;
+
+
+--
+-- Name: FUNCTION budget_line_rules(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.budget_line_rules() FROM PUBLIC;
 
 
 --
@@ -8917,6 +9441,160 @@ GRANT INSERT("position"),UPDATE("position") ON TABLE app.arrival_channels TO pau
 --
 
 GRANT SELECT ON TABLE app.audit_log TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE bank_statement_lines; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.statement_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(statement_id) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.account_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(account_id) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.booked_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(booked_on) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.value_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(value_on) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.common_concept; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(common_concept) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.amount_cents; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(amount_cents) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.description; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(description) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.reference; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(reference) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.fingerprint; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(fingerprint) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statement_lines.entry_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT UPDATE(entry_id) ON TABLE app.bank_statement_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE bank_statements; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.bank_statements TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statements.account_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(account_id) ON TABLE app.bank_statements TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statements.sha256; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(sha256) ON TABLE app.bank_statements TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statements.starts_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(starts_on) ON TABLE app.bank_statements TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statements.ends_on; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(ends_on) ON TABLE app.bank_statements TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statements.opening_cents; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(opening_cents) ON TABLE app.bank_statements TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN bank_statements.closing_cents; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(closing_cents) ON TABLE app.bank_statements TO pauseai_backoffice_app;
+
+
+--
+-- Name: TABLE budget_lines; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,DELETE ON TABLE app.budget_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN budget_lines.fiscal_year; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(fiscal_year) ON TABLE app.budget_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN budget_lines.account_id; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(account_id) ON TABLE app.budget_lines TO pauseai_backoffice_app;
+
+
+--
+-- Name: COLUMN budget_lines.amount_cents; Type: ACL; Schema: app; Owner: pauseai_backoffice_owner
+--
+
+GRANT INSERT(amount_cents),UPDATE(amount_cents) ON TABLE app.budget_lines TO pauseai_backoffice_app;
 
 
 --

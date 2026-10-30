@@ -971,6 +971,103 @@ export const RELATIONS: Readonly<Record<string, RelationSpec>> = {
       },
     ],
   },
+  'app.bank_statements': {
+    rows: [
+      {
+        // Imported or deleted whole, never changed (no grant).
+        id: 'a statement with nothing matched',
+        where: `id = ${quote(books.openStatement)}`,
+        select: BOOKS,
+        update: { set: "sha256 = repeat('0', 64)", rule: NOBODY },
+        delete: TESORERIA,
+      },
+      {
+        // Never deleted while a line is matched, nor dated in a closed year: data rules (bank.spec.ts).
+        id: 'a statement with a matched line',
+        where: `id = ${quote(books.statement)}`,
+        select: BOOKS,
+      },
+      {
+        id: "a closed year's statement",
+        where: `id = ${quote(books.closedStatement)}`,
+        select: BOOKS,
+      },
+    ],
+    inserts: [
+      {
+        id: "a statement of tesorería's bank account",
+        sql: `INSERT INTO app.bank_statements (account_id, sha256, starts_on, ends_on, opening_cents, closing_cents)
+              VALUES (${quote(books.bank)}, repeat('e', 64), make_date(${thisYear}, 2, 1), make_date(${thisYear}, 2, 28), 0, 0)`,
+        rule: TESORERIA,
+      },
+    ],
+  },
+  'app.bank_statement_lines': {
+    rows: [
+      {
+        // Its match is all that changes; it goes only with its statement (no DELETE grant).
+        id: 'a matched line, its match undone',
+        where: `id = ${quote(books.matchedLine)}`,
+        select: BOOKS,
+        update: { set: 'entry_id = NULL', rule: TESORERIA },
+        delete: NOBODY,
+      },
+      {
+        id: 'what the bank said of a line',
+        where: `id = ${quote(books.openLine)}`,
+        select: BOOKS,
+        update: { set: 'amount_cents = 1', rule: NOBODY },
+      },
+      {
+        // Its match never changes: a data rule (bank.spec.ts).
+        id: "a closed year's line",
+        where: `id = ${quote(books.closedLine)}`,
+        select: BOOKS,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a line of a statement',
+        sql: `INSERT INTO app.bank_statement_lines (statement_id, account_id, booked_on, value_on, common_concept,
+                                                    amount_cents, description, reference, fingerprint)
+              VALUES (${quote(books.openStatement)}, ${quote(books.bank)}, make_date(${thisYear}, 1, 4),
+                      make_date(${thisYear}, 1, 4), '04', 100, 'TRANSFERENCIA DE EJEMPLO', '', repeat('e', 64))`,
+        rule: TESORERIA,
+      },
+    ],
+  },
+  'app.budget_lines': {
+    rows: [
+      {
+        id: "this year's budget for a group",
+        where: `id = ${quote(books.budget)}`,
+        select: BOOKS,
+        update: { set: 'amount_cents = 60000', rule: TESORERIA },
+        delete: TESORERIA,
+      },
+      {
+        // A line's account is fixed once written (no grant).
+        id: "a budget line's account",
+        where: `id = ${quote(books.budget)}`,
+        select: BOOKS,
+        update: { set: `account_id = ${quote(books.bank)}`, rule: NOBODY },
+      },
+      {
+        // Never changed nor removed: a data rule (bank.spec.ts).
+        id: "a closed year's budget",
+        where: `id = ${quote(books.closedBudget)}`,
+        select: BOOKS,
+      },
+    ],
+    inserts: [
+      {
+        id: 'a budget line for donations',
+        sql: `INSERT INTO app.budget_lines (fiscal_year, account_id, amount_cents)
+              SELECT ${thisYear}, a.id, 30000 FROM app.ledger_accounts a WHERE a.code = '7400002'`,
+        rule: TESORERIA,
+      },
+    ],
+  },
 };
 
 const APP = 'pauseai_backoffice_app' as const;

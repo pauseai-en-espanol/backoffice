@@ -182,7 +182,8 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
   `app.redact` as the timelines are append-only. It runs only at that change, so a private note written later on a
   team record stays private.
 - **Cuentas** (M6, [ADR-0006](0006-accounting.md), D20): the books' tables (`ledger_accounts`, `counterparties`,
-  `projects`, `fiscal_years`, `journal_entries`, `journal_lines`, `receipts`) admit
+  `projects`, `fiscal_years`, `journal_entries`, `journal_lines`, `receipts`, and since step 2 `bank_statements`,
+  `bank_statement_lines` and `budget_lines`) admit
   `staff_can('admin', 'tesoreria')` to read and `staff_can('tesoreria')` to write, through the staff app alone:
   whoever records isn't the only one who sees, and an admin who needs to record holds tesorería too. No policy names
   `bot_can`. Their rules are triggers that run as the writer, under RLS (posting, numbering, reversals, closing a

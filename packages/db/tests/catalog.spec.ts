@@ -479,6 +479,9 @@ const APPEND_ONLY = [
 const PERSONAL_DATA: readonly string[] = [
   // Not personal data itself, but the credential that reads every signup (ADR-0005): marked so the log never has it.
   'airtable_sync.link_ciphertext',
+  // What the bank wrote of a movement (the books, ADR-0006): it names whoever paid or was paid.
+  'bank_statement_lines.description',
+  'bank_statement_lines.reference',
   'campaign_targets.next_action',
   'campaign_targets.notes',
   'community_presence.chat',

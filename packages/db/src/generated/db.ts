@@ -150,6 +150,53 @@ export interface AppAuditLog {
   table_name: string;
 }
 
+export interface AppBankStatementLines {
+  account_id: string;
+  amount_cents: Int8;
+  booked_on: Timestamp;
+  common_concept: string;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  /**
+   * personal data
+   */
+  description: string;
+  entry_id: string | null;
+  fingerprint: string;
+  id: Generated<string>;
+  matched_at: Timestamp | null;
+  matched_by: string | null;
+  /**
+   * personal data
+   */
+  reference: string;
+  statement_id: string;
+  value_on: Timestamp;
+}
+
+export interface AppBankStatements {
+  account_id: string;
+  closing_cents: Int8;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  ends_on: Timestamp;
+  id: Generated<string>;
+  opening_cents: Int8;
+  sha256: string;
+  starts_on: Timestamp;
+}
+
+export interface AppBudgetLines {
+  account_id: string;
+  amount_cents: Int8;
+  created_at: Generated<Timestamp>;
+  created_by: string | null;
+  fiscal_year: number;
+  id: Generated<string>;
+  updated_at: Generated<Timestamp>;
+  updated_by: string | null;
+}
+
 export interface AppCampaignAnchors {
   campaign_id: string;
   id: Generated<string>;
@@ -751,6 +798,9 @@ export interface DB {
   'app.airtable_sync': AppAirtableSync;
   'app.arrival_channels': AppArrivalChannels;
   'app.audit_log': AppAuditLog;
+  'app.bank_statement_lines': AppBankStatementLines;
+  'app.bank_statements': AppBankStatements;
+  'app.budget_lines': AppBudgetLines;
   'app.campaign_anchors': AppCampaignAnchors;
   'app.campaign_targets': AppCampaignTargets;
   'app.campaign_templates': AppCampaignTemplates;

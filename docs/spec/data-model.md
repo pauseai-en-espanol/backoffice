@@ -87,6 +87,9 @@ specified in the M1, M3 and M6 migrations (Cuentas: [accounting spec](accounting
 | `journal_entries`          | Date, concept (personal data), form, draft or posted, number in its year, what it reverses | Cuentas    |
 | `journal_lines`            | An entry's lines: account, debit or credit in cents, project                               | Cuentas    |
 | `receipts`                 | A receipt's row: entry, file name (personal data), type, size, SHA-256; bytes on a volume  | Cuentas    |
+| `bank_statements`          | An imported Norma 43 statement: treasury account, period, balances, the file's SHA-256     | Cuentas    |
+| `bank_statement_lines`     | Its lines: days, amount, the bank's text (personal data), fingerprint, the entry matched   | Cuentas    |
+| `budget_lines`             | A year's budget: an income or expense account (a group or a leaf), its amount              | Cuentas    |
 | `private.telegram_updates` | Each processed `update_id`, so redeliveries are harmless; kept a week                      | Bot        |
 | `private.telegram_dialogs` | A conversation in progress; deleted after an hour                                          | Bot        |
 | `private.telegram_posts`   | Team-group messages per person, so a claim can edit them                                   | Bot        |
@@ -226,4 +229,7 @@ privileges the bot uses (a catalog test lists them), and they hold the bot's wor
 - The books ([ADR-0006](../adr/0006-accounting.md) decision 4): a posted entry balances across two lines or more,
   never changes and is never deleted (a reversal that mirrors it corrects it, once), and takes the next number in
   its year; nothing is written dated in a closed year, and closing posts the closing and opening entries; a line
-  names an active account without sub-accounts; a posted entry's receipts stay with it.
+  names an active account without sub-accounts; a posted entry's receipts stay with it. A bank line is imported once
+  and never changes but for its match, which names a posted entry of a form, not corrected, that moves its account
+  by its amount (one line per entry and account); a matched line is never deleted. A budget line is of an income or
+  expense account, neither above nor below another of its year. Nothing dated in a closed year changes.

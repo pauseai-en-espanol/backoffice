@@ -1,0 +1,227 @@
+[
+  {
+    "name": "a statement of an account that isn't a treasury account is imported",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "WHERE a.id = NEW.account_id AND a.treasury) THEN",
+    "new": "WHERE a.id = NEW.account_id) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a statement ends before it starts",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "  CHECK (ends_on >= starts_on)\n",
+    "new": "  CHECK (true)\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a line is of another account than its statement",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "  FOREIGN KEY (statement_id, account_id) REFERENCES app.bank_statements (id, account_id) ON DELETE CASCADE,\n",
+    "new": "  FOREIGN KEY (statement_id) REFERENCES app.bank_statements (id) ON DELETE CASCADE,\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a line of nothing is imported",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "CHECK (amount_cents <> 0 AND abs(amount_cents) <= 99999999999)",
+    "new": "CHECK (abs(amount_cents) <= 99999999999)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a line is imported twice",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "  UNIQUE (account_id, fingerprint),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "what the bank said of a line changes",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "    IF TG_OP = 'UPDATE'\n       AND (NEW.statement_id,",
+    "new": "    IF false\n       AND (NEW.statement_id,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a matched line is deleted",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "IF TG_OP = 'DELETE' AND OLD.entry_id IS NOT NULL THEN",
+    "new": "IF false THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a line dated in a closed year is written",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "WHERE y.year = extract(year FROM day)::integer AND y.status = 'closed') THEN",
+    "new": "WHERE y.year = extract(year FROM day)::integer AND false) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a draft is matched",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "AND e.status = 'posted' AND e.kind IN",
+    "new": "AND e.kind IN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a reversal or the opening entry is matched",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "AND e.status = 'posted' AND e.kind IN ('income', 'expense', 'transfer', 'manual')",
+    "new": "AND e.status = 'posted'",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a corrected entry is matched",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "\n       AND NOT EXISTS (SELECT 1 FROM app.journal_entries r WHERE r.reverses = e.id);",
+    "new": ";",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a match counts every account the entry moves",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "WHERE e.id = NEW.entry_id AND l.account_id = NEW.account_id",
+    "new": "WHERE e.id = NEW.entry_id",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a match of another amount",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "IF moved IS DISTINCT FROM NEW.amount_cents THEN",
+    "new": "IF moved IS NULL THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an entry matches two lines of an account",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "  UNIQUE (account_id, entry_id),\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "who matched a line is set by anyone",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "      NEW.matched_by := OLD.matched_by;\n      NEW.matched_at := OLD.matched_at;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a match undone keeps who made it",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "      NEW.matched_by := NULL;\n      NEW.matched_at := NULL;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an admin imports a statement",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "CREATE POLICY tesoreria_insert ON app.bank_statements FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('tesoreria')));",
+    "new": "CREATE POLICY tesoreria_insert ON app.bank_statements FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an admin matches a line",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "CREATE POLICY tesoreria_update ON app.bank_statement_lines FOR UPDATE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('tesoreria')))\n  WITH CHECK ((SELECT private.staff_can('tesoreria')));",
+    "new": "CREATE POLICY tesoreria_update ON app.bank_statement_lines FOR UPDATE TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'tesoreria')))\n  WITH CHECK ((SELECT private.staff_can('admin', 'tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "the bot reads the bank",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "CREATE POLICY books_read ON app.bank_statement_lines FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'tesoreria')));",
+    "new": "CREATE POLICY books_read ON app.bank_statement_lines FOR SELECT TO pauseai_backoffice_app\n  USING ((SELECT private.staff_can('admin', 'tesoreria')) OR (SELECT private.bot_can('tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a statement's lines are deleted one by one",
+    "file": "db/migrations/20261030160000_bank_statements.sql",
+    "old": "  UPDATE (entry_id)\n  ON app.bank_statement_lines",
+    "new": "  UPDATE (entry_id), DELETE\n  ON app.bank_statement_lines",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db",
+    "equivalent": "the lines have no DELETE policy, so RLS refuses every row the grant would let through (the matrix's no-rows denial either way); they go only with their statement"
+  },
+  {
+    "name": "a budget line of an asset or equity account",
+    "file": "db/migrations/20261030160100_budgets.sql",
+    "old": "WHERE a.id = NEW.account_id AND a.kind IN ('income', 'expense')) THEN",
+    "new": "WHERE a.id = NEW.account_id) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a budget line of nothing or less",
+    "file": "db/migrations/20261030160100_budgets.sql",
+    "old": "CHECK (amount_cents BETWEEN 1 AND 99999999999)",
+    "new": "CHECK (amount_cents BETWEEN -99999999999 AND 99999999999)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a budget line under a budgeted group",
+    "file": "db/migrations/20261030160100_budgets.sql",
+    "old": "AND (a.code IN (SELECT above.code FROM above) OR a.code IN (SELECT below.code FROM below))",
+    "new": "AND (a.code IN (SELECT below.code FROM below))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a budgeted group over budgeted lines",
+    "file": "db/migrations/20261030160100_budgets.sql",
+    "old": "AND (a.code IN (SELECT above.code FROM above) OR a.code IN (SELECT below.code FROM below))",
+    "new": "AND (a.code IN (SELECT above.code FROM above))",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a closed year's budget changes",
+    "file": "db/migrations/20261030160100_budgets.sql",
+    "old": "WHERE y.year = ANY (years) AND y.status = 'closed') THEN",
+    "new": "WHERE y.year = ANY (years) AND false) THEN",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "two budget lines at once both pass",
+    "file": "db/migrations/20261030160100_budgets.sql",
+    "old": "    PERFORM 1 FROM app.fiscal_years y WHERE y.year = NEW.fiscal_year FOR UPDATE;\n",
+    "new": "",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "an admin sets the budget",
+    "file": "db/migrations/20261030160100_budgets.sql",
+    "old": "CREATE POLICY tesoreria_insert ON app.budget_lines FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('tesoreria')));",
+    "new": "CREATE POLICY tesoreria_insert ON app.budget_lines FOR INSERT TO pauseai_backoffice_app\n  WITH CHECK ((SELECT private.staff_can('admin', 'tesoreria')));",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a budget line moves to another account",
+    "file": "db/migrations/20261030160100_budgets.sql",
+    "old": "UPDATE (amount_cents), DELETE\n  ON app.budget_lines",
+    "new": "UPDATE (account_id, amount_cents), DELETE\n  ON app.budget_lines",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/bank.spec.ts tests/rls/matrix.spec.ts tests/catalog.spec.ts",
+    "cwd": "packages/db"
+  }
+]

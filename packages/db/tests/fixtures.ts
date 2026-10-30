@@ -128,6 +128,18 @@ export const ACCOUNTING = {
   postedLine: '0190f8c4-0000-7000-8000-0000000006e2',
   receipt: '0190f8c4-0000-7000-8000-0000000006f1',
   draftReceipt: '0190f8c4-0000-7000-8000-0000000006f2',
+  /** The bank's statement of the closed year: its one line matched to the closed year's donation. */
+  closedStatement: '0190f8c4-0000-7000-8000-0000000006a2',
+  closedLine: '0190f8c4-0000-7000-8000-0000000006a3',
+  /** This year's first statement: its one line, the posted income, matched to it. */
+  statement: '0190f8c4-0000-7000-8000-0000000006a4',
+  matchedLine: '0190f8c4-0000-7000-8000-0000000006a5',
+  /** This year's second statement: its one line, the draft expense's 12,50 €, not matched yet. */
+  openStatement: '0190f8c4-0000-7000-8000-0000000006a6',
+  openLine: '0190f8c4-0000-7000-8000-0000000006a7',
+  /** The budget: the closed year's for 74 (income), this year's for 62 (expenses). */
+  closedBudget: '0190f8c4-0000-7000-8000-0000000006a8',
+  budget: '0190f8c4-0000-7000-8000-0000000006a9',
 } as const;
 
 /** A fictional IBAN (the bank and branch codes are zeros) whose check digits are right. */
@@ -359,6 +371,34 @@ const loadAccounting = async (client: pg.Client): Promise<void> => {
     }
   };
 
+  /** A bank statement of the bank account with one line, as [id, day, cents, description]; matched to `entry`. */
+  const statement = async (
+    id: string,
+    startsOn: string,
+    endsOn: string,
+    [opening, closing]: readonly [number, number],
+    [lineId, day, cents, description]: readonly [string, string, number, string],
+    entry?: string,
+  ): Promise<void> => {
+    await client.query(
+      `INSERT INTO app.bank_statements (id, account_id, sha256, starts_on, ends_on, opening_cents, closing_cents)
+       VALUES ($1, $2, $3, ${startsOn}, ${endsOn}, $4, $5)`,
+      [id, A.bank, createHash('sha256').update(id).digest('hex'), opening, closing],
+    );
+    await client.query(
+      `INSERT INTO app.bank_statement_lines (id, statement_id, account_id, booked_on, value_on, common_concept,
+                                             amount_cents, description, reference, fingerprint)
+       VALUES ($1, $2, $3, ${day}, ${day}, '04', $4, $5, '', $6)`,
+      [lineId, id, A.bank, cents, description, createHash('sha256').update(lineId).digest('hex')],
+    );
+    if (entry) {
+      await client.query('UPDATE app.bank_statement_lines SET entry_id = $1 WHERE id = $2', [
+        entry,
+        lineId,
+      ]);
+    }
+  };
+
   await client.query(
     `INSERT INTO app.ledger_accounts (id, code, name, kind, parent_code, treasury, iban)
      VALUES ($1, '5720001', 'Cuenta de ejemplo', 'asset', '572', true, $2)`,
@@ -381,6 +421,24 @@ const loadAccounting = async (client: pg.Client): Promise<void> => {
     ['5720001', 5000, 0],
     ['7400002', 0, 5000],
   ]);
+  await statement(
+    A.closedStatement,
+    `make_date(${thisYear} - 2, 6, 1)`,
+    `make_date(${thisYear} - 2, 6, 30)`,
+    [0, 5000],
+    [
+      A.closedLine,
+      `make_date(${thisYear} - 2, 6, 15)`,
+      5000,
+      'TRANSFERENCIA DE PERSONA DONANTE DE EJEMPLO',
+    ],
+    A.closedEntry,
+  );
+  await client.query(
+    `INSERT INTO app.budget_lines (id, fiscal_year, account_id, amount_cents)
+     SELECT $1, ${thisYear} - 2, a.id, 10000 FROM app.ledger_accounts a WHERE a.code = '74'`,
+    [A.closedBudget],
+  );
   // Closing it opens last year, with the bank's balance carried forward.
   await client.query(
     `UPDATE app.fiscal_years SET status = 'closed', assembly_on = current_date WHERE year = ${thisYear} - 2`,
@@ -418,6 +476,31 @@ const loadAccounting = async (client: pg.Client): Promise<void> => {
       ['7400002', 0, 2000],
     ],
     { counterparty: A.donor, project: A.project },
+  );
+  await statement(
+    A.statement,
+    `make_date(${thisYear}, 1, 1)`,
+    `make_date(${thisYear}, 1, 3)`,
+    [5000, 7000],
+    [
+      A.matchedLine,
+      `make_date(${thisYear}, 1, 3)`,
+      2000,
+      'TRANSFERENCIA DE PERSONA DONANTE DE EJEMPLO',
+    ],
+    A.posted,
+  );
+  await statement(
+    A.openStatement,
+    `make_date(${thisYear}, 1, 4)`,
+    `make_date(${thisYear}, 1, 4)`,
+    [7000, 5750],
+    [A.openLine, `make_date(${thisYear}, 1, 4)`, -1250, 'RECIBO SUMINISTRO DE EJEMPLO'],
+  );
+  await client.query(
+    `INSERT INTO app.budget_lines (id, fiscal_year, account_id, amount_cents)
+     SELECT $1, ${thisYear}, a.id, 50000 FROM app.ledger_accounts a WHERE a.code = '62'`,
+    [A.budget],
   );
   await client.query(
     `INSERT INTO app.receipts (id, entry_id, file_name, content_type, byte_size, sha256)
