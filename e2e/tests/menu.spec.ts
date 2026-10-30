@@ -45,14 +45,22 @@ test('an admin sees every group, Registro included, all of it on a laptop’s sc
   await signedInStaff(page, ['admin']);
   await page.goto('/equipo');
   const menu = page.getByRole('navigation', { name: 'Secciones' });
-  for (const group of ['Onboarding', 'Relaciones externas', 'Equipo']) {
+  for (const group of ['Onboarding', 'Relaciones externas', 'Cuentas', 'Equipo']) {
     await expect(menu.getByRole('list', { name: group })).toBeVisible();
   }
+  // Admins read the books; Nuevo movimiento is tesorería's (ADR-0006).
+  await expect(menu.getByRole('list', { name: 'Cuentas' }).getByRole('link')).toHaveText([
+    'Movimientos',
+    'Informes',
+    'Plan de cuentas',
+    'Ejercicios',
+  ]);
   await expect(menu.getByRole('list', { name: 'Equipo' }).getByRole('link')).toHaveText([
     'Equipo',
     'Registro',
   ]);
-  // The longest menu there is (every group, Censo too) fits 1280×720 without scrolling, Ajustes and Salir included.
+  // The longest menu there is (every group, Censo and Cuentas too) fits 1280×720 without scrolling, Ajustes and Salir
+  // included (PLAN R48, R94).
   expect(page.viewportSize()).toEqual({ width: 1280, height: 720 });
   await expect(menu.getByRole('link', { name: 'Ajustes' })).toBeInViewport({ ratio: 1 });
   await expect(menu.getByRole('button', { name: 'Salir' })).toBeInViewport({ ratio: 1 });

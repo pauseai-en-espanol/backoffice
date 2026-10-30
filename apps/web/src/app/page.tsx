@@ -6,6 +6,7 @@ import Link from 'next/link';
 import type { ClaimText } from '@/onboarding/ClaimButton';
 import type { PersonSummary } from '@/onboarding/types';
 
+import { canReadBooks } from '@/accounting/text';
 import { isUnavailable } from '@/data';
 import { ClaimButton } from '@/onboarding/ClaimButton';
 import { getToday } from '@/onboarding/data';
@@ -46,6 +47,13 @@ const Today = async () => {
             <li>
               <Link className={styles.link} href="/siguiente">
                 {t('web.home.toNext')}
+              </Link>
+            </li>
+          ) : null}
+          {canReadBooks(me) ? (
+            <li>
+              <Link className={styles.link} href="/cuentas">
+                {t('web.home.toBooks')}
               </Link>
             </li>
           ) : null}

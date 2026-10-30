@@ -22,6 +22,7 @@ const t = getTranslator();
 const GROUP_LABELS = {
   onboarding: 'web.nav.groupOnboarding',
   outreach: 'web.nav.groupOutreach',
+  books: 'web.nav.groupBooks',
   team: 'web.nav.groupTeam',
 } as const satisfies Record<NavGroup['id'], string>;
 

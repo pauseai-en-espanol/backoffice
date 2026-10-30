@@ -9,6 +9,7 @@ export const roleNames = (t: Translator): Record<StaffRole, string> => ({
   admin: t('roles.admin'),
   onboarding: t('roles.onboarding'),
   outreach: t('roles.outreach'),
+  tesoreria: t('roles.tesoreria'),
 });
 
 /** What each role may do, under its checkbox. */
@@ -16,6 +17,7 @@ export const roleHelp = (t: Translator): Record<StaffRole, string> => ({
   admin: t('team.roleHelp.admin'),
   onboarding: t('team.roleHelp.onboarding'),
   outreach: t('team.roleHelp.outreach'),
+  tesoreria: t('team.roleHelp.tesoreria'),
 });
 
 /**

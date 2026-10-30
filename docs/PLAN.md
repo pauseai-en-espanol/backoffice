@@ -829,6 +829,11 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   audit log asks before it opens; exports and the rights lookup link through it; adding a passkey too, which no longer
   uses Better Auth's own "fresh" (that counted from sign-in only). What was typed in a form is lost on the way (the
   invitation's address, say). Mutation list `step-up`.
+- **R94. The sidebar with Cuentas** (M6, step 4; to see in the demo). An admin's menu gained the Cuentas group (its name
+  and four sections), 109px past what a 1280×720 screen shows with Ajustes and Salir (R48). Options: rows of 24px, WCAG
+  2.2 AA's target size, with groups closer; a menu that scrolls for the longest; fewer sections (the brief named
+  five). **Chose 24px rows on a computer, 4px between groups;** a phone's rows stay 44px. The menu's end-to-end test
+  checks it fits, the Cuentas group included.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

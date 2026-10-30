@@ -26,8 +26,32 @@ describe('the menu in groups by role (PLAN M5)', () => {
         ],
       },
       { id: 'outreach', hrefs: ['/siguiente', '/campanas', '/contactos', '/organizaciones'] },
+      // Admins read the books, and record nothing in them unless they hold Tesorería too (ADR-0006).
+      {
+        id: 'books',
+        hrefs: ['/cuentas', '/cuentas/informes', '/cuentas/plan', '/cuentas/ejercicios'],
+      },
       { id: 'team', hrefs: ['/equipo', '/registro'] },
     ]);
+  });
+
+  it('gives tesorería Cuentas, Nuevo movimiento included, and Equipo, nothing else', () => {
+    expect(groups(['tesoreria'])).toEqual([
+      {
+        id: 'books',
+        hrefs: [
+          '/cuentas',
+          '/cuentas/nuevo',
+          '/cuentas/informes',
+          '/cuentas/plan',
+          '/cuentas/ejercicios',
+        ],
+      },
+      { id: 'team', hrefs: ['/equipo'] },
+    ]);
+    expect(groups(['admin', 'tesoreria']).find((group) => group.id === 'books')?.hrefs).toContain(
+      '/cuentas/nuevo',
+    );
   });
 
   it('gives onboarding staff Onboarding and Equipo, without Relaciones externas or Registro', () => {

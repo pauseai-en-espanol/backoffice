@@ -68,13 +68,13 @@ export const nav = css({
 
 /**
  * The sections' groups: on a phone they open under the menu's button (NavMenu), one section a line; on a computer they
- * are always shown, and stay in view as the page scrolls, tighter: the longest menu (an admin's, Censo included) fits
- * a 1280×720 screen, Ajustes and Salir too (e2e menu.spec.ts).
+ * are always shown, and stay in view as the page scrolls, tighter: the longest menu (an admin's, Censo and Cuentas
+ * included) fits a 1280×720 screen, Ajustes and Salir too (e2e menu.spec.ts; PLAN R48, R94).
  */
 export const navPanel = css({
   display: { base: 'none', lg: 'flex' },
   flexDirection: 'column',
-  gap: { base: '5', lg: '3' },
+  gap: { base: '5', lg: '1' },
   paddingBlock: { base: '2', lg: '3' },
   '&[data-open="true"]': { display: 'flex' },
   lg: { position: 'sticky', insetBlockStart: '0', maxHeight: '100vh', overflowY: 'auto' },
@@ -120,7 +120,8 @@ export const navLink = css({
   width: '100%',
   alignItems: 'center',
   gap: '2.5',
-  minHeight: { base: '11', lg: '7' },
+  // A phone's 44px for a finger; a computer's 24px, WCAG 2.2 AA's target size, so an admin's menu fits (PLAN R94).
+  minHeight: { base: '11', lg: '6' },
   paddingInline: '3',
   color: 'fg.default',
   textAlign: 'start',
