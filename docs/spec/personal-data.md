@@ -104,6 +104,19 @@ Decided (Dani, 2026-10-16): **no automatic erasure.** A person's data stays unti
 (`private.anonymise_person`), on their request (art. 17) or when the association decides. The privacy notice has to
 say how long data is kept, or the criteria for it (art. 13.2.a): that wording is the association's.
 
+## 9a. Accounting records (M6)
+
+The books ([ADR-0006](../adr/0006-accounting.md)) hold who money came from or went to (names, and optionally a
+tax ID and an IBAN) and receipts that may name people. The association has to keep them: accounts and their
+supporting documents for at least as long as tax law can review them (four years, Ley General Tributaria art. 66),
+and six as the usual practice (Código de Comercio art. 30), which the association's notice should say. So:
+
+- Erasing a person (`private.anonymise_person`) never reaches the books: they are a separate record, never linked to
+  `app.people`, and erasure's art. 17(3)(b) exception covers what a legal obligation requires to keep.
+- A request to access one's data covers counterparties and receipts too; admins can read them.
+- Once a closed year is past the retention the association sets, an admin may anonymise its counterparties (a
+  definer function, added with the first year that gets there).
+
 ## 10. Processors
 
 Everything else runs on our own cluster, in the EU. No third-party analytics in the staff app. Sending personal

@@ -35,6 +35,7 @@ Each spec is reviewed by Dani before the milestone that builds it starts:
 | [Onboarding](spec/onboarding.md)       | M1                              | Drafted from the specification                    |
 | [Personal data](spec/personal-data.md) | M2                              | Drafted; D9 and D12 decided; the notice is Dani's |
 | [Outreach](spec/outreach.md)           | M3                              | Drafted from the specification                    |
+| [Accounting](spec/accounting.md)       | M6                              | Drafted 2026-10-30 with ADR-0006; awaits review   |
 
 ## Milestones
 
@@ -201,27 +202,44 @@ What Dani found using the deployed backoffice (2026-10-16), in the order he agre
    Choices in R39 to R42. **Done:** migrations `20261016160000` to `160200` (the table; attempts and census links
    naming their message); mutation list `message-templates`.
 
+### M6: Cuentas
+
+The association's books (D20, [ADR-0006](adr/0006-accounting.md), [accounting spec](spec/accounting.md)). Starts
+once Dani has reviewed the ADR and the spec.
+
+**Ships**, in the spec's steps:
+
+1. **The books:** the `tesoreria` role; the chart, seeded from the small non-profits' plan; the bank account; the
+   first year, opened at zero; Ingreso, Gasto, Traspaso and Asiento manual; receipts on the API's volume, encrypted
+   (D21); posting, numbering and Corregir; projects; the journal, the ledger, income and expenses, the balance sheet
+   and the income statement, with their CSV exports; closing a year after the assembly. The gitops side (the volume,
+   `RECEIPTS_KEY`, both in the backup plan) is Dani's, prepared on a local branch.
+2. **The bank:** statements imported with a dry run and matched to entries; a budget per year.
+3. **Later, when needed:** reimbursements asked for from the staff app; member fees; donation certificates.
+
 ## Decided
 
-| ID      | Decision                                                                                                                                                             | By               |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **D1**  | WhatsApp joins and leaves are reported to a Telegram bot by whoever sees them. No WhatsApp integration for now                                                       | Dani, 2026-10-15 |
-| **D2**  | Airtable is read through Global's shared view link, kept as configuration (a sealed secret) ([ADR-0005](adr/0005-airtable-intake.md))                                | Dani, 2026-10-15 |
-| **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                                               | Dani, 2026-10-15 |
-| **D4**  | The staff UI is on the public gateway with mandatory two-factor (no VPN)                                                                                             | Dani, 2026-10-15 |
-| **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                                                         | Dani, 2026-10-16 |
-| **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                                                  | Dani, 2026-10-16 |
-| **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                                                          | Dani, 2026-10-15 |
-| **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                                                            | Dani, 2026-10-16 |
-| **D13** | The Telegram bot is the onboarding team's alone: only staff with the onboarding role link and use it, not an admin without it; losing the role unlinks (ADR-0004)    | Dani, 2026-10-16 |
-| **D14** | The staff app and the bot say "onboarding", not "acogida"; the board by stage is the "Onboarding Pipeline", at `/pipeline`                                           | Dani, 2026-10-16 |
-| **D15** | The WhatsApp messages newcomers receive are written by the team in the staff app (Mensajes), not in code; the code keeps a neutral fallback (PLAN M5)                | Dani, 2026-10-16 |
-| **D16** | The WhatsApp group's history comes in with those who left, as Baja, to keep who was in the community and when (R56)                                                  | Dani, 2026-10-18 |
-| **D17** | One sign-up day, "Fecha de alta", whatever the way in; one way in, "Canal de alta", which "Entró por" and "Llegó por" merge into (R58)                               | Dani, 2026-10-18 |
-| **D18** | Each onboarder writes their own messages in Mensajes, which only they see and are offered first; the team's are written by admins (R71)                              | Dani, 2026-10-21 |
-| **D19** | The community is Spain's, Spaniards abroad, Latin America's and Latin Americans abroad; a person has a country where they live, and may say where they're from (R74) | Dani, 2026-10-22 |
-| —       | Backups are handled in gitops, separately from this plan                                                                                                             | Dani, 2026-10-15 |
-| —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                                | Dani, 2026-10-15 |
+| ID      | Decision                                                                                                                                                                                          | By               |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **D1**  | WhatsApp joins and leaves are reported to a Telegram bot by whoever sees them. No WhatsApp integration for now                                                                                    | Dani, 2026-10-15 |
+| **D2**  | Airtable is read through Global's shared view link, kept as configuration (a sealed secret) ([ADR-0005](adr/0005-airtable-intake.md))                                                             | Dani, 2026-10-15 |
+| **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                                                                            | Dani, 2026-10-15 |
+| **D4**  | The staff UI is on the public gateway with mandatory two-factor (no VPN)                                                                                                                          | Dani, 2026-10-15 |
+| **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                                                                                      | Dani, 2026-10-16 |
+| **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                                                                               | Dani, 2026-10-16 |
+| **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                                                                                       | Dani, 2026-10-15 |
+| **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                                                                                         | Dani, 2026-10-16 |
+| **D13** | The Telegram bot is the onboarding team's alone: only staff with the onboarding role link and use it, not an admin without it; losing the role unlinks (ADR-0004)                                 | Dani, 2026-10-16 |
+| **D14** | The staff app and the bot say "onboarding", not "acogida"; the board by stage is the "Onboarding Pipeline", at `/pipeline`                                                                        | Dani, 2026-10-16 |
+| **D15** | The WhatsApp messages newcomers receive are written by the team in the staff app (Mensajes), not in code; the code keeps a neutral fallback (PLAN M5)                                             | Dani, 2026-10-16 |
+| **D16** | The WhatsApp group's history comes in with those who left, as Baja, to keep who was in the community and when (R56)                                                                               | Dani, 2026-10-18 |
+| **D17** | One sign-up day, "Fecha de alta", whatever the way in; one way in, "Canal de alta", which "Entró por" and "Llegó por" merge into (R58)                                                            | Dani, 2026-10-18 |
+| **D18** | Each onboarder writes their own messages in Mensajes, which only they see and are offered first; the team's are written by admins (R71)                                                           | Dani, 2026-10-21 |
+| **D19** | The community is Spain's, Spaniards abroad, Latin America's and Latin Americans abroad; a person has a country where they live, and may say where they're from (R74)                              | Dani, 2026-10-22 |
+| **D20** | The association's accounts come into scope, from the first movement: a `tesoreria` role records, admins read ("follow best practices"); no history to import ([ADR-0006](adr/0006-accounting.md)) | Dani, 2026-10-30 |
+| **D21** | Receipts are stored on a persistent volume mounted in the API, not in Postgres                                                                                                                    | Dani, 2026-10-30 |
+| —       | Backups are handled in gitops, separately from this plan                                                                                                                                          | Dani, 2026-10-15 |
+| —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                                                             | Dani, 2026-10-15 |
 
 ## Open decisions
 

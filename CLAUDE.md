@@ -4,9 +4,9 @@ PauseAI España's backoffice: the onboarding and outreach pipelines, for a singl
 
 - Scope and constraints: `docs/BRIEF.md` (source of truth)
 - Decisions: `docs/adr/` (0001 hosting, 0002 authorization and data protection, 0003 stack, 0004 Telegram bot,
-  0005 Airtable intake)
-- Milestones, decisions taken and open: `docs/PLAN.md` · Specs (onboarding, outreach, data model, personal data):
-  `docs/spec/`
+  0005 Airtable intake, 0006 accounting)
+- Milestones, decisions taken and open: `docs/PLAN.md` · Specs (onboarding, outreach, accounting, data model,
+  personal data): `docs/spec/`
 - Operations: `docs/runbooks/` (first admin, lost authenticator, deploying)
 - Turborepo's own guidance for agents: `AGENTS.md`
 

@@ -2,7 +2,7 @@
 
 - **Status:** Source of truth for scope and constraints. Split from the reviewed specification draft (v3) of
   2026-10-15. Decisions are in [adr/](adr/), milestones and open decisions in [PLAN.md](PLAN.md), and the details
-  in [spec/](spec/).
+  in [spec/](spec/). **Amended 2026-10-30:** the association's accounts come into scope (D20, G7).
 - **Date:** 2026-10-15
 - **Owner:** Dani, who leads onboarding for Spain. Drafted by Claude.
 - **Operator and data controller:** PauseAI España (Asociación Pausemos La IA).
@@ -27,6 +27,8 @@
 3. **Outreach to relevant people has no pipeline.** The `outreach` repo has a campaign CLI (ingest → curate →
    render → track, one CSV per campaign), but no shared view of who to contact, who owns them, or where each
    relationship stands.
+4. **The association's money has no books** (2026-10-30). It has a bank account and expects funding from PauseAI
+   Global, then donations; the law and its statutes require accounts the assembly approves every year.
 
 ## 2. Goals and non-goals
 
@@ -43,6 +45,8 @@
   retention and erasure, EU hosting.
 - **G6. Extensible by Claude Code.** The same conventions as an earlier project of Dani's, so new modules follow
   known patterns.
+- **G7. The association's books** (D20): every movement recorded with its proof from the first one, and the
+  reports the assembly approves at the end of each year ([ADR-0006](adr/0006-accounting.md)).
 
 ### Non-goals (v1)
 
@@ -55,7 +59,8 @@
 - **Not a task manager.** Vikunja (`vikunja-pauseai`) keeps general tasks. The backoffice only tracks the next
   action on a person.
 - **No writing back to Global's Airtable.** We read from it.
-- **No events, donations or finances.**
+- **No events or fundraising, and the app never moves money.** It keeps the books (G7), but makes no payment,
+  has no donation page and no access to the bank beyond the statements someone imports.
 
 ### What success looks like
 
@@ -73,10 +78,13 @@
 | Role (UI)    | Who                                                       | Can                                                                                 |
 | ------------ | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `admin`      | Dani, plus one more person so access never depends on one | Everything, plus staff accounts, settings, imports, exports, erasure, the audit log |
+| `tesoreria`  | The treasurer, once there is one                          | Read and write the books: movements, receipts, the chart, closing a year            |
 | `onboarding` | The onboarding volunteers and the community's admins      | Read and write people, the pipeline, intake, imports and the census; use the bot    |
 | `outreach`   | The outreach team                                         | Read and write organisations, contacts and campaigns                                |
 
 - Roles combine: one staff account can hold several.
+- Admins read the books but don't record in them: whoever records isn't the only one who sees
+  ([ADR-0006](adr/0006-accounting.md)). An admin who records holds `tesoreria` too.
 - **Staff accounts are invite-only.** There is no sign-up.
 - Each staff member links their Telegram account to use the bot ([ADR-0004](adr/0004-telegram-bot.md)).
 - A staff account can be linked to that volunteer's own person record (staff are members too), but the two are
@@ -96,6 +104,8 @@
   (D1).
 - **A person always sends.** Nothing in the app sends WhatsApp messages or outreach email by itself; it prepares
   them and a person sends them (D8).
+- **The app never moves money.** It records what the bank did; payments are made at the bank, by the people the
+  statutes empower.
 - **We only read from Global.** Global's Airtable is read through the shared view link, which is configuration
   and a credential ([ADR-0005](adr/0005-airtable-intake.md)).
 - **No hardcoded names, domains or dates.** The product name, hostnames, bot name and sender address come from
@@ -116,10 +126,11 @@ In priority order:
 3. **Linked Telegram accounts, the bot token and the webhook secret**, since through them someone can act as a
    staff member within the bot's limits.
 4. **The Airtable shared view link**, which reads every Spain signup.
-5. **Outreach notes.** They are not secret, but they would be embarrassing if leaked.
+5. **The books:** who gave money and who was paid, their tax IDs and IBANs, and the receipts.
+6. **Outreach notes.** They are not secret, but they would be embarrassing if leaked.
 
 How each is protected is in [ADR-0002](adr/0002-authorization-and-data-protection.md),
-[ADR-0004](adr/0004-telegram-bot.md) and [ADR-0005](adr/0005-airtable-intake.md).
+[ADR-0004](adr/0004-telegram-bot.md), [ADR-0005](adr/0005-airtable-intake.md) and [ADR-0006](adr/0006-accounting.md).
 
 ## 6. Scope by milestone
 
@@ -133,6 +144,7 @@ that fixes the immediate problem. What each milestone ships is in [PLAN.md](PLAN
 | **M2 Census**            | Public forms app, census form (generic link and personal links), WhatsApp handover links, skills, interests and teams, consent                                                             |
 | **M3 Outreach**          | Organisations, contacts, campaigns, templates, the outreach queue and handover; import from the `outreach` repo                                                                            |
 | **M4 Tools and insight** | Funnel metrics, no MCP server for now (D10) and no retention automation (D9)                                                                                                               |
+| **M6 Cuentas**           | The books: the chart, Ingreso / Gasto / Traspaso, receipts, posting and corrections, reports, closing a year; then bank statements                                                         |
 
 Backups are Dani's, in gitops, separately from this plan ([personal data spec](spec/personal-data.md#11-backups)).
 
