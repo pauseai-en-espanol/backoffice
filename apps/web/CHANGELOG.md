@@ -1,5 +1,21 @@
 # @backoffice/web
 
+## 0.18.0
+
+### Minor Changes
+
+- dc268fc: Banco and Presupuesto in Cuentas (ADR-0006, M6 step 2), reached from Movimientos: tesorería imports the bank's Norma
+  43 statement after reviewing what it would bring, matches each line to a suggested entry or one by its number, or
+  writes it with "Anotar", posted and matched at once, and sees whether the bank and the books agree; sets a budget per
+  year by account and sees what was posted against it. Admins read both. An entry's page shows its bank line.
+
+### Patch Changes
+
+- Updated dependencies [dc268fc]
+- Updated dependencies [48fb433]
+  - @backoffice/i18n@0.18.0
+  - @backoffice/domain@0.7.0
+
 ## 0.17.0
 
 ### Minor Changes
