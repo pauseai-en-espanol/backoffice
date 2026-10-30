@@ -11,12 +11,12 @@ backoffice-migrations:
 backoffice-api:
   nameOverride: api
   image:
-    tag: '0.14.0.5fed4c3'
+    tag: '0.14.1.b6e70b9'
 backoffice-web:
   nameOverride: web
   image:
-    tag: '0.18.0.5fed4c3'
+    tag: '0.19.0.b6e70b9'
 backoffice-forms:
   nameOverride: forms
   image:
-    tag: '0.1.28.5fed4c3'
+    tag: '0.1.29.b6e70b9'
