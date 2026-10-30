@@ -1,5 +1,34 @@
 # @backoffice/web
 
+## 0.17.0
+
+### Minor Changes
+
+- fbeba1b: Cuentas in the staff app (ADR-0006, M6 step 4), for tesorería and admins: Movimientos (a year's entries, filtered and
+  searched), Nuevo movimiento (Ingreso, Gasto, Traspaso or Asiento manual, a draft or posted at once; also a draft
+  edited, and the new entry after Corregir), an entry's page (its lines, receipts, posting, Corregir), Informes (the
+  journal, a ledger, income and expenses, the balance sheet, a project's report, each exported as CSV), Plan de cuentas
+  (the chart, counterparties and projects) and Ejercicios (open the next, close one after its assembly). Admins read;
+  only tesorería records. Equipo grants Tesorería. On a computer the menu's rows are 24px, so an admin's still fits.
+- 70a43ac: The books' database (ADR-0006, M6 step 1): a Tesorería role, which Equipo can grant; the chart of accounts seeded
+  from the small non-profits' plan; counterparties, projects, fiscal years, journal entries and their lines, and
+  receipts' rows, which tesorería writes and admins read, with nothing for the bot. Posted entries balance, never
+  change, are numbered in their year without gaps and are reversed at most once; closed years refuse writes, and
+  closing one posts its closing entry and the next year's opening entry.
+
+### Patch Changes
+
+- 0b1bce8: The books' API (ADR-0006, M6 step 2): years, the chart, counterparties and projects; Ingreso, Gasto, Traspaso and
+  Asiento manual, saved as drafts or posted, with amounts and days written the Spanish way (`1.234,56`, `30/10/2026`);
+  Corregir; the journal, the ledger, income and expenses, the balance sheet and a project's report, each exportable as
+  CSV. Closing a year and the exports want a second factor of the last 12 hours, and every export is recorded.
+- Updated dependencies [fbeba1b]
+- Updated dependencies [778ba2f]
+- Updated dependencies [0b1bce8]
+- Updated dependencies [70a43ac]
+  - @backoffice/i18n@0.17.0
+  - @backoffice/domain@0.6.0
+
 ## 0.16.0
 
 ### Minor Changes

@@ -1,5 +1,20 @@
 # @backoffice/forms
 
+## 0.1.27
+
+### Patch Changes
+
+- 0b1bce8: The books' API (ADR-0006, M6 step 2): years, the chart, counterparties and projects; Ingreso, Gasto, Traspaso and
+  Asiento manual, saved as drafts or posted, with amounts and days written the Spanish way (`1.234,56`, `30/10/2026`);
+  Corregir; the journal, the ledger, income and expenses, the balance sheet and a project's report, each exportable as
+  CSV. Closing a year and the exports want a second factor of the last 12 hours, and every export is recorded.
+- Updated dependencies [fbeba1b]
+- Updated dependencies [778ba2f]
+- Updated dependencies [0b1bce8]
+- Updated dependencies [70a43ac]
+  - @backoffice/i18n@0.17.0
+  - @backoffice/domain@0.6.0
+
 ## 0.1.26
 
 ### Patch Changes

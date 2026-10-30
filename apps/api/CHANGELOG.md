@@ -1,5 +1,35 @@
 # @backoffice/api
 
+## 0.13.0
+
+### Minor Changes
+
+- 778ba2f: Receipts on the API's volume (ADR-0006 decision 7, M6 step 3): tesorería attaches a PDF or a photo to an entry, 10 MB
+  at most, recognised by its first bytes; it is stored encrypted with RECEIPTS_KEY, named by its id, before its row is
+  written; tesorería and admins download it, as an attachment, sandboxed. A posted entry's receipts stay with it; a
+  draft's go with their files. As the API starts, files without a row are set aside and those whose row came back are
+  put back. The chart's `receipts` values add the volume and the Recreate strategy; scripts/seal-receipts-key.sh seals
+  the key.
+- 0b1bce8: The books' API (ADR-0006, M6 step 2): years, the chart, counterparties and projects; Ingreso, Gasto, Traspaso and
+  Asiento manual, saved as drafts or posted, with amounts and days written the Spanish way (`1.234,56`, `30/10/2026`);
+  Corregir; the journal, the ledger, income and expenses, the balance sheet and a project's report, each exportable as
+  CSV. Closing a year and the exports want a second factor of the last 12 hours, and every export is recorded.
+- 70a43ac: The books' database (ADR-0006, M6 step 1): a Tesorería role, which Equipo can grant; the chart of accounts seeded
+  from the small non-profits' plan; counterparties, projects, fiscal years, journal entries and their lines, and
+  receipts' rows, which tesorería writes and admins read, with nothing for the bot. Posted entries balance, never
+  change, are numbered in their year without gaps and are reversed at most once; closed years refuse writes, and
+  closing one posts its closing entry and the next year's opening entry.
+
+### Patch Changes
+
+- Updated dependencies [fbeba1b]
+- Updated dependencies [778ba2f]
+- Updated dependencies [0b1bce8]
+- Updated dependencies [70a43ac]
+  - @backoffice/i18n@0.17.0
+  - @backoffice/domain@0.6.0
+  - @backoffice/db@0.6.0
+
 ## 0.12.0
 
 ### Minor Changes
