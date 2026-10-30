@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { navGroups } from './nav';
+import { currentHref, navGroups } from './nav';
 
 const groups = (roles: Parameters<typeof navGroups>[0], census = true) =>
   navGroups(roles, { census }).map((group) => ({
@@ -79,5 +79,34 @@ describe('the menu in groups by role (PLAN M5)', () => {
 
   it('leaves staff with no role only Equipo', () => {
     expect(groups([])).toEqual([{ id: 'team', hrefs: ['/equipo'] }]);
+  });
+});
+
+describe('the section a page is in', () => {
+  const hrefs = [
+    '/',
+    '/personas',
+    '/cuentas',
+    '/cuentas/informes',
+    '/cuentas/ejercicios',
+    '/ajustes',
+  ];
+
+  it('is the nearest of the menu’s links, not the first that starts the same', () => {
+    expect(currentHref('/cuentas/ejercicios', hrefs)).toBe('/cuentas/ejercicios');
+    expect(currentHref('/cuentas/informes', hrefs)).toBe('/cuentas/informes');
+    expect(currentHref('/cuentas', hrefs)).toBe('/cuentas');
+  });
+
+  it('takes in the pages under a section, and the books’ pages outside the menu under Movimientos', () => {
+    expect(currentHref('/personas/0190f8c4-0000-7000-8000-000000000001', hrefs)).toBe('/personas');
+    expect(currentHref('/cuentas/0190f8c4-0000-7000-8000-0000000006d4', hrefs)).toBe('/cuentas');
+    expect(currentHref('/cuentas/banco', hrefs)).toBe('/cuentas');
+  });
+
+  it('is Hoy only on Hoy, and nothing for a page in no section', () => {
+    expect(currentHref('/', hrefs)).toBe('/');
+    expect(currentHref('/cuentasx', hrefs)).toBeUndefined();
+    expect(currentHref('/equipo', hrefs)).toBeUndefined();
   });
 });

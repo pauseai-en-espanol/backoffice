@@ -39,6 +39,8 @@ export const AppShell = async ({
   children,
 }: PropsWithChildren<{ me: Staff; bandeja?: number }>) => {
   const groups = navGroups(me.staff.roles, { census: censusUrl() !== '' });
+  // Every link in the menu, so only the nearest one to the page is marked as current.
+  const hrefs = [...groups.flatMap((group) => group.items.map((item) => item.href)), '/ajustes'];
   const onboards = me.staff.roles.some((role) => role === 'admin' || role === 'onboarding');
   const counted =
     known === undefined && onboards
@@ -110,6 +112,7 @@ export const AppShell = async ({
                     <li key={item.href}>
                       <NavLink
                         href={item.href}
+                        hrefs={hrefs}
                         label={
                           item.label === 'bandeja' && bandeja !== undefined && bandeja > 0
                             ? t('web.nav.bandejaCount', { count: bandeja })
@@ -124,7 +127,12 @@ export const AppShell = async ({
             ))}
             <ul className={styles.navList}>
               <li>
-                <NavLink href="/ajustes" label={t('web.nav.settings')} icon="settings" />
+                <NavLink
+                  href="/ajustes"
+                  hrefs={hrefs}
+                  label={t('web.nav.settings')}
+                  icon="settings"
+                />
               </li>
               <li>
                 <SignOutButton label={t('web.nav.signOut')} className={styles.navLink} icon />

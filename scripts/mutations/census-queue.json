@@ -42,7 +42,7 @@
   {
     "name": "the sidebar keeps a phone's 44px rows on a computer, and Ajustes and Salir fall off a 720px screen",
     "file": "apps/web/src/ui/styles.ts",
-    "old": "  minHeight: { base: '11', lg: '7' },",
+    "old": "  minHeight: { base: '11', lg: '6' },",
     "new": "  minHeight: '11',",
     "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
     "cmd": "pnpm exec playwright test tests/menu.spec.ts --project chromium",

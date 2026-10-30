@@ -96,3 +96,13 @@ export const navGroups = (
   });
   return groups;
 };
+
+/**
+ * The section a page is in: of the menu's addresses, the longest that is the page's or a folder of it (`/` only for
+ * itself). So `/cuentas/ejercicios` is Ejercicios, not Movimientos, while an entry's page (`/cuentas/<id>`) and Banco
+ * (`/cuentas/banco`, not in the menu) are under Movimientos.
+ */
+export const currentHref = (path: string, hrefs: readonly string[]): string | undefined =>
+  hrefs
+    .filter((href) => (href === '/' ? path === '/' : path === href || path.startsWith(`${href}/`)))
+    .toSorted((a, b) => b.length - a.length)[0];
