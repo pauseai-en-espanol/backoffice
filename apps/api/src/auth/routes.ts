@@ -54,12 +54,22 @@ const GET_ENDPOINTS: ReadonlySet<string> = new Set([
 
 /**
  * Endpoints only a signed-in session reaches (a second factor passed, `stageOf`), whatever Better Auth itself accepts:
- * it would let a session a password alone opened, before enrolling, add a passkey.
+ * it would let a session a password alone opened, before enrolling, add a passkey. Adding one is among the riskiest
+ * actions, so it wants that second factor recent too (`recent`; step-up.ts).
  */
-const SIGNED_IN_ONLY: ReadonlySet<string> = new Set([
-  '/passkey/generate-register-options',
-  '/passkey/verify-registration',
-  '/passkey/delete-passkey',
+const SIGNED_IN_ONLY: Readonly<Record<string, 'signed-in' | 'recent'>> = {
+  '/passkey/generate-register-options': 'recent',
+  '/passkey/verify-registration': 'recent',
+  '/passkey/delete-passkey': 'signed-in',
+};
+
+/**
+ * Checking a code is for signing in (no session yet) and for enrolling; for any other session Better Auth checks it
+ * without counting wrong ones or locking the account, which would let a session guess codes for `POST /api/step-up`.
+ */
+const CHALLENGE_OR_ENROL_ONLY: ReadonlySet<string> = new Set([
+  '/two-factor/verify-totp',
+  '/two-factor/verify-backup-code',
 ]);
 
 /** The headers Better Auth reads: the session, its CSRF checks (Origin, Fetch Metadata), the session's record. */
@@ -197,10 +207,40 @@ export const staffApiRoutes =
       return found && stageOf(found, false) === 'signed-in' ? found : undefined;
     };
 
-    /** Passes one request on to Better Auth, with only what it reads, and its answer back without the token. */
-    const forward = async (
+    /** Whether the request may go on, as SIGNED_IN_ONLY says; if not, it has been answered. */
+    const allowed = async (request: FastifyRequest, reply: FastifyReply, path: string) => {
+      const needs = SIGNED_IN_ONLY[path];
+      if (needs === undefined) {
+        return true;
+      }
+      const found = await signedIn(request);
+      if (!found) {
+        await reply.code(401).send({ error: 'signIn' });
+        return false;
+      }
+      if (needs === 'recent' && !(await auth.stepUp.isRecent(found.session.id))) {
+        await reply.code(403).send({ error: 'stepUp' });
+        return false;
+      }
+      return true;
+    };
+
+    // The riskiest actions (PLAN D23): a route marked RECENT_SECOND_FACTOR runs only for a session whose second factor
+    // is of the last 12 hours, else 403 `stepUp` and the page asks to confirm, before its body is even looked at.
+    // Without a signed-in session the route answers as it always does.
+    scope.addHook('preValidation', async (request, reply) => {
+      if (request.routeOptions.config.recentSecondFactor !== true) {
+        return;
+      }
+      const found = await signedIn(request);
+      if (found && !(await auth.stepUp.isRecent(found.session.id))) {
+        return reply.code(403).send({ error: 'stepUp' });
+      }
+    });
+
+    /** The request to Better Auth for `path`: only the headers it reads, and the visitor's address from the gateway. */
+    const toBetterAuth = (
       request: FastifyRequest,
-      reply: FastifyReply,
       path: string,
       body?: Record<string, unknown>,
     ) => {
@@ -218,13 +258,23 @@ export const staffApiRoutes =
       if (address !== undefined) {
         headers.set(VISITOR_ADDRESS_HEADER, address);
       }
-      const response = await auth.handler(
+      return auth.handler(
         new Request(`${staffOrigin}${AUTH_BASE_PATH}${path}`, {
           method: body === undefined ? 'GET' : 'POST',
           headers,
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
         }),
       );
+    };
+
+    /** Passes one request on to Better Auth, with only what it reads, and its answer back without the token. */
+    const forward = async (
+      request: FastifyRequest,
+      reply: FastifyReply,
+      path: string,
+      body?: Record<string, unknown>,
+    ) => {
+      const response = await toBetterAuth(request, path, body);
       void reply.code(response.status);
       for (const name of RETURNED_HEADERS) {
         const value = response.headers.get(name);
@@ -245,8 +295,14 @@ export const staffApiRoutes =
       if (!fields) {
         return reply.code(404).send({ error: 'notFound' });
       }
-      if (SIGNED_IN_ONLY.has(path) && !(await signedIn(request))) {
-        return reply.code(401).send({ error: 'signIn' });
+      if (!(await allowed(request, reply, path))) {
+        return reply;
+      }
+      if (CHALLENGE_OR_ENROL_ONLY.has(path)) {
+        const found = await findSession(request);
+        if (found && stageOf(found, false) !== 'enrol') {
+          return reply.code(403).send({ error: 'forbidden' });
+        }
       }
       return forward(request, reply, path, pick(request.body, fields));
     });
@@ -256,11 +312,55 @@ export const staffApiRoutes =
       if (!GET_ENDPOINTS.has(path)) {
         return reply.code(404).send({ error: 'notFound' });
       }
-      if (SIGNED_IN_ONLY.has(path) && !(await signedIn(request))) {
-        return reply.code(401).send({ error: 'signIn' });
+      if (!(await allowed(request, reply, path))) {
+        return reply;
       }
       return forward(request, reply, path);
     });
+
+    // "Confirma que eres tú" with a code (PLAN D23): the signed-in session's second factor is recent again. Each
+    // attempt is taken before the code is checked; the fifth wrong one ends the session.
+    scope.post<{ Body: { code: string } }>(
+      '/step-up',
+      {
+        schema: {
+          body: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['code'],
+            properties: { code: { type: 'string', minLength: 1, maxLength: 20 } },
+          },
+        },
+      },
+      async (request, reply) => {
+        // A write, so only from a page on the staff origin, as staff/routes.ts asks of every write.
+        if (request.headers.origin !== staffOrigin) {
+          return reply.code(403).send({ error: 'forbidden' });
+        }
+        const found = await signedIn(request);
+        if (!found) {
+          return reply.code(401).send({ error: 'signIn' });
+        }
+        const sessionId = found.session.id;
+        if (!(await auth.stepUp.begin(sessionId))) {
+          return reply.code(401).send({ error: 'tooManyCodes' });
+        }
+        const checked = await toBetterAuth(request, '/two-factor/verify-totp', {
+          code: request.body.code,
+        });
+        if (checked.ok) {
+          await auth.stepUp.succeed(sessionId);
+          return reply.code(204).send();
+        }
+        if (checked.status === 429) {
+          return reply.code(429).send({ error: 'limit' });
+        }
+        if (await auth.stepUp.fail(sessionId)) {
+          return reply.code(401).send({ error: 'tooManyCodes' });
+        }
+        return reply.code(400).send({ error: 'invalidCode' });
+      },
+    );
 
     // One's own passkeys, for Ajustes: what tells them apart, never their keys or the device's identifiers.
     scope.get('/passkeys', async (request, reply) => {
@@ -305,7 +405,9 @@ export const staffApiRoutes =
       const actor = actorOf(found);
       const staff =
         actor && app ? ((await withActor(app, actor, (trx) => staffSelf(trx, id))) ?? null) : null;
-      return { stage, user: { id, name, email }, staff };
+      // Whether the riskiest actions would run now, or first ask to confirm it's you (PLAN D23).
+      const recentSecondFactor = actor ? await auth.stepUp.isRecent(found.session.id) : false;
+      return { stage, user: { id, name, email }, staff, recentSecondFactor };
     });
 
     // Accepting an invitation, for whoever holds its link (invitation-routes.ts).

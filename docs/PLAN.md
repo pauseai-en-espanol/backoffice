@@ -219,40 +219,40 @@ once Dani has reviewed the ADR and the spec.
 
 ## Decided
 
-| ID      | Decision                                                                                                                                                                                          | By               |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **D1**  | WhatsApp joins and leaves are reported to a Telegram bot by whoever sees them. No WhatsApp integration for now                                                                                    | Dani, 2026-10-15 |
-| **D2**  | Airtable is read through Global's shared view link, kept as configuration (a sealed secret) ([ADR-0005](adr/0005-airtable-intake.md))                                                             | Dani, 2026-10-15 |
-| **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                                                                            | Dani, 2026-10-15 |
-| **D4**  | The staff UI is on the public gateway with mandatory two-factor (no VPN)                                                                                                                          | Dani, 2026-10-15 |
-| **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                                                                                      | Dani, 2026-10-16 |
-| **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                                                                               | Dani, 2026-10-16 |
-| **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                                                                                       | Dani, 2026-10-15 |
-| **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                                                                                         | Dani, 2026-10-16 |
-| **D13** | The Telegram bot is the onboarding team's alone: only staff with the onboarding role link and use it, not an admin without it; losing the role unlinks (ADR-0004)                                 | Dani, 2026-10-16 |
-| **D14** | The staff app and the bot say "onboarding", not "acogida"; the board by stage is the "Onboarding Pipeline", at `/pipeline`                                                                        | Dani, 2026-10-16 |
-| **D15** | The WhatsApp messages newcomers receive are written by the team in the staff app (Mensajes), not in code; the code keeps a neutral fallback (PLAN M5)                                             | Dani, 2026-10-16 |
-| **D16** | The WhatsApp group's history comes in with those who left, as Baja, to keep who was in the community and when (R56)                                                                               | Dani, 2026-10-18 |
-| **D17** | One sign-up day, "Fecha de alta", whatever the way in; one way in, "Canal de alta", which "Entró por" and "Llegó por" merge into (R58)                                                            | Dani, 2026-10-18 |
-| **D18** | Each onboarder writes their own messages in Mensajes, which only they see and are offered first; the team's are written by admins (R71)                                                           | Dani, 2026-10-21 |
-| **D19** | The community is Spain's, Spaniards abroad, Latin America's and Latin Americans abroad; a person has a country where they live, and may say where they're from (R74)                              | Dani, 2026-10-22 |
-| **D20** | The association's accounts come into scope, from the first movement: a `tesoreria` role records, admins read ("follow best practices"); no history to import ([ADR-0006](adr/0006-accounting.md)) | Dani, 2026-10-30 |
-| **D21** | Receipts are stored on a persistent volume mounted in the API, not in Postgres                                                                                                                    | Dani, 2026-10-30 |
-| **D22** | Signing in less often: optional passkeys (desktop and phone, Enpass included), and sessions that end 48 hours after their last use, a week after sign-in at most (R92)                            | Dani, 2026-10-30 |
-| —       | Backups are handled in gitops, separately from this plan                                                                                                                                          | Dani, 2026-10-15 |
-| —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                                                             | Dani, 2026-10-15 |
+| ID      | Decision                                                                                                                                                                                                                         | By               |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **D1**  | WhatsApp joins and leaves are reported to a Telegram bot by whoever sees them. No WhatsApp integration for now                                                                                                                   | Dani, 2026-10-15 |
+| **D2**  | Airtable is read through Global's shared view link, kept as configuration (a sealed secret) ([ADR-0005](adr/0005-airtable-intake.md))                                                                                            | Dani, 2026-10-15 |
+| **D3**  | No mailbox is read: the Airtable view carries the same data as the notification emails                                                                                                                                           | Dani, 2026-10-15 |
+| **D4**  | The staff UI is on the public gateway with mandatory two-factor (no VPN)                                                                                                                                                         | Dani, 2026-10-15 |
+| **D9**  | Retention: no automatic erasure. A person's data stays until an admin erases it (`private.anonymise_person`)                                                                                                                     | Dani, 2026-10-16 |
+| **D10** | No MCP server for now. Revisit once the association agrees to send personal data to an LLM provider                                                                                                                              | Dani, 2026-10-16 |
+| **D11** | The bot must work for one person. The team group is optional: on when a group is configured                                                                                                                                      | Dani, 2026-10-15 |
+| **D12** | Names and phone numbers may go through the Telegram bot, which deletes the messages once saved (ADR-0004)                                                                                                                        | Dani, 2026-10-16 |
+| **D13** | The Telegram bot is the onboarding team's alone: only staff with the onboarding role link and use it, not an admin without it; losing the role unlinks (ADR-0004)                                                                | Dani, 2026-10-16 |
+| **D14** | The staff app and the bot say "onboarding", not "acogida"; the board by stage is the "Onboarding Pipeline", at `/pipeline`                                                                                                       | Dani, 2026-10-16 |
+| **D15** | The WhatsApp messages newcomers receive are written by the team in the staff app (Mensajes), not in code; the code keeps a neutral fallback (PLAN M5)                                                                            | Dani, 2026-10-16 |
+| **D16** | The WhatsApp group's history comes in with those who left, as Baja, to keep who was in the community and when (R56)                                                                                                              | Dani, 2026-10-18 |
+| **D17** | One sign-up day, "Fecha de alta", whatever the way in; one way in, "Canal de alta", which "Entró por" and "Llegó por" merge into (R58)                                                                                           | Dani, 2026-10-18 |
+| **D18** | Each onboarder writes their own messages in Mensajes, which only they see and are offered first; the team's are written by admins (R71)                                                                                          | Dani, 2026-10-21 |
+| **D19** | The community is Spain's, Spaniards abroad, Latin America's and Latin Americans abroad; a person has a country where they live, and may say where they're from (R74)                                                             | Dani, 2026-10-22 |
+| **D20** | The association's accounts come into scope, from the first movement: a `tesoreria` role records, admins read ("follow best practices"); no history to import ([ADR-0006](adr/0006-accounting.md))                                | Dani, 2026-10-30 |
+| **D21** | Receipts are stored on a persistent volume mounted in the API, not in Postgres                                                                                                                                                   | Dani, 2026-10-30 |
+| **D22** | Signing in less often: optional passkeys (desktop and phone, Enpass included), and sessions that end 48 hours after their last use, a week after sign-in at most (R92)                                                           | Dani, 2026-10-30 |
+| **D23** | The riskiest actions (erasure, exports, the rights lookup, Equipo's changes, admins' Ajustes, the audit log, adding a passkey) want a second factor of the last 12 hours: a code typed again, or a passkey ("ok go for it"; R93) | Dani, 2026-10-30 |
+| —       | Backups are handled in gitops, separately from this plan                                                                                                                                                                         | Dani, 2026-10-15 |
+| —       | Legal and privacy calls (D9, D12, the privacy notice) are Dani's, for the association                                                                                                                                            | Dani, 2026-10-15 |
 
 ## Open decisions
 
 Each has a recommendation. Unless Dani objects, the recommendation is what gets built.
 
-| ID      | Decision                                              | Options                                                                                                                                                                    | Recommendation                                                                                                                                  |
-| ------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **D5**  | Tenancy                                               | Single organisation, or tenant-ready from day one                                                                                                                          | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away)) |
-| **D6**  | UI language                                           | Spanish only, or English source with mandatory Spanish                                                                                                                     | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                 |
-| **D7**  | Access granularity                                    | Module roles, or "a volunteer sees only their own people"                                                                                                                  | **Module roles** for v1; revisit when the team grows past about 8                                                                               |
-| **D8**  | Outreach sending                                      | A person sends (handover), or the app sends through the mail server per explicit click                                                                                     | **A person sends**, as the outreach repo already does                                                                                           |
-| **D23** | A second factor again before admins' riskiest actions | With week-long sessions (D22), ask for a code or a passkey again before erasure, exports, Equipo, Ajustes and the audit log when the last one is over 12 hours old; or not | **Ask again** (proposed with D22). Dani unsure (2026-10-30): **not built until he decides**                                                     |
+| ID     | Decision           | Options                                                                                | Recommendation                                                                                                                                  |
+| ------ | ------------------ | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D5** | Tenancy            | Single organisation, or tenant-ready from day one                                      | **Single.** Another chapter runs its own instance, on its own Postgres server ([R13](#decisions-to-review-taken-by-claude-while-dani-was-away)) |
+| **D6** | UI language        | Spanish only, or English source with mandatory Spanish                                 | **Spanish only**, through message files (use-intl, as next-intl) so a locale can be added later                                                 |
+| **D7** | Access granularity | Module roles, or "a volunteer sees only their own people"                              | **Module roles** for v1; revisit when the team grows past about 8                                                                               |
+| **D8** | Outreach sending   | A person sends (handover), or the app sends through the mail server per explicit click | **A person sends**, as the outreach repo already does                                                                                           |
 
 ## Open questions
 
@@ -817,6 +817,17 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   Ajustes lists one's own, never a key, and adds or removes them; Entrar offers "Usar una llave de acceso" under the
   password. Not done: an email when a passkey is added (as a changed password has one); the browser offering passkeys
   in the email field (conditional UI). Mutation list `sign-in`.
+- **R93. Confirming it's you again, as built** (D23). Options for the code: Better Auth's check of a signed-in
+  session's code (it counts no wrong ones and locks nothing, so a stolen session could guess); our own budget around
+  it. **Chose our own:** `POST /api/step-up` takes one of five attempts before each check (so attempts sent at once
+  count each), ends the session at the fifth wrong code, and records a right one for that session alone
+  (`auth.session_step_ups`, which only an aal2 session can have); and a signed-in session can no longer check codes
+  through Better Auth's endpoints. A passkey confirms by signing in afresh. The API marks the routes
+  (`RECENT_SECOND_FACTOR`), checked before a body is looked at; a test calls each with a session signed in 13 hours
+  ago. The web: every write goes through `send`, which goes to "Confirma que eres tú" on `stepUp` and comes back; the
+  audit log asks before it opens; exports and the rights lookup link through it; adding a passkey too, which no longer
+  uses Better Auth's own "fresh" (that counted from sign-in only). What was typed in a form is lost on the way (the
+  invitation's address, say). Mutation list `step-up`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).

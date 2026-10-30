@@ -28,8 +28,11 @@ afterAll(async () => {
   await Promise.all(pools.map((p) => p.end()));
 });
 
-/** Our own tables in `auth`, beside Better Auth's: the bot's links and their codes (ADR-0004), tested in packages/db. */
-const OURS = ['telegram_links', 'telegram_link_codes'];
+/**
+ * Our own tables in `auth`, beside Better Auth's: the bot's links and their codes (ADR-0004), and sessions confirmed
+ * again (PLAN D23), tested in packages/db.
+ */
+const OURS = ['telegram_links', 'telegram_link_codes', 'session_step_ups'];
 
 /**
  * A schema's tables as Postgres sees them, with the schema's name taken out so two schemas compare, and without ours

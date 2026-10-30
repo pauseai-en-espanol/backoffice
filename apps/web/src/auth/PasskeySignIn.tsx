@@ -22,9 +22,10 @@ const HINT_ID = 'passkey-hint';
 
 /**
  * "Usar una llave de acceso" (PLAN D22): the device offers the passkeys it holds for this site, checks who holds
- * it, and the sign-in is done, second factor and all. Beside the password, never instead of it.
+ * it, and the sign-in is done, second factor and all. Beside the password, never instead of it. Also how a passkey
+ * confirms it's you (PLAN D23): a sign-in afresh, then back to `next`.
  */
-export const PasskeySignIn = ({ text }: { text: PasskeySignInText }) => {
+export const PasskeySignIn = ({ next = '/', text }: { next?: string; text: PasskeySignInText }) => {
   const [error, setError] = useState<AuthError>();
   const [pending, setPending] = useState(false);
 
@@ -40,7 +41,7 @@ export const PasskeySignIn = ({ text }: { text: PasskeySignInText }) => {
       setError(failed);
       return;
     }
-    window.location.assign('/');
+    window.location.assign(next);
   };
 
   return (

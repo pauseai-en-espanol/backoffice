@@ -15,6 +15,7 @@ import { sql } from 'kysely';
 
 import type { CensusConfig } from '../config.js';
 
+import { RECENT_SECOND_FACTOR } from '../auth/step-up.js';
 import { databaseRefusal } from '../database-errors.js';
 import { fromAnotherSite } from '../fetch-site.js';
 import { messageFor } from '../people/message-templates.js';
@@ -255,6 +256,7 @@ export const censusRoutes =
     scope.post<{ Body: { kind: 'skill' | 'interest'; label: string } }>(
       '/census/options',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           body: {
             type: 'object',
@@ -283,6 +285,7 @@ export const censusRoutes =
     }>(
       '/census/options/:id',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           params: ID_PARAMS,
           body: {
@@ -313,6 +316,7 @@ export const censusRoutes =
     scope.put<{ Body: { kind: 'skill' | 'interest'; ids: string[] } }>(
       '/census/options/order',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           body: {
             type: 'object',
@@ -337,7 +341,7 @@ export const censusRoutes =
 
     scope.get<{ Params: { id: string } }>(
       '/people/:id/export',
-      { schema: { params: ID_PARAMS } },
+      { config: RECENT_SECOND_FACTOR, schema: { params: ID_PARAMS } },
       async (request, reply) =>
         fromAnotherSite(request)
           ? reply.code(403).send({ error: 'forbidden' })
@@ -361,7 +365,7 @@ export const censusRoutes =
 
     scope.post<{ Params: { id: string } }>(
       '/people/:id/erase',
-      { schema: { params: ID_PARAMS } },
+      { config: RECENT_SECOND_FACTOR, schema: { params: ID_PARAMS } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           const erased = await withActor(db, actor, async (trx) => {

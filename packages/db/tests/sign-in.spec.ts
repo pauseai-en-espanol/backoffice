@@ -104,3 +104,55 @@ describe('sessions (PLAN D22)', () => {
     });
   });
 });
+
+describe('confirming it’s you again (PLAN D23)', () => {
+  it('is only for a session that passed a second factor, and counts at most five wrong codes', async () => {
+    await inRolledBackTransaction(async (client) => {
+      const session = async (aal: 1 | 2) =>
+        (
+          await client.query<{ id: string }>(
+            `INSERT INTO auth.sessions (expires_at, token, updated_at, user_id, aal)
+             VALUES (now() + interval '48 hours', gen_random_uuid()::text, now(), $1, $2) RETURNING id`,
+            [USERS.adminA, aal],
+          )
+        ).rows[0]?.id ?? '';
+      await client.query(
+        `INSERT INTO auth.two_factors (secret, backup_codes, user_id) VALUES ('secreto-de-ejemplo', '[]', $1)`,
+        [USERS.adminA],
+      );
+      const passed = await session(2);
+      const passwordOnly = await session(1);
+      await client.query('SET LOCAL ROLE pauseai_backoffice_auth');
+      const confirm = (id: string) =>
+        errorCode(
+          client,
+          'INSERT INTO auth.session_step_ups (session_id, second_factor_at) VALUES ($1, now())',
+          [id],
+        );
+      expect(await confirm(passed)).toBeNull();
+      expect(await confirm(passwordOnly)).toBe('42501');
+      // Nor can a confirmation move to such a session.
+      expect(
+        await errorCode(
+          client,
+          'UPDATE auth.session_step_ups SET session_id = $1 WHERE session_id = $2',
+          [passwordOnly, passed],
+        ),
+      ).toBe('42501');
+      expect(
+        await errorCode(
+          client,
+          'UPDATE auth.session_step_ups SET failures = 6 WHERE session_id = $1',
+          [passed],
+        ),
+      ).toBe('23514');
+      // It goes with its session.
+      await client.query('DELETE FROM auth.sessions WHERE id = $1', [passed]);
+      const { rows } = await client.query(
+        'SELECT 1 FROM auth.session_step_ups WHERE session_id = $1',
+        [passed],
+      );
+      expect(rows).toEqual([]);
+    });
+  });
+});

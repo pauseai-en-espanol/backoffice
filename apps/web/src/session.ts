@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { cache } from 'react';
 
 import { getFromApi } from './api';
+import { confirmPath } from './auth/confirm';
 import { STAFF_ROLES, type StaffRole } from './staff-roles';
 
 export { STAFF_ROLES, type StaffRole } from './staff-roles';
@@ -35,6 +36,8 @@ export interface Session {
   stage: Stage;
   user?: SignedInUser;
   staff?: StaffMember;
+  /** Whether the riskiest actions would run now, or first ask to confirm it's you (PLAN D23). */
+  recentSecondFactor?: boolean;
 }
 
 /** The page each stage belongs on. */
@@ -73,7 +76,12 @@ export const sessionFrom = (status: number, body: unknown): Session => {
         return { stage: 'no-access', user: body.user };
       }
       if (isStaff(body.staff)) {
-        return { stage: 'signed-in', user: body.user, staff: body.staff };
+        return {
+          stage: 'signed-in',
+          user: body.user,
+          staff: body.staff,
+          recentSecondFactor: body.recentSecondFactor === true,
+        };
       }
     }
   }
@@ -129,16 +137,28 @@ export const requireStage = async (...stages: Stage[]): Promise<Session> => {
 export interface Staff {
   user: SignedInUser;
   staff: StaffMember;
+  /** Whether the riskiest actions would run now, or first ask to confirm it's you (PLAN D23). */
+  recentSecondFactor: boolean;
 }
 
 /** A page for signed-in staff; with `role`, for those holding it (anyone else finds no such page). */
 export const requireStaff = async (role?: StaffRole): Promise<Staff> => {
-  const { user, staff } = await requireStage('signed-in');
+  const { user, staff, recentSecondFactor = false } = await requireStage('signed-in');
   if (!user || !staff) {
     redirect(PAGE_OF['signed-out']);
   }
   if (role !== undefined && !staff.roles.includes(role)) {
     notFound();
   }
-  return { user, staff };
+  return { user, staff, recentSecondFactor };
+};
+
+/**
+ * A page that is all riskiest actions (the audit log; PLAN D23): when the second factor isn't of the last 12 hours, it
+ * asks to confirm first, then comes back to `next`.
+ */
+export const requireRecentSecondFactor = (me: Staff, next: string): void => {
+  if (!me.recentSecondFactor) {
+    redirect(confirmPath(next));
+  }
 };

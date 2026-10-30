@@ -206,7 +206,8 @@ With no actor, every policy denies. Jobs without a person act as a system actor 
 - **Sign-in** is in [ADR-0003 §2](0003-application-stack.md#2-sign-in): password plus mandatory TOTP, or an
   optional passkey alone once enrolled (PLAN D22). A session without the second factor reaches only the enrolment
   page, and the database refuses it any data (`app.aal`). `auth.passkeys` is Better Auth's, granted to its role like
-  the other tables there.
+  the other tables there. The riskiest actions also want that second factor of the last 12 hours (PLAN D23), which
+  the API checks; `auth.session_step_ups`, ours, keeps a code typed again to confirm, for Better Auth's role alone.
 - Deactivating a staff member closes every policy to them at once, and unlinks their Telegram account.
 
 ### 7. Public surfaces

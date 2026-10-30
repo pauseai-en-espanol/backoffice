@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { changedFields, cursorFrom, getAuditPage } from '@/audit/data';
 import { isUnavailable } from '@/data';
-import { requireStaff } from '@/session';
+import { requireRecentSecondFactor, requireStaff } from '@/session';
 import { AppShell } from '@/shell/AppShell';
 import * as styles from '@/ui/styles';
 
@@ -36,6 +36,8 @@ const AuditPage = async ({
   searchParams: Promise<{ antes?: string | string[] }>;
 }) => {
   const me = await requireStaff('admin');
+  // The whole page is one of the riskiest actions (PLAN D23).
+  requireRecentSecondFactor(me, '/registro');
   const before = cursorFrom((await searchParams).antes);
   const page = await getAuditPage(before);
   const format = getFormatter();

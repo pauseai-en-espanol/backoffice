@@ -4,6 +4,7 @@ import { Field } from '@ark-ui/react/field';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useState } from 'react';
 
+import { confirmPath, here } from '@/auth/confirm';
 import { fill } from '@/fill';
 import { useAnnounce } from '@/ui/announce';
 import { ConfirmAction } from '@/ui/ConfirmAction';
@@ -74,6 +75,10 @@ export const Passkeys = ({
     setError(undefined);
     const failed = await addPasskey(formText(form, 'name'));
     setPending(false);
+    if (failed === 'stepUp') {
+      router.push(confirmPath(here()));
+      return;
+    }
     if (failed) {
       setError(failed);
       return;

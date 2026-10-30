@@ -167,7 +167,8 @@ trigger.
 ### `auth` schema
 
 Better Auth's tables: `users`, `sessions` (with `aal`), `accounts`, `verifications`, `two_factors`,
-`passkeys` (PLAN D22), `rate_limits`. Only `pauseai_backoffice_auth` reaches them. They have no audit trigger, so
+`passkeys` (PLAN D22), `rate_limits`; and ours beside them: `session_step_ups` (a code typed again to confirm,
+PLAN D23), the bot's links and codes. Only `pauseai_backoffice_auth` reaches them. They have no audit trigger, so
 none of their personal data is copied elsewhere.
 
 - `sessions.aal` is 2 only for a session that a TOTP code, a backup code or a passkey created; every other session

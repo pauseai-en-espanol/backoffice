@@ -10,6 +10,7 @@ import { fieldsIn, MERGE_FIELDS, type Tier } from '@backoffice/domain/outreach';
 import { captureException } from '@sentry/node';
 import { sql } from 'kysely';
 
+import { RECENT_SECOND_FACTOR } from '../auth/step-up.js';
 import { databaseRefusal } from '../database-errors.js';
 import { fromAnotherSite } from '../fetch-site.js';
 import { createRateLimiter } from '../rate-limit.js';
@@ -597,6 +598,7 @@ export const outreachRoutes =
     scope.get<{ Querystring: { q: string } }>(
       '/outreach/rights',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           querystring: {
             type: 'object',
@@ -617,7 +619,7 @@ export const outreachRoutes =
 
     scope.get<{ Params: { id: string } }>(
       '/outreach/contacts/:id/export',
-      { schema: { params: ID_PARAMS } },
+      { config: RECENT_SECOND_FACTOR, schema: { params: ID_PARAMS } },
       async (request, reply) =>
         fromAnotherSite(request)
           ? reply.code(403).send({ error: 'forbidden' })
@@ -637,7 +639,7 @@ export const outreachRoutes =
 
     scope.post<{ Params: { id: string } }>(
       '/outreach/contacts/:id/erase',
-      { schema: { params: ID_PARAMS } },
+      { config: RECENT_SECOND_FACTOR, schema: { params: ID_PARAMS } },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           const done = await outreach(

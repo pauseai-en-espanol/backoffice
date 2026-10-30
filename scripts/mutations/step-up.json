@@ -1,0 +1,318 @@
+[
+  {
+    "name": "PATCH /staff/:userId runs on an old second factor",
+    "file": "apps/api/src/staff/routes.ts",
+    "old": "      '/staff/:userId',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/staff/:userId',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "POST /staff/:userId/private-records runs on an old second factor",
+    "file": "apps/api/src/staff/routes.ts",
+    "old": "      '/staff/:userId/private-records',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/staff/:userId/private-records',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "PUT /staff/:userId/person runs on an old second factor",
+    "file": "apps/api/src/staff/routes.ts",
+    "old": "      '/staff/:userId/person',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/staff/:userId/person',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "POST /staff/:userId/password-link runs on an old second factor",
+    "file": "apps/api/src/staff/routes.ts",
+    "old": "      '/staff/:userId/password-link',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/staff/:userId/password-link',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "POST /invitations runs on an old second factor",
+    "file": "apps/api/src/staff/routes.ts",
+    "old": "      '/invitations',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/invitations',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "POST /invitations/:id/revoke runs on an old second factor",
+    "file": "apps/api/src/staff/routes.ts",
+    "old": "      '/invitations/:id/revoke',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/invitations/:id/revoke',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "DELETE /invitations/:id runs on an old second factor",
+    "file": "apps/api/src/staff/routes.ts",
+    "old": "      '/invitations/:id',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/invitations/:id',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "GET /audit runs on an old second factor",
+    "file": "apps/api/src/staff/routes.ts",
+    "old": "      '/audit',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/audit',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "POST /arrival-channels runs on an old second factor",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "      '/arrival-channels',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/arrival-channels',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "PUT /arrival-channels/order runs on an old second factor",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "      '/arrival-channels/order',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/arrival-channels/order',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "PATCH /arrival-channels/:id runs on an old second factor",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "      '/arrival-channels/:id',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/arrival-channels/:id',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "PATCH /settings runs on an old second factor",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "      '/settings',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/settings',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "PUT /airtable/link runs on an old second factor",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "      '/airtable/link',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/airtable/link',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "DELETE /airtable/link runs on an old second factor",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "    scope.delete('/airtable/link', { config: RECENT_SECOND_FACTOR }, async (request, reply) =>",
+    "new": "    scope.delete('/airtable/link', {}, async (request, reply) =>",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "PATCH /airtable runs on an old second factor",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "      '/airtable',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/airtable',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "GET /export/people.csv runs on an old second factor",
+    "file": "apps/api/src/people/routes.ts",
+    "old": "      '/export/people.csv',\n      { config: RECENT_SECOND_FACTOR, schema: { querystring: FILTER_QUERY } },",
+    "new": "      '/export/people.csv',\n      { schema: { querystring: FILTER_QUERY } },",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "POST /census/options runs on an old second factor",
+    "file": "apps/api/src/census/routes.ts",
+    "old": "      '/census/options',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/census/options',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "PATCH /census/options/:id runs on an old second factor",
+    "file": "apps/api/src/census/routes.ts",
+    "old": "      '/census/options/:id',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/census/options/:id',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "PUT /census/options/order runs on an old second factor",
+    "file": "apps/api/src/census/routes.ts",
+    "old": "      '/census/options/order',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/census/options/order',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "GET /people/:id/export runs on an old second factor",
+    "file": "apps/api/src/census/routes.ts",
+    "old": "      '/people/:id/export',\n      { config: RECENT_SECOND_FACTOR, schema: { params: ID_PARAMS } },",
+    "new": "      '/people/:id/export',\n      { schema: { params: ID_PARAMS } },",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "POST /people/:id/erase runs on an old second factor",
+    "file": "apps/api/src/census/routes.ts",
+    "old": "      '/people/:id/erase',\n      { config: RECENT_SECOND_FACTOR, schema: { params: ID_PARAMS } },",
+    "new": "      '/people/:id/erase',\n      { schema: { params: ID_PARAMS } },",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "GET /outreach/rights runs on an old second factor",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "      '/outreach/rights',\n      {\n        config: RECENT_SECOND_FACTOR,",
+    "new": "      '/outreach/rights',\n      {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "GET /outreach/contacts/:id/export runs on an old second factor",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "      '/outreach/contacts/:id/export',\n      { config: RECENT_SECOND_FACTOR, schema: { params: ID_PARAMS } },",
+    "new": "      '/outreach/contacts/:id/export',\n      { schema: { params: ID_PARAMS } },",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "POST /outreach/contacts/:id/erase runs on an old second factor",
+    "file": "apps/api/src/outreach/routes.ts",
+    "old": "      '/outreach/contacts/:id/erase',\n      { config: RECENT_SECOND_FACTOR, schema: { params: ID_PARAMS } },",
+    "new": "      '/outreach/contacts/:id/erase',\n      { schema: { params: ID_PARAMS } },",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "no route asks for a recent second factor",
+    "file": "apps/api/src/auth/routes.ts",
+    "old": "      if (found && !(await auth.stepUp.isRecent(found.session.id))) {\n        return reply.code(403).send({ error: 'stepUp' });",
+    "new": "      if (found && false) {\n        return reply.code(403).send({ error: 'stepUp' });",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "adding a passkey runs on an old second factor",
+    "file": "apps/api/src/auth/routes.ts",
+    "old": "  '/passkey/generate-register-options': 'recent',\n  '/passkey/verify-registration': 'recent',",
+    "new": "  '/passkey/generate-register-options': 'signed-in',\n  '/passkey/verify-registration': 'signed-in',",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a signed-in session checks codes through Better Auth",
+    "file": "apps/api/src/auth/routes.ts",
+    "old": "        if (found && stageOf(found, false) !== 'enrol') {\n          return reply.code(403).send({ error: 'forbidden' });",
+    "new": "        if (found && false) {\n          return reply.code(403).send({ error: 'forbidden' });",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "another site confirms a code",
+    "file": "apps/api/src/auth/routes.ts",
+    "old": "        if (request.headers.origin !== staffOrigin) {\n          return reply.code(403).send({ error: 'forbidden' });\n        }\n        const found = await signedIn(request);\n        if (!found) {\n          return reply.code(401).send({ error: 'signIn' });\n        }\n        const sessionId = found.session.id;",
+    "new": "        const found = await signedIn(request);\n        if (!found) {\n          return reply.code(401).send({ error: 'signIn' });\n        }\n        const sessionId = found.session.id;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a right code doesn't make the second factor recent",
+    "file": "apps/api/src/auth/step-up.ts",
+    "old": "        'UPDATE session_step_ups SET second_factor_at = now(), failures = 0 WHERE session_id = $1',",
+    "new": "        'UPDATE session_step_ups SET failures = 0 WHERE session_id = $1',",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "attempts are never counted",
+    "file": "apps/api/src/auth/step-up.ts",
+    "old": "    begin: async (sessionId) => {\n",
+    "new": "    begin: async (sessionId) => {\n      if (sessionId) {\n        return true;\n      }\n",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the fifth wrong code leaves the session open",
+    "file": "apps/api/src/auth/step-up.ts",
+    "old": "      if ((await attempts(sessionId)) >= STEP_UP_ATTEMPTS) {",
+    "new": "      if ((await attempts(sessionId)) > STEP_UP_ATTEMPTS) {",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a second factor 13 hours old is recent",
+    "file": "apps/api/src/auth/step-up.ts",
+    "old": "export const STEP_UP_SECONDS = 12 * 60 * 60;",
+    "new": "export const STEP_UP_SECONDS = 14 * 60 * 60;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/step-up.spec.ts tests/passkeys.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a session a password alone opened confirms again",
+    "file": "db/migrations/20261030120000_session_step_ups.sql",
+    "old": "    PERFORM 1 FROM auth.sessions s WHERE s.id = NEW.session_id AND s.aal = 2 FOR KEY SHARE;",
+    "new": "    PERFORM 1 FROM auth.sessions s WHERE s.id = NEW.session_id FOR KEY SHARE;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/sign-in.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "more than five wrong codes are counted",
+    "file": "db/migrations/20261030120000_session_step_ups.sql",
+    "old": "CHECK (failures BETWEEN 0 AND 5)",
+    "new": "CHECK (failures BETWEEN 0 AND 6)",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/sign-in.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "a confirmation outlives its session",
+    "file": "db/migrations/20261030120000_session_step_ups.sql",
+    "old": "REFERENCES auth.sessions (id) ON DELETE CASCADE,",
+    "new": "REFERENCES auth.sessions (id) ON DELETE SET NULL,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/sign-in.spec.ts",
+    "cwd": "packages/db"
+  },
+  {
+    "name": "confirming sends back to another site",
+    "file": "apps/web/src/auth/confirm.ts",
+    "old": "  typeof next === 'string' && /^\\/(?![/\\\\])/u.test(next) ? next : '/';",
+    "new": "  typeof next === 'string' && next.startsWith('/') ? next : '/';",
+    "cmd": "pnpm exec vitest run src/auth/confirm.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "an export downloads on an old second factor",
+    "file": "apps/web/src/auth/confirm.ts",
+    "old": "  recent ? { href, download: true } : { href: confirmPath(back) };",
+    "new": "  recent || back ? { href, download: true } : { href: confirmPath(back) };",
+    "cmd": "pnpm exec vitest run src/auth/confirm.spec.ts",
+    "cwd": "apps/web"
+  },
+  {
+    "name": "a refused write never asks to confirm",
+    "file": "apps/web/src/write.ts",
+    "old": "    window.location.assign(confirmPath(here()));",
+    "new": "    void confirmPath(here);",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/step-up.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "the audit log opens on an old second factor",
+    "file": "apps/web/src/app/registro/page.tsx",
+    "old": "  requireRecentSecondFactor(me, '/registro');\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/step-up.spec.ts --project chromium",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  }
+]

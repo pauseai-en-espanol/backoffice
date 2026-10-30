@@ -9,6 +9,7 @@ import { Fragment } from 'react';
 
 import type { StaffRef } from '@/onboarding/types';
 
+import { riskyDownload } from '@/auth/confirm';
 import { isUnavailable } from '@/data';
 import { headerChipReasons } from '@/onboarding/card';
 import { consentText } from '@/onboarding/census/format';
@@ -624,8 +625,11 @@ const PersonPage = async ({ params }: { params: Promise<{ id: string }> }) => {
                       <div>
                         <a
                           className={styles.secondaryButton}
-                          href={`/api/people/${encodeURIComponent(person.id)}/export`}
-                          download
+                          {...riskyDownload(
+                            me.recentSecondFactor,
+                            `/api/people/${encodeURIComponent(person.id)}/export`,
+                            `/personas/${encodeURIComponent(person.id)}`,
+                          )}
                           aria-describedby="exportar-pista"
                         >
                           {t('person.export')}

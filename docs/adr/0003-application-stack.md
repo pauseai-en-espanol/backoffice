@@ -3,7 +3,8 @@
 - **Status:** Accepted (Dani, 2026-10-15: the same technology stack as an earlier project of his, and "security and
   quality wise feel free to reassess"; D6 is Claude's recommendation, taken unless Dani objects). **Amended
   2026-10-30** (Dani, D22: signing in again "very often" bothered him): optional passkeys, and sessions that last
-  while used, up to a week (§2).
+  while used, up to a week; and (D23, "ok go for it") the riskiest actions want a second factor of the last 12 hours
+  (§2).
 - **Date:** 2026-10-15; amended 2026-10-30
 - **Deciders:** Dani; drafted by Claude
 - **Relates to:** [BRIEF](../BRIEF.md) G5, G6; [ADR-0001](0001-hosting-and-delivery.md),
@@ -63,9 +64,17 @@ As the earlier project:
   in with one alone: the device holds the key and must check who holds it (fingerprint, face or PIN; WebAuthn's
   user verification, required at both ceremonies), so its session is aal2. TOTP stays mandatory and the way back in:
   only an account with it can have a passkey (a database trigger), and the owner's reset of a lost authenticator
-  removes the passkeys too. Adding one needs a sign-in of the last 12 hours and a session that passed a second factor;
-  removing one, the latter. Passkeys are discoverable, bound to the staff host, and kept wherever the person's device
-  keeps them (a platform's or a password manager's store, which may sync them).
+  removes the passkeys too. Adding one is among the riskiest actions (below); removing one needs a session that passed
+  a second factor. Passkeys are discoverable, bound to the staff host, and kept wherever the person's device keeps
+  them (a platform's or a password manager's store, which may sync them).
+- **Confirming it's you again (D23).** A session lasts up to a week, but the riskiest actions want a second factor of
+  the last 12 hours, as every session had before D22: erasure, exports, the rights lookup, Equipo's changes, what
+  admins change in Ajustes, the audit log, and adding a passkey. The API marks those routes (`RECENT_SECOND_FACTOR`) and
+  answers 403 `stepUp` otherwise; the page goes to "Confirma que eres tú" and comes back. A code from the app counts
+  for the session that typed it (`auth.session_step_ups`; Better Auth's own check of a signed-in session's code
+  counts no wrong ones, so the API takes an attempt before each check and ends the session at the fifth, and no
+  longer lets a signed-in session check codes through Better Auth at all); a passkey signs in afresh. Only a session
+  that passed a second factor can confirm (a trigger).
 - Attempts are rate-limited, counted in the database.
 - A session without the second factor reaches only the enrolment page, and the database refuses it any data
   (`app.aal`).
@@ -142,5 +151,4 @@ not shared as dependencies. The repos then evolve separately.
   the RLS matrix, the release flow) come over with their tests.
 - **Harder:** two repos to keep current with the same tools; a fix found in one is copied to the other by hand.
 - **Revisit:** shared packages if a third app copies the same scaffold; English if a non-Spanish speaker joins the
-  staff; asking again for a second factor before admins' riskiest actions (erasure, exports, Equipo, Ajustes), now
-  that a session can last a week (proposed with D22, left out until Dani decides).
+  staff.

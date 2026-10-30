@@ -24,6 +24,7 @@ export type AuthError =
   | 'passkeyExists'
   | 'passkeyUnsupported'
   | 'notFresh'
+  | 'stepUp'
   | 'unexpected';
 
 export interface AuthAnswer {

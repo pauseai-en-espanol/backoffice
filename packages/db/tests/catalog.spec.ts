@@ -225,8 +225,8 @@ describe('catalog: closed by default', () => {
         GROUP BY c.relname ORDER BY 1`,
     );
     expect(granted.map((g) => g.grant)).toEqual([
-      // Passkeys (PLAN D22) are Better Auth's too, from its passkey plugin.
-      ...['accounts', 'passkeys', 'rate_limits', 'sessions'].map(
+      // Passkeys (PLAN D22) are Better Auth's too, from its passkey plugin; sessions confirmed again (PLAN D23), ours.
+      ...['accounts', 'passkeys', 'rate_limits', 'session_step_ups', 'sessions'].map(
         (table) => `${table} DELETE,INSERT,SELECT,UPDATE`,
       ),
       // The bot's links and their codes (ADR-0004): a link is replaced, never edited; a code is only marked used.

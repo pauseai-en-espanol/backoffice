@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 
 import { getTranslator } from '@backoffice/i18n/messages';
+import { redirect } from 'next/navigation';
 
+import { confirmPath } from '@/auth/confirm';
 import { isUnavailable } from '@/data';
 import * as onboarding from '@/onboarding/styles';
 import { contactFormText, eraseText } from '@/outreach/contact-text';
@@ -51,6 +53,14 @@ const ContactsPage = async ({
   const rightsQuery = admin
     ? (Array.isArray(params.derechos) ? params.derechos[0] : params.derechos)?.trim().slice(0, 254)
     : undefined;
+  // Looking someone up for a rights request is one of the riskiest actions (PLAN D23): confirm first, then back here.
+  if (rightsQuery && !me.recentSecondFactor) {
+    redirect(
+      confirmPath(
+        `/contactos?${new URLSearchParams({ derechos: rightsQuery }).toString()}#derechos`,
+      ),
+    );
+  }
   const [contacts, organisations, team, rights] = await Promise.all([
     getContacts(filters),
     getOrganisations({ q: '', kind: '', visibility: '' }),

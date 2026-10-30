@@ -4,6 +4,8 @@
  * the page words in Spanish (packages/i18n `errors` and the page's own); never the API's or the database's text.
  */
 
+import { confirmPath, here } from './auth/confirm';
+
 export interface WriteAnswer {
   ok: boolean;
   status: number;
@@ -34,6 +36,11 @@ export const send = async (
   }
   const parsed: unknown = await response.json().catch(() => undefined);
   const record = isRecord(parsed) ? parsed : {};
+  if (record.error === 'stepUp') {
+    // One of the riskiest actions, with a second factor over 12 hours old (PLAN D23): every write goes through here,
+    // so this is where the page goes to confirm it's you, and comes back after.
+    window.location.assign(confirmPath(here()));
+  }
   return {
     ok: response.ok,
     status: response.status,

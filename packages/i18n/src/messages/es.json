@@ -32,6 +32,7 @@
     "invalid": "Hay un dato que no es válido. Revisa el formulario.",
     "limit": "Demasiados intentos. Espera unos minutos y vuelve a intentarlo.",
     "signIn": "Tu sesión ha terminado. Vuelve a entrar.",
+    "stepUp": "Para esto tienes que confirmar que eres tú: han pasado más de 12 horas desde la última vez. Recarga la página.",
     "notFound": "Ya no existe: puede que alguien lo haya quitado. Recarga la página.",
     "network": "No hay conexión con el servidor. Comprueba tu conexión y vuelve a intentarlo.",
     "personGone": "Esa ficha ya no está: se fusionó en otra o se borró. Recarga la página.",
@@ -144,6 +145,14 @@
       "useAuthenticator": "Usar la aplicación de autenticación",
       "restart": "Volver a entrar"
     },
+    "stepUp": {
+      "title": "Confirma que eres tú",
+      "intro": "Para esto tienes que haber comprobado que eres tú en las últimas 12 horas. Escribe el código de 6 cifras que muestra ahora tu aplicación de autenticación.",
+      "submit": "Confirmar",
+      "passkeyHint": "O confírmalo con la huella, la cara o el PIN de tu dispositivo.",
+      "noApp": "¿No tienes la aplicación a mano? Sal y vuelve a entrar con un código de recuperación.",
+      "back": "Volver sin confirmar"
+    },
     "enrol": {
       "title": "Configura la verificación en dos pasos",
       "intro": "Todas las cuentas necesitan un segundo paso: un código de una aplicación de autenticación en tu móvil, como Google Authenticator, Microsoft Authenticator, Aegis o 2FAS.",
@@ -205,6 +214,7 @@
       "passkeyExists": "Esa llave de acceso ya está en tu cuenta.",
       "passkeyUnsupported": "Este navegador no admite llaves de acceso. Entra con tu contraseña y tu código.",
       "notFresh": "Para añadir una llave tienes que haber entrado en las últimas 12 horas. Sal, vuelve a entrar y añádela.",
+      "stepUp": "Antes tienes que confirmar que eres tú.",
       "unexpected": "Algo ha ido mal. Inténtalo de nuevo más tarde."
     },
     "invitation": {

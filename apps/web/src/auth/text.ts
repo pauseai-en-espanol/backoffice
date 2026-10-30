@@ -24,6 +24,7 @@ export const authErrors = (t: Translator): Record<AuthError, string> => ({
   passkeyExists: t('auth.errors.passkeyExists'),
   passkeyUnsupported: t('auth.errors.passkeyUnsupported'),
   notFresh: t('auth.errors.notFresh'),
+  stepUp: t('auth.errors.stepUp'),
   unexpected: t('auth.errors.unexpected'),
 });
 

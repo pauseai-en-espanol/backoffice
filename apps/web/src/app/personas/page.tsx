@@ -2,9 +2,10 @@ import type { Metadata } from 'next';
 
 import { getTranslator } from '@backoffice/i18n/messages';
 
+import { riskyDownload } from '@/auth/confirm';
 import { isUnavailable } from '@/data';
 import { getArrivalChannels, getPeople } from '@/onboarding/data';
-import { apiQuery, exportHref, filtersFromPage } from '@/onboarding/filters';
+import { apiQuery, exportHref, filtersFromPage, pageQuery } from '@/onboarding/filters';
 import { FiltersForm } from '@/onboarding/FiltersForm';
 import { MorePeople } from '@/onboarding/MorePeople';
 import { OnboardingOnly } from '@/onboarding/OnboardingOnly';
@@ -66,8 +67,11 @@ const PeoplePage = async ({
           <p>
             <a
               className={styles.secondaryButton}
-              href={exportHref(filters)}
-              download
+              {...riskyDownload(
+                me.recentSecondFactor,
+                exportHref(filters),
+                `/personas${pageQuery(filters)}`,
+              )}
               aria-describedby="exportar-pista"
             >
               {t('people.export')}

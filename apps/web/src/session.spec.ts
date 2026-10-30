@@ -14,7 +14,15 @@ describe('sessionFrom', () => {
       stage: 'signed-in',
       user,
       staff,
+      recentSecondFactor: false,
     });
+    // Whether the riskiest actions would run now (PLAN D23): only when the API says so in as many words.
+    expect(
+      sessionFrom(200, { stage: 'signed-in', user, staff, recentSecondFactor: true }),
+    ).toMatchObject({ recentSecondFactor: true });
+    expect(
+      sessionFrom(200, { stage: 'signed-in', user, staff, recentSecondFactor: 'yes' }),
+    ).toMatchObject({ recentSecondFactor: false });
     expect(sessionFrom(200, { stage: 'enrol', user, staff: null })).toEqual({
       stage: 'enrol',
       user,

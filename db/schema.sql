@@ -2656,6 +2656,26 @@ CREATE FUNCTION private.stamp_channel() RETURNS trigger
 ALTER FUNCTION private.stamp_channel() OWNER TO pauseai_backoffice_owner;
 
 --
+-- Name: step_up_needs_aal2(); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+CREATE FUNCTION private.step_up_needs_aal2() RETURNS trigger
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+  BEGIN
+    PERFORM 1 FROM auth.sessions s WHERE s.id = NEW.session_id AND s.aal = 2 FOR KEY SHARE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'only a second-factor session confirms again' USING ERRCODE = 'insufficient_privilege';
+    END IF;
+    RETURN NEW;
+  END
+  $$;
+
+
+ALTER FUNCTION private.step_up_needs_aal2() OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: submit_census(text, jsonb); Type: FUNCTION; Schema: private; Owner: pauseai_backoffice_owner
 --
 
@@ -4126,6 +4146,20 @@ COMMENT ON COLUMN auth.rate_limits.key IS 'personal data';
 
 
 --
+-- Name: session_step_ups; Type: TABLE; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE TABLE auth.session_step_ups (
+    session_id uuid NOT NULL,
+    second_factor_at timestamp with time zone,
+    failures integer DEFAULT 0 NOT NULL,
+    CONSTRAINT session_step_ups_failures_check CHECK (((failures >= 0) AND (failures <= 5)))
+);
+
+
+ALTER TABLE auth.session_step_ups OWNER TO pauseai_backoffice_owner;
+
+--
 -- Name: sessions; Type: TABLE; Schema: auth; Owner: pauseai_backoffice_owner
 --
 
@@ -4710,6 +4744,14 @@ ALTER TABLE ONLY auth.rate_limits
 
 ALTER TABLE ONLY auth.rate_limits
     ADD CONSTRAINT rate_limits_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: session_step_ups session_step_ups_pkey; Type: CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY auth.session_step_ups
+    ADD CONSTRAINT session_step_ups_pkey PRIMARY KEY (session_id);
 
 
 --
@@ -5825,6 +5867,13 @@ CREATE TRIGGER session_within_a_week BEFORE INSERT OR UPDATE OF expires_at, crea
 
 
 --
+-- Name: session_step_ups step_up_needs_aal2; Type: TRIGGER; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+CREATE TRIGGER step_up_needs_aal2 BEFORE INSERT OR UPDATE ON auth.session_step_ups FOR EACH ROW EXECUTE FUNCTION private.step_up_needs_aal2();
+
+
+--
 -- Name: campaign_anchors campaign_anchors_campaign_id_fkey; Type: FK CONSTRAINT; Schema: app; Owner: pauseai_backoffice_owner
 --
 
@@ -6166,6 +6215,14 @@ ALTER TABLE ONLY auth.accounts
 
 ALTER TABLE ONLY auth.passkeys
     ADD CONSTRAINT passkeys_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: session_step_ups session_step_ups_session_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+ALTER TABLE ONLY auth.session_step_ups
+    ADD CONSTRAINT session_step_ups_session_id_fkey FOREIGN KEY (session_id) REFERENCES auth.sessions(id) ON DELETE CASCADE;
 
 
 --
@@ -7449,6 +7506,13 @@ REVOKE ALL ON FUNCTION private.stamp() FROM PUBLIC;
 --
 
 REVOKE ALL ON FUNCTION private.stamp_channel() FROM PUBLIC;
+
+
+--
+-- Name: FUNCTION step_up_needs_aal2(); Type: ACL; Schema: private; Owner: pauseai_backoffice_owner
+--
+
+REVOKE ALL ON FUNCTION private.step_up_needs_aal2() FROM PUBLIC;
 
 
 --
@@ -8916,6 +8980,13 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE auth.passkeys TO pauseai_backoffice_a
 --
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE auth.rate_limits TO pauseai_backoffice_auth;
+
+
+--
+-- Name: TABLE session_step_ups; Type: ACL; Schema: auth; Owner: pauseai_backoffice_owner
+--
+
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE auth.session_step_ups TO pauseai_backoffice_auth;
 
 
 --

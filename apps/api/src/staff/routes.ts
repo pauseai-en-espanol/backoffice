@@ -12,6 +12,7 @@ import type { InvitedAccounts } from '../auth/invited-accounts.js';
 import type { PasswordLinks } from '../auth/password-links.js';
 
 import { PasswordMailFailed } from '../auth/password-links.js';
+import { RECENT_SECOND_FACTOR } from '../auth/step-up.js';
 import { databaseRefusal } from '../database-errors.js';
 import { mailFailure } from '../mail/mailer.js';
 import { createRateLimiter } from '../rate-limit.js';
@@ -162,6 +163,7 @@ export const staffDataRoutes =
     scope.patch<{ Params: { userId: string }; Body: StaffChange }>(
       '/staff/:userId',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           params: { type: 'object', properties: { userId: UUID } },
           body: {
@@ -216,6 +218,7 @@ export const staffDataRoutes =
     scope.post<{ Params: { userId: string }; Body: { to: string } }>(
       '/staff/:userId/private-records',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           params: { type: 'object', properties: { userId: UUID } },
           body: {
@@ -252,6 +255,7 @@ export const staffDataRoutes =
     scope.put<{ Params: { userId: string }; Body: { personId: string | null } }>(
       '/staff/:userId/person',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           params: { type: 'object', properties: { userId: UUID } },
           body: {
@@ -283,7 +287,10 @@ export const staffDataRoutes =
 
     scope.post<{ Params: { userId: string } }>(
       '/staff/:userId/password-link',
-      { schema: { params: { type: 'object', properties: { userId: UUID } } } },
+      {
+        config: RECENT_SECOND_FACTOR,
+        schema: { params: { type: 'object', properties: { userId: UUID } } },
+      },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           if (!passwordLinks) {
@@ -335,6 +342,7 @@ export const staffDataRoutes =
     scope.post<{ Body: { email: string; roles: (typeof STAFF_ROLES)[number][] } }>(
       '/invitations',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           body: {
             type: 'object',
@@ -404,7 +412,10 @@ export const staffDataRoutes =
 
     scope.post<{ Params: { id: string } }>(
       '/invitations/:id/revoke',
-      { schema: { params: { type: 'object', properties: { id: UUID } } } },
+      {
+        config: RECENT_SECOND_FACTOR,
+        schema: { params: { type: 'object', properties: { id: UUID } } },
+      },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           const done = await withActor(db, actor, async (trx) => {
@@ -417,7 +428,10 @@ export const staffDataRoutes =
 
     scope.delete<{ Params: { id: string } }>(
       '/invitations/:id',
-      { schema: { params: { type: 'object', properties: { id: UUID } } } },
+      {
+        config: RECENT_SECOND_FACTOR,
+        schema: { params: { type: 'object', properties: { id: UUID } } },
+      },
       async (request, reply) =>
         signedIn(request, reply, async (db, actor) => {
           const done = await withActor(db, actor, async (trx) => {
@@ -431,6 +445,7 @@ export const staffDataRoutes =
     scope.get<{ Querystring: { before?: string; limit?: number } }>(
       '/audit',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           querystring: {
             type: 'object',

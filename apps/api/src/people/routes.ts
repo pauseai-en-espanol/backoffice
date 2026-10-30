@@ -24,6 +24,7 @@ import { createHash, randomUUID } from 'node:crypto';
 
 import type { SyncCounts } from '../imports/airtable-sync.js';
 
+import { RECENT_SECOND_FACTOR } from '../auth/step-up.js';
 import { censusOfPerson } from '../census/census.js';
 import { databaseRefusal } from '../database-errors.js';
 import { fromAnotherSite } from '../fetch-site.js';
@@ -1080,6 +1081,7 @@ export const peopleRoutes =
     scope.post<{ Body: { label: string } }>(
       '/arrival-channels',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           body: {
             type: 'object',
@@ -1102,6 +1104,7 @@ export const peopleRoutes =
     scope.put<{ Body: { ids: string[] } }>(
       '/arrival-channels/order',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           body: {
             type: 'object',
@@ -1127,6 +1130,7 @@ export const peopleRoutes =
     scope.patch<{ Params: { id: string }; Body: { label?: string; active?: boolean } }>(
       '/arrival-channels/:id',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           params: ID_PARAMS,
           body: {
@@ -1245,6 +1249,7 @@ export const peopleRoutes =
     scope.patch<{ Body: SettingsChange }>(
       '/settings',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           body: {
             type: 'object',
@@ -1291,6 +1296,7 @@ export const peopleRoutes =
     scope.put<{ Body: { link: string } }>(
       '/airtable/link',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           body: {
             type: 'object',
@@ -1317,7 +1323,7 @@ export const peopleRoutes =
         }),
     );
 
-    scope.delete('/airtable/link', async (request, reply) =>
+    scope.delete('/airtable/link', { config: RECENT_SECOND_FACTOR }, async (request, reply) =>
       signedIn(request, reply, async (db, actor) => {
         await withActor(db, actor, async (trx) => {
           await require(trx, ADMIN);
@@ -1330,6 +1336,7 @@ export const peopleRoutes =
     scope.patch<{ Body: { enabled: boolean } }>(
       '/airtable',
       {
+        config: RECENT_SECOND_FACTOR,
         schema: {
           body: {
             type: 'object',
@@ -1353,7 +1360,7 @@ export const peopleRoutes =
 
     scope.get<{ Querystring: Record<string, unknown> }>(
       '/export/people.csv',
-      { schema: { querystring: FILTER_QUERY } },
+      { config: RECENT_SECOND_FACTOR, schema: { querystring: FILTER_QUERY } },
       async (request, reply) =>
         fromAnotherSite(request)
           ? reply.code(403).send({ error: 'forbidden' })
