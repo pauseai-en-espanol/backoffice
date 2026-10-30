@@ -22,5 +22,95 @@
     "new": "  const keepsBooks = admin && roles.includes('tesoreria');",
     "cmd": "pnpm exec vitest run src/shell/nav.spec.ts",
     "cwd": "apps/web"
+  },
+  {
+    "name": "Anotar posts an entry without its bank line",
+    "file": "apps/web/src/accounting/EntryForm.tsx",
+    "old": "      ...(bankLineId === undefined ? {} : { bankLineId }),\n",
+    "new": "",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Anotar offers a draft",
+    "file": "apps/web/src/accounting/EntryForm.tsx",
+    "old": "        {bankLineId === undefined ? (\n          <button",
+    "new": "        {true ? (\n          <button",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Anotar opens the entry, not Banco",
+    "file": "apps/web/src/accounting/EntryForm.tsx",
+    "old": "router.push(after ?? `/cuentas/${encodeURIComponent(id)}`);",
+    "new": "router.push(`/cuentas/${encodeURIComponent(id)}`);",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Anotar writes money out as negative",
+    "file": "apps/web/src/app/cuentas/nuevo/page.tsx",
+    "old": "    amount: amountOf(Math.abs(line.amountCents)),",
+    "new": "    amount: amountOf(line.amountCents),",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "Anotar takes money out for an income",
+    "file": "apps/web/src/app/cuentas/nuevo/page.tsx",
+    "old": "    kind: income ? 'income' : 'expense',",
+    "new": "    kind: 'income',",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "an admin gets the import",
+    "file": "apps/web/src/app/cuentas/banco/page.tsx",
+    "old": "{keeper && account.iban ? (",
+    "new": "{account.iban ? (",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "an admin gets the lines' actions",
+    "file": "apps/web/src/app/cuentas/banco/page.tsx",
+    "old": "{keeper ? <BankLineActions",
+    "new": "{true ? <BankLineActions",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "bank and books always differ",
+    "file": "apps/web/src/app/cuentas/banco/page.tsx",
+    "old": "reconciliation.bankCents === reconciliation.booksCents",
+    "new": "false",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
+  },
+  {
+    "name": "an admin sets the budget",
+    "file": "apps/web/src/app/cuentas/presupuesto/page.tsx",
+    "old": "const editable = canKeepBooks(me) && budget.status === 'open';",
+    "new": "const editable = budget.status === 'open';",
+    "before": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only",
+    "cmd": "pnpm exec playwright test tests/cuentas.spec.ts -g 'imports a statement'",
+    "cwd": "e2e",
+    "after": "pnpm exec turbo run build --filter=@backoffice/web --output-logs=errors-only"
   }
 ]
