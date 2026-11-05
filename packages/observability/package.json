@@ -1,6 +1,6 @@
 {
   "name": "@backoffice/observability",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Error tracking shared by the apps: privacy options for the Sentry SDKs and the browser error relay",
   "type": "module",

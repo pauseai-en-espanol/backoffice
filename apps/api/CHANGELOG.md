@@ -1,5 +1,16 @@
 # @backoffice/api
 
+## 0.14.3
+
+### Patch Changes
+
+- a351a7f: Dependencies bump
+- Updated dependencies [a351a7f]
+  - @backoffice/db@0.7.2
+  - @backoffice/domain@0.7.2
+  - @backoffice/i18n@0.19.2
+  - @backoffice/observability@0.1.3
+
 ## 0.14.2
 
 ### Patch Changes

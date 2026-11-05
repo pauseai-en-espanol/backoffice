@@ -1,5 +1,11 @@
 # @backoffice/ui
 
+## 0.2.3
+
+### Patch Changes
+
+- a351a7f: Dependencies bump
+
 ## 0.2.2
 
 ### Patch Changes

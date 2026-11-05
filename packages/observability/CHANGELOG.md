@@ -1,5 +1,11 @@
 # @backoffice/observability
 
+## 0.1.3
+
+### Patch Changes
+
+- a351a7f: Dependencies bump
+
 ## 0.1.2
 
 ### Patch Changes

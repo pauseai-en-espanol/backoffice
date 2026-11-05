@@ -1,5 +1,11 @@
 # @backoffice/i18n
 
+## 0.19.2
+
+### Patch Changes
+
+- a351a7f: Dependencies bump
+
 ## 0.19.1
 
 ### Patch Changes

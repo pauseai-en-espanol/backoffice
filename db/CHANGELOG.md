@@ -1,5 +1,11 @@
 # @backoffice/migrations
 
+## 0.12.2
+
+### Patch Changes
+
+- a351a7f: Dependencies bump
+
 ## 0.12.1
 
 ### Patch Changes
