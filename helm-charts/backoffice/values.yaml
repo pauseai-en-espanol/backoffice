@@ -7,16 +7,16 @@
 backoffice-migrations:
   nameOverride: migrations
   image:
-    tag: '0.12.1.dd01c86'
+    tag: '0.12.2.36f748a'
 backoffice-api:
   nameOverride: api
   image:
-    tag: '0.14.2.dd01c86'
+    tag: '0.14.3.36f748a'
 backoffice-web:
   nameOverride: web
   image:
-    tag: '0.19.1.dd01c86'
+    tag: '0.19.2.36f748a'
 backoffice-forms:
   nameOverride: forms
   image:
-    tag: '0.1.30.dd01c86'
+    tag: '0.1.31.36f748a'
