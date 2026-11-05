@@ -42,6 +42,8 @@ test('Cuentas: tesorería records an income with its receipt, corrects it, reads
   page,
   newContext,
 }) => {
+  // A long journey: 28–29 s on a quiet CI runner, past the default 30 s on a busy one.
+  test.setTimeout(90_000);
   await signedInStaff(page, ['tesoreria']);
   await expect(page.getByRole('link', { name: 'Movimientos' })).toBeVisible();
   await openThisYear(page);
