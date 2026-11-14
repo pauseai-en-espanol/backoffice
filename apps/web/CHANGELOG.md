@@ -1,5 +1,13 @@
 # @backoffice/web
 
+## 0.19.3
+
+### Patch Changes
+
+- Updated dependencies [d257338]
+  - @backoffice/domain@0.7.3
+  - @backoffice/i18n@0.19.3
+
 ## 0.19.2
 
 ### Patch Changes

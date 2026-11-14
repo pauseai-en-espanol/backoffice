@@ -1,5 +1,18 @@
 # @backoffice/api
 
+## 0.14.4
+
+### Patch Changes
+
+- d257338: A phone is found by any 2 of its digits, however they are spaced (PLAN R96), not only from 6: in Personas, Censo, the
+  Bandeja, Fusionar and ⌘K, and a number pasted from WhatsApp, with its invisible marks, is read as one. Contactos and
+  ⌘K find a contact by its phone the same way, which they never did; Contactos' hint says so. The bot's search still
+  needs 6 digits, since it never shows a number (ADR-0004).
+- Updated dependencies [d257338]
+  - @backoffice/domain@0.7.3
+  - @backoffice/i18n@0.19.3
+  - @backoffice/db@0.7.2
+
 ## 0.14.3
 
 ### Patch Changes
