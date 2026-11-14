@@ -345,8 +345,18 @@ describe('onboarding through the staff API (M1)', () => {
     expect(await ids(`(202) 555-01${end}`)).toContain(personId);
     expect(await ids(`001 202 555 01${end}`)).toContain(personId);
     expect(await ids(`555 01${end}`)).toContain(personId);
-    // Too few digits to tell whose.
-    expect(await ids(`5 01${end}`)).not.toContain(personId);
+    // Any 2 of its digits, however spaced (PLAN R96); a single one is no phone.
+    for (const q of [
+      `5 01${end}`,
+      `01${end}`,
+      `0 1 ${end}`,
+      '55',
+      '5 5',
+      `${end.charAt(0)}-${end.charAt(1)}`,
+    ]) {
+      expect(await ids(q), q).toContain(personId);
+    }
+    expect(await ids(end.slice(-1))).not.toContain(personId);
   });
 
   it('quick-adds someone with only a phone, nameless until a name is set (PLAN R37)', async () => {
@@ -601,6 +611,9 @@ describe('onboarding through the staff API (M1)', () => {
     const byName = (await search(onboarder, `marta busca ${tag}`)).people.map((one) => one.id);
     expect(byName.slice(0, 2)).toEqual([exact, inName]);
     expect((await search(onboarder, phone)).people[0]?.id).toBe(exact);
+    // Part of a phone, however spaced, as it's typed (PLAN R96).
+    const part = `${phone.slice(-5, -3)} ${phone.slice(-3)}`;
+    expect((await search(onboarder, part)).people.map((one) => one.id)).toContain(exact);
     // Whose Discord it is comes before a name only like it.
     const alike = await add({ name: `Zeta ${tag}`, decision: 'new' });
     const owner = await add({

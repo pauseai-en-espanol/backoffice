@@ -97,5 +97,29 @@
     "new": "                                  )",
     "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts tests/census-api.spec.ts",
     "cwd": "apps/api"
+  },
+  {
+    "name": "Contactos doesn't find a phone by its digits",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "\n           OR ${phoneHas(filter.q)})`,",
+    "new": ")`,",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the search from anywhere doesn't find a contact by its phone",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "\n            OR ${phoneHas(q)})",
+    "new": ")",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "a contact's phone matches whatever isn't one",
+    "file": "apps/api/src/outreach/outreach.ts",
+    "old": "return digits === undefined ? sql`false` : sql`strpos(c.phone, ${digits}) > 0`;",
+    "new": "return digits === undefined ? sql`true` : sql`strpos(c.phone, ${digits}) > 0`;",
+    "cmd": "pnpm exec vitest run -c vitest.db.config.ts tests/outreach-api.spec.ts",
+    "cwd": "apps/api"
   }
 ]

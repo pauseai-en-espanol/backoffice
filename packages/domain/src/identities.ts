@@ -78,22 +78,37 @@ export const inferIdentityKind = (raw: string): 'email' | 'phone' | 'discord' | 
   return normalizeDiscord(value) === undefined ? undefined : 'discord';
 };
 
-/** The fewest digits a search finds a phone by, in part: fewer would match too many numbers. */
-export const PHONE_SEARCH_DIGITS = 6;
+/**
+ * The fewest digits the team's search finds a phone by, in part (PLAN R96): two, so a number is found as it's typed;
+ * one would list nearly everyone.
+ */
+export const PHONE_SEARCH_DIGITS = 2;
 
 /**
- * What a search finds a phone by, in part (PLAN R72): the digits of a query written only as a phone is (digits,
- * spaces, `+`, brackets, dots and dashes), without the zeros a `00` or a national prefix starts with, at least
- * PHONE_SEARCH_DIGITS of them. A stored number with these digits in it matches, so a foreign number written without its
- * country code ("857 756 3987" for +1 857 756 3987), or the end of one, finds it. Undefined for anything else.
+ * The fewest digits the bot's search finds a phone by (PLAN R82). More than the team's: the bot never shows a number
+ * (ADR-0004), and a short run of digits, tried one after another, would tell someone's number digit by digit.
  */
-export const phoneSearchDigits = (raw: string): string | undefined => {
+export const BOT_PHONE_SEARCH_DIGITS = 6;
+
+/**
+ * What a search finds a phone by, in part (PLAN R72, R96): the digits of a query written only as a phone is (digits,
+ * spaces of any kind, `+`, brackets, dots, dashes, and the invisible marks a number copied from WhatsApp brings), at
+ * least `fewest` of them, without the zeros a `00` or a national prefix starts with unless that leaves less than two
+ * ("06" is part of a number). A stored number with these digits in it matches, so a foreign number written without its
+ * country code ("857 756 3987" for +1 857 756 3987), or any part of one, finds it. Undefined for anything else.
+ */
+export const phoneSearchDigits = (
+  raw: string,
+  fewest: number = PHONE_SEARCH_DIGITS,
+): string | undefined => {
   const value = raw.trim();
-  if (!/^[\d\s+().-]+$/u.test(value)) {
+  if (!/^[\d\s\p{Cf}+().-]+$/u.test(value)) {
     return undefined;
   }
-  const digits = value.replace(/\D/gu, '').replace(/^0+/u, '');
-  return digits.length >= PHONE_SEARCH_DIGITS ? digits : undefined;
+  const typed = value.replace(/\D/gu, '');
+  const unprefixed = typed.replace(/^0+/u, '');
+  const digits = unprefixed.length >= PHONE_SEARCH_DIGITS ? unprefixed : typed;
+  return digits.length >= fewest ? digits : undefined;
 };
 
 /**

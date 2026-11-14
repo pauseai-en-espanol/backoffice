@@ -42,10 +42,26 @@
   {
     "name": "the bot's search reads a phone's digits as a name",
     "file": "apps/api/src/telegram/bot.ts",
-    "old": "  const digits = phoneSearchDigits(text);",
+    "old": "  const digits = phoneSearchDigits(text, BOT_PHONE_SEARCH_DIGITS);",
     "new": "  const digits = undefined as string | undefined;",
     "cmd": "pnpm exec vitest run src/telegram",
     "cwd": "apps/api"
+  },
+  {
+    "name": "the bot finds a phone by the team's 2 digits",
+    "file": "apps/api/src/telegram/bot.ts",
+    "old": "phoneSearchDigits(text, BOT_PHONE_SEARCH_DIGITS)",
+    "new": "phoneSearchDigits(text)",
+    "cmd": "pnpm exec vitest run src/telegram",
+    "cwd": "apps/api"
+  },
+  {
+    "name": "the bot's fewest digits are the team's",
+    "file": "packages/domain/src/identities.ts",
+    "old": "export const BOT_PHONE_SEARCH_DIGITS = 6;",
+    "new": "export const BOT_PHONE_SEARCH_DIGITS = 2;",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
   },
   {
     "name": "a search by a phone's digits stays in the chat",

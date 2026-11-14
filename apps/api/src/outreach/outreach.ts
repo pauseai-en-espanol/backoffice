@@ -1,6 +1,7 @@
 import type { DB } from '@backoffice/db/generated/db';
 import type { RawBuilder, Transaction } from 'kysely';
 
+import { phoneSearchDigits } from '@backoffice/domain/identities';
 import {
   bySendOrder,
   type Letter,
@@ -58,8 +59,18 @@ export type TargetStatus = (typeof TARGET_STATUSES)[number];
 const pattern = (q: string): string => `%${q.trim().replaceAll(/[\\%_]/gu, (c) => `\\${c}`)}%`;
 
 /**
- * The search from anywhere (PLAN R80), for outreach staff: contacts by their person, organisation or email, and
- * organisations by name, those starting so first; at most five of each. Private ones are their own person's (RLS).
+ * A contact (`c`) whose phone has a query's digits in it, however they were written (PLAN R96), as Personas finds a
+ * person's: a stored phone is E.164, a `+` and its digits.
+ */
+const phoneHas = (q: string): RawBuilder<unknown> => {
+  const digits = phoneSearchDigits(q);
+  return digits === undefined ? sql`false` : sql`strpos(c.phone, ${digits}) > 0`;
+};
+
+/**
+ * The search from anywhere (PLAN R80), for outreach staff: contacts by their person, organisation, email or phone
+ * (R96), and organisations by name, those starting so first; at most five of each. Private ones are their own
+ * person's (RLS).
  */
 export const searchOutreach = async (trx: Transaction<DB>, q: string) => {
   const like = pattern(q);
@@ -69,7 +80,8 @@ export const searchOutreach = async (trx: Transaction<DB>, q: string) => {
            CASE WHEN c.person_name IS NULL THEN NULL ELSE c.org_display END AS organisation
       FROM app.contacts c
      WHERE c.anonymised_at IS NULL
-       AND (c.person_name ILIKE ${like} OR c.org_display ILIKE ${like} OR c.email ILIKE ${like})
+       AND (c.person_name ILIKE ${like} OR c.org_display ILIKE ${like} OR c.email ILIKE ${like}
+            OR ${phoneHas(q)})
      ORDER BY (c.person_name ILIKE ${starts} OR c.org_display ILIKE ${starts}) DESC,
               coalesce(c.person_name, c.org_display)
      LIMIT 5`.execute(trx);
@@ -179,7 +191,8 @@ export const listContacts = async (
   if (filter.q?.trim()) {
     const like = pattern(filter.q);
     where.push(
-      sql`(c.org_display ILIKE ${like} OR c.person_name ILIKE ${like} OR c.role ILIKE ${like} OR o.name ILIKE ${like})`,
+      sql`(c.org_display ILIKE ${like} OR c.person_name ILIKE ${like} OR c.role ILIKE ${like} OR o.name ILIKE ${like}
+           OR ${phoneHas(filter.q)})`,
     );
   }
   if (filter.tier) {

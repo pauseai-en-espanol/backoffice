@@ -1898,7 +1898,7 @@
     "intro": "Las personas y organizaciones con las que queremos una relación: por qué importan, de dónde sale cada dato, quién las lleva y en qué punto está la relación.",
     "listLabel": "Contactos",
     "search": "Buscar",
-    "searchHint": "Organización, persona o cargo.",
+    "searchHint": "Organización, persona, cargo o teléfono, entero o en parte.",
     "tier": "Nivel",
     "anyTier": "Cualquiera",
     "territory": "Territorio",

@@ -220,26 +220,50 @@
     "cwd": "apps/api"
   },
   {
-    "name": "a search finds a phone by a digit or two",
+    "name": "a search finds a phone by a single digit",
     "file": "packages/domain/src/identities.ts",
-    "old": "export const PHONE_SEARCH_DIGITS = 6;",
+    "old": "export const PHONE_SEARCH_DIGITS = 2;",
     "new": "export const PHONE_SEARCH_DIGITS = 1;",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a search needs more than 2 of a phone's digits",
+    "file": "packages/domain/src/identities.ts",
+    "old": "export const PHONE_SEARCH_DIGITS = 2;",
+    "new": "export const PHONE_SEARCH_DIGITS = 3;",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a short search drops its zeros too",
+    "file": "packages/domain/src/identities.ts",
+    "old": "const digits = unprefixed.length >= PHONE_SEARCH_DIGITS ? unprefixed : typed;",
+    "new": "const digits = unprefixed;",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a phone pasted from WhatsApp isn't read as one",
+    "file": "packages/domain/src/identities.ts",
+    "old": "if (!/^[\\d\\s\\p{Cf}+().-]+$/u.test(value)) {",
+    "new": "if (!/^[\\d\\s+().-]+$/u.test(value)) {",
     "cmd": "pnpm exec vitest run src/identities.spec.ts",
     "cwd": "packages/domain"
   },
   {
     "name": "a search keeps the zeros a phone's prefix starts with",
     "file": "packages/domain/src/identities.ts",
-    "old": "const digits = value.replace(/\\D/gu, '').replace(/^0+/u, '');",
-    "new": "const digits = value.replace(/\\D/gu, '');",
+    "old": "const unprefixed = typed.replace(/^0+/u, '');",
+    "new": "const unprefixed = typed;",
     "cmd": "pnpm exec vitest run src/identities.spec.ts",
     "cwd": "packages/domain"
   },
   {
     "name": "a search reads the digits of any text as a phone",
     "file": "packages/domain/src/identities.ts",
-    "old": "  if (!/^[\\d\\s+().-]+$/u.test(value)) {\n    return undefined;\n  }\n  const digits",
-    "new": "  const digits",
+    "old": "  if (!/^[\\d\\s\\p{Cf}+().-]+$/u.test(value)) {\n    return undefined;\n  }\n  const typed",
+    "new": "  const typed",
     "cmd": "pnpm exec vitest run src/identities.spec.ts",
     "cwd": "packages/domain"
   },

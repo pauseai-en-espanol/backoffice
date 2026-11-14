@@ -236,6 +236,54 @@ describe('organisations and contacts (M3)', () => {
     expect((await onboarder.who.send('GET', `/api/outreach/contacts/${id}`)).statusCode).toBe(403);
   });
 
+  it('are found by any 2 of their phone’s digits, however spaced, in Contactos and the search (PLAN R96)', async () => {
+    // Letters only around the number, so no digit matches a name, an organisation or an email by chance.
+    const tag = unique().replaceAll(/\d/gu, (digit) => 'ghijklmnop'.charAt(Number(digit)));
+    const territory = `Territorio ${tag}`;
+    const number = Math.floor(Math.random() * 1e8)
+      .toString()
+      .padStart(8, '0');
+    const fields = { orgDisplay: `Prueba Asociación ${tag}`, territory };
+    const id = await newContact({
+      ...fields,
+      phone: `6${number}`,
+      email: `berta.${tag}@ejemplo.test`,
+    });
+    // Same territory, no phone: never found by digits.
+    await newContact({ ...fields, email: `otra.${tag}@ejemplo.test` });
+    const listed = async (q: string) =>
+      (
+        await outreacher.who.send(
+          'GET',
+          `/api/outreach/contacts?${new URLSearchParams({ q, territory }).toString()}`,
+        )
+      )
+        .json<{ contacts: { id: string }[] }>()
+        .contacts.map((contact) => contact.id);
+    const spaced = `${number.slice(0, 2)} ${number.slice(2, 5)} ${number.slice(5)}`;
+    for (const q of [
+      `6${number}`,
+      `+34 6${spaced}`,
+      `0034 6${number}`,
+      spaced,
+      number.slice(-4),
+      `${number.slice(-4, -2)} ${number.slice(-2)}`,
+      `${number.slice(3, 4)}-${number.slice(4, 5)}`,
+      number.slice(3, 5),
+    ]) {
+      expect(await listed(q), q).toEqual([id]);
+    }
+    // A single digit is no phone.
+    expect(await listed(number.slice(-1))).toEqual([]);
+
+    const found = async (q: string) =>
+      (await outreacher.who.send('GET', `/api/search?q=${encodeURIComponent(q)}`))
+        .json<{ contacts: { id: string }[] }>()
+        .contacts.map((contact) => contact.id);
+    expect(await found(spaced)).toContain(id);
+    expect(await found(`+34 6${number}`)).toContain(id);
+  });
+
   it('keep notes on a timeline, an organisation’s too, each dated when it happened if not today (PLAN M5)', async () => {
     const org = await outreacher.who.send('POST', '/api/outreach/organisations', {
       name: `Prueba Fundación ${unique()}`,

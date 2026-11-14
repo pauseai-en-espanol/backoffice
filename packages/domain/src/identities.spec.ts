@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  BOT_PHONE_SEARCH_DIGITS,
   foldName,
   inferIdentityKind,
   mayBeDiscord,
@@ -138,7 +139,7 @@ describe('phone numbers', () => {
   });
 });
 
-describe('a phone searched for in part (PLAN R72)', () => {
+describe('a phone searched for in part (PLAN R72, R96)', () => {
   it('is the digits of a query written as a phone, without the zeros its prefix starts with', () => {
     expect(phoneSearchDigits('857 756 3987')).toBe('8577563987');
     expect(phoneSearchDigits('(857) 756-3987')).toBe('8577563987');
@@ -148,12 +149,41 @@ describe('a phone searched for in part (PLAN R72)', () => {
     expect(phoneSearchDigits('56 78 90')).toBe('567890');
   });
 
-  it('is nothing for fewer digits, or for what isn’t only a phone', () => {
-    expect(phoneSearchDigits('56 789')).toBeUndefined();
-    expect(phoneSearchDigits('000 0000 0')).toBeUndefined();
+  it('takes as few as 2 digits, however they are spaced (PLAN R96)', () => {
+    for (const raw of ['56', '5 6', ' 5-6 ', '(5) 6', '5.6']) {
+      expect(phoneSearchDigits(raw), raw).toBe('56');
+    }
+    expect(phoneSearchDigits('56 789')).toBe('56789');
+    expect(phoneSearchDigits('+34 6')).toBe('346');
+  });
+
+  it('keeps the zeros when dropping them would leave too few digits (PLAN R96)', () => {
+    expect(phoneSearchDigits('06')).toBe('06');
+    expect(phoneSearchDigits('00')).toBe('00');
+    expect(phoneSearchDigits('0 0 0')).toBe('000');
+    expect(phoneSearchDigits('0612')).toBe('612');
+  });
+
+  it('reads a number pasted with the marks WhatsApp and phones put around it (PLAN R96)', () => {
+    // Left-to-right embedding and mark, no-break and narrow no-break spaces, as a copied number brings them.
+    expect(phoneSearchDigits('‪+34 612 34 56 78‬')).toBe('34612345678');
+    expect(phoneSearchDigits('‎612 34')).toBe('61234');
+  });
+
+  it('is nothing for a single digit, or for what isn’t only a phone', () => {
+    expect(phoneSearchDigits('5')).toBeUndefined();
+    expect(phoneSearchDigits(' 0 ')).toBeUndefined();
     expect(phoneSearchDigits('Ana 612345678')).toBeUndefined();
     expect(phoneSearchDigits('ana@ejemplo.test')).toBeUndefined();
     expect(phoneSearchDigits('@612345678')).toBeUndefined();
+  });
+
+  it('needs 6 digits in the bot, which never shows a number (PLAN R82, ADR-0004)', () => {
+    expect(phoneSearchDigits('56 789', BOT_PHONE_SEARCH_DIGITS)).toBeUndefined();
+    expect(phoneSearchDigits('56 78 90', BOT_PHONE_SEARCH_DIGITS)).toBe('567890');
+    // A prefix's zeros are no digits of the number.
+    expect(phoneSearchDigits('0034 612', BOT_PHONE_SEARCH_DIGITS)).toBeUndefined();
+    expect(phoneSearchDigits('0034 612')).toBe('34612');
   });
 });
 

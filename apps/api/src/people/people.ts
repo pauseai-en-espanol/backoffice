@@ -157,7 +157,7 @@ export interface PeopleFilter {
 
 /**
  * The conditions a filter adds, for the actor `me`. Names match folded and typo-tolerant; phones, emails and Discord
- * usernames exactly, and a phone also by part of its digits, however it was written (PLAN R72).
+ * usernames exactly, and a phone also by any 2 of its digits or more, however it was written (PLAN R72, R96).
  */
 const conditions = (filter: PeopleFilter, me: string): RawBuilder<unknown>[] => {
   const where: RawBuilder<unknown>[] = [sql`p.merged_into IS NULL AND p.anonymised_at IS NULL`];

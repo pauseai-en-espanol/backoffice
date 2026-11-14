@@ -860,6 +860,18 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   than an admin (Nuevo movimiento, since step 1), and Salir ends 5px under 720 (an admin's ends at 701); the menu
   scrolls on its own when it is longer than the screen, so it is reachable. A group's name 4px nearer its list would
   bring it back; left for the demo with R94.
+- **R96. A phone found by any 2 of its digits, a contact's too** (Dani, 2026-11-14: "i cannot partially search by
+  phone", then "even 2-3 digits should be valid (and spacing should not make a difference)"). Since R72 a phone was
+  found in part only from 6 digits, so ⌘K showed nobody until the sixth, and Contactos and ⌘K's contacts never
+  matched a phone at all. Options for the fewest: 2, 3 or 4; for the bot, the same or R82's 6. **Chose 2 for the
+  team, the bot kept at 6**: in Personas, Censo, the Bandeja, Fusionar and ⌘K, a query written only as a phone finds
+  every stored number with its digits in it, from 2, however spaced, and also a number pasted with the invisible
+  marks WhatsApp copies with it; a single digit would list nearly everyone. A prefix's leading zeros still go, unless
+  fewer than 2 digits would be left, so "06" is part of a number. Contactos and ⌘K find a contact by its phone the
+  same way. The bot keeps 6 because it never shows a number (ADR-0004): from a short run of digits, tried one after
+  another, someone could read a person's number digit by digit. Both minimums are in `@backoffice/domain/identities`;
+  `private.bot_people` checks the bot's too, unchanged. Mutation lists `onboarding`, `outreach-api` and
+  `bot-commands`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).
