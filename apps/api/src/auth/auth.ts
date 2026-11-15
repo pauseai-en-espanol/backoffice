@@ -1,7 +1,12 @@
 import type { createAuthPool } from '@backoffice/db/auth-pool';
 
+import {
+  decodeAttestationObject,
+  isoBase64URL,
+  parseAuthenticatorData,
+} from '@simplewebauthn/server/helpers';
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
-import { APIError } from 'better-auth/api';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { createHash } from 'node:crypto';
 
 import type { PasswordMail } from './password-mail.js';
@@ -19,8 +24,8 @@ export const SESSION_IDLE_SECONDS = 48 * 60 * 60;
 
 /**
  * What a passkey's answer must say for it to count as the second factor: that the device checked who holds it
- * (fingerprint, face or PIN), not only that someone touched it. Better Auth's plugin asks for that and then accepts
- * either, so both ceremonies check it here.
+ * (fingerprint, face or PIN), not only that someone touched it. Better Auth's plugin refuses one that didn't
+ * (`userVerification: 'required'`), but with the answer it gives any failed ceremony, so a hook answers this first.
  */
 export const USER_NOT_VERIFIED = 'PASSKEY_USER_NOT_VERIFIED';
 const unverified = () =>
@@ -28,6 +33,31 @@ const unverified = () =>
     code: USER_NOT_VERIFIED,
     message: 'The passkey did not check who holds the device',
   });
+
+/**
+ * Whether a passkey ceremony's answer says the device checked who holds it: the UV flag of its authenticator data,
+ * the bytes the plugin then verifies. Undefined for any other endpoint, or an answer with no such data to read, which
+ * the plugin refuses on its own.
+ */
+const userVerifiedIn = (path: string, body: unknown): boolean | undefined => {
+  const answer = (body as { response?: { response?: Record<string, unknown> } } | undefined)
+    ?.response?.response;
+  try {
+    if (path === '/passkey/verify-registration' && typeof answer?.attestationObject === 'string') {
+      const attestation = decodeAttestationObject(isoBase64URL.toBuffer(answer.attestationObject));
+      return parseAuthenticatorData(attestation.get('authData')).flags.uv;
+    }
+    if (
+      path === '/passkey/verify-authentication' &&
+      typeof answer?.authenticatorData === 'string'
+    ) {
+      return parseAuthenticatorData(isoBase64URL.toBuffer(answer.authenticatorData)).flags.uv;
+    }
+  } catch {
+    // Not authenticator data at all: the plugin's verification refuses it.
+  }
+  return undefined;
+};
 
 /** Shorter passwords are refused. */
 export const MIN_PASSWORD_LENGTH = 12;
@@ -207,22 +237,9 @@ export const authOptions = ({
     rpID: new URL(staffOrigin).hostname,
     rpName: totpIssuer,
     origin: staffOrigin,
-    // Discoverable, so the sign-in page needs no email first; and the device checks who holds it.
+    // Discoverable, so the sign-in page needs no email first; and the device checks who holds it, which the plugin
+    // then requires of both ceremonies (USER_NOT_VERIFIED).
     authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
-    registration: {
-      afterVerification: async ({ verification }) => {
-        if (verification.registrationInfo?.userVerified !== true) {
-          throw unverified();
-        }
-      },
-    },
-    authentication: {
-      afterVerification: async ({ verification }) => {
-        if (!verification.authenticationInfo.userVerified) {
-          throw unverified();
-        }
-      },
-    },
   });
   // Mail nobody waits for: an answer never says whether an address has an account by how long it took.
   const inBackground = (send: () => Promise<void>): void => {
@@ -328,6 +345,14 @@ export const authOptions = ({
           }),
         },
       },
+    },
+    hooks: {
+      // A passkey whose device didn't check who holds it is refused saying so, not as a failed ceremony.
+      before: createAuthMiddleware(async (ctx) => {
+        if (userVerifiedIn(ctx.path, ctx.body) === false) {
+          throw unverified();
+        }
+      }),
     },
     telemetry: { enabled: false },
   };
