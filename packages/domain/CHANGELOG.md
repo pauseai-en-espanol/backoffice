@@ -1,5 +1,11 @@
 # @backoffice/domain
 
+## 0.7.4
+
+### Patch Changes
+
+- 23de1b2: Dependencies bump
+
 ## 0.7.3
 
 ### Patch Changes

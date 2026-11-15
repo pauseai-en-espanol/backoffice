@@ -1,5 +1,15 @@
 # @backoffice/forms
 
+## 0.1.33
+
+### Patch Changes
+
+- 23de1b2: Dependencies bump
+- Updated dependencies [23de1b2]
+  - @backoffice/domain@0.7.4
+  - @backoffice/i18n@0.19.4
+  - @backoffice/observability@0.1.4
+
 ## 0.1.32
 
 ### Patch Changes

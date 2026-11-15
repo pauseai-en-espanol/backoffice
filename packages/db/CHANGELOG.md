@@ -1,5 +1,11 @@
 # @backoffice/db
 
+## 0.7.3
+
+### Patch Changes
+
+- 23de1b2: Dependencies bump
+
 ## 0.7.2
 
 ### Patch Changes
