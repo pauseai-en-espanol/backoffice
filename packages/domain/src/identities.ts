@@ -10,11 +10,27 @@ export type IdentityKind = (typeof IDENTITY_KINDS)[number];
 /** Spain is where the community is: a number written without a country code is Spanish. */
 export const DEFAULT_REGION: CountryCode = 'ES';
 
+/**
+ * What was typed or pasted without its invisible marks (Unicode's format characters, PLAN R97): WhatsApp and phones
+ * copy a number or an address with direction marks around it (U+202A…U+202C, U+2066…U+2069, U+200E), which nobody
+ * sees in a field and nobody means to keep.
+ */
+const visible = (raw: string): string => raw.replaceAll(/\p{Cf}/gu, '');
+
+/**
+ * What a phone is written with (PLAN R63, R72), once its invisible marks are gone: digits, spaces of any kind, `+`,
+ * brackets, dots and dashes. Contacto and the searches read a phone by the same rule.
+ */
+const WRITTEN_AS_PHONE = /^[\d\s+().-]+$/u;
+
 const EMAIL = /^[^\s@<>"(),;:]+@[^\s@<>"(),;:.]+(?:\.[^\s@<>"(),;:.]+)+$/u;
 
-/** An email address as stored: trimmed, without `mailto:` or angle brackets, in lowercase. Undefined if not one. */
+/**
+ * An email address as stored: trimmed, without invisible marks, `mailto:` or angle brackets, in lowercase. Undefined
+ * if not one.
+ */
 export const normalizeEmail = (raw: string): string | undefined => {
-  const value = raw
+  const value = visible(raw)
     .normalize('NFC')
     .trim()
     .replace(/^mailto:/iu, '')
@@ -25,14 +41,15 @@ export const normalizeEmail = (raw: string): string | undefined => {
 };
 
 /**
- * A phone number as stored: E.164 (`+34612345678`), parsed as people write them (spaces, dots, dashes, brackets, a
- * `00` or `+` country prefix), Spanish when it has none. Undefined unless it is a valid number.
+ * A phone number as stored: E.164 (`+34612345678`), parsed as people write them (spaces of any kind, dots, dashes,
+ * brackets, a `00` or `+` country prefix, the invisible marks a pasted one brings), Spanish when it has none.
+ * Undefined unless it is a valid number.
  */
 export const normalizePhone = (
   raw: string,
   region: CountryCode = DEFAULT_REGION,
 ): string | undefined => {
-  const parsed = parsePhoneNumberFromString(raw.trim(), region);
+  const parsed = parsePhoneNumberFromString(visible(raw).replaceAll(/\s/gu, ' ').trim(), region);
   return parsed?.isValid() ? parsed.number : undefined;
 };
 
@@ -45,11 +62,11 @@ export const spacedPhone = (phone: string): string =>
 
 /**
  * A Discord username as Discord makes them (PLAN M5): 2 to 32 lowercase letters, digits, underscores and dots, never two
- * dots in a row. People write it with an `@` in front, or in capitals: both go. Undefined unless it is one; the old
- * `name#1234` form no longer exists.
+ * dots in a row. People write it with an `@` in front, or in capitals, or paste it with invisible marks: all go.
+ * Undefined unless it is one; the old `name#1234` form no longer exists.
  */
 export const normalizeDiscord = (raw: string): string | undefined => {
-  const value = raw.normalize('NFC').trim().replace(/^@/u, '').toLowerCase();
+  const value = visible(raw).normalize('NFC').trim().replace(/^@/u, '').toLowerCase();
   return /^[a-z0-9_.]{2,32}$/u.test(value) && !value.includes('..') ? value : undefined;
 };
 
@@ -62,17 +79,18 @@ export const normalizeAirtableId = (raw: string): string | undefined => {
 /**
  * Which kind a value typed in Contacto is (PLAN R63), so nobody chooses it: an @ after the first character makes it an
  * email; only digits, spaces, `+`, brackets, dots and dashes, a phone; anything else, a Discord username (with or
- * without its @). Undefined when it isn't a valid one of what it looks like: a number too short is no Discord name.
+ * without its @). Invisible marks pasted with it don't count (R97). Undefined when it isn't a valid one of what it
+ * looks like: a number too short is no Discord name.
  */
 export const inferIdentityKind = (raw: string): 'email' | 'phone' | 'discord' | undefined => {
-  const value = raw.trim();
+  const value = visible(raw).trim();
   if (value === '') {
     return undefined;
   }
   if (value.indexOf('@') > 0) {
     return normalizeEmail(value) === undefined ? undefined : 'email';
   }
-  if (/^[\d\s+().-]+$/u.test(value)) {
+  if (WRITTEN_AS_PHONE.test(value)) {
     return normalizePhone(value) === undefined ? undefined : 'phone';
   }
   return normalizeDiscord(value) === undefined ? undefined : 'discord';
@@ -101,8 +119,8 @@ export const phoneSearchDigits = (
   raw: string,
   fewest: number = PHONE_SEARCH_DIGITS,
 ): string | undefined => {
-  const value = raw.trim();
-  if (!/^[\d\s\p{Cf}+().-]+$/u.test(value)) {
+  const value = visible(raw).trim();
+  if (!WRITTEN_AS_PHONE.test(value)) {
     return undefined;
   }
   const typed = value.replace(/\D/gu, '');

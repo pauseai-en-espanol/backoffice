@@ -246,8 +246,56 @@
   {
     "name": "a phone pasted from WhatsApp isn't read as one",
     "file": "packages/domain/src/identities.ts",
-    "old": "if (!/^[\\d\\s\\p{Cf}+().-]+$/u.test(value)) {",
-    "new": "if (!/^[\\d\\s+().-]+$/u.test(value)) {",
+    "old": "  const value = visible(raw).trim();\n  if (!WRITTEN_AS_PHONE.test(value)) {",
+    "new": "  const value = raw.trim();\n  if (!WRITTEN_AS_PHONE.test(value)) {",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "Contacto refuses a phone pasted from WhatsApp",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  const value = visible(raw).trim();\n  if (value === '') {",
+    "new": "  const value = raw.trim();\n  if (value === '') {",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "only some invisible marks are taken out",
+    "file": "packages/domain/src/identities.ts",
+    "old": "raw.replaceAll(/\\p{Cf}/gu, '')",
+    "new": "raw.replaceAll(/[\\u202A-\\u202C]/gu, '')",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "an email is stored with the invisible marks pasted with it",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  const value = visible(raw)\n    .normalize('NFC')",
+    "new": "  const value = raw\n    .normalize('NFC')",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a phone with invisible marks inside it is refused",
+    "file": "packages/domain/src/identities.ts",
+    "old": "    visible(raw).replaceAll(/\\s/gu, ' ').trim(),",
+    "new": "    raw.replaceAll(/\\s/gu, ' ').trim(),",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a phone spaced with narrow or thin spaces is refused",
+    "file": "packages/domain/src/identities.ts",
+    "old": "    visible(raw).replaceAll(/\\s/gu, ' ').trim(),",
+    "new": "    visible(raw).trim(),",
+    "cmd": "pnpm exec vitest run src/identities.spec.ts",
+    "cwd": "packages/domain"
+  },
+  {
+    "name": "a Discord username pasted with invisible marks is refused",
+    "file": "packages/domain/src/identities.ts",
+    "old": "  const value = visible(raw).normalize('NFC').trim()",
+    "new": "  const value = raw.normalize('NFC').trim()",
     "cmd": "pnpm exec vitest run src/identities.spec.ts",
     "cwd": "packages/domain"
   },
@@ -262,7 +310,7 @@
   {
     "name": "a search reads the digits of any text as a phone",
     "file": "packages/domain/src/identities.ts",
-    "old": "  if (!/^[\\d\\s\\p{Cf}+().-]+$/u.test(value)) {\n    return undefined;\n  }\n  const typed",
+    "old": "  if (!WRITTEN_AS_PHONE.test(value)) {\n    return undefined;\n  }\n  const typed",
     "new": "  const typed",
     "cmd": "pnpm exec vitest run src/identities.spec.ts",
     "cwd": "packages/domain"

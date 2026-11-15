@@ -21,6 +21,10 @@ describe('Discord usernames (PLAN M5)', () => {
     expect(normalizeDiscord('x'.repeat(32))).toBe('x'.repeat(32));
   });
 
+  it('are read through the invisible marks pasted with them (PLAN R97)', () => {
+    expect(normalizeDiscord('‪@Persona_De.Ejemplo‬')).toBe('persona_de.ejemplo');
+  });
+
   it('refuse what Discord wouldn’t make', () => {
     for (const raw of ['', 'a', 'x'.repeat(33), 'per..sona', 'per sona', 'persona#1234', 'peña']) {
       expect(normalizeDiscord(raw), raw).toBeUndefined();
@@ -43,6 +47,21 @@ describe('inferIdentityKind: what someone typed in Contacto (PLAN R63)', () => {
     ]) {
       expect(inferIdentityKind(raw), raw).toBe('email');
     }
+  });
+
+  it('reads what was pasted with the invisible marks WhatsApp and phones copy with it (PLAN R97)', () => {
+    for (const raw of [
+      '‪+34 612 34 56 78‬',
+      '⁦+34612345678⁩',
+      '+34612345678‎',
+      '612​345​678',
+      '+34 612 34 56 78',
+    ]) {
+      expect(inferIdentityKind(raw), raw).toBe('phone');
+    }
+    expect(inferIdentityKind('‪ana@ejemplo.test‬')).toBe('email');
+    expect(inferIdentityKind('‪@persona_de.ejemplo‬')).toBe('discord');
+    expect(inferIdentityKind('‪‬')).toBeUndefined();
   });
 
   it('reads anything else Discord would make as a Discord username, a leading @ too', () => {
@@ -97,6 +116,11 @@ describe('emails', () => {
     expect(normalizeEmail('<ana@ejemplo.test>')).toBe('ana@ejemplo.test');
   });
 
+  it('are kept without the invisible marks pasted with them, so the same address is one (PLAN R97)', () => {
+    expect(normalizeEmail('‪ana@ejemplo.test‬')).toBe('ana@ejemplo.test');
+    expect(normalizeEmail('ana​@ejemplo.test‎')).toBe('ana@ejemplo.test');
+  });
+
   it('refuse what is not one', () => {
     for (const raw of [
       '',
@@ -124,6 +148,17 @@ describe('phone numbers', () => {
       expect(normalizePhone(raw), raw).toBe('+34612345678');
     }
     expect(normalizePhone('+44 7911 123456')).toBe('+447911123456');
+  });
+
+  it('are read through the invisible marks and odd spaces pasted with them (PLAN R97)', () => {
+    for (const raw of [
+      '‪+34 612 34 56 78‬',
+      '+34‎612‎345‎678',
+      '+34 612 34 56 78',
+      '+34 612 345 678',
+    ]) {
+      expect(normalizePhone(raw), raw).toBe('+34612345678');
+    }
   });
 
   it('refuse what is not a valid number', () => {

@@ -872,6 +872,17 @@ less scope, closest to the specification. Revert any of them by saying so; a dat
   another, someone could read a person's number digit by digit. Both minimums are in `@backoffice/domain/identities`;
   `private.bot_people` checks the bot's too, unchanged. Mutation lists `onboarding`, `outreach-api` and
   `bot-commands`.
+- **R97. What was pasted is read without its invisible marks** (Dani, 2026-11-15: a Spanish mobile pasted into a
+  person's Contacto was refused, "Eso no es un teléfono, un correo ni un usuario de Discord"). WhatsApp and phones
+  copy a number with direction marks around it (U+202A…U+202C, U+2066…U+2069, U+200E) that no field shows. R96 taught
+  the searches to read through them, but not Contacto's guess at a value's kind, so a valid number pasted there was
+  neither a phone nor a Discord username; and an email pasted with them was stored with them, a second address
+  nobody could tell from the first. Options: take out only the marks around a value; take out every format character
+  (Unicode Cf) wherever an identity is read. **Chose every format character, in every identity's normaliser:** an
+  email, a phone and a Discord username are stored without them, Contacto and the searches read a phone by one rule
+  (`WRITTEN_AS_PHONE`), and a phone spaced with narrow or thin spaces is read too. The API, the census form, the
+  imports and the bot get it through `@backoffice/domain/identities`. An email already stored with marks stays as it
+  was. Mutation list `onboarding`.
 - **Open from the review** (low): the census link travels in the wa.me message (by design: the person sends it).
   Fixed since: two generic answers with the same new email or phone at once (the second now waits and goes to the
   Bandeja), and the app role inserting a target already dated (only an admin, the importer, adds history).
