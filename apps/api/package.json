@@ -26,7 +26,7 @@
     "@backoffice/observability": "workspace:*",
     "@better-auth/passkey": "1.7.22",
     "@sentry/node": "11.12.0",
-    "@simplewebauthn/server": "13.3.3",
+    "@simplewebauthn/server": "14.1.0",
     "better-auth": "1.7.22",
     "csv-parse": "7.0.3",
     "fastify": "5.12.8",
